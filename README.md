@@ -1,2 +1,0 @@
-# DBC
-Derby battle card
