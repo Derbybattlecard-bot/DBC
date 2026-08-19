@@ -6,9 +6,9 @@
 <title>競馬カード対戦 - デッキ構築・入れ替えシミュレーター</title>
 <style>
   :root {
-    --bg-color: #a3d9a5;          /* ターフグリーン背景 */
+    --bg-color: #a3d9a5;
     --panel-bg: rgba(255, 255, 255, 0.92);
-    --accent-color: #2d6a37;     /* 深緑アクセント */
+    --accent-color: #2d6a37;
     --accent-hover: #1b4d23;
     --text-main: #1a2e1d;
     --text-sub: #4e6b52;
@@ -28,7 +28,6 @@
   h1, h2, h3 { margin: 0 0 10px 0; color: var(--accent-color); }
   .container { display: flex; flex-direction: column; gap: 15px; max-width: 1200px; margin: 0 auto; }
   
-  /* デッキ切替タブ & 情報 Header */
   .header-panel {
     background-color: var(--panel-bg);
     padding: 15px;
@@ -41,11 +40,7 @@
     gap: 10px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   }
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
   .btn-back {
     background: #ffffff;
     color: var(--accent-color);
@@ -55,14 +50,9 @@
     cursor: pointer;
     font-weight: bold;
     font-size: 12px;
-    transition: all 0.2s;
     text-decoration: none;
-    display: inline-block;
   }
-  .btn-back:hover {
-    background: var(--accent-color);
-    color: #ffffff;
-  }
+  .btn-back:hover { background: var(--accent-color); color: #ffffff; }
   .deck-tabs { display: flex; gap: 10px; }
   .tab-btn {
     background-color: #e2efe3;
@@ -85,7 +75,6 @@
     font-weight: bold;
   }
 
-  /* セーブ・ロード パネル */
   .save-load-panel {
     background-color: var(--panel-bg);
     padding: 10px 15px;
@@ -98,18 +87,6 @@
     gap: 10px;
     font-size: 12px;
   }
-  .save-slots { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  .btn-action {
-    background: var(--accent-color);
-    color: white;
-    border: none;
-    padding: 6px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: bold;
-  }
-  .btn-action:hover { background: var(--accent-hover); }
   .btn-sub {
     background: #ffffff;
     color: var(--text-main);
@@ -122,7 +99,6 @@
   }
   .btn-sub:hover { background: #eaf5eb; }
 
-  /* メインレイアウト */
   .main-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
   @media (max-width: 850px) { .main-layout { grid-template-columns: 1fr; } }
 
@@ -137,7 +113,6 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
   }
 
-  /* スロットグリッド */
   .slots-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -155,25 +130,15 @@
     flex-direction: column;
     justify-content: space-between;
     cursor: pointer;
-    transition: all 0.2s;
     position: relative;
   }
-  .slot-card.filled {
-    border-style: solid;
-    border-color: #a0ca33;
-    background-color: #ffffff;
-  }
-  .slot-card.selected {
-    border-color: var(--gold);
-    box-shadow: 0 0 8px rgba(194, 155, 29, 0.6);
-  }
-  .slot-card:hover { border-color: var(--accent-color); }
+  .slot-card.filled { border-style: solid; border-color: #a0ca33; background-color: #ffffff; }
+  .slot-card.selected { border-color: var(--gold); box-shadow: 0 0 8px rgba(194, 155, 29, 0.6); }
   .card-name { font-weight: bold; font-size: 13px; color: var(--text-main); }
   .card-sub { font-size: 11px; color: var(--text-sub); display: flex; justify-content: space-between; margin-top: 4px; }
   .badge-rarity { background: var(--accent-color); color: white; padding: 1px 4px; border-radius: 3px; font-weight: bold; font-size: 10px; }
   .empty-text { color: var(--text-sub); text-align: center; margin: auto; font-size: 12px; }
 
-  /* 検索・フィルターエリア */
   .filter-box { display: flex; flex-direction: column; gap: 8px; }
   .filter-row { display: flex; gap: 8px; flex-wrap: wrap; }
   .filter-input, .filter-select {
@@ -186,7 +151,6 @@
     font-size: 12px;
   }
 
-  /* 手持ちカードプール */
   .pool-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -203,94 +167,53 @@
   }
   .pool-card:hover { border-color: var(--accent-color); background-color: #f7fbf7; }
   .badge-count { background: #e2efe3; color: var(--accent-color); padding: 1px 5px; border-radius: 10px; font-size: 10px; font-weight: bold; }
+  .sync-status { font-size: 11px; color: var(--text-sub); font-weight: bold; }
 </style>
 </head>
 <body>
 
 <div class="container">
-  <!-- ヘッダー：TOP（index.html）への戻るボタン、メイン1/2切り替え ＆ 名前変更 -->
   <div class="header-panel">
     <div class="header-left">
       <a href="index.html" class="btn-back">← メインメニューに戻る</a>
       <div class="deck-tabs">
-        <button class="tab-btn active" id="tabA" onclick="switchDeck(0)">MAIN DECK 1</button>
-        <button class="tab-btn" id="tabB" onclick="switchDeck(1)">MAIN DECK 2</button>
+        <button class="tab-btn active" id="tabA">MAIN DECK 1</button>
+        <button class="tab-btn" id="tabB">MAIN DECK 2</button>
       </div>
     </div>
     <div>
-      デッキ名: <input type="text" id="deckNameInput" class="deck-name-input" value="芝・中長距離バランス型" onchange="updateDeckName(this.value)">
+      デッキ名: <input type="text" id="deckNameInput" class="deck-name-input" value="読み込み中...">
     </div>
     <div class="deck-info">
-      <span>編成枚数: <span id="countDisplay">0</span> / 18</span>
+      <span>編成: <span id="countDisplay">0</span> / 18</span>
     </div>
   </div>
 
-  <!-- セーブ / ロードコントロールパネル -->
   <div class="save-load-panel">
-    <div class="save-slots">
-      <strong>💾 バックアップスロット:</strong>
-      <select id="saveSlotSelect" class="filter-select" style="max-width: 150px;">
-        <option value="slot1">スロット 1 (王道編成)</option>
-        <option value="slot2">スロット 2 (短距離特化)</option>
-        <option value="slot3">スロット 3 (ダート案)</option>
-        <option value="slot4">スロット 4</option>
-        <option value="slot5">スロット 5</option>
-      </select>
-      <button class="btn-action" onclick="saveToStorage()">セーブ</button>
-      <button class="btn-sub" onclick="loadFromStorage()">ロード</button>
-    </div>
+    <span class="sync-status" id="syncStatus">☁️ Cloud Status: 準備中</span>
     <div style="display: flex; gap: 6px;">
-      <button class="btn-sub" onclick="exportJSON()">📁 JSONファイル保存</button>
-      <button class="btn-sub" onclick="document.getElementById('importFile').click()">📂 JSON読み込み</button>
-      <input type="file" id="importFile" style="display: none;" accept=".json" onchange="importJSON(event)">
+      <button class="btn-sub" id="btnExport">📁 JSON出力</button>
+      <button class="btn-sub" id="btnImport">📂 JSON読み込み</button>
+      <input type="file" id="importFile" style="display: none;" accept=".json">
     </div>
   </div>
 
   <div class="main-layout">
-    <!-- 左側：選択中デッキのスロット18枠 -->
     <div class="panel">
       <h3>18枚スロット （タップで【外す/空き枠選択】）</h3>
       <div id="slotsGrid" class="slots-grid"></div>
     </div>
 
-    <!-- 右側：手持ちカードプール ＆ 拡張検索機能 -->
     <div class="panel">
       <h3>未編成カードプール</h3>
       <div class="filter-box">
         <div class="filter-row">
-          <input type="text" id="searchInput" class="filter-input" placeholder="🔍 馬名検索..." oninput="renderPool()">
-          <select id="rowFilter" class="filter-select" onchange="renderPool()">
-            <option value="ALL">五十音行: すべて</option>
-            <option value="A">あ行 (ア〜オ)</option>
-            <option value="K">か行 (カ〜コ)</option>
-            <option value="S">さ行 (サ〜ソ)</option>
-            <option value="T">た行 (タ〜ト)</option>
-            <option value="N">な行 (ナ〜ノ)</option>
-            <option value="H">は行 (ハ〜ホ)</option>
-            <option value="M">ま行 (マ〜モ)</option>
-            <option value="Y">や行 (ヤ〜ヨ)</option>
-            <option value="R">ら行 (ラ〜ロ)</option>
-            <option value="W">わ行 (ワ〜ン)</option>
-          </select>
-        </div>
-        <div class="filter-row">
-          <select id="surfaceFilter" class="filter-select" onchange="renderPool()">
+          <input type="text" id="searchInput" class="filter-input" placeholder="🔍 馬名検索...">
+          <select id="surfaceFilter" class="filter-select">
             <option value="ALL">馬場: すべて</option>
             <option value="芝">芝</option>
             <option value="ダ">ダート</option>
             <option value="万">万能</option>
-          </select>
-          <select id="distFilter" class="filter-select" onchange="renderPool()">
-            <option value="ALL">距離: すべて</option>
-            <option value="SHORT">短距離 (〜1400m)</option>
-            <option value="MILE">マイル (1400〜1800m)</option>
-            <option value="MIDDLE">中距離 (1800〜2400m)</option>
-            <option value="LONG">長距離 (2400m〜)</option>
-          </select>
-          <select id="sortOrder" class="filter-select" onchange="renderPool()">
-            <option value="NAME">五十音順</option>
-            <option value="P_DESC">ポテンシャル(レア)高い順</option>
-            <option value="P_ASC">ポテンシャル(レア)低い順</option>
           </select>
         </div>
       </div>
@@ -299,311 +222,266 @@
   </div>
 </div>
 
-<script>
-// --- レアリティ階級定義 ---
-const RARITY_RANK = { "R": 1, "SR": 2, "VR": 3, "TR": 4, "SSR": 4 };
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// --- 五十音「行」判定ヘルパー ---
-function getKanaRowGroup(char) {
-  if (!char) return "";
-  const firstChar = char.charAt(0);
+  let HORSES_MASTER = {};
+  let userData = null;
+  let currentUser = null;
+  let activeDeckIdx = 0;
+  let selectedSlotIndex = null;
 
-  if (/[あ-おア-オアイウエオア-オヴ]/i.test(firstChar)) return "A";
-  if (/[か-こカ-コガ-ゴ]/i.test(firstChar)) return "K";
-  if (/[さ-そサ-ソザ-ゾ]/i.test(firstChar)) return "S";
-  if (/[た-とタ-トダ-ド]/i.test(firstChar)) return "T";
-  if (/[な-のナ-ノ]/i.test(firstChar)) return "N";
-  if (/[は-ほハ-ホバ-ボパ-ポ]/i.test(firstChar)) return "H";
-  if (/[ま-moマ-モ]/i.test(firstChar)) return "M";
-  if (/[や-よヤ-ヨ]/i.test(firstChar)) return "Y";
-  if (/[ら-ろラ-ロ]/i.test(firstChar)) return "R";
-  if (/[わ-んワ-ン]/i.test(firstChar)) return "W";
-
-  return "";
-}
-
-// --- 1. マスターデータ ---
-const HORSES_MASTER = {
-  "7601": { horse_id: "7601", name: "トウショウボーイ", rarity: "VR", surface: "芝", minD: 1600, maxD: 2500, style: "好位" },
-  "8801": { horse_id: "8801", name: "オグリキャップ", rarity: "TR", surface: "万", minD: 1600, maxD: 2500, style: "自在" },
-  "8001": { horse_id: "8001", name: "ホッコータルマエ", rarity: "SR", surface: "ダ", minD: 1800, maxD: 2100, style: "先行" },
-  "9901": { horse_id: "9901", name: "テイエムオペラオー", rarity: "VR", surface: "芝", minD: 2000, maxD: 3200, style: "先行" },
-  "0201": { horse_id: "0201", name: "ディープインパクト", rarity: "TR", surface: "芝", minD: 2000, maxD: 3200, style: "追込" },
-  "1201": { horse_id: "1201", name: "ロードカナロア", rarity: "VR", surface: "芝", minD: 1200, maxD: 1600, style: "先行" },
-  "0101": { horse_id: "0101", name: "クロフネ", rarity: "SR", surface: "ダ", minD: 1400, maxD: 2100, style: "先行" },
-  "0701": { horse_id: "0701", name: "ウオッカ", rarity: "VR", surface: "芝", minD: 1600, maxD: 2400, style: "差し" },
-  "0501": { horse_id: "0501", name: "グランアレグリア", rarity: "VR", surface: "芝", minD: 1200, maxD: 1600, style: "差し" },
-  "0601": { horse_id: "0601", name: "ステイゴールド", rarity: "SR", surface: "芝", minD: 2000, maxD: 2500, style: "追込" },
-  "0801": { horse_id: "0801", name: "デュランダル", rarity: "SR", surface: "芝", minD: 1200, maxD: 1600, style: "追込" },
-  "1001": { horse_id: "1001", name: "アグネスデジタル", rarity: "SR", surface: "万", minD: 1600, maxD: 2000, style: "自在" },
-  "1301": { horse_id: "1301", name: "キングヘイロー", rarity: "R",  surface: "芝", minD: 1200, maxD: 2500, style: "差し" },
-  "1401": { horse_id: "1401", name: "ツインターボ", rarity: "R",  surface: "芝", minD: 1800, maxD: 2200, style: "逃げ" },
-  "1501": { horse_id: "1501", name: "エイシンフラッシュ", rarity: "SR", surface: "芝", minD: 2000, maxD: 2400, style: "差し" },
-  "1701": { horse_id: "1701", name: "スマートファルコン", rarity: "SR", surface: "ダ", minD: 1400, maxD: 2000, style: "逃げ" }
-};
-
-// --- 2. 初期ユーザーデータ構造 ---
-const DEFAULT_USER_DATA = {
-  user_id: "player_123456",
-  inventory: {
-    horses: {
-      "7601": 2, "8801": 1, "8001": 1, "9901": 3,
-      "0201": 1, "1201": 2, "0101": 1, "0701": 1,
-      "0501": 1, "0601": 2, "0801": 1, "1001": 1,
-      "1301": 3, "1401": 2, "1501": 1, "1701": 1
+  // 初期化：認証とマスターデータの読み込み
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.href = 'auth.html';
+      return;
     }
-  },
-  decks: [
-    {
-      deck_id: "deck_A",
-      deck_name: "芝・中長距離バランス型",
-      horse_ids: ["7601", "8801", "0201", "1201", "0701", "0501", null, null, null, null, null, null, null, null, null, null, null, null]
-    },
-    {
-      deck_id: "deck_B",
-      deck_name: "ダート＆短距離編成",
-      horse_ids: ["8001", "0101", "1701", "1001", null, null, null, null, null, null, null, null, null, null, null, null, null, null]
-    }
-  ]
-};
+    currentUser = user;
+    setSyncStatus("☁️ データ同期中...");
 
-let userData = {};
-let activeDeckIdx = 0; // 0: MAIN DECK 1, 1: MAIN DECK 2
-let selectedSlotIndex = null;
-
-// --- 初期化 ---
-window.onload = () => {
-  loadMainUserData();
-  renderAll();
-};
-
-// ローカルストレージから対戦用メインデータをロード（無ければ初期値）
-function loadMainUserData() {
-  const saved = localStorage.getItem('derby_main_user_data');
-  if (saved) {
     try {
-      userData = JSON.parse(saved);
-    } catch(e) {
-      userData = DEFAULT_USER_DATA;
+      // 1. JSONマスターデータ読み込み（もし存在しない場合はフォールバック）
+      try {
+        const res = await fetch('./data/horses_master.json');
+        if (res.ok) {
+          const list = await res.json();
+          list.forEach(h => { HORSES_MASTER[h.horse_id] = h; });
+        }
+      } catch (e) {
+        console.warn("horses_master.json の読み込みをスキップしました");
+      }
+
+      // 2. Firestoreから最新ユーザーデータ取得
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) {
+        userData = userDoc.data();
+
+        // 18枠構造の標準化
+        if (!userData.decks) {
+          userData.decks = [
+            { deck_name: "メインデッキ 1", horse_ids: Array(18).fill(null) },
+            { deck_name: "メインデッキ 2", horse_ids: Array(18).fill(null) }
+          ];
+        } else {
+          userData.decks.forEach(d => {
+            if (!d.horse_ids) d.horse_ids = [];
+            while (d.horse_ids.length < 18) d.horse_ids.push(null);
+          });
+        }
+
+        setSyncStatus("✅ クラウド同期完了");
+        renderAll();
+      } else {
+        window.location.href = 'setup.html';
+      }
+    } catch (err) {
+      console.error(err);
+      setSyncStatus("❌ 同期エラー");
     }
-  } else {
-    userData = DEFAULT_USER_DATA;
+  });
+
+  function setSyncStatus(msg) {
+    document.getElementById('syncStatus').textContent = msg;
   }
-}
 
-// 対戦用メインデータを保存
-function saveMainUserData() {
-  localStorage.setItem('derby_main_user_data', JSON.stringify(userData));
-}
+  // Firestoreへ自動保存
+  async function syncSave() {
+    if (!currentUser || !userData) return;
+    setSyncStatus("☁️ 保存中...");
+    try {
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        decks: userData.decks
+      });
+      setSyncStatus("✅ 保存完了");
+    } catch (err) {
+      console.error(err);
+      setSyncStatus("❌ 保存失敗");
+    }
+  }
 
-function renderAll() {
-  document.getElementById('deckNameInput').value = userData.decks[activeDeckIdx].deck_name;
-  renderDeck();
-  renderPool();
-}
+  function renderAll() {
+    document.getElementById('deckNameInput').value = userData.decks[activeDeckIdx].deck_name;
+    renderDeck();
+    renderPool();
+  }
 
-// タブ切替
-function switchDeck(idx) {
-  activeDeckIdx = idx;
-  selectedSlotIndex = null;
-  document.getElementById('tabA').className = `tab-btn ${idx === 0 ? 'active' : ''}`;
-  document.getElementById('tabB').className = `tab-btn ${idx === 1 ? 'active' : ''}`;
-  renderAll();
-}
+  function switchDeck(idx) {
+    activeDeckIdx = idx;
+    selectedSlotIndex = null;
+    document.getElementById('tabA').className = `tab-btn ${idx === 0 ? 'active' : ''}`;
+    document.getElementById('tabB').className = `tab-btn ${idx === 1 ? 'active' : ''}`;
+    renderAll();
+  }
 
-function updateDeckName(val) {
-  userData.decks[activeDeckIdx].deck_name = val;
-  saveMainUserData();
-}
+  function updateDeckName(val) {
+    userData.decks[activeDeckIdx].deck_name = val;
+    syncSave();
+  }
 
-// デッキ（スロット18枠）描画
-function renderDeck() {
-  const grid = document.getElementById('slotsGrid');
-  grid.innerHTML = '';
-  const currentSlots = userData.decks[activeDeckIdx].horse_ids;
-  
-  let filledCount = 0;
+  function renderDeck() {
+    const grid = document.getElementById('slotsGrid');
+    grid.innerHTML = '';
+    const currentSlots = userData.decks[activeDeckIdx].horse_ids;
+    let filledCount = 0;
 
-  currentSlots.forEach((horseId, idx) => {
-    const isSelected = (selectedSlotIndex === idx);
-    const horse = HORSES_MASTER[horseId];
-    const div = document.createElement('div');
-    
-    if (horse) {
-      filledCount++;
-      div.className = `slot-card filled ${isSelected ? 'selected' : ''}`;
+    currentSlots.forEach((horseId, idx) => {
+      const isSelected = (selectedSlotIndex === idx);
+      const horse = HORSES_MASTER[horseId];
+      const div = document.createElement('div');
+      
+      if (horseId && horse) {
+        filledCount++;
+        const surfaceText = horse.surface || (horse.turf && horse.dirt ? "万" : horse.turf ? "芝" : "ダ");
+        const rangeText = horse.minD ? `${horse.minD}-${horse.maxD}m` : `${horse.distance || '-'}m`;
+
+        div.className = `slot-card filled ${isSelected ? 'selected' : ''}`;
+        div.innerHTML = `
+          <div class="card-name">${horse.name}</div>
+          <div class="card-sub">
+            <span>${surfaceText}/${rangeText}</span>
+            <span class="badge-rarity">${horse.rarity || 'N'}</span>
+          </div>
+        `;
+        div.onclick = () => removeCardFromSlot(idx);
+      } else {
+        div.className = `slot-card ${isSelected ? 'selected' : ''}`;
+        div.innerHTML = `<div class="empty-text">${isSelected ? '【選択中】' : '＋ 空き枠'}</div>`;
+        div.onclick = () => selectSlot(idx);
+      }
+      grid.appendChild(div);
+    });
+
+    document.getElementById('countDisplay').innerText = filledCount;
+  }
+
+  function selectSlot(idx) {
+    selectedSlotIndex = idx;
+    renderDeck();
+  }
+
+  function removeCardFromSlot(idx) {
+    userData.decks[activeDeckIdx].horse_ids[idx] = null;
+    selectedSlotIndex = idx;
+    syncSave();
+    renderDeck();
+    renderPool();
+  }
+
+  function renderPool() {
+    const grid = document.getElementById('poolGrid');
+    grid.innerHTML = '';
+
+    const searchText = document.getElementById('searchInput').value.toLowerCase();
+    const surfaceVal = document.getElementById('surfaceFilter').value;
+    const currentDeckHorses = userData.decks[activeDeckIdx].horse_ids.filter(id => id !== null);
+
+    // 所持カード（cardsオブジェクトまたはinventoryに対応）
+    const userCards = userData.cards || (userData.inventory ? userData.inventory.horses : {});
+
+    let poolList = [];
+
+    for (const horseId in userCards) {
+      const count = userCards[horseId];
+      const horse = HORSES_MASTER[horseId];
+
+      if (count > 0 && horse && !currentDeckHorses.includes(horseId)) {
+        const surfaceText = horse.surface || (horse.turf && horse.dirt ? "万" : horse.turf ? "芝" : "ダ");
+        
+        if (searchText && !horse.name.toLowerCase().includes(searchText)) continue;
+        if (surfaceVal !== 'ALL' && surfaceText !== surfaceVal) continue;
+        
+        poolList.push({ ...horse, surfaceText, count });
+      }
+    }
+
+    if (poolList.length === 0) {
+      grid.innerHTML = '<div style="grid-column: span 2; text-align:center; padding:20px; color:#666;">編成可能なカードがありません</div>';
+      return;
+    }
+
+    poolList.forEach(horse => {
+      const rangeText = horse.minD ? `${horse.minD}-${horse.maxD}m` : `${horse.distance || '-'}m`;
+      const div = document.createElement('div');
+      div.className = 'pool-card';
       div.innerHTML = `
         <div class="card-name">${horse.name}</div>
         <div class="card-sub">
-          <span>${horse.surface}/${horse.minD}-${horse.maxD}m</span>
-          <span class="badge-rarity">${horse.rarity}</span>
+          <span>${horse.surfaceText}/${rangeText}</span>
+          <span class="badge-count">所持: ${horse.count}</span>
         </div>
       `;
-      div.onclick = () => removeCardFromSlot(idx);
-    } else {
-      div.className = `slot-card ${isSelected ? 'selected' : ''}`;
-      div.innerHTML = `<div class="empty-text">${isSelected ? '【選択中】' : '＋ 空き枠'}</div>`;
-      div.onclick = () => selectSlot(idx);
-    }
-    grid.appendChild(div);
-  });
-
-  document.getElementById('countDisplay').innerText = filledCount;
-}
-
-function selectSlot(idx) {
-  selectedSlotIndex = idx;
-  renderDeck();
-}
-
-function removeCardFromSlot(idx) {
-  userData.decks[activeDeckIdx].horse_ids[idx] = null;
-  selectedSlotIndex = idx;
-  saveMainUserData();
-  renderDeck();
-  renderPool();
-}
-
-// 手持ちカードプール描画
-function renderPool() {
-  const grid = document.getElementById('poolGrid');
-  grid.innerHTML = '';
-
-  const searchText = document.getElementById('searchInput').value.toLowerCase();
-  const rowVal = document.getElementById('rowFilter').value;
-  const surfaceVal = document.getElementById('surfaceFilter').value;
-  const distVal = document.getElementById('distFilter').value;
-  const sortVal = document.getElementById('sortOrder').value;
-
-  const currentDeckHorses = userData.decks[activeDeckIdx].horse_ids;
-  const inv = userData.inventory.horses;
-
-  let poolList = [];
-
-  for (const horseId in inv) {
-    const count = inv[horseId];
-    const horse = HORSES_MASTER[horseId];
-
-    if (count > 0 && horse && !currentDeckHorses.includes(horseId)) {
-      
-      // 1. 馬名検索
-      if (searchText && !horse.name.toLowerCase().includes(searchText)) continue;
-
-      // 2. あかさたな（行）フィルター
-      if (rowVal !== 'ALL') {
-        const rowGroup = getKanaRowGroup(horse.name);
-        if (rowGroup !== rowVal) continue;
-      }
-
-      // 3. 馬場フィルター
-      if (surfaceVal !== 'ALL' && horse.surface !== surfaceVal) continue;
-
-      // 4. 距離フィルター
-      if (distVal !== 'ALL') {
-        if (distVal === 'SHORT' && horse.minD > 1400) continue;
-        if (distVal === 'MILE' && (horse.maxD < 1400 || horse.minD > 1800)) continue;
-        if (distVal === 'MIDDLE' && (horse.maxD < 1800 || horse.minD > 2400)) continue;
-        if (distVal === 'LONG' && horse.maxD < 2400) continue;
-      }
-
-      poolList.push(horse);
-    }
+      div.onclick = () => addCardToDeck(horse.horse_id);
+      grid.appendChild(div);
+    });
   }
 
-  // ソート処理
-  poolList.sort((a, b) => {
-    const rankA = RARITY_RANK[a.rarity] || 0;
-    const rankB = RARITY_RANK[b.rarity] || 0;
+  function addCardToDeck(horseId) {
+    const currentSlots = userData.decks[activeDeckIdx].horse_ids;
 
-    if (sortVal === 'P_DESC') return rankB - rankA;
-    if (sortVal === 'P_ASC') return rankA - rankB;
-    if (sortVal === 'NAME') return a.name.localeCompare(b.name, 'ja');
-  });
-
-  // カード要素描画
-  poolList.forEach(horse => {
-    const count = inv[horse.horse_id];
-    const div = document.createElement('div');
-    div.className = 'pool-card';
-
-    div.innerHTML = `
-      <div class="card-name">${horse.name}</div>
-      <div class="card-sub">
-        <span>${horse.surface}/${horse.minD}-${horse.maxD}m</span>
-        <span class="badge-count">所持: ${count}</span>
-      </div>
-    `;
-
-    div.onclick = () => addCardToDeck(horse.horse_id);
-    grid.appendChild(div);
-  });
-}
-
-function addCardToDeck(horseId) {
-  const currentSlots = userData.decks[activeDeckIdx].horse_ids;
-
-  if (selectedSlotIndex !== null) {
-    currentSlots[selectedSlotIndex] = horseId;
-    selectedSlotIndex = null;
-  } else {
-    const emptyIdx = currentSlots.findIndex(s => s === null);
-    if (emptyIdx !== -1) {
-      currentSlots[emptyIdx] = horseId;
+    if (selectedSlotIndex !== null) {
+      currentSlots[selectedSlotIndex] = horseId;
+      selectedSlotIndex = null;
     } else {
-      alert("このデッキの18スロットは満杯です！空き枠を指定するか枠を空けてください。");
-      return;
+      const emptyIdx = currentSlots.findIndex(s => s === null);
+      if (emptyIdx !== -1) {
+        currentSlots[emptyIdx] = horseId;
+      } else {
+        alert("18スロット満杯です。");
+        return;
+      }
     }
+
+    syncSave();
+    renderDeck();
+    renderPool();
   }
 
-  saveMainUserData();
-  renderDeck();
-  renderPool();
-}
+  // JSON エクスポート
+  document.getElementById('btnExport').addEventListener('click', () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(userData, null, 2));
+    const dlAnchorElem = document.createElement('a');
+    dlAnchorElem.setAttribute("href", dataStr);
+    dlAnchorElem.setAttribute("download", `deck_data_${new Date().toISOString().slice(0,10)}.json`);
+    dlAnchorElem.click();
+  });
 
-// --- バックアップスロット（セーブ・ロード）機能 ---
-function saveToStorage() {
-  const slotKey = document.getElementById('saveSlotSelect').value;
-  // 現在編集中の1編成（または全体データ）をバックアップスロットへ退避
-  localStorage.setItem(`derby_backup_${slotKey}`, JSON.stringify(userData.decks[activeDeckIdx]));
-  alert(`現在表示中の【${userData.decks[activeDeckIdx].deck_name}】を ${slotKey.replace('slot', 'スロット ')} にバックアップ保存しました！`);
-}
+  // JSON インポート
+  document.getElementById('btnImport').addEventListener('click', () => {
+    document.getElementById('importFile').click();
+  });
 
-function loadFromStorage() {
-  const slotKey = document.getElementById('saveSlotSelect').value;
-  const raw = localStorage.getItem(`derby_backup_${slotKey}`);
-  if (!raw) return alert("指定のスロットに保存データが存在しません。");
-  
-  const loadedDeck = JSON.parse(raw);
-  userData.decks[activeDeckIdx] = loadedDeck;
-  saveMainUserData();
-  renderAll();
-  alert(`${slotKey.replace('slot', 'スロット ')} のデッキデータを展開しました！`);
-}
+  document.getElementById('importFile').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-function exportJSON() {
-  const blob = new Blob([JSON.stringify(userData, null, 2)], { type: "application/json" });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `derby_deck_data_${userData.user_id}.json`;
-  a.click();
-}
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const importedData = JSON.parse(event.target.result);
+        if (importedData.decks) {
+          userData.decks = importedData.decks;
+          await syncSave();
+          renderAll();
+          alert("データを取り込み、保存しました！");
+        } else {
+          alert("無効なJSONフォーマットです");
+        }
+      } catch (err) {
+        alert("JSON読み込み失敗: " + err.message);
+      }
+    };
+    reader.readAsText(file);
+  });
 
-function importJSON(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (evt) => {
-    try {
-      userData = JSON.parse(evt.target.result);
-      saveMainUserData();
-      renderAll();
-      alert("JSONファイルを正常に読み込み、デッキを更新しました。");
-    } catch(err) {
-      alert("ファイルの解析に失敗しました。");
-    }
-  };
-  reader.readAsText(file);
-}
+  // イベントバインド
+  document.getElementById('tabA').addEventListener('click', () => switchDeck(0));
+  document.getElementById('tabB').addEventListener('click', () => switchDeck(1));
+  document.getElementById('deckNameInput').addEventListener('change', (e) => updateDeckName(e.target.value));
+  document.getElementById('searchInput').addEventListener('input', renderPool);
+  document.getElementById('surfaceFilter').addEventListener('change', renderPool);
 </script>
 </body>
 </html>
