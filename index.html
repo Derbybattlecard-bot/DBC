@@ -1,39 +1,380 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Derby Card Battle</title>
+  <title>DERBY BATTLE CARD</title>
   <style>
+    :root {
+      /* 爽やかな競馬場（ターフ）イメージのパレット */
+      --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%); /* 芝生をイメージした薄い緑グラデーション */
+      --card-bg: rgba(255, 255, 255, 0.88);       /* メイン枠：明るくすっきりした半透明ホワイト */
+      --card-inner-bg: #f2f8f3;                   /* 入力・リスト内枠：極めて淡いペールグリーン */
+      --accent-gold: #c29b1d;                     /* アクセント：落ち着いたゴールド */
+      --text-color: #1a2e1d;                       /* 文字色：視認性の高いダークグリーン */
+      --sub-text: #4e6b52;                        /* サブ文字：落ち着いたモスグリーン */
+      --header-green: #0d4220;                    /* タイトル用：濃いめのグリーン */
+    }
+
     body {
-      font-family: sans-serif;
-      background-color: #121212;
-      color: #ffffff;
       margin: 0;
-      padding: 20px;
+      padding: 10px;
+      background: var(--bg-gradient);
+      background-attachment: fixed; /* スクロールしても背景の芝生グラデーションを固定 */
+      color: var(--text-color);
+      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* ① タイトル（濃い緑テキスト／画像差し替え用） */
+    .header {
       text-align: center;
+      padding: 12px 8px;
+      background: rgba(255, 255, 255, 0.95);
+      border-bottom: 3px solid var(--header-green);
+      border-radius: 8px 8px 0 0;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.08);
     }
-    .card {
-      background-color: #1e1e1e;
-      border: 2px solid #333;
-      border-radius: 12px;
-      padding: 20px;
-      max-width: 400px;
-      margin: 20px auto;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    .header h1 {
+      margin: 0;
+      font-size: 22px;
+      color: var(--header-green);
+      letter-spacing: 3px;
+      font-weight: 900;
+      text-shadow: 1px 1px 0px rgba(255,255,255,0.8);
     }
-    h1 {
-      color: #4caf50;
-      font-size: 24px;
-    }
-    .status {
+
+    /* ② 通算対戦成績 */
+    .record-section {
+      background: var(--card-bg);
+      border: 1px solid #b2d4b6;
+      border-radius: 8px;
+      padding: 8px 12px;
       display: flex;
       justify-content: space-around;
-      background: #2a2a2a;
-      padding: 10px;
+      align-items: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    .record-item { text-align: center; }
+    .record-label { font-size: 10px; color: var(--sub-text); display: block; margin-bottom: 2px; }
+    .record-value { font-size: 15px; font-weight: bold; color: var(--text-color); }
+    .record-value.highlight { color: var(--accent-gold); }
+
+    /* ③ ログインボーナス (スロット風) */
+    .bonus-section {
+      background: var(--card-bg);
+      border: 2px solid #82c088;
       border-radius: 8px;
-      margin-top: 15px;
+      padding: 10px;
+      text-align: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    .bonus-title { font-size: 12px; font-weight: bold; color: var(--header-green); margin-bottom: 8px; }
+    .cards-container { display: flex; justify-content: space-between; gap: 8px; }
+    .bonus-card {
+      flex: 1;
+      background: #ffffff;
+      border: 1px solid #a8d5ac;
+      border-radius: 6px;
+      padding: 6px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .bonus-card .slot-num { font-size: 18px; font-weight: bold; color: #e63956; margin: 2px 0; }
+    .bonus-card .gen-year { font-size: 10px; color: var(--sub-text); }
+    .bonus-card .rarity { font-size: 11px; font-weight: bold; color: var(--accent-gold); }
+    .bonus-msg { margin-top: 8px; font-size: 10px; color: #8a6200; background: #fff8d6; padding: 4px; border-radius: 4px; border: 1px solid #f0e3a1; }
+
+    /* ④ メイン操作ボタン */
+    .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .btn-link { text-decoration: none; display: block; }
+    .btn {
+      width: 100%;
+      box-sizing: border-box;
+      background: linear-gradient(135deg, #2d6a37, #1b4d23);
+      border: 1px solid #143b1a;
+      color: #ffffff;
+      padding: 12px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+    }
+    .btn:active { transform: scale(0.98); background: var(--accent-gold); }
+
+    /* ⑤ デッキ出走表エリア */
+    .deck-section {
+      background: var(--card-bg);
+      border-radius: 8px;
+      padding: 10px;
+      border: 1px solid #b2d4b6;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    /* 対戦メインデッキ切替タブ (2枠) */
+    .main-deck-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .main-tab {
+      flex: 1;
+      background: #e2efe3;
+      border: 1px solid #a0ca33;
+      color: var(--sub-text);
+      padding: 8px 0;
+      font-size: 12px;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .main-tab.active {
+      background: linear-gradient(135deg, #1b4d23, #2d6a37);
+      color: #ffffff;
+      border-color: #143b1a;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+
+    /* デッキコントロールバー */
+    .deck-control-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card-inner-bg);
+      padding: 6px 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      border: 1px solid #cce2d0;
+    }
+    .deck-name {
+      font-size: 12px;
+      font-weight: bold;
+      color: var(--text-color);
+    }
+    .save-load-btns { display: flex; gap: 6px; }
+    .action-btn {
+      background: #ffffff;
+      border: 1px solid #82c088;
+      color: var(--text-color);
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .action-btn:hover { background: #eaf5eb; border-color: var(--header-green); }
+
+    /* セーブスロット表示 */
+    .slot-bar {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      color: var(--sub-text);
+      margin-bottom: 8px;
+      padding: 0 2px;
+      overflow-x: auto;
+    }
+    .slot-tag {
+      background: #ffffff;
+      border: 1px solid #c2dfc6;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 9px;
+      white-space: nowrap;
+    }
+
+    /* 出走表テーブル */
+    .race-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      text-align: center;
+      background: #ffffff;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid #c2dfc6;
+    }
+    .race-table th {
+      background: #2d6a37;
+      color: #ffffff;
+      padding: 6px 2px;
+      font-weight: bold;
+      border-bottom: 1px solid #1b4d23;
+    }
+    .race-table td {
+      padding: 5px 2px;
+      border-bottom: 1px solid #ebf4ec;
+      color: #222;
+    }
+    .race-table tr:nth-child(even) {
+      background: #f7fbf7;
+    }
+    .horse-name {
+      text-align: left;
+      font-weight: bold;
+      padding-left: 4px !important;
+    }
+
+    /* 枠色スタイル */
+    .w-1 { background: #ffffff; color: #000; font-weight: bold; border: 1px solid #ccc; border-radius: 2px; padding: 1px 4px; }
+    .w-2 { background: #222222; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
+    .w-3 { background: #e60012; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
+    .w-4 { background: #0068b7; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
+    .w-5 { background: #fff100; color: #000; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
+    .w-6 { background: #009944; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
+    .w-7 { background: #f39700; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
+    .w-8 { background: #e4007f; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  
+  <!-- ① タイトルエリア -->
+  <div class="header">
+    <h1>DERBY BATTLE CARD</h1>
+  </div>
+
+  <!-- ② 通算対戦成績 -->
+  <div class="record-section">
+    <div class="record-item">
+      <span class="record-label">通算成績</span>
+      <span class="record-value">142戦68勝</span>
+    </div>
+    <div class="record-item">
+      <span class="record-label">勝率</span>
+      <span class="record-value highlight">47.8%</span>
+    </div>
+    <div class="record-item">
+      <span class="record-label">最高連勝</span>
+      <span class="record-value">7連勝</span>
+    </div>
+  </div>
+
+  <!-- ③ ログインボーナス (スロット風) -->
+  <div class="bonus-section">
+    <div class="bonus-title">🎰 DAILY LOGIN BONUS</div>
+    <div class="cards-container">
+      <div class="bonus-card">
+        <span class="gen-year">1997年</span>
+        <span class="slot-num">7</span>
+        <span class="rarity">SSR</span>
+      </div>
+      <div class="bonus-card">
+        <span class="gen-year">2007年</span>
+        <span class="slot-num">7</span>
+        <span class="rarity">N</span>
+      </div>
+      <div class="bonus-card">
+        <span class="gen-year">2017年</span>
+        <span class="slot-num">7</span>
+        <span class="rarity">SR</span>
+      </div>
+    </div>
+    <div class="bonus-msg">✨ 7-7-7 ゾロ目達成！明日の1枚目はレア確定！ ✨</div>
+  </div>
+
+  <!-- ④ メイン操作ボタン（仕様書の各ファイルへ遷移） -->
+  <div class="menu-grid">
+    <a href="battle.html" class="btn-link">
+      <button class="btn">💻 VS COMPUTER</button>
+    </a>
+    <a href="battle_online.html" class="btn-link">
+      <button class="btn">🌐 ONLINE MATCH</button>
+    </a>
+    <a href="deck.html" class="btn-link">
+      <button class="btn">🎴 EDIT DECK</button>
+    </a>
+    <a href="trade.html" class="btn-link">
+      <button class="btn">🔁 TRADE BOARD</button>
+    </a>
+  </div>
+
+  <!-- ⑤ デッキ出走表 (対戦用2枠 ＋ バックアップ機能) -->
+  <div class="deck-section">
+    
+    <!-- 対戦で使用するメインの2枠 -->
+    <div class="main-deck-tabs">
+      <div class="main-tab active">🏇 MAIN DECK 1</div>
+      <div class="main-tab">🏇 MAIN DECK 2</div>
+    </div>
+
+    <!-- デッキ名 ＆ セーブ/ロードコントロール -->
+    <div class="deck-control-bar">
+      <span class="deck-name">✏️ 芝・中長距離バランス型</span>
+      <div class="save-load-btns">
+        <a href="deck.html" style="text-decoration:none;"><button class="action-btn">💾 セーブ</button></a>
+        <a href="deck.html" style="text-decoration:none;"><button class="action-btn">📂 ロード</button></a>
+      </div>
+    </div>
+
+    <!-- 保存データ状態のインジケーター -->
+    <div class="slot-bar">
+      <span>💾 保存スロット:</span>
+      <span class="slot-tag" style="border-color:var(--header-green); background:#e2efe3; font-weight:bold;">1:王道編成</span>
+      <span class="slot-tag">2:短距離特化</span>
+      <span class="slot-tag">3:ダート案</span>
+      <span class="slot-tag">4:空き</span>
+      <span class="slot-tag">5:空き</span>
+    </div>
+
+    <!-- 18頭の出走表 -->
+    <table class="race-table">
+      <thead>
+        <tr>
+          <th>枠</th>
+          <th>印</th>
+          <th style="text-align:left; padding-left:4px;">馬名</th>
+          <th>PT</th>
+          <th>適性</th>
+          <th>距離</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><span class="w-1">1</span></td><td>◎</td><td class="horse-name">シンボリルドルフ</td><td>20</td><td>A/G</td><td>1800-3200</td></tr>
+        <tr><td><span class="w-1">2</span></td><td>○</td><td class="horse-name">ナリタブライアン</td><td>19</td><td>A/G</td><td>1600-3000</td></tr>
+        <tr><td><span class="w-2">3</span></td><td>▲</td><td class="horse-name">オグリキャップ</td><td>18</td><td>A/B</td><td>1600-2500</td></tr>
+        <tr><td><span class="w-2">4</span></td><td>△</td><td class="horse-name">トウカイテイオー</td><td>17</td><td>A/G</td><td>1800-2500</td></tr>
+        <tr><td><span class="w-3">5</span></td><td>☆</td><td class="horse-name">サイレンススズカ</td><td>16</td><td>A/G</td><td>1400-2200</td></tr>
+        <tr><td><span class="w-3">6</span></td><td>注</td><td class="horse-name">メジロマックイーン</td><td>16</td><td>A/G</td><td>2000-3200</td></tr>
+        <tr><td><span class="w-4">7</span></td><td></td><td class="horse-name">ウオッカ</td><td>15</td><td>A/G</td><td>1600-2400</td></tr>
+        <tr><td><span class="w-4">8</span></td><td></td><td class="horse-name">ダイワスカーレット</td><td>15</td><td>A/G</td><td>1600-2200</td></tr>
+        <tr><td><span class="w-5">9</span></td><td></td><td class="horse-name">スペシャルウィーク</td><td>15</td><td>A/G</td><td>1800-3200</td></tr>
+        <tr><td><span class="w-5">10</span></td><td></td><td class="horse-name">グラスワンダー</td><td>15</td><td>A/B</td><td>1600-2500</td></tr>
+        <tr><td><span class="w-6">11</span></td><td></td><td class="horse-name">エルコンドルパサー</td><td>15</td><td>A/A</td><td>1400-2400</td></tr>
+        <tr><td><span class="w-6">12</span></td><td></td><td class="horse-name">アグネスタキオン</td><td>14</td><td>A/G</td><td>1800-2200</td></tr>
+        <tr><td><span class="w-7">13</span></td><td></td><td class="horse-name">キングカメハメハ</td><td>14</td><td>A/A</td><td>1600-2400</td></tr>
+        <tr><td><span class="w-7">14</span></td><td></td><td class="horse-name">ディープインパクト</td><td>14</td><td>A/G</td><td>2000-3200</td></tr>
+        <tr><td><span class="w-7">15</span></td><td></td><td class="horse-name">オルフェーヴル</td><td>14</td><td>A/G</td><td>1800-3200</td></tr>
+        <tr><td><span class="w-8">16</span></td><td></td><td class="horse-name">ゴールドシップ</td><td>13</td><td>A/G</td><td>1800-3200</td></tr>
+        <tr><td><span class="w-8">17</span></td><td></td><td class="horse-name">キタサンブラック</td><td>13</td><td>A/G</td><td>1800-3200</td></tr>
+        <tr><td><span class="w-8">18</span></td><td></td><td class="horse-name">イクイノックス</td><td>13</td><td>A/G</td><td>1800-2500</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+</body>
+</html>
     }
     .badge {
       background: #ff9800;
