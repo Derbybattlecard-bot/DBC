@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Deck Builder - Derby Battle Card</title>
+  <style>
+    .builder-container { display: flex; gap: 20px; }
+    .deck-slots { width: 40%; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .slot-card { border: 1px solid #ccc; padding: 10px; min-height: 40px; cursor: pointer; }
+    .slot-card.empty { border-style: dashed; color: #999; }
+    .pool-area { width: 60%; }
+    .pool-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-height: 500px; overflow-y: auto; }
+    .pool-card { border: 1px solid #4CAF50; padding: 10px; border-radius: 4px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="builder-container">
+    <!-- 左側: 編成エリア (18枠) -->
+    <div class="deck-slots" id="deckSlots"></div>
+
+    <!-- 右側: カードプールエリア -->
+    <div class="pool-area">
+      <input type="text" id="searchInput" placeholder="馬名検索..." oninput="renderPool()">
+      <div class="pool-grid" id="poolGrid"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    const HORSES_MASTER = {};
+    let userData = null;
+    let activeDeckIdx = 0;
+
+    // マスターデータ準備
+    async function initMaster() {
+      const res = await fetch('./data/horses_master.json');
+      if (res.ok) {
+        const list = await res.json();
+        list.forEach(h => {
+          const idStr = String(h.horse_id ?? h.id);
+          HORSES_MASTER[idStr] = h;
+        });
+      }
+    }
+
+    function findHorseInMaster(rawKey) {
+      if (rawKey === null || rawKey === undefined) return null;
+      return HORSES_MASTER[String(rawKey)] || null;
+    }
+
+    // 右側カードプール描画（仕様書 4.2 完全除外ロジック実装）
+    window.renderPool = function() {
+      const grid = document.getElementById('poolGrid');
+      grid.innerHTML = '';
+      const searchText = document.getElementById('searchInput').value.toLowerCase();
+
+      // 現在デッキに編成されている horse_id の一覧を取得（文字列化）
+      const activeDeck = userData.decks[activeDeckIdx];
+      const currentDeckHorses = activeDeck.horse_ids
+        .filter(id => id !== null)
+        .map(id => String(id));
+
+      const inventoryHorses = userData.inventory?.horses || userData.cards || {};
+
+      for (const idStr in inventoryHorses) {
+        const count = Number(inventoryHorses[idStr] || 0);
+
+        // 仕様書ルール: 1以上所持、かつ現在デッキにセット済みの馬はプールから完全除外（重複登録不可）
+        if (count > 0 && !currentDeckHorses.includes(String(idStr))) {
+          const horse = findHorseInMaster(idStr);
+          if (!horse) continue;
+
+          if (searchText && !horse.name.toLowerCase().includes(searchText)) continue;
+
+          const div = document.createElement('div');
+          div.className = 'pool-card';
+          div.innerHTML = `
+            <div><strong>${horse.name}</strong></div>
+            <small>ID: ${idStr} | 所持: ${count}</small>
+          `;
+          div.onclick = () => addCardToDeck(idStr);
+          grid.appendChild(div);
+        }
+      }
+    };
+
+    // 左側デッキ枠描画（仕様書 18枠構造）
+    function renderDeckSlots() {
+      const container = document.getElementById('deckSlots');
+      container.innerHTML = '';
+
+      const activeDeck = userData.decks[activeDeckIdx];
+      // 18枠に正規化
+      if (!activeDeck.horse_ids || activeDeck.horse_ids.length !== 18) {
+        activeDeck.horse_ids = Array(18).fill(null).map((_, i) => activeDeck.horse_ids?.[i] || null);
+      }
+
+      activeDeck.horse_ids.forEach((hId, index) => {
+        const horse = findHorseInMaster(hId);
+        const div = document.createElement('div');
+
+        if (horse) {
+          div.className = 'slot-card';
+          div.innerHTML = `<span>${index + 1}. ${horse.name}</span>`;
+          div.onclick = () => removeCardFromDeck(index);
+        } else {
+          div.className = 'slot-card empty';
+          div.innerHTML = `<span>${index + 1}. (空き枠)</span>`;
+        }
+        container.appendChild(div);
+      });
+    }
+
+    // デッキへの追加（仕様書 4.3 自動追加ロジック）
+    function addCardToDeck(horseIdStr) {
+      const activeDeck = userData.decks[activeDeckIdx];
+      const emptyIdx = activeDeck.horse_ids.indexOf(null);
+
+      if (emptyIdx === -1) {
+        alert("デッキが満杯です（18枠上限）");
+        return;
+      }
+
+      activeDeck.horse_ids[emptyIdx] = String(horseIdStr);
+      renderDeckSlots();
+      renderPool();
+    }
+
+    // デッキからの解除
+    function removeCardFromDeck(slotIndex) {
+      const activeDeck = userData.decks[activeDeckIdx];
+      activeDeck.horse_ids[slotIndex] = null;
+      renderDeckSlots();
+      renderPool();
+    }
+
+    await initMaster();
+  </script>
+</body>
+</html>
