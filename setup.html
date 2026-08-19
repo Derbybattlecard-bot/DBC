@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Setup - Derby Battle Card</title>
+</head>
+<body>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // Firebase設定（ご使用のキーを設定）
+    const firebaseConfig = { /* config */ };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // ポテンシャル判定（仕様書準拠）
+    function getPotential(horse, surface) {
+      if (typeof horse.potential === 'object' && horse.potential !== null) {
+        return horse.potential[surface] || 0;
+      }
+      return Number(horse.potential || 0);
+    }
+
+    // ランダム抽出関数
+    function pickHorses(pool, count, selectedIds) {
+      const available = pool.filter(h => !selectedIds.has(String(h.horse_id ?? h.id)));
+      const shuffled = [...available].sort(() => 0.5 - Math.random());
+      return shuffled.slice(0, count);
+    }
+
+    // 仕様書準拠：50頭選定＆inventory構築
+    function select50Horses(masterData) {
+      const selectedMap = new Map();
+      const selectedIds = new Set();
+
+      const getHorseId = (h) => String(h.horse_id ?? h.id);
+
+      const addSelected = (list) => {
+        list.forEach(h => {
+          const idStr = getHorseId(h);
+          selectedMap.set(idStr, h);
+          selectedIds.add(idStr);
+        });
+      };
+
+      // 1. 芝適性（目標36頭）
+      const turfPool = masterData.filter(h => h.surface === '芝' || h.turf === true || h.turf_aptitude === true);
+      addSelected(pickHorses(turfPool.filter(h => getPotential(h, 'turf') === 20), 2, selectedIds));
+      addSelected(pickHorses(turfPool.filter(h => getPotential(h, 'turf') === 19), 4, selectedIds));
+      addSelected(pickHorses(turfPool.filter(h => getPotential(h, 'turf') === 18), 6, selectedIds));
+      addSelected(pickHorses(turfPool.filter(h => getPotential(h, 'turf') === 17), 6, selectedIds));
+      addSelected(pickHorses(turfPool.filter(h => getPotential(h, 'turf') === 15), 5, selectedIds));
+      addSelected(pickHorses(turfPool.filter(h => getPotential(h, 'turf') === 14), 5, selectedIds));
+      addSelected(pickHorses(turfPool.filter(h => getPotential(h, 'turf') === 16), 8, selectedIds));
+
+      if (selectedMap.size < 36) {
+        addSelected(pickHorses(turfPool.filter(h => getPotential(h, 'turf') === 16), 36 - selectedMap.size, selectedIds));
+      }
+
+      // 2. ダート適性（目標40頭まで）
+      const dirtPool = masterData.filter(h => h.surface === 'ダート' || h.dirt === true || h.dirt_aptitude === true);
+      addSelected(pickHorses(dirtPool.filter(h => getPotential(h, 'dirt') === 19), 1, selectedIds));
+      addSelected(pickHorses(dirtPool.filter(h => getPotential(h, 'dirt') === 18), 4, selectedIds));
+      addSelected(pickHorses(dirtPool.filter(h => getPotential(h, 'dirt') === 17), 4, selectedIds));
+      addSelected(pickHorses(dirtPool.filter(h => getPotential(h, 'dirt') === 16), 3, selectedIds));
+      addSelected(pickHorses(dirtPool.filter(h => getPotential(h, 'dirt') === 15), 3, selectedIds));
+      addSelected(pickHorses(dirtPool.filter(h => getPotential(h, 'dirt') === 14), 3, selectedIds));
+
+      // 3. 不足分穴埋め（50頭まで）
+      if (selectedMap.size < 50) {
+        const remainPool = masterData.filter(h => getPotential(h, 'turf') <= 17 || getPotential(h, 'dirt') <= 17);
+        addSelected(pickHorses(remainPool, 50 - selectedMap.size, selectedIds));
+      }
+
+      // 仕様書準拠: "horse_id": 所持数 (文字列キーのマップ構造)
+      const horsesMap = {};
+      selectedMap.forEach((_, idStr) => {
+        horsesMap[idStr] = (horsesMap[idStr] || 0) + 1;
+      });
+
+      return horsesMap;
+    }
+
+    // ユーザー初期保存（仕様書 Ver 1.4 JSON構造準拠）
+    export async function createInitialUser(user) {
+      const res = await fetch('./data/horses_master.json');
+      const masterData = await res.json();
+      const initialHorses = select50Horses(masterData);
+
+      const userData = {
+        user_id: user.uid,
+        created_at: new Date().toISOString(),
+        inventory: {
+          horses: initialHorses // 例: {"7601": 2, "8801": 1}
+        },
+        decks: [
+          { deck_id: "deck_A", deck_name: "メインデッキ", horse_ids: Array(18).fill(null) },
+          { deck_id: "deck_B", deck_name: "サブデッキ", horse_ids: Array(18).fill(null) }
+        ]
+      };
+
+      await setDoc(doc(db, "users", user.uid), userData);
+    }
+  </script>
+</body>
+</html>
