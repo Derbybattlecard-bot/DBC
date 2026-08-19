@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DERBY BATTLE CARD</title>
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%);
+      --card-bg: rgba(255, 255, 255, 0.88);
+      --card-inner-bg: #f2f8f3;
+      --accent-gold: #c29b1d;
+      --text-color: #1a2e1d;
+      --sub-text: #4e6b52;
+      --header-green: #0d4220;
+    }
+
+    body {
+      margin: 0;
+      padding: 10px;
+      background: var(--bg-gradient);
+      background-attachment: fixed;
+      color: var(--text-color);
+      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .header {
+      text-align: center;
+      padding: 12px 8px;
+      background: rgba(255, 255, 255, 0.95);
+      border-bottom: 3px solid var(--header-green);
+      border-radius: 8px 8px 0 0;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 22px;
+      color: var(--header-green);
+      letter-spacing: 3px;
+      font-weight: 900;
+      text-shadow: 1px 1px 0px rgba(255,255,255,0.8);
+    }
+
+    /* プレイヤープロフィールエリア */
+    .user-profile {
+      background: #ffffff;
+      border: 1px solid #b2d4b6;
+      border-radius: 6px;
+      padding: 6px 12px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: bold;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .affiliation-mark { font-weight: bold; margin-right: 4px; }
+    .affiliation-antique { color: #28a745; }
+    .affiliation-vintage { color: #e0a800; }
+    .affiliation-traditional { color: #dc3545; }
+
+    .record-section {
+      background: var(--card-bg);
+      border: 1px solid #b2d4b6;
+      border-radius: 8px;
+      padding: 8px 12px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    .record-item { text-align: center; }
+    .record-label { font-size: 10px; color: var(--sub-text); display: block; margin-bottom: 2px; }
+    .record-value { font-size: 14px; font-weight: bold; color: var(--text-color); }
+    .record-value.highlight { color: var(--accent-gold); }
+
+    .bonus-section {
+      background: var(--card-bg);
+      border: 2px solid #82c088;
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    .bonus-title { font-size: 12px; font-weight: bold; color: var(--header-green); margin-bottom: 8px; }
+    .cards-container { display: flex; justify-content: space-between; gap: 8px; }
+    .bonus-card {
+      flex: 1;
+      background: #ffffff;
+      border: 1px solid #a8d5ac;
+      border-radius: 6px;
+      padding: 6px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .bonus-card .slot-num { font-size: 18px; font-weight: bold; color: #e63956; margin: 2px 0; }
+    .bonus-card .gen-year { font-size: 10px; color: var(--sub-text); }
+    .bonus-card .rarity { font-size: 11px; font-weight: bold; color: var(--accent-gold); }
+    .bonus-msg { margin-top: 8px; font-size: 10px; color: #8a6200; background: #fff8d6; padding: 4px; border-radius: 4px; border: 1px solid #f0e3a1; }
+
+    .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .btn-link { text-decoration: none; display: block; }
+    .btn-link.full-width { grid-column: span 2; }
+    .btn {
+      width: 100%;
+      box-sizing: border-box;
+      background: linear-gradient(135deg, #2d6a37, #1b4d23);
+      border: 1px solid #143b1a;
+      color: #ffffff;
+      padding: 12px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+    }
+    .btn:active { transform: scale(0.98); background: var(--accent-gold); }
+
+    .deck-section {
+      background: var(--card-bg);
+      border-radius: 8px;
+      padding: 10px;
+      border: 1px solid #b2d4b6;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .main-deck-tabs { display: flex; gap: 8px; margin-bottom: 8px; }
+    .main-tab {
+      flex: 1;
+      background: #e2efe3;
+      border: 1px solid #a0ca33;
+      color: var(--sub-text);
+      padding: 8px 0;
+      font-size: 12px;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .main-tab.active {
+      background: linear-gradient(135deg, #1b4d23, #2d6a37);
+      color: #ffffff;
+      border-color: #143b1a;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+
+    .deck-control-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card-inner-bg);
+      padding: 6px 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      border: 1px solid #cce2d0;
+    }
+    .deck-name { font-size: 12px; font-weight: bold; color: var(--text-color); }
+    .save-load-btns { display: flex; gap: 6px; }
+    .action-btn {
+      background: #ffffff;
+      border: 1px solid #82c088;
+      color: var(--text-color);
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .action-btn:hover { background: #eaf5eb; border-color: var(--header-green); }
+
+    .race-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      text-align: center;
+      background: #ffffff;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid #c2dfc6;
+    }
+    .race-table th { background: #2d6a37; color: #ffffff; padding: 6px 2px; font-weight: bold; }
+    .race-table td { padding: 5px 2px; border-bottom: 1px solid #ebf4ec; color: #222; }
+    .race-table tr:nth-child(even) { background: #f7fbf7; }
+    .horse-name { text-align: left; font-weight: bold; padding-left: 4px !important; }
+
+    .w-1 { background: #ffffff; color: #000; font-weight: bold; border: 1px solid #ccc; border-radius: 2px; padding: 1px 4px; }
+    .w-2 { background: #222222; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
+    .w-3 { background: #e60012; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
+    .w-4 { background: #0068b7; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
+    .w-5 { background: #fff100; color: #000; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
+    .w-6 { background: #009944; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
+    .w-7 { background: #f39700; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
+    .w-8 { background: #e4007f; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>DERBY BATTLE CARD</h1>
+  </div>
+
+  <!-- エントリーネーム＆所属表示領域 -->
+  <div class="user-profile" id="userProfileDisplay">
+    読み込み中...
+  </div>
+
+  <div class="record-section" id="recordSection">
+    <div class="record-item"><span class="record-label">データ取得中...</span></div>
+  </div>
+
+  <div class="bonus-section">
+    <div class="bonus-title">🎰 DAILY LOGIN BONUS</div>
+    <div class="cards-container">
+      <div class="bonus-card"><span class="gen-year">1997年</span><span class="slot-num">7</span><span class="rarity">SSR</span></div>
+      <div class="bonus-card"><span class="gen-year">2007年</span><span class="slot-num">7</span><span class="rarity">N</span></div>
+      <div class="bonus-card"><span class="gen-year">2017年</span><span class="slot-num">7</span><span class="rarity">SR</span></div>
+    </div>
+    <div class="bonus-msg">✨ 7-7-7 ゾロ目達成！明日の1枚目はレア確定！ ✨</div>
+  </div>
+
+  <!-- メニューグリッド -->
+  <div class="menu-grid">
+    <a href="battle.html" class="btn-link"><button class="btn">💻 VS COMPUTER</button></a>
+    <a href="battle_online.html" class="btn-link"><button class="btn">🌐 ONLINE MATCH</button></a>
+    <a href="deck.html" class="btn-link"><button class="btn">🎴 EDIT DECK</button></a>
+    <a href="trade.html" class="btn-link"><button class="btn">🔁 TRADE BOARD</button></a>
+    <!-- カードコレクション画面への移動ボタン -->
+    <a href="collection.html" class="btn-link full-width"><button class="btn" style="background: linear-gradient(135deg, #d4af37, #aa820a);">📚 CARD COLLECTION</button></a>
+  </div>
+
+  <div class="deck-section">
+    <div class="main-deck-tabs">
+      <div class="main-tab active" id="tabMain1">🏇 MAIN DECK 1</div>
+      <div class="main-tab" id="tabMain2">🏇 MAIN DECK 2</div>
+    </div>
+
+    <div class="deck-control-bar">
+      <span class="deck-name" id="deckNameDisplay">✏️ 読み込み中...</span>
+      <div class="save-load-btns">
+        <a href="deck.html" style="text-decoration:none;"><button class="action-btn">✏️ 編集する</button></a>
+      </div>
+    </div>
+
+    <table class="race-table">
+      <thead>
+        <tr>
+          <th>枠</th>
+          <th>印</th>
+          <th style="text-align:left; padding-left:4px;">馬名</th>
+          <th>適性</th>
+          <th>距離</th>
+        </tr>
+      </thead>
+      <tbody id="raceTableBody">
+        <tr><td colspan="5">読み込み中...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  let HORSES_MASTER = {};
+  let globalUserData = null;
+  let activeDeckIndex = 0;
+
+  // 馬の検索用ヘルパー関数（IDの数値型・文字列型をどちらもサポート）
+  function findHorseInMaster(id) {
+    if (id === null || id === undefined) return null;
+    return HORSES_MASTER[id] || HORSES_MASTER[String(id)] || null;
+  }
+
+  // ログイン状態監視
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.href = 'auth.html';
+      return;
+    }
+
+    try {
+      // 1. 馬マスターデータの読み込み（IDを数値・文字列の両方でマップ登録して型不一致を防止）
+      const res = await fetch('./data/horses_master.json');
+      if (res.ok) {
+        const list = await res.json();
+        list.forEach(h => {
+          const idKey = h.horse_id ?? h.id;
+          if (idKey !== undefined) {
+            HORSES_MASTER[idKey] = h;
+            HORSES_MASTER[String(idKey)] = h;
+          }
+        });
+      }
+
+      // 2. Firestoreからユーザーデータを取得
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) {
+        globalUserData = userDoc.data();
+      } else {
+        // 設定データが見つからない場合は setup.html へ
+        window.location.href = 'setup.html';
+        return;
+      }
+
+      // 3. UIのレンダリング
+      renderUserProfile();
+      renderRecord();
+      renderSelectedDeck();
+
+    } catch (err) {
+      console.error(err);
+    }
+  });
+
+  // プロフィール（エントリーネーム＆所属）の表示
+  function renderUserProfile() {
+    const name = globalUserData.displayName || "ゲスト";
+    const affiliation = globalUserData.affiliation || "未設定";
+
+    let colorClass = "";
+    if (affiliation === "アンティーク") colorClass = "affiliation-antique";
+    else if (affiliation === "ビンテージ") colorClass = "affiliation-vintage";
+    else if (affiliation === "トラディショナル") colorClass = "affiliation-traditional";
+
+    document.getElementById('userProfileDisplay').innerHTML = `
+      <span class="affiliation-mark ${colorClass}">◆</span> ${name}
+    `;
+  }
+
+  // 通算成績およびカード所持種類の表示
+  function renderRecord() {
+    const rec = globalUserData.record || { matches: 0, wins: 0, maxStreak: 0 };
+    const winRate = rec.matches > 0 ? ((rec.wins / rec.matches) * 100).toFixed(1) : "0.0";
+    
+    // カード所持種類のカウント（Ver1.4仕様書: inventory.horses または 既存仕様: cards の両方に対応）
+    const cards = globalUserData.inventory?.horses || globalUserData.cards || {};
+    const cardTypesCount = Object.keys(cards).length;
+
+    document.getElementById('recordSection').innerHTML = `
+      <div class="record-item">
+        <span class="record-label">通算成績</span>
+        <span class="record-value">${rec.matches}戦${rec.wins}勝</span>
+      </div>
+      <div class="record-item">
+        <span class="record-label">勝率</span>
+        <span class="record-value highlight">${winRate}%</span>
+      </div>
+      <div class="record-item">
+        <span class="record-label">最高連勝</span>
+        <span class="record-value">${rec.maxStreak}連勝</span>
+      </div>
+      <div class="record-item">
+        <span class="record-label">所持種類</span>
+        <span class="record-value" style="color:#0d4220;">${cardTypesCount}種</span>
+      </div>
+    `;
+  }
+
+  function switchTab(idx) {
+    activeDeckIndex = idx;
+    document.getElementById('tabMain1').className = `main-tab ${idx === 0 ? 'active' : ''}`;
+    document.getElementById('tabMain2').className = `main-tab ${idx === 1 ? 'active' : ''}`;
+    renderSelectedDeck();
+  }
+
+  // デッキ表示
+  function renderSelectedDeck() {
+    const decks = globalUserData.decks || [
+      { deck_name: "メインデッキ 1", horse_ids: [] },
+      { deck_name: "メインデッキ 2", horse_ids: [] }
+    ];
+    const deck = decks[activeDeckIndex] || { deck_name: "未設定", horse_ids: [] };
+    document.getElementById('deckNameDisplay').textContent = `✏️ ${deck.deck_name}`;
+
+    const tbody = document.getElementById('raceTableBody');
+    tbody.innerHTML = '';
+
+    if (!deck.horse_ids || deck.horse_ids.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:#888; padding:12px;">デッキが設定されていません</td></tr>';
+      return;
+    }
+
+    deck.horse_ids.forEach((hId, index) => {
+      const frameNum = Math.floor(index / 2) + 1; // 1~8枠
+      const frameClass = `w-${Math.min(frameNum, 8)}`;
+      // ID検索（型差を吸収して安全に取得）
+      const horse = findHorseInMaster(hId);
+
+      const tr = document.createElement('tr');
+      if (horse) {
+        const surfaceText = horse.surface || (horse.turf && horse.dirt ? "万" : horse.turf ? "芝" : "ダ");
+        const distText = horse.distance_aptitude 
+          ? `${horse.distance_aptitude.minD || 0}-${horse.distance_aptitude.maxD || 0}`
+          : (horse.distance || '-');
+
+        tr.innerHTML = `
+          <td><span class="${frameClass}">${frameNum}</span></td>
+          <td>${index === 0 ? '◎' : index === 1 ? '○' : index === 2 ? '▲' : ''}</td>
+          <td class="horse-name">${horse.name}</td>
+          <td>${surfaceText}</td>
+          <td>${distText}m</td>
+        `;
+      } else {
+        tr.innerHTML = `
+          <td><span class="${frameClass}">${frameNum}</span></td>
+          <td>-</td>
+          <td class="horse-name" style="color:#aaa;">(未設定: ID ${hId})</td>
+          <td>-</td>
+          <td>-</td>
+        `;
+      }
+      tbody.appendChild(tr);
+    });
+  }
+
+  // タブ切り替えイベント
+  document.getElementById('tabMain1').addEventListener('click', () => switchTab(0));
+  document.getElementById('tabMain2').addEventListener('click', () => switchTab(1));
+</script>
+</body>
+</html>
