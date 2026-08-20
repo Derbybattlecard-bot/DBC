@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DERBY BATTLE CARD - デッキ構築</title>
+<style>
+  :root {
+    --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%);
+    --panel-bg: rgba(255, 255, 255, 0.94);
+    --accent-color: #2d6a37;
+    --accent-hover: #1b4d23;
+    --text-main: #1a2e1d;
+    --text-sub: #4e6b52;
+    --border-color: #b2d4b6;
+    --slot-empty: #f2f8f3;
+    --gold: #c29b1d;
+  }
+  body {
+    font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+    background: var(--bg-gradient);
+    background-attachment: fixed;
+    color: var(--text-main);
+    margin: 0;
+    padding: 15px;
+    font-size: 14px;
+    display: flex;
+    justify-content: center;
+  }
+  h1, h2, h3 { margin: 0 0 8px 0; color: var(--accent-color); }
+  .container { display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 1280px; }
+  
+  .header-panel {
+    background-color: var(--panel-bg);
+    padding: 12px 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .btn-back {
+    background: #ffffff;
+    color: var(--accent-color);
+    border: 1px solid var(--accent-color);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 13px;
+    text-decoration: none;
+  }
+  .btn-back:hover { background: var(--accent-color); color: #ffffff; }
+  .deck-tabs { display: flex; gap: 8px; }
+  .tab-btn {
+    background-color: #e2efe3;
+    color: var(--text-sub);
+    border: 1px solid var(--border-color);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 13px;
+  }
+  .tab-btn.active {
+    background-color: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+  }
+  .deck-info { display: flex; gap: 15px; font-weight: bold; font-size: 14px; }
+  .deck-name-input {
+    background: #ffffff; border: 1px solid var(--border-color);
+    color: var(--text-main); padding: 4px 8px; border-radius: 4px; font-size: 14px;
+    font-weight: bold;
+  }
+
+  .save-load-panel {
+    background-color: var(--panel-bg);
+    padding: 10px 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 13px;
+  }
+  .sync-status-row { display: flex; justify-content: space-between; align-items: center; }
+  .sync-status { font-size: 12px; color: var(--text-sub); font-weight: bold; }
+  
+  .deck-storage-section {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+    border-top: 1px dashed var(--border-color);
+    padding-top: 8px;
+  }
+  .storage-title { font-weight: bold; font-size: 12px; color: var(--accent-color); margin-right: 4px; }
+  .storage-slot-box {
+    display: flex;
+    background: #f2f8f3;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    overflow: hidden;
+    font-size: 11px;
+  }
+  .storage-label {
+    background: #e2efe3;
+    padding: 4px 6px;
+    font-weight: bold;
+    color: var(--text-sub);
+    display: flex;
+    align-items: center;
+  }
+  .btn-storage-save, .btn-storage-load {
+    background: #ffffff;
+    border: none;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-weight: bold;
+    color: var(--text-main);
+  }
+  .btn-storage-save:hover { background: #d0edd3; color: var(--accent-hover); }
+  .btn-storage-load { border-left: 1px solid var(--border-color); color: var(--accent-color); }
+  .btn-storage-load:hover { background: var(--accent-color); color: #ffffff; }
+
+  .main-layout { display: grid; grid-template-columns: 1.1fr 1.3fr; gap: 15px; }
+  @media (max-width: 950px) { .main-layout { grid-template-columns: 1fr; } }
+
+  .panel {
+    background-color: var(--panel-bg);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    padding: 12px 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+
+  .slots-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    max-height: 620px;
+    overflow-y: auto;
+  }
+  .slot-card {
+    background-color: var(--slot-empty);
+    border: 1px dashed var(--border-color);
+    border-radius: 6px;
+    padding: 6px;
+    min-height: 72px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    cursor: pointer;
+    position: relative;
+    font-size: 12px;
+  }
+  .slot-card.filled { border-style: solid; border-color: #a0ca33; background-color: #ffffff; }
+  .slot-card.selected { border-color: var(--gold); box-shadow: 0 0 6px rgba(194, 155, 29, 0.6); }
+  .card-name-slot {
+    font-weight: bold;
+    font-size: 13px;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+  }
+  .card-details-slot {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    color: var(--text-sub);
+    font-size: 11px;
+  }
+  .empty-text { color: var(--text-sub); text-align: center; margin: auto; font-size: 12px; }
+
+  .filter-box { display: flex; flex-direction: column; gap: 8px; background: #f2f8f3; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 13px; }
+  .filter-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .filter-input, .filter-select {
+    background-color: #ffffff;
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    padding: 6px 10px;
+    border-radius: 4px;
+    flex: 1;
+    font-size: 13px;
+  }
+  .kana-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .kana-chip {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    color: var(--text-sub);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  .kana-chip:hover, .kana-chip.active {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+  }
+
+  .pool-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    max-height: 460px;
+    overflow-y: auto;
+  }
+  .pool-card {
+    background-color: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .pool-card:hover { border-color: var(--accent-color); background-color: #f7fbf7; }
+  .card-header { display: flex; justify-content: space-between; align-items: center; }
+  .card-name-pool { font-weight: bold; font-size: 14px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+  .badge-rarity { background: var(--accent-color); color: white; padding: 1px 5px; border-radius: 3px; font-weight: bold; font-size: 11px; }
+  .card-details-pool { display: flex; flex-direction: column; gap: 2px; color: var(--text-sub); font-size: 12px; }
+  .param-row { display: flex; justify-content: space-between; background: #f8faf8; padding: 2px 6px; border-radius: 3px; font-size: 12px; color: var(--text-sub); font-weight: bold; }
+  .ability-text { color: #8a4b08; font-weight: bold; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header-panel">
+    <div class="header-left">
+      <a href="index.html" class="btn-back">← メインメニュー</a>
+      <div class="deck-tabs">
+        <button class="tab-btn active" id="tabA">MAIN 1</button>
+        <button class="tab-btn" id="tabB">MAIN 2</button>
+      </div>
+    </div>
+    <div>
+      デッキ名: <input type="text" id="deckNameInput" class="deck-name-input" value="読み込み中...">
+    </div>
+    <div class="deck-info">
+      <span>編成: <span id="countDisplay">0</span> / 18</span>
+    </div>
+  </div>
+
+  <div class="save-load-panel">
+    <div class="sync-status-row">
+      <span class="sync-status" id="syncStatus">☁️ Cloud Status: 準備中</span>
+    </div>
+    <div class="deck-storage-section">
+      <span class="storage-title">💾 デック保管庫:</span>
+      <div id="deckStorageContainer" style="display: flex; gap: 6px; flex-wrap: wrap;"></div>
+    </div>
+  </div>
+
+  <div class="main-layout">
+    <div class="panel">
+      <h3>18枚スロット （タップで外す/選択）</h3>
+      <div id="slotsGrid" class="slots-grid"></div>
+    </div>
+
+    <div class="panel">
+      <h3>未編成カードプール</h3>
+      
+      <div class="filter-box">
+        <div class="filter-row">
+          <input type="text" id="searchInput" class="filter-input" placeholder="🔍 馬名検索...">
+          <select id="surfaceFilter" class="filter-select">
+            <option value="ALL">適性: すべて</option>
+            <option value="turf">芝のみ</option>
+            <option value="dirt">ダートのみ</option>
+            <option value="both">芝/ダ両方</option>
+          </select>
+          <select id="distanceFilter" class="filter-select">
+            <option value="ALL">距離: すべて</option>
+            <option value="1200">1200m</option>
+            <option value="1600">1600m</option>
+            <option value="2000">2000m</option>
+            <option value="2500">2500m</option>
+            <option value="3200">3200m</option>
+          </select>
+        </div>
+        <div class="filter-row">
+          <select id="sortKey" class="filter-select">
+            <option value="kana">順: 名前の順</option>
+            <option value="potential">順: ポテンシャル</option>
+            <option value="rarity">順: レアリティ</option>
+          </select>
+          <select id="sortOrder" class="filter-select">
+            <option value="asc">昇順 (あ→ん / 低→高)</option>
+            <option value="desc">降順 (ん→あ / 高→低)</option>
+          </select>
+        </div>
+        <!-- カタカナ行検索 ＆ A-Zボタン -->
+        <div class="kana-chips" id="kanaChips">
+          <span class="kana-chip active" data-kana="ALL">すべて</span>
+          <span class="kana-chip" data-kana="ア">ア行</span>
+          <span class="kana-chip" data-kana="カ">カ行</span>
+          <span class="kana-chip" data-kana="サ">サ行</span>
+          <span class="kana-chip" data-kana="タ">タ行</span>
+          <span class="kana-chip" data-kana="ナ">ナ行</span>
+          <span class="kana-chip" data-kana="ハ">ハ行</span>
+          <span class="kana-chip" data-kana="マ">マ行</span>
+          <span class="kana-chip" data-kana="ヤ">ヤ行</span>
+          <span class="kana-chip" data-kana="ラ">ラ行</span>
+          <span class="kana-chip" data-kana="ワ">ワ行</span>
+          <span class="kana-chip" data-kana="AZ">A-Z</span>
+        </div>
+      </div>
+
+      <div id="poolGrid" class="pool-grid"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  let HORSES_MASTER = {};
+  let HORSES_ARRAY = [];
+  let currentUser = null;
+  let globalUserData = null;
+  let activeDeckIdx = 0;
+  let selectedSlotIndex = null;
+  let selectedKana = "ALL";
+
+  const RARITY_WEIGHT = { "INF": 11, "SER": 10, "UR": 9, "LGR": 8, "CLR": 7, "TR": 6, "RER": 5, "AR": 4, "VR": 3, "PR": 3, "SPR": 2, "N": 1 };
+
+  function getParamRank(val) {
+    if (val === undefined || val === null) return "-";
+    if (val >= 20) return "S";
+    if (val >= 18) return "A";
+    if (val >= 16) return "B";
+    return "C";
+  }
+
+  function setSyncStatus(msg) {
+    const el = document.getElementById('syncStatus');
+    if (el) el.textContent = msg;
+  }
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.href = 'auth.html';
+      return;
+    }
+    currentUser = user;
+    setSyncStatus("☁️ データ読み込み中...");
+
+    try {
+      const res = await fetch('./data/horses_master.json');
+      if (res.ok) {
+        HORSES_ARRAY = await res.json();
+        HORSES_ARRAY.forEach(h => {
+          HORSES_MASTER[h.horse_id] = h;
+        });
+      }
+
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) {
+        globalUserData = userDoc.data();
+      } else {
+        window.location.href = 'setup.html';
+        return;
+      }
+
+      if (!globalUserData.decks || !Array.isArray(globalUserData.decks)) {
+        globalUserData.decks = [
+          { deck_name: "メインデッキ 1", horse_ids: new Array(18).fill(null) },
+          { deck_name: "メインデッキ 2", horse_ids: new Array(18).fill(null) }
+        ];
+      }
+
+      globalUserData.decks.forEach(deck => {
+        if (!deck.horse_ids) deck.horse_ids = new Array(18).fill(null);
+        while (deck.horse_ids.length < 18) {
+          deck.horse_ids.push(null);
+        }
+      });
+
+      if (!globalUserData.saved_deck_slots || !Array.isArray(globalUserData.saved_deck_slots)) {
+        globalUserData.saved_deck_slots = new Array(5).fill(null);
+      }
+
+      setSyncStatus("✅ クラウド同期完了");
+      renderAll();
+
+    } catch (err) {
+      console.error("初期化エラー:", err);
+      setSyncStatus("❌ データ読み込みエラー");
+    }
+  });
+
+  async function syncSave() {
+    setSyncStatus("☁️ 保存中...");
+    try {
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        decks: globalUserData.decks,
+        saved_deck_slots: globalUserData.saved_deck_slots
+      });
+      setSyncStatus("✅ 保存完了");
+    } catch (err) {
+      console.error("保存失敗:", err);
+      setSyncStatus("❌ 保存失敗");
+    }
+  }
+
+  function renderAll() {
+    const currentDeck = globalUserData.decks[activeDeckIdx];
+    document.getElementById('deckNameInput').value = currentDeck.deck_name || `メインデッキ ${activeDeckIdx + 1}`;
+    renderDeck();
+    renderPool();
+    renderStorageSlots();
+  }
+
+  function switchDeck(idx) {
+    activeDeckIdx = idx;
+    selectedSlotIndex = null;
+    document.getElementById('tabA').className = `tab-btn ${idx === 0 ? 'active' : ''}`;
+    document.getElementById('tabB').className = `tab-btn ${idx === 1 ? 'active' : ''}`;
+    renderAll();
+  }
+
+  document.getElementById('deckNameInput').addEventListener('change', (e) => {
+    globalUserData.decks[activeDeckIdx].deck_name = e.target.value;
+    syncSave();
+  });
+
+  function renderStorageSlots() {
+    const container = document.getElementById('deckStorageContainer');
+    container.innerHTML = '';
+
+    for (let i = 0; i < 5; i++) {
+      const slotBox = document.createElement('div');
+      slotBox.className = 'storage-slot-box';
+      
+      const hasData = globalUserData.saved_deck_slots[i] && Array.isArray(globalUserData.saved_deck_slots[i]);
+      
+      slotBox.innerHTML = `
+        <span class="storage-label">#${i + 1}</span>
+        <button class="btn-storage-save" data-index="${i}" title="現在のデッキ構成を保存">保存</button>
+        <button class="btn-storage-load" data-index="${i}" title="この構成をロード">${hasData ? 'ロード' : '空き'}</button>
+      `;
+      container.appendChild(slotBox);
+    }
+
+    container.querySelectorAll('.btn-storage-save').forEach(btn => {
+      btn.onclick = (e) => {
+        const slotIdx = parseInt(e.target.getAttribute('data-index'), 10);
+        saveToDeckSlot(slotIdx);
+      };
+    });
+
+    container.querySelectorAll('.btn-storage-load').forEach(btn => {
+      btn.onclick = (e) => {
+        const slotIdx = parseInt(e.target.getAttribute('data-index'), 10);
+        loadFromDeckSlot(slotIdx);
+      };
+    });
+  }
+
+  function saveToDeckSlot(slotIdx) {
+    const currentHorseIds = [...globalUserData.decks[activeDeckIdx].horse_ids];
+    globalUserData.saved_deck_slots[slotIdx] = currentHorseIds;
+    syncSave();
+    renderStorageSlots();
+    alert(`セーブスロット #${slotIdx + 1} に現在のデッキを保存しました！`);
+  }
+
+  function loadFromDeckSlot(slotIdx) {
+    const savedIds = globalUserData.saved_deck_slots[slotIdx];
+    if (!savedIds || !Array.isArray(savedIds)) {
+      alert(`スロット #${slotIdx + 1} にはデータが保存されていません。`);
+      return;
+    }
+
+    const inventory = globalUserData.cards || {};
+    const otherDeckIdx = activeDeckIdx === 0 ? 1 : 0;
+    const otherDeckAssigned = new Set();
+    if (globalUserData.decks[otherDeckIdx] && globalUserData.decks[otherDeckIdx].horse_ids) {
+      globalUserData.decks[otherDeckIdx].horse_ids.forEach(id => {
+        if (id) otherDeckAssigned.add(id);
+      });
+    }
+
+    let missingCount = 0;
+    let duplicateCount = 0;
+
+    const cleanedIds = savedIds.map(horseId => {
+      if (!horseId) return null;
+
+      const cardInfo = inventory[horseId];
+      const count = (typeof cardInfo === 'object' && cardInfo !== null) ? (cardInfo.count || 1) : 1;
+      if (!cardInfo || count <= 0) {
+        missingCount++;
+        return null;
+      }
+
+      if (otherDeckAssigned.has(horseId)) {
+        duplicateCount++;
+        return null;
+      }
+
+      otherDeckAssigned.add(horseId);
+      return horseId;
+    });
+
+    while (cleanedIds.length < 18) cleanedIds.push(null);
+
+    globalUserData.decks[activeDeckIdx].horse_ids = cleanedIds.slice(0, 18);
+    selectedSlotIndex = null;
+    syncSave();
+    renderAll();
+
+    let msg = `スロット #${slotIdx + 1} のデッキをロードしました！`;
+    if (missingCount > 0 || duplicateCount > 0) {
+      msg += `\n\n【自動調整のご案内】\n`;
+      if (missingCount > 0) msg += `- 所持していない馬 ${missingCount}頭 を外しました。\n`;
+      if (duplicateCount > 0) msg += `- もう片方のデッキと重複している馬 ${duplicateCount}頭 を外しました。`;
+    }
+    alert(msg);
+  }
+
+  function renderDeck() {
+    const grid = document.getElementById('slotsGrid');
+    grid.innerHTML = '';
+    const currentSlots = globalUserData.decks[activeDeckIdx].horse_ids;
+    let filledCount = 0;
+
+    currentSlots.forEach((horseId, idx) => {
+      const isSelected = (selectedSlotIndex === idx);
+      const horse = HORSES_MASTER[horseId];
+      const div = document.createElement('div');
+      
+      if (horse) {
+        filledCount++;
+        let surfaceText = "-";
+        if (horse.turf !== null && horse.dirt !== null) surfaceText = "芝/ダ";
+        else if (horse.turf !== null) surfaceText = "芝";
+        else if (horse.dirt !== null) surfaceText = "ダ";
+
+        div.className = `slot-card filled ${isSelected ? 'selected' : ''}`;
+        div.innerHTML = `
+          <div class="card-name-slot">${horse.name}</div>
+          <div class="card-details-slot">
+            <span>適性: ${surfaceText} / ${horse.distance || '-'}m</span>
+            <span>P:${horse.potential} | 脚質:${horse.style || '-'}</span>
+          </div>
+        `;
+        div.onclick = () => removeCardFromSlot(idx);
+      } else {
+        div.className = `slot-card ${isSelected ? 'selected' : ''}`;
+        div.innerHTML = `<div class="empty-text">${isSelected ? '【選択中】' : '＋ 空き枠'}</div>`;
+        div.onclick = () => selectSlot(idx);
+      }
+      grid.appendChild(div);
+    });
+
+    document.getElementById('countDisplay').innerText = filledCount;
+  }
+
+  function selectSlot(idx) {
+    selectedSlotIndex = idx;
+    renderDeck();
+  }
+
+  function removeCardFromSlot(idx) {
+    globalUserData.decks[activeDeckIdx].horse_ids[idx] = null;
+    selectedSlotIndex = idx;
+    syncSave();
+    renderDeck();
+    renderPool();
+  }
+
+  function getKanaRowGroup(name) {
+    if (!name) return "";
+    const firstChar = name.charAt(0);
+
+    // カタカナ行判定（濁音・半濁音含む）
+    const groups = {
+      "ア": ["ア","イ","ウ","エ","オ", "ァ","ィ","ゥ","ェ","ォ"],
+      "カ": ["カ","キ","ク","ケ","コ","ガ","ギ","グ","ゲ","ゴ"],
+      "サ": ["サ","シ","ス","セ","ソ","ザ","ジ","ズ","ゼ","ゾ"],
+      "タ": ["タ","チ","ツ","テ","ト","ダ","ヂ","ヅ","デ","ド","ッ"],
+      "ナ": ["ナ","ニ","ヌ","ネ","ノ"],
+      "ハ": ["ハ","ヒ","フ","ヘ","ホ","バ","ビ","ブ","ベ","ボ","パ","ピ","プ","ペ","ポ"],
+      "マ": ["マ","ミ","ム","メ","モ"],
+      "ヤ": ["ヤ","ユ","ヨ", "ャ","ュ","ョ"],
+      "ラ": ["ラ","リ","ル","レ","ロ"],
+      "ワ": ["ワ","ヲ","ン"]
+    };
+
+    for (const [groupKey, chars] of Object.entries(groups)) {
+      if (chars.includes(firstChar)) return groupKey;
+    }
+
+    // アルファベット判定
+    if (/^[A-Za-z]/.test(firstChar)) {
+      return "AZ";
+    }
+
+    return "その他";
+  }
+
+  function renderPool() {
+    const grid = document.getElementById('poolGrid');
+    grid.innerHTML = '';
+
+    const searchText = document.getElementById('searchInput').value.toLowerCase();
+    const surfaceVal = document.getElementById('surfaceFilter').value;
+    const distanceVal = document.getElementById('distanceFilter').value;
+    const sortKey = document.getElementById('sortKey').value;
+    const sortOrder = document.getElementById('sortOrder').value;
+
+    const inventory = globalUserData.cards || {};
+
+    const allAssignedHorses = new Set();
+    if (globalUserData.decks && Array.isArray(globalUserData.decks)) {
+      globalUserData.decks.forEach(deck => {
+        if (deck.horse_ids) {
+          deck.horse_ids.forEach(id => {
+            if (id) allAssignedHorses.add(id);
+          });
+        }
+      });
+    }
+
+    let poolList = [];
+
+    for (const horseId in inventory) {
+      const cardInfo = inventory[horseId];
+      const count = (typeof cardInfo === 'object' && cardInfo !== null) ? (cardInfo.count || 1) : 1;
+      const horse = HORSES_MASTER[horseId];
+
+      if (count > 0 && horse && !allAssignedHorses.has(horseId)) {
+        if (searchText && !horse.name.toLowerCase().includes(searchText)) continue;
+        
+        if (surfaceVal === 'turf' && horse.turf === null) continue;
+        if (surfaceVal === 'dirt' && horse.dirt === null) continue;
+        if (surfaceVal === 'both' && (horse.turf === null || horse.dirt === null)) continue;
+
+        if (distanceVal !== 'ALL') {
+          const targetDist = parseInt(distanceVal, 10);
+          const [minD, maxD] = (horse.distance || "").split("-").map(v => parseInt(v, 10));
+          if (!isNaN(minD) && !isNaN(maxD)) {
+            if (targetDist < minD || targetDist > maxD) continue;
+          }
+        }
+
+        // 行フィルターの適用
+        if (selectedKana !== 'ALL') {
+          const rowGroup = getKanaRowGroup(horse.name);
+          if (rowGroup !== selectedKana) continue;
+        }
+
+        poolList.push({ horse, count });
+      }
+    }
+
+    poolList.sort((a, b) => {
+      let valA, valB;
+      if (sortKey === 'kana') {
+        valA = a.horse.name;
+        valB = b.horse.name;
+        const res = valA.localeCompare(valB, 'ja');
+        return sortOrder === 'asc' ? res : -res;
+      } else if (sortKey === 'potential') {
+        valA = a.horse.potential || 0;
+        valB = b.horse.potential || 0;
+      } else if (sortKey === 'rarity') {
+        valA = RARITY_WEIGHT[a.horse.rarity] || 0;
+        valB = RARITY_WEIGHT[b.horse.rarity] || 0;
+      }
+      return sortOrder === 'asc' ? valA - valB : valB - valA;
+    });
+
+    poolList.forEach(({ horse }) => {
+      let surfaceText = "-";
+      if (horse.turf !== null && horse.dirt !== null) surfaceText = "芝/ダ";
+      else if (horse.turf !== null) surfaceText = "芝";
+      else if (horse.dirt !== null) surfaceText = "ダ";
+
+      const div = document.createElement('div');
+      div.className = 'pool-card';
+      div.innerHTML = `
+        <div class="card-header">
+          <span class="card-name-pool">${horse.name}</span>
+          <span class="badge-rarity">${horse.rarity}</span>
+        </div>
+        <div class="card-details-pool">
+          <span>適性: ${surfaceText} / ${horse.distance || '-'}m</span>
+          <span>ポテンシャル: <b>${horse.potential}</b> | 脚質: ${horse.style || '-'}</span>
+          <div class="ability-text">能力: ${horse.ability || 'なし'}</div>
+        </div>
+        <div class="param-row">
+          <span>スピ:${getParamRank(horse.speed)}</span>
+          <span>スタ:${getParamRank(horse.stamina)}</span>
+          <span>瞬発:${getParamRank(horse.sharp)}</span>
+          <span>持続:${getParamRank(horse.jizoku)}</span>
+          <span>根性:${getParamRank(horse.guts)}</span>
+        </div>
+      `;
+      div.onclick = () => addCardToDeck(horse.horse_id);
+      grid.appendChild(div);
+    });
+
+    if (poolList.length === 0) {
+      grid.innerHTML = '<div style="grid-column: span 2; text-align: center; color: #666; font-size: 12px; padding: 20px;">条件に合う未編成カードがありません</div>';
+    }
+  }
+
+  function addCardToDeck(horseId) {
+    const currentSlots = globalUserData.decks[activeDeckIdx].horse_ids;
+
+    if (selectedSlotIndex !== null) {
+      currentSlots[selectedSlotIndex] = horseId;
+      selectedSlotIndex = null;
+    } else {
+      const emptyIdx = currentSlots.findIndex(s => s === null);
+      if (emptyIdx !== -1) {
+        currentSlots[emptyIdx] = horseId;
+      } else {
+        alert("18スロット満杯です。");
+        return;
+      }
+    }
+
+    syncSave();
+    renderDeck();
+    renderPool();
+  }
+
+  document.getElementById('tabA').addEventListener('click', () => switchDeck(0));
+  document.getElementById('tabB').addEventListener('click', () => switchDeck(1));
+  document.getElementById('searchInput').addEventListener('input', renderPool);
+  document.getElementById('surfaceFilter').addEventListener('change', renderPool);
+  document.getElementById('distanceFilter').addEventListener('change', renderPool);
+  document.getElementById('sortKey').addEventListener('change', renderPool);
+  document.getElementById('sortOrder').addEventListener('change', renderPool);
+
+  document.querySelectorAll('.kana-chip').forEach(chip => {
+    chip.addEventListener('click', (e) => {
+      document.querySelectorAll('.kana-chip').forEach(c => c.classList.remove('active'));
+      e.target.classList.add('active');
+      selectedKana = e.target.getAttribute('data-kana');
+      renderPool();
+    });
+  });
+</script>
+</body>
+</html>
