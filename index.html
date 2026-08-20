@@ -584,8 +584,8 @@
 
     try {
       const userRef = doc(db, "users", currentUser.uid);
-      
-      // ユーザーデータの cards マップを更新（既存枚数を考慮）
+
+          // ユーザーデータの cards マップを更新（既存枚数を考慮）
       if (!globalUserData.cards) globalUserData.cards = {};
       const currentCardInfo = globalUserData.cards[chosenHorse.horse_id];
       const newCount = currentCardInfo ? (currentCardInfo.count || 1) + 1 : 1;
@@ -596,4 +596,80 @@
         obtainedAt: new Date().toISOString()
       };
 
-      await
+      await updateDoc(userRef, {
+        login_bonus_state: state,
+        cards: globalUserData.cards
+      });
+
+      globalUserData.login_bonus_state = state;
+      renderBonusUI(state);
+      renderRecord();
+      alert(`🎁 ログインボーナスで「${chosenHorse.name} (${chosenHorse.rarity})」を獲得しました！`);
+
+    } catch (err) {
+      console.error("ログインボーナス処理失敗:", err);
+      alert("カード獲得処理時にエラーが発生しました。");
+    }
+  }
+
+  function switchTab(idx) {
+    activeDeckIndex = idx;
+    document.getElementById('tabMain1').className = `main-tab ${idx === 0 ? 'active' : ''}`;
+    document.getElementById('tabMain2').className = `main-tab ${idx === 1 ? 'active' : ''}`;
+    renderSelectedDeck();
+  }
+
+  function renderSelectedDeck() {
+    const decks = globalUserData.decks || [
+      { deck_name: "メインデッキ 1", horse_ids: [] },
+      { deck_name: "メインデッキ 2", horse_ids: [] }
+    ];
+    const deck = decks[activeDeckIndex] || { deck_name: "未設定", horse_ids: [] };
+    document.getElementById('deckNameDisplay').textContent = `✏️ ${deck.deck_name || "メインデッキ"}`;
+    
+    const tbody = document.getElementById('raceTableBody');
+    tbody.innerHTML = '';
+    
+    if (!deck.horse_ids || deck.horse_ids.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:#888; padding:12px;">デッキが設定されていません（EDIT DECKから編成してください）</td></tr>';
+      return;
+    }
+
+    deck.horse_ids.forEach((hId, index) => {
+      if (!hId) return; // null枠はスキップまたは空行表示
+      const frameNum = Math.floor(index / 2) + 1;
+      const frameClass = `w-${Math.min(frameNum, 8)}`;
+      const horse = HORSES_MASTER[hId];
+      const tr = document.createElement('tr');
+      if (horse) {
+        const surfaceText = horse.turf && horse.dirt ? "万" : horse.turf ? "芝" : "ダ";
+        tr.innerHTML = `
+          <td><span class="${frameClass}">${frameNum}</span></td>
+          <td>${index === 0 ? '◎' : index === 1 ? '○' : index === 2 ? '▲' : ''}</td>
+          <td class="horse-name">${horse.name}</td>
+          <td>${surfaceText}</td>
+          <td>${horse.distance || '-'}m</td>
+        `;
+      } else {
+        tr.innerHTML = `
+          <td><span class="${frameClass}">${frameNum}</span></td>
+          <td>-</td>
+          <td class="horse-name" style="color:#aaa;">(未設定: ID ${hId})</td>
+          <td>-</td>
+          <td>-</td>
+        `;
+      }
+      tbody.appendChild(tr);
+    });
+
+    if (tbody.children.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:#888; padding:12px;">デッキに馬が登録されていません</td></tr>';
+    }
+  }
+
+  document.getElementById('tabMain1').addEventListener('click', () => switchTab(0));
+  document.getElementById('tabMain2').addEventListener('click', () => switchTab(1));
+</script>
+
+</body>
+</html>
