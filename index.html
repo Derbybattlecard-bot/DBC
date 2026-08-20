@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DERBY BATTLE CARD</title>
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%);
+      --card-bg: rgba(255, 255, 255, 0.88);
+      --card-inner-bg: #f2f8f3;
+      --accent-gold: #c29b1d;
+      --text-color: #1a2e1d;
+      --sub-text: #4e6b52;
+      --header-green: #0d4220;
+    }
+
+    body {
+      margin: 0;
+      padding: 10px;
+      background: var(--bg-gradient);
+      background-attachment: fixed;
+      color: var(--text-color);
+      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .header {
+      text-align: center;
+      padding: 12px 8px;
+      background: rgba(255, 255, 255, 0.95);
+      border-bottom: 3px solid var(--header-green);
+      border-radius: 8px 8px 0 0;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 22px;
+      color: var(--header-green);
+      letter-spacing: 3px;
+      font-weight: 900;
+      text-shadow: 1px 1px 0px rgba(255,255,255,0.8);
+    }
+
+    .user-profile {
+      background: #ffffff;
+      border: 1px solid #b2d4b6;
+      border-radius: 6px;
+      padding: 6px 12px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: bold;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .affiliation-mark { font-weight: bold; margin-right: 4px; }
+    .affiliation-antique { color: #28a745; }
+    .affiliation-vintage { color: #e0a800; }
+    .affiliation-traditional { color: #dc3545; }
+
+    .record-section {
+      background: var(--card-bg);
+      border: 1px solid #b2d4b6;
+      border-radius: 8px;
+      padding: 8px 12px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    .record-item { text-align: center; }
+    .record-label { font-size: 10px; color: var(--sub-text); display: block; margin-bottom: 2px; }
+    .record-value { font-size: 14px; font-weight: bold; color: var(--text-color); }
+    .record-value.highlight { color: var(--accent-gold); }
+
+    .bonus-section {
+      background: var(--card-bg);
+      border: 2px solid #82c088;
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    .bonus-title { font-size: 12px; font-weight: bold; color: var(--header-green); margin-bottom: 8px; }
+    .cards-container { display: flex; justify-content: space-between; gap: 8px; }
+    .bonus-card {
+      flex: 1;
+      background: #ffffff;
+      border: 1px solid #a8d5ac;
+      border-radius: 6px;
+      padding: 6px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+      min-height: 60px;
+      justify-content: center;
+    }
+    .bonus-card.empty {
+      background: #f0f4f0;
+      border: 1px dashed #b2d4b6;
+      color: #999;
+      font-size: 11px;
+    }
+    .bonus-card .slot-num { font-size: 18px; font-weight: bold; color: #e63956; margin: 2px 0; }
+    .bonus-card .gen-year { font-size: 10px; color: var(--sub-text); }
+    .bonus-card .rarity { font-size: 11px; font-weight: bold; color: var(--accent-gold); }
+    .bonus-card .horse-name-mini { font-size: 9px; font-weight: bold; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+    
+    .bonus-msg { 
+      margin-top: 8px; 
+      font-size: 10px; 
+      color: #8a6200; 
+      background: #fff8d6; 
+      padding: 4px; 
+      border-radius: 4px; 
+      border: 1px solid #f0e3a1; 
+    }
+    .bonus-btn-container { margin-top: 8px; }
+    .bonus-claim-btn {
+      background: linear-gradient(135deg, #d4af37, #aa820a);
+      border: none;
+      color: white;
+      padding: 6px 16px;
+      border-radius: 12px;
+      font-weight: bold;
+      font-size: 11px;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .bonus-claim-btn:active { transform: scale(0.95); }
+
+    .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .btn-link { text-decoration: none; display: block; }
+    .btn-link.full-width { grid-column: span 2; }
+    .btn {
+      width: 100%;
+      box-sizing: border-box;
+      background: linear-gradient(135deg, #2d6a37, #1b4d23);
+      border: 1px solid #143b1a;
+      color: #ffffff;
+      padding: 12px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+    }
+    .btn:active { transform: scale(0.98); background: var(--accent-gold); }
+
+    .deck-section {
+      background: var(--card-bg);
+      border-radius: 8px;
+      padding: 10px;
+      border: 1px solid #b2d4b6;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .main-deck-tabs { display: flex; gap: 8px; margin-bottom: 8px; }
+    .main-tab {
+      flex: 1;
+      background: #e2efe3;
+      border: 1px solid #a0ca33;
+      color: var(--sub-text);
+      padding: 8px 0;
+      font-size: 12px;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .main-tab.active {
+      background: linear-gradient(135deg, #1b4d23, #2d6a37);
+      color: #ffffff;
+      border-color: #143b1a;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+
+    .deck-control-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card-inner-bg);
+      padding: 6px 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      border: 1px solid #cce2d0;
+    }
+    .deck-name { font-size: 12px; font-weight: bold; color: var(--text-color); }
+    .save-load-btns { display: flex; gap: 6px; }
+    .action-btn {
+      background: #ffffff;
+      border: 1px solid #82c088;
+      color: var(--text-color);
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .action-btn:hover { background: #eaf5eb; border-color: var(--header-green); }
+
+    .race-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      text-align: center;
+      background: #ffffff;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid #c2dfc6;
+    }
+    .race-table th { background: #2d6a37; color: #ffffff; padding: 6px 2px; font-weight: bold; }
+    .race-table td { padding: 5px 2px; border-bottom: 1px solid #ebf4ec; color: #222; }
+    .race-table tr:nth-child(even) { background: #f7fbf7; }
+    .horse-name { text-align: left; font-weight: bold; padding-left: 4px !important; }
+
+    .w-1 { background: #ffffff; color: #000; font-weight: bold; border: 1px solid #ccc; border-radius: 2px; padding: 1px 4px; }
+    .w-2 { background: #222222; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
+    .w-3 { background: #e60012; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
+    .w-4 { background: #0068b7; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
+    .w-5 { background: #fff100; color: #000; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
+    .w-6 { background: #009944; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
+    .w-7 { background: #f39700; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
+    .w-8 { background: #e4007f; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>DERBY BATTLE CARD</h1>
+  </div>
+
+  <div class="user-profile" id="userProfileDisplay">
+    読み込み中...
+  </div>
+
+  <div class="record-section" id="recordSection">
+    <div class="record-item"><span class="record-label">データ取得中...</span></div>
+  </div>
+
+  <div class="bonus-section" id="loginBonusSection">
+    <div class="bonus-title">🎰 DAILY LOGIN BONUS</div>
+    <div class="cards-container" id="bonusCardsContainer">
+      <div class="bonus-card empty">1枚目 未獲得</div>
+      <div class="bonus-card empty">2枚目 未獲得</div>
+      <div class="bonus-card empty">3枚目 未獲得</div>
+    </div>
+    <div id="bonusMessageContainer"></div>
+    <div class="bonus-btn-container" id="bonusBtnContainer"></div>
+  </div>
+
+  <div class="menu-grid">
+    <a href="battle.html" class="btn-link"><button class="btn">💻 VS COMPUTER</button></a>
+    <a href="battle_online.html" class="btn-link"><button class="btn">🌐 ONLINE MATCH</button></a>
+    <a href="deck.html" class="btn-link"><button class="btn">🎴 EDIT DECK</button></a>
+    <a href="trade.html" class="btn-link"><button class="btn">🔁 TRADE BOARD</button></a>
+    <a href="collection.html" class="btn-link full-width"><button class="btn" style="background: linear-gradient(135deg, #d4af37, #aa820a);">📚 CARD COLLECTION</button></a>
+  </div>
+
+  <div class="deck-section">
+    <div class="main-deck-tabs">
+      <div class="main-tab active" id="tabMain1">🏇 MAIN DECK 1</div>
+      <div class="main-tab" id="tabMain2">🏇 MAIN DECK 2</div>
+    </div>
+
+    <div class="deck-control-bar">
+      <span class="deck-name" id="deckNameDisplay">✏️ 読み込み中...</span>
+      <div class="save-load-btns">
+        <a href="deck.html" style="text-decoration:none;"><button class="action-btn">✏️ 編集する</button></a>
+      </div>
+    </div>
+
+    <table class="race-table">
+      <thead>
+        <tr>
+          <th>枠</th>
+          <th>印</th>
+          <th style="text-align:left; padding-left:4px;">馬名</th>
+          <th>適性</th>
+          <th>距離</th>
+        </tr>
+      </thead>
+      <tbody id="raceTableBody">
+        <tr><td colspan="5">読み込み中...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { doc, getDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  let HORSES_MASTER = {};
+  let HORSES_ARRAY = [];
+  let globalUserData = null;
+  let currentUser = null;
+  let activeDeckIndex = 0;
+
+  const NORMAL_PROBABILITY_TABLE = [
+    { rarity: "INF", prob: 0.005 },
+    { rarity: "SER", prob: 0.005 },
+    { rarity: "UR",  prob: 0.010 },
+    { rarity: "LGR", prob: 0.010 },
+    { rarity: "CLR", prob: 0.010 },
+    { rarity: "TR",  prob: 0.010 },
+    { rarity: "RER", prob: 0.020 },
+    { rarity: "AR",  prob: 0.020 },
+    { rarity: "VR",  prob: 0.020 },
+    { rarity: "PR",  prob: 0.020 },
+    { rarity: "SPR", prob: 0.030 },
+    { rarity: "N",   prob: 0.840 }
+  ];
+
+  const FEVER_PROBABILITY_TABLE = [
+    { rarity: "INF", prob: 0.10 },
+    { rarity: "SER", prob: 0.10 },
+    { rarity: "UR",  prob: 0.10 },
+    { rarity: "LGR", prob: 0.10 },
+    { rarity: "CLR", prob: 0.10 },
+    { rarity: "TR",  prob: 0.10 },
+    { rarity: "RER", prob: 0.10 },
+    { rarity: "AR",  prob: 0.10 },
+    { rarity: "VR",  prob: 0.10 },
+    { rarity: "PR",  prob: 0.10 }
+  ];
+
+  function getGenerationYear(horseId) {
+    if (!horseId || horseId.length < 2) return 2000;
+    const prefix = parseInt(horseId.substring(0, 2), 10);
+    return prefix >= 60 ? 1900 + prefix : 2000 + prefix;
+  }
+
+  function getGenYearLastDigit(horseId) {
+    return getGenerationYear(horseId) % 10;
+  }
+
+  function getAffiliationDigit(affiliationStr) {
+    if (!affiliationStr) return null;
+    const match = affiliationStr.match(/\d/g);
+    if (match && match.length > 0) {
+      return parseInt(match[match.length - 1], 10);
+    }
+    return null;
+  }
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.href = 'auth.html';
+      return;
+    }
+    currentUser = user;
+
+    try {
+      const res = await fetch('./data/horses_master.json');
+      if (res.ok) {
+        HORSES_ARRAY = await res.json();
+        HORSES_ARRAY.forEach(h => {
+          HORSES_MASTER[h.horse_id] = h;
+        });
+      }
+
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) {
+        globalUserData = userDoc.data();
+      } else {
+        window.location.href = 'setup.html';
+        return;
+      }
+
+      renderUserProfile();
+      renderRecord();
+      renderSelectedDeck();
+      await checkAndRenderLoginBonus();
+
+    } catch (err) {
+      console.error("初期化エラー:", err);
+    }
+  });
+
+  function renderUserProfile() {
+    const name = globalUserData.displayName || "ゲスト";
+    const affiliation = globalUserData.affiliation || "未設定";
+
+    let colorClass = "";
+    if (affiliation.includes("アンティーク")) colorClass = "affiliation-antique";
+    else if (affiliation.includes("ビンテージ")) colorClass = "affiliation-vintage";
+    else if (affiliation.includes("トラディショナル")) colorClass = "affiliation-traditional";
+
+    document.getElementById('userProfileDisplay').innerHTML = `
+      <span class="affiliation-mark ${colorClass}">◆</span> ${name} (${affiliation})
+    `;
+  }
+
+  function renderRecord() {
+    const rec = globalUserData.record || { matches: 0, wins: 0, maxStreak: 0 };
+    const winRate = rec.matches > 0 ? ((rec.wins / rec.matches) * 100).toFixed(1) : "0.0";
+    const cards = globalUserData.cards || {};
+    const cardTypesCount = Object.keys(cards).length;
+
+    document.getElementById('recordSection').innerHTML = `
+      <div class="record-item">
+        <span class="record-label">通算成績</span>
+        <span class="record-value">${rec.matches}戦${rec.wins}勝</span>
+      </div>
+      <div class="record-item">
+        <span class="record-label">勝率</span>
+        <span class="record-value highlight">${winRate}%</span>
+      </div>
+      <div class="record-item">
+        <span class="record-label">最高連勝</span>
+        <span class="record-value">${rec.maxStreak}連勝</span>
+      </div>
+      <div class="record-item">
+        <span class="record-label">所持種類</span>
+        <span class="record-value" style="color:#0d4220;">${cardTypesCount}種</span>
+      </div>
+    `;
+  }
+
+  async function checkAndRenderLoginBonus() {
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    
+    let bonusState = globalUserData.login_bonus_state || {
+      last_date: "",
+      today_cards: [],
+      fever_qualified_next_day: false,
+      is_fever_today: false,
+      last_claim_time: null
+    };
+
+    if (bonusState.last_date !== todayStr) {
+      const isFeverForToday = bonusState.fever_qualified_next_day || false;
+      bonusState = {
+        last_date: todayStr,
+        today_cards: [],
+        fever_qualified_next_day: false,
+        is_fever_today: isFeverForToday,
+        last_claim_time: null
+      };
+      
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        login_bonus_state: bonusState
+      });
+      globalUserData.login_bonus_state = bonusState;
+    }
+
+    renderBonusUI(bonusState);
+  }
+
+  function renderBonusUI(state) {
+    const container = document.getElementById('bonusCardsContainer');
+    const msgContainer = document.getElementById('bonusMessageContainer');
+    const btnContainer = document.getElementById('bonusBtnContainer');
+
+    container.innerHTML = '';
+    msgContainer.innerHTML = '';
+    btnContainer.innerHTML = '';
+
+    const cards = state.today_cards || [];
+
+    for (let i = 0; i < 3; i++) {
+      if (i < cards.length) {
+        const item = cards[i];
+        const horse = HORSES_MASTER[item.horse_id];
+        const genYear = getGenerationYear(item.horse_id);
+        const lastDigit = getGenYearLastDigit(item.horse_id);
+        const horseName = horse ? horse.name : item.horse_id;
+
+        const cardEl = document.createElement('div');
+        cardEl.className = 'bonus-card';
+        cardEl.innerHTML = `
+          <span class="gen-year">${genYear}年</span>
+          <span class="slot-num">${lastDigit}</span>
+          <span class="rarity">${item.rarity}</span>
+          <span class="horse-name-mini">${horseName}</span>
+        `;
+        container.appendChild(cardEl);
+      } else {
+        const emptyEl = document.createElement('div');
+        emptyEl.className = 'bonus-card empty';
+        emptyEl.textContent = `${i + 1}枚目 未獲得`;
+        container.appendChild(emptyEl);
+      }
+    }
+
+    const nowMs = Date.now();
+    const lastMs = state.last_claim_time ? state.last_claim_time.toMillis() : 0;
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+    const diffMs = nowMs - lastMs;
+
+    if (cards.length < 3) {
+      if (cards.length === 0 || diffMs >= ONE_HOUR_MS) {
+        const isFever = (cards.length === 0 && state.is_fever_today);
+        const btn = document.createElement('button');
+        btn.className = 'bonus-claim-btn';
+        btn.textContent = isFever ? "🔥 確変ボーナスを受け取る！" : `🎁 ${cards.length + 1}枚目を受け取る`;
+        btn.onclick = () => claimLoginBonus();
+        btnContainer.appendChild(btn);
+
+        if (isFever) {
+          msgContainer.innerHTML = `<div class="bonus-msg">✨ 前日のスロット達成特典適用中！10種レア確定！ ✨</div>`;
+        }
+      } else {
+        const remainingMs = ONE_HOUR_MS - diffMs;
+        const minLeft = Math.ceil(remainingMs / (1000 * 60));
+        msgContainer.innerHTML = `<div class="bonus-msg">⏰ 次のボーナス獲得まで あと約${minLeft}分</div>`;
+      }
+    } else {
+      if (state.fever_qualified_next_day) {
+        msgContainer.innerHTML = `<div class="bonus-msg">✨ 7-7-7 誕生年下1桁ゾロ目達成！明日の1枚目は確変確定！ ✨</div>`;
+      } else {
+        msgContainer.innerHTML = `<div class="bonus-msg" style="background:#eaf5eb; color:#0d4220; border-color:#b2d4b6;">本日のログインボーナスはすべて獲得済みです</div>`;
+      }
+    }
+  }
+
+  async function claimLoginBonus() {
+    let state = globalUserData.login_bonus_state;
+    const cards = state.today_cards || [];
+    if (cards.length >= 3) return;
+
+    const affDigit = getAffiliationDigit(globalUserData.affiliation);
+
+    let eligibleHorses = HORSES_ARRAY.filter(h => {
+      if (affDigit === null) return true;
+      return getGenYearLastDigit(h.horse_id) !== affDigit;
+    });
+
+    const isFeverClaim = (cards.length === 0 && state.is_fever_today);
+    const table = isFeverClaim ? FEVER_PROBABILITY_TABLE : NORMAL_PROBABILITY_TABLE;
+
+    const rand = Math.random();
+    let cumulative = 0;
+    let selectedRarity = "N";
+    for (const entry of table) {
+      cumulative += entry.prob;
+      if (rand <= cumulative) {
+        selectedRarity = entry.rarity;
+        break;
+      }
+    }
+
+    let pool = eligibleHorses.filter(h => h.rarity === selectedRarity);
+    if (pool.length === 0) {
+      pool = eligibleHorses;
+    }
+    const chosenHorse = pool[Math.floor(Math.random() * pool.length)];
+
+    const newCardItem = {
+      horse_id: chosenHorse.horse_id,
+      rarity: chosenHorse.rarity,
+      timestamp: Timestamp.now()
+    };
+    
+    const updatedCards = [...cards, newCardItem];
+    state.today_cards = updatedCards;
+    state.last_claim_time = Timestamp.now();
+
+    if (updatedCards.length === 3) {
+      const d1 = getGenYearLastDigit(updatedCards[0].horse_id);
+      const d2 = getGenYearLastDigit(updatedCards[1].horse_id);
+      const d3 = getGenYearLastDigit(updatedCards[2].horse_id);
+      
+      if (d1 === d2 && d2 === d3) {
+        state.fever_qualified_next_day = true;
+      }
+    }
+
+    try {
+      const userRef = doc(db, "users", currentUser.uid);
+      
+      // ユーザーデータの cards マップを更新（既存枚数を考慮）
+      if (!globalUserData.cards) globalUserData.cards = {};
+      const currentCardInfo = globalUserData.cards[chosenHorse.horse_id];
+      const newCount = currentCardInfo ? (currentCardInfo.count || 1) + 1 : 1;
+
+      globalUserData.cards[chosenHorse.horse_id] = {
+        name: chosenHorse.name,
+        count: newCount,
+        obtainedAt: new Date().toISOString()
+      };
+
+      await
