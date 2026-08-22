@@ -52,6 +52,18 @@
     text-decoration: none;
   }
 
+  /* シリーズ戦績パネル */
+  .series-progress-bar {
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: bold;
+  }
+
   /* カウンター・制限バー */
   .status-bar {
     background: var(--panel-bg);
@@ -118,7 +130,14 @@
     border-radius: 4px;
   }
 
+  .action-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
   .btn-submit {
+    flex: 2;
     background: var(--accent-color);
     color: white;
     border: none;
@@ -129,9 +148,21 @@
     cursor: pointer;
     text-align: center;
     box-shadow: 0 4px 0 var(--accent-hover);
-    margin-top: 10px;
   }
   .btn-submit:disabled { background: #a0a0a0; box-shadow: 0 4px 0 #7a7a7a; cursor: not-allowed; }
+
+  .btn-giveup {
+    flex: 1;
+    background: #ffffff;
+    color: var(--danger-color);
+    border: 2px solid var(--danger-color);
+    padding: 15px;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 13px;
+    cursor: pointer;
+    text-align: center;
+  }
 </style>
 </head>
 <body>
@@ -141,6 +172,12 @@
     <a href="battle.html" class="btn-back">← 出走お題へ</a>
     <h2 style="margin:0; font-size: 16px; color: var(--accent-color);">出走馬エントリー</h2>
     <div id="syncStatus" style="font-size: 11px; color: var(--text-sub); font-weight: bold;">☁️ 読込中...</div>
+  </div>
+
+  <!-- シリーズ回戦・成績表示 -->
+  <div class="series-progress-bar">
+    <span id="seriesRoundDisplay">第 1 回戦 (全5回戦)</span>
+    <span id="seriesRecordDisplay" style="color: var(--accent-color);">0勝 0敗</span>
   </div>
 
   <!-- 合計ポテンシャル＆条件リアルタイム監視 -->
@@ -166,7 +203,10 @@
   <!-- 5レース分の選択リスト -->
   <div id="entryList" style="display:flex; flex-direction:column; gap:10px;"></div>
 
-  <button class="btn-submit" id="btnBattleStart" disabled onclick="startMatch()">対戦開始！</button>
+  <div class="action-group">
+    <button class="btn-giveup" onclick="giveUpSeries()">ギブアップ<br><span style="font-size:10px;">(不戦敗)</span></button>
+    <button class="btn-submit" id="btnBattleStart" disabled onclick="startMatch()">対戦開始！</button>
+  </div>
 </div>
 
 <script type="module">
@@ -182,6 +222,7 @@
   let currentSeries = null;
   let deckHorses = []; // 選択デックの18頭リスト
   let selectedEntries = [null, null, null, null, null]; // 5レース分の選択ID
+  let usedCardsHistory = [];
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = 'auth.html'; return; }
@@ -202,6 +243,7 @@
         list.forEach(h => HORSES_MASTER[h.horse_id] = h);
       }
 
+      usedCardsHistory = JSON.parse(sessionStorage.getItem('used_cards_history') || '[]');
       initMatchup();
       document.getElementById('syncStatus').textContent = "✅";
     } catch (e) {
@@ -215,6 +257,14 @@
 
     currentSeries = SERIES_MASTER.find(s => s.series_id === seriesId) || SERIES_MASTER[0];
     
+    // 成績・回戦表示更新
+    const currentRound = parseInt(sessionStorage.getItem('current_series_num') || '1', 10);
+    const wins = parseInt(sessionStorage.getItem('series_wins') || '0', 10);
+    const losses = parseInt(sessionStorage.getItem('series_losses') || '0', 10);
+    
+    document.getElementById('seriesRoundDisplay').textContent = `第 ${currentRound} 回戦 (全5回戦)`;
+    document.getElementById('seriesRecordDisplay').textContent = `${wins}勝 ${losses}敗`;
+
     // 性別制限表示の更新
     const sexLimit = currentSeries.sex || "制限なし";
     document.getElementById('sexLimitDisplay').textContent = sexLimit;
@@ -227,7 +277,6 @@
     updateStatus();
   }
 
-  // 馬の性別がシリーズ条件に適合するか判定
   function isValidSex(horseSex, seriesSex) {
     if (!seriesSex || seriesSex === "制限なし") return true;
     if (seriesSex === "牝馬限定") return horseSex === "牝";
@@ -265,7 +314,6 @@
     populateDropdowns();
   }
 
-  // ドロップダウンの選択肢を更新（重複選択および性別制限の適用）
   function populateDropdowns() {
     const races = currentSeries.rounds[0].races;
     const seriesSexLimit = currentSeries.sex || "制限なし";
@@ -277,15 +325,23 @@
       select.innerHTML = '<option value="">-- 出走馬を選択してください --</option>';
 
       deckHorses.forEach(horse => {
-        const horseSex = horse.sex || "牡"; // デフォルト「牡」
+        const horseSex = horse.sex || "牡";
         const isChosenElsewhere = selectedEntries.some((id, idx) => idx !== rIdx && id === horse.horse_id);
+        const isUsedPrevious = usedCardsHistory.includes(horse.horse_id) || usedCardsHistory.includes(horse.name);
         const matchesSexLimit = isValidSex(horseSex, seriesSexLimit);
 
-        // 性別制限に一致し、他レースで未選択の馬を表示
+        // 使用済みカードの判定と選択不可処理
         if (!isChosenElsewhere && matchesSexLimit) {
           const opt = document.createElement('option');
           opt.value = horse.horse_id;
-          opt.textContent = `[${horseSex}] ${horse.name} (Pt: ${horse.potential || horse.pt || '-'})`;
+          
+          if (isUsedPrevious) {
+            opt.textContent = `[使用済] ${horse.name}`;
+            opt.disabled = true;
+          } else {
+            opt.textContent = `[${horseSex}] ${horse.name} (Pt: ${horse.potential || horse.pt || '-'})`;
+          }
+          
           if (horse.horse_id === currentVal) opt.selected = true;
           select.appendChild(opt);
         }
@@ -296,7 +352,6 @@
   window.onHorseSelected = function(raceIdx, horseId) {
     selectedEntries[raceIdx] = horseId || null;
     
-    // プレビューの更新
     const preview = document.getElementById(`previewRace${raceIdx}`);
     if (horseId && HORSES_MASTER[horseId]) {
       const horse = HORSES_MASTER[horseId];
@@ -380,6 +435,30 @@
       startBtn.disabled = true;
     }
   }
+
+  // ギブアップ処理（不戦敗）
+  window.giveUpSeries = function() {
+    if (!confirm("このシリーズをギブアップ（不戦敗）しますか？")) return;
+
+    let losses = parseInt(sessionStorage.getItem('series_losses') || '0', 10) + 1;
+    let currentRound = parseInt(sessionStorage.getItem('current_series_num') || '1', 10);
+
+    sessionStorage.setItem('series_losses', losses);
+
+    if (losses >= 3) {
+      alert("3敗に達したため、シリーズ挑戦失敗（敗退）となります。");
+      sessionStorage.removeItem('active_series_id');
+      sessionStorage.removeItem('used_cards_history');
+      sessionStorage.removeItem('current_series_num');
+      sessionStorage.removeItem('series_wins');
+      sessionStorage.removeItem('series_losses');
+      window.location.href = 'battle.html';
+    } else {
+      alert(`ギブアップしました。(現在 ${losses}敗)\n次の回戦へ進みます。`);
+      sessionStorage.setItem('current_series_num', currentRound + 1);
+      window.location.href = 'battle.html';
+    }
+  };
 
   window.startMatch = function() {
     sessionStorage.setItem('player_entry_ids', JSON.stringify(selectedEntries));
