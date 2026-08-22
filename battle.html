@@ -149,22 +149,34 @@
     width: 100%;
     border-collapse: collapse;
     font-size: 11px;
-    text-align: left;
+    text-align: center;
   }
   .deck-table th {
-    background-color: #eaf4eb;
-    color: var(--accent-color);
-    padding: 6px 8px;
+    background-color: #2d6a37;
+    color: #ffffff;
+    padding: 6px 4px;
     position: sticky;
     top: 0;
-    border-bottom: 1px solid var(--border-color);
+    font-weight: bold;
   }
   .deck-table td {
-    padding: 6px 8px;
-    border-bottom: 1px solid #f0f0f0;
+    padding: 5px 4px;
+    border-bottom: 1px solid #ebf4ec;
+    color: #222;
   }
-  .deck-table tr:nth-child(even) { background-color: #fafafa; }
-  .horse-sex { color: #2b547e; font-weight: bold; margin-left: 2px; }
+  .deck-table tr:nth-child(even) { background-color: #f7fbf7; }
+  .horse-name-cell { text-align: left; font-weight: bold; padding-left: 6px !important; }
+  .horse-sex { color: #2b547e; font-weight: bold; font-size: 10px; margin-left: 3px; }
+
+  /* 枠番バッジスタイル */
+  .w-1 { background: #ffffff; color: #000; font-weight: bold; border: 1px solid #ccc; border-radius: 2px; padding: 1px 5px; }
+  .w-2 { background: #222222; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 5px; }
+  .w-3 { background: #e60012; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 5px; }
+  .w-4 { background: #0068b7; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 5px; }
+  .w-5 { background: #fff100; color: #000; font-weight: bold; border-radius: 2px; padding: 1px 5px; }
+  .w-6 { background: #009944; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 5px; }
+  .w-7 { background: #f39700; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 5px; }
+  .w-8 { background: #e4007f; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 5px; }
 
   .btn-start {
     background: var(--accent-color);
@@ -197,7 +209,7 @@
     <div class="challenge-label">＼ 今回の対戦シリーズはこちら！ ／</div>
     <div class="series-title" id="seriesTitle"></div>
 
-    <!-- ポテンシャル制限・出走条件 -->
+    <!-- ポテンシャル制限表示 -->
     <div class="limit-info-box">
       <span>ポテンシャル制限合計: <strong style="color:#c67100;" id="maxTotalPotentialVal">95</strong></span>
       <span>｜</span>
@@ -221,16 +233,16 @@
       </div>
     </div>
 
-    <!-- デックの中身 (出走表スタイル) -->
+    <!-- デックの中身 (ステータス画面風・出走表スタイル) -->
     <div class="deck-table-container">
       <table class="deck-table">
         <thead>
           <tr>
-            <th style="width: 30px;">#</th>
-            <th>馬名</th>
+            <th style="width: 28px;">枠</th>
+            <th style="text-align:left; padding-left:6px;">馬名</th>
             <th style="width: 35px;">Pt</th>
-            <th style="width: 65px;">馬場適性</th>
-            <th style="width: 80px;">距離適性</th>
+            <th style="width: 45px;">適性</th>
+            <th style="width: 65px;">距離</th>
           </tr>
         </thead>
         <tbody id="deckHorseList">
@@ -251,11 +263,10 @@
   let currentUser = null;
   let globalUserData = null;
   let SERIES_MASTER = [];
-  let HORSE_MASTER = {};
+  let HORSES_MASTER = {};
   let selectedSeries = null;
   let selectedDeckIndex = 0;
 
-  // 初期データ
   const DEFAULT_SERIES = [
     {
       "series_id": "SERIES_001",
@@ -283,14 +294,15 @@
       try {
         const [resSeries, resHorses] = await Promise.all([
           fetch('./data/series_master.json'),
-          fetch('./data/horse_master.json')
+          fetch('./data/horses_master.json') // index.htmlに合わせて horses_master.json を参照
         ]);
+        
         if (resSeries.ok) SERIES_MASTER = await resSeries.json();
         else SERIES_MASTER = DEFAULT_SERIES;
 
         if (resHorses.ok) {
           const list = await resHorses.json();
-          list.forEach(h => HORSE_MASTER[h.horse_id] = h);
+          list.forEach(h => HORSES_MASTER[h.horse_id] = h);
         }
       } catch (e) {
         SERIES_MASTER = DEFAULT_SERIES;
@@ -329,12 +341,12 @@
     }).join('');
     document.getElementById('challengePanel').style.display = 'block';
 
-    // デック名と頭数
+    // デック名と頭数の反映
     const decks = globalUserData.decks || [];
     [0, 1].forEach(idx => {
-      const deck = decks[idx] || { deck_name: `デッキ ${idx + 1}`, horse_ids: [] };
-      const validCount = (deck.horse_ids || []).filter(id => id !== null).length;
-      document.getElementById(`deckName${idx}`).textContent = deck.deck_name || `デッキ ${idx + 1}`;
+      const deck = decks[idx] || { deck_name: `メインデッキ ${idx + 1}`, horse_ids: [] };
+      const validCount = (deck.horse_ids || []).filter(id => id !== null && id !== undefined).length;
+      document.getElementById(`deckName${idx}`).textContent = deck.deck_name || `メインデッキ ${idx + 1}`;
       document.getElementById(`deckCount${idx}`).textContent = validCount;
     });
     
@@ -354,7 +366,7 @@
     validateStartButton();
   };
 
-  // 18頭の出走表を描画
+  // 18頭の出走表を描画（index.htmlのフォーマットおよび性別の仮設定を統合）
   function renderDeckTable() {
     const tbody = document.getElementById('deckHorseList');
     tbody.innerHTML = '';
@@ -364,29 +376,43 @@
     const horseIds = currentDeck.horse_ids || [];
 
     for (let i = 0; i < 18; i++) {
+      const frameNum = Math.floor(i / 2) + 1;
+      const frameClass = `w-${Math.min(frameNum, 8)}`;
       const horseId = horseIds[i];
-      const horse = HORSE_MASTER[horseId];
+      const horse = HORSES_MASTER[horseId];
 
       const tr = document.createElement('tr');
       if (horse) {
-        // 仮で全馬「牡」表記
+        // 仮で全馬「牡」表記（マスターに指定があればそれを優先）
         const sex = horse.sex || "牡";
-        const turfApt = horse.aptitude?.turf || "-";
-        const dirtApt = horse.aptitude?.dirt || "-";
-        const minDist = horse.aptitude?.min_distance || "-";
-        const maxDist = horse.aptitude?.max_distance || "-";
+        
+        // 芝ダ適性表示（両方可なら「万」、それ以外は「芝」「ダ」）
+        const surfaceText = (horse.aptitude?.turf === "A" && horse.aptitude?.dirt === "A") || (horse.turf && horse.dirt) 
+          ? "万" 
+          : (horse.aptitude?.turf === "A" || horse.turf ? "芝" : "ダ");
+
+        // 距離適性表示
+        const distText = horse.distance 
+          ? `${horse.distance}m` 
+          : (horse.aptitude ? `${horse.aptitude.min_distance}~${horse.aptitude.max_distance}m` : '-');
+
+        // ポテンシャル数値（マスターにある想定、なければハイフン）
+        const pt = horse.potential || horse.pt || "-";
 
         tr.innerHTML = `
-          <td>${i + 1}</td>
-          <td><strong>${horse.name}</strong><span class="horse-sex">${sex}</span></td>
-          <td><strong>${horse.potential || "-"}</strong></td>
-          <td>芝${turfApt} / ダ${dirtApt}</td>
-          <td>${minDist}～${maxDist}m</td>
+          <td><span class="${frameClass}">${frameNum}</span></td>
+          <td class="horse-name-cell">${horse.name}<span class="horse-sex">${sex}</span></td>
+          <td><strong>${pt}</strong></td>
+          <td>${surfaceText}</td>
+          <td>${distText}</td>
         `;
       } else {
         tr.innerHTML = `
-          <td>${i + 1}</td>
-          <td colspan="4" style="color: #a0a0a0; text-align: center;">-- 未編成 --</td>
+          <td><span class="${frameClass}">${frameNum}</span></td>
+          <td class="horse-name-cell" style="color:#aaa;">(未設定: ID ${horseId || '-'})</td>
+          <td>-</td>
+          <td>-</td>
+          <td>-</td>
         `;
       }
       tbody.appendChild(tr);
@@ -395,7 +421,7 @@
 
   function validateStartButton() {
     const currentDeck = globalUserData.decks ? globalUserData.decks[selectedDeckIndex] : null;
-    const validCount = currentDeck ? (currentDeck.horse_ids || []).filter(id => id !== null).length : 0;
+    const validCount = currentDeck ? (currentDeck.horse_ids || []).filter(id => id !== null && id !== undefined).length : 0;
     const btn = document.getElementById('btnStart');
     
     if (validCount === 18) {
