@@ -277,10 +277,31 @@
     updateStatus();
   }
 
+  // 性別適合判定
   function isValidSex(horseSex, seriesSex) {
     if (!seriesSex || seriesSex === "制限なし") return true;
     if (seriesSex === "牝馬限定") return horseSex === "牝";
     if (seriesSex === "牡牝限定") return horseSex === "牡" || horseSex === "牝";
+    return true;
+  }
+
+  // ★ 距離適性適合判定（新規追加）
+  function isValidDistance(horse, raceDistance) {
+    if (!horse) return false;
+    
+    // 1. 単一距離指定の場合 (例: horse.distance = 1600)
+    if (horse.distance) {
+      return parseInt(horse.distance, 10) === parseInt(raceDistance, 10);
+    }
+    
+    // 2. 範囲指定の場合 (例: aptitude: { min_distance: 1200, max_distance: 1600 })
+    if (horse.aptitude && horse.aptitude.min_distance && horse.aptitude.max_distance) {
+      const min = parseInt(horse.aptitude.min_distance, 10);
+      const max = parseInt(horse.aptitude.max_distance, 10);
+      const target = parseInt(raceDistance, 10);
+      return target >= min && target <= max;
+    }
+
     return true;
   }
 
@@ -318,7 +339,7 @@
     const races = currentSeries.rounds[0].races;
     const seriesSexLimit = currentSeries.sex || "制限なし";
 
-    races.forEach((_, rIdx) => {
+    races.forEach((race, rIdx) => {
       const select = document.getElementById(`selectRace${rIdx}`);
       const currentVal = selectedEntries[rIdx];
 
@@ -329,14 +350,21 @@
         const isChosenElsewhere = selectedEntries.some((id, idx) => idx !== rIdx && id === horse.horse_id);
         const isUsedPrevious = usedCardsHistory.includes(horse.horse_id) || usedCardsHistory.includes(horse.name);
         const matchesSexLimit = isValidSex(horseSex, seriesSexLimit);
+        
+        // ★ 距離適性の判定
+        const matchesDist = isValidDistance(horse, race.distance);
 
-        // 使用済みカードの判定と選択不可処理
         if (!isChosenElsewhere && matchesSexLimit) {
           const opt = document.createElement('option');
           opt.value = horse.horse_id;
           
           if (isUsedPrevious) {
             opt.textContent = `[使用済] ${horse.name}`;
+            opt.disabled = true;
+          } else if (!matchesDist) {
+            // ★ 距離適性外の馬は無効化 (disabled)
+            const distLabel = horse.distance ? `${horse.distance}m` : (horse.aptitude ? `${horse.aptitude.min_distance}~${horse.aptitude.max_distance}m` : '');
+            opt.textContent = `[適性外: ${distLabel}] ${horse.name}`;
             opt.disabled = true;
           } else {
             opt.textContent = `[${horseSex}] ${horse.name} (Pt: ${horse.potential || horse.pt || '-'})`;
@@ -373,6 +401,7 @@
   };
 
   function updateStatus() {
+    const races = currentSeries.rounds[0].races;
     const limits = currentSeries.potential_limit || { min_potential_per_race: 15, max_total_potential: 95 };
     const seriesSexLimit = currentSeries.sex || "制限なし";
     
@@ -380,11 +409,13 @@
     let count = 0;
     let hasMinPtError = false;
     let hasSexError = false;
+    let hasDistError = false;
 
-    selectedEntries.forEach(id => {
+    selectedEntries.forEach((id, rIdx) => {
       if (id && HORSES_MASTER[id]) {
         count++;
         const horse = HORSES_MASTER[id];
+        const race = races[rIdx];
         const pt = parseInt(horse.potential || horse.pt || 0, 10);
         totalPt += pt;
 
@@ -395,6 +426,11 @@
         const horseSex = horse.sex || "牡";
         if (!isValidSex(horseSex, seriesSexLimit)) {
           hasSexError = true;
+        }
+
+        // ★ 距離不適合チェック
+        if (!isValidDistance(horse, race.distance)) {
+          hasDistError = true;
         }
       }
     });
@@ -421,6 +457,10 @@
       startBtn.disabled = true;
     } else if (hasSexError) {
       limitEl.textContent = '性別条件違反';
+      limitEl.className = 'status-val error';
+      startBtn.disabled = true;
+    } else if (hasDistError) {
+      limitEl.textContent = '距離適性違反';
       limitEl.className = 'status-val error';
       startBtn.disabled = true;
     } else if (isAllSelected) {
