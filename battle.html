@@ -357,6 +357,117 @@
     renderDeckTable();
     validateStartButton();
   }
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  let currentUser = null;
+  let globalUserData = null;
+  let SERIES_MASTER = [];
+  let HORSES_MASTER = {};
+  let selectedSeries = null;
+  let selectedDeckIndex = 0;
+
+  const DEFAULT_SERIES = [
+    {
+      "series_id": "SERIES_001",
+      "series_name": "新春短距離シリーズ",
+      "potential_limit": { "min_potential_per_race": 15, "max_total_potential": 95 },
+      "rounds": [{ "races": [
+        { "race_num": 1, "race_name": "京都金杯", "track": "京都", "surface": "芝", "distance": 1600 },
+        { "race_num": 2, "race_name": "根岸ステークス", "track": "東京", "surface": "ダート", "distance": 1400 },
+        { "race_num": 3, "race_name": "阪急杯", "track": "阪神", "surface": "芝", "distance": 1400 },
+        { "race_num": 4, "race_name": "フェブラリーS", "track": "東京", "surface": "ダート", "distance": 1600 },
+        { "race_num": 5, "race_name": "高松宮記念", "track": "中京", "surface": "芝", "distance": 1200 }
+      ]}]
+    }
+  ];
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { window.location.href = 'auth.html'; return; }
+    currentUser = user;
+    
+    try {
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) { globalUserData = userDoc.data(); }
+
+      try {
+        const [resSeries, resHorses] = await Promise.all([
+          fetch('./data/series_master.json'),
+          fetch('./data/horses_master.json')
+        ]);
+        
+        if (resSeries.ok) SERIES_MASTER = await resSeries.json();
+        else SERIES_MASTER = DEFAULT_SERIES;
+
+        if (resHorses.ok) {
+          const list = await resHorses.json();
+          list.forEach(h => HORSES_MASTER[h.horse_id] = h);
+        }
+      } catch (e) {
+        SERIES_MASTER = DEFAULT_SERIES;
+      }
+
+      document.getElementById('syncStatus').textContent = "✅";
+      initBattle();
+    } catch (err) {
+      document.getElementById('syncStatus').textContent = "❌ エラー";
+    }
+  });
+
+  function initBattle() {
+    // シリーズテーマの固定保持（無ければランダム抽選して固定保存）
+    let activeSeriesId = sessionStorage.getItem('active_series_id');
+    if (activeSeriesId) {
+      selectedSeries = SERIES_MASTER.find(s => s.series_id === activeSeriesId) || SERIES_MASTER[0];
+    } else {
+      const randomIndex = Math.floor(Math.random() * SERIES_MASTER.length);
+      selectedSeries = SERIES_MASTER[randomIndex];
+      sessionStorage.setItem('active_series_id', selectedSeries.series_id);
+    }
+
+    // 回戦・戦績表示
+    const currentRound = parseInt(sessionStorage.getItem('current_series_num') || '1', 10);
+    const wins = parseInt(sessionStorage.getItem('series_wins') || '0', 10);
+    const losses = parseInt(sessionStorage.getItem('series_losses') || '0', 10);
+
+    document.getElementById('seriesTitle').textContent = `【第${currentRound}回戦】${selectedSeries.series_name} (累計: ${wins}勝${losses}敗)`;
+    
+    const limits = selectedSeries.potential_limit || { min_potential_per_race: 15, max_total_potential: 95 };
+    document.getElementById('minPotentialVal').textContent = `${limits.min_potential_per_race}以上`;
+    document.getElementById('maxTotalPotentialVal').textContent = limits.max_total_potential;
+
+    const races = selectedSeries.rounds[0].races;
+    document.getElementById('raceList').innerHTML = races.map(r => {
+      const surfaceClass = r.surface === '芝' ? 'surface-turf' : 'surface-dirt';
+      return `
+        <div class="race-item">
+          <span class="race-num">第${r.race_num}戦</span>
+          <span class="race-name">${r.race_name}</span>
+          <span class="race-cond">
+            <span class="surface-badge ${surfaceClass}">${r.surface}</span>
+            ${r.track} ${r.distance}m
+          </span>
+        </div>
+      `;
+    }).join('');
+    document.getElementById('challengePanel').style.display = 'block';
+
+    const decks = globalUserData.decks || [];
+    [0, 1].forEach(idx => {
+      const deck = decks[idx] || { deck_name: `メインデッキ ${idx + 1}`, horse_ids: [] };
+      const validCount = (deck.horse_ids || []).filter(id => id !== null && id !== undefined).length;
+      document.getElementById(`deckName${idx}`).textContent = deck.deck_name || `メインデッキ ${idx + 1}`;
+      document.getElementById(`deckCount${idx}`).textContent = validCount;
+    });
+    
+    document.getElementById('deckPanel').style.display = 'flex';
+    document.getElementById('btnStart').style.display = 'block';
+    
+    renderDeckTable();
+    validateStartButton();
+  }
 
   window.selectDeck = function(idx) {
     selectedDeckIndex = idx;
@@ -364,16 +475,13 @@
     document.getElementById('deckCard1').classList.toggle('selected', idx === 1);
     renderDeckTable();
     validateStartButton();
-  };　
-  
-  // 18頭の出走表を描画（使用済みカード判定を追加）
+  };
+
   function renderDeckTable() {
     const tbody = document.getElementById('deckHorseList');
     tbody.innerHTML = '';
 
-    // 使用済みカードID／馬名リストを取得
     const usedCards = JSON.parse(sessionStorage.getItem('used_cards_history') || '[]');
-
     const decks = globalUserData.decks || [];
     const currentDeck = decks[selectedDeckIndex] || { horse_ids: [] };
     const horseIds = currentDeck.horse_ids || [];
@@ -387,7 +495,6 @@
       const tr = document.createElement('tr');
 
       if (horse) {
-        // 使用済みかどうかの判定
         const isUsed = usedCards.includes(horseId) || usedCards.includes(horse.name) || usedCards.includes(horse.id);
 
         if (isUsed) {
@@ -396,17 +503,10 @@
         }
 
         const sex = horse.sex || "牡";
-        const surfaceText = (horse.aptitude?.turf === "A" && horse.aptitude?.dirt === "A") || (horse.turf && horse.dirt) 
-          ? "万" 
-          : (horse.aptitude?.turf === "A" || horse.turf ? "芝" : "ダ");
-
-        const distText = horse.distance 
-          ? `${horse.distance}m` 
-          : (horse.aptitude ? `${horse.aptitude.min_distance}~${horse.aptitude.max_distance}m` : '-');
-
+        const surfaceText = (horse.aptitude?.turf === "A" && horse.aptitude?.dirt === "A") || (horse.turf && horse.dirt) ? "万" : (horse.aptitude?.turf === "A" || horse.turf ? "芝" : "ダ");
+        const distText = horse.distance ? `${horse.distance}m` : (horse.aptitude ? `${horse.aptitude.min_distance}~${horse.aptitude.max_distance}m` : '-');
         const pt = horse.potential || horse.pt || "-";
         
-        // 使用済みの場合はラベルを付与
         const usedBadge = isUsed ? `<span style="background:#d9534f; color:#fff; font-size:9px; padding:1px 3px; border-radius:2px; margin-left:4px;">使用済</span>` : '';
 
         tr.innerHTML = `
@@ -429,19 +529,28 @@
     }
   }
 
-  
-
   function validateStartButton() {
     const currentDeck = globalUserData.decks ? globalUserData.decks[selectedDeckIndex] : null;
-    const validCount = currentDeck ? (currentDeck.horse_ids || []).filter(id => id !== null && id !== undefined).length : 0;
+    const horseIds = currentDeck ? (currentDeck.horse_ids || []).filter(id => id !== null && id !== undefined) : [];
+    const usedCards = JSON.parse(sessionStorage.getItem('used_cards_history') || '[]');
+
+    const availableHorses = horseIds.filter(id => {
+      const horse = HORSES_MASTER[id];
+      const hName = horse ? horse.name : "";
+      return !usedCards.includes(id) && !usedCards.includes(hName);
+    });
+
     const btn = document.getElementById('btnStart');
     
-    if (validCount === 18) {
-      btn.disabled = false;
-      btn.textContent = "出走登録へ進む";
-    } else {
+    if (horseIds.length !== 18) {
       btn.disabled = true;
       btn.textContent = "デックが18頭編成されていません";
+    } else if (availableHorses.length < 5) {
+      btn.disabled = true;
+      btn.textContent = `出走可能な馬が足りません (残: ${availableHorses.length}頭)`;
+    } else {
+      btn.disabled = false;
+      btn.textContent = "出走登録へ進む";
     }
   }
 
@@ -451,5 +560,6 @@
     window.location.href = 'matchup.html';
   };
 </script>
+
 </body>
 </html>
