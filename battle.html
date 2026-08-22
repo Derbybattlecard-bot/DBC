@@ -15,6 +15,9 @@
     --border-color: #b2d4b6;
     --turf-color: #4CAF50;
     --dirt-color: #8D6E63;
+    --limit-bg: #fff8e1;
+    --limit-border: #ffe082;
+    --limit-text: #8d6e63;
   }
   body {
     font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
@@ -56,13 +59,29 @@
     background-color: var(--panel-bg);
     border: 2px solid var(--accent-color);
     border-radius: 8px;
-    padding: 20px;
+    padding: 15px 20px;
     text-align: center;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   }
-  .challenge-label { font-size: 14px; font-weight: bold; color: #d9534f; margin-bottom: 5px; }
-  .series-title { font-size: 20px; font-weight: bold; color: var(--accent-color); margin-bottom: 15px; }
+  .challenge-label { font-size: 13px; font-weight: bold; color: #d9534f; margin-bottom: 4px; }
+  .series-title { font-size: 18px; font-weight: bold; color: var(--accent-color); margin-bottom: 12px; }
   
+  /* ポテンシャル制限・出走条件パネル */
+  .limit-info-box {
+    background: var(--limit-bg);
+    border: 1px solid var(--limit-border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    font-size: 11px;
+    color: var(--limit-text);
+  }
+  .limit-item { display: flex; flex-direction: column; align-items: center; }
+  .limit-val { font-size: 14px; font-weight: bold; color: #c67100; margin-top: 2px; }
+
   .race-list {
     display: flex;
     flex-direction: column;
@@ -70,15 +89,15 @@
     background: #ffffff;
     border: 1px solid var(--border-color);
     border-radius: 6px;
-    padding: 12px;
+    padding: 10px 12px;
     text-align: left;
   }
   .race-item {
     display: flex;
     align-items: center;
-    font-size: 13px;
+    font-size: 12px;
     border-bottom: 1px dashed #e2efe3;
-    padding-bottom: 6px;
+    padding-bottom: 5px;
   }
   .race-item:last-child { border-bottom: none; padding-bottom: 0; }
   .race-num { font-weight: bold; color: var(--text-sub); width: 45px; }
@@ -148,6 +167,20 @@
   <div class="challenge-panel" id="challengePanel" style="display: none;">
     <div class="challenge-label">＼ 今回の対戦シリーズはこちら！ ／</div>
     <div class="series-title" id="seriesTitle"></div>
+
+    <!-- ポテンシャル制限・出走条件エリア -->
+    <div class="limit-info-box">
+      <div class="limit-item">
+        <span>出走制限 (1頭につき)</span>
+        <span class="limit-val" id="minPotentialVal">Pt 15 以上</span>
+      </div>
+      <div style="border-left: 1px dashed var(--limit-border); height: 24px;"></div>
+      <div class="limit-item">
+        <span>シリーズ合計上限 (5頭)</span>
+        <span class="limit-val" id="maxTotalPotentialVal">Pt 95 以下</span>
+      </div>
+    </div>
+
     <div class="race-list" id="raceList"></div>
   </div>
 
@@ -180,10 +213,12 @@
   let selectedSeries = null;
   let selectedDeckIndex = 0;
 
-  // マスターデータ（一部省略していますが、実際は先ほどの全データを入れます）
+  // マスターデータ
   const DEFAULT_SERIES = [
     {
-      "series_id": "SERIES_001", "series_name": "新春短距離シリーズ",
+      "series_id": "SERIES_001",
+      "series_name": "新春短距離シリーズ",
+      "potential_limit": { "min_potential_per_race": 15, "max_total_potential": 95 },
       "rounds": [{ "races": [
         { "race_num": 1, "race_name": "京都金杯", "track": "京都", "surface": "芝", "distance": 1600 },
         { "race_num": 2, "race_name": "根岸ステークス", "track": "東京", "surface": "ダート", "distance": 1400 },
@@ -193,7 +228,9 @@
       ]}]
     },
     {
-      "series_id": "SERIES_004", "series_name": "クラシック・血統ロマンシリーズ",
+      "series_id": "SERIES_004",
+      "series_name": "クラシック・血統ロマンシリーズ",
+      "potential_limit": { "min_potential_per_race": 15, "max_total_potential": 95 },
       "rounds": [{ "races": [
         { "race_num": 1, "race_name": "弥生賞", "track": "中山", "surface": "芝", "distance": 2000 },
         { "race_num": 2, "race_name": "皐月賞", "track": "中山", "surface": "芝", "distance": 2000 },
@@ -201,8 +238,7 @@
         { "race_num": 4, "race_name": "日本ダービー", "track": "東京", "surface": "芝", "distance": 2400 },
         { "race_num": 5, "race_name": "菊花賞", "track": "京都", "surface": "芝", "distance": 3000 }
       ]}]
-    },
-    // ※実際のコードでは他のシリーズデータもここに入ります
+    }
   ];
 
   onAuthStateChanged(auth, async (user) => {
@@ -235,8 +271,15 @@
     const randomIndex = Math.floor(Math.random() * SERIES_MASTER.length);
     selectedSeries = SERIES_MASTER[randomIndex];
 
-    // 2. お題の描画
+    // 2. お題と制限の描画
     document.getElementById('seriesTitle').textContent = selectedSeries.series_name;
+    
+    // ポテンシャル制限の反映
+    const limits = selectedSeries.potential_limit || { min_potential_per_race: 15, max_total_potential: 95 };
+    document.getElementById('minPotentialVal').textContent = `Pt ${limits.min_potential_per_race} 以上`;
+    document.getElementById('maxTotalPotentialVal').textContent = `Pt ${limits.max_total_potential} 以下`;
+
+    // レースリストの描画
     const races = selectedSeries.rounds[0].races;
     document.getElementById('raceList').innerHTML = races.map(r => {
       const surfaceClass = r.surface === '芝' ? 'surface-turf' : 'surface-dirt';
@@ -265,7 +308,6 @@
     document.getElementById('deckPanel').style.display = 'flex';
     document.getElementById('btnStart').style.display = 'block';
     
-    // 初期状態のバリデーション
     validateStartButton();
   }
 
