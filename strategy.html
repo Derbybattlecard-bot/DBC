@@ -136,9 +136,12 @@
   .card-horse-stat { font-size: 11px; color: #666; background: #f0f0f0; border-radius: 4px; padding: 2px 0; }
   .vs-badge { font-weight: bold; color: #999; font-size: 16px; font-style: italic; }
 
-  /* 作戦選択ドロップダウン */
-  .strategy-select {
-    width: 100%;
+  /* 作戦・レベル選択ドロップダウン */
+  .strategy-controls {
+    display: flex;
+    gap: 10px;
+  }
+  .input-select {
     padding: 8px;
     border-radius: 4px;
     border: 1px solid var(--accent-color);
@@ -148,6 +151,8 @@
     color: var(--text-main);
     cursor: pointer;
   }
+  .input-select.strategy { flex: 2; }
+  .input-select.level { flex: 1; }
 
   /* 16頭立て出走表 */
   .race-table-container {
@@ -235,9 +240,16 @@
   let playerEntries = [];
   let cpuEntries = [];
   let fullRaceGrids = [];
-  let seriesTrackCondition = "良"; // デフォルト
+  let seriesTrackCondition = "良"; 
 
-  let chosenStrategies = [null, null, null, null, null];
+  // 作戦IDとレベルを別々に管理する配列
+  let chosenStrategies = [
+    { id: null, level: 0 },
+    { id: null, level: 0 },
+    { id: null, level: 0 },
+    { id: null, level: 0 },
+    { id: null, level: 0 }
+  ];
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = 'auth.html'; return; }
@@ -261,7 +273,6 @@
     }
   });
 
-  // 馬場コンディションの抽選 (良75%, 稍重18%, 重5%, 不良2%)
   function generateTrackCondition() {
     const r = Math.random() * 100;
     if (r < 75) return "良";
@@ -278,15 +289,6 @@
     return "cond-ryo";
   }
 
-  // 作戦レベルの取得
-  function getStrategyLevel(st) {
-    if (!st) return 0;
-    if (st.level !== undefined) return parseInt(st.level, 10);
-    const match = st.strategy_id.match(/_(\d+)$/);
-    if (match) return parseInt(match[1], 10);
-    return 1;
-  }
-
   function initStrategyPage() {
     const seriesId = sessionStorage.getItem('selected_series_id');
     const playerHorseIds = JSON.parse(sessionStorage.getItem('player_entry_ids') || '[]');
@@ -295,14 +297,11 @@
     const horseMap = {};
     HORSES_MASTER.forEach(h => horseMap[h.horse_id] = h);
 
-    // プレイヤーの馬を取得（万が一足りない場合はエラー防止）
     playerEntries = playerHorseIds.map(id => horseMap[id]).filter(h => h);
 
-    // CPUの馬をランダムに5頭抽出
     const unusedHorses = HORSES_MASTER.filter(h => !playerHorseIds.includes(h.horse_id));
     cpuEntries = getRandomSubarray(unusedHorses, 5);
 
-    // 同一シリーズ・同一日を想定し、馬場コンディションを統一
     seriesTrackCondition = generateTrackCondition();
 
     const races = currentSeries.rounds[0].races;
@@ -310,11 +309,9 @@
       const pHorse = playerEntries[rIdx];
       const cHorse = cpuEntries[rIdx];
 
-      // 出走する2頭以外の馬を14頭選ぶ
       const candidates = unusedHorses.filter(h => h.horse_id !== (cHorse ? cHorse.horse_id : ''));
       let mobs = getRandomSubarray(candidates, 14);
       
-      // データ不足時（テスト環境など）のフェイルセーフ：ダミー馬を生成して14頭にする
       while(mobs.length < 14) {
         mobs.push({ horse_id: `dummy_${mobs.length}`, name: `架空馬${mobs.length + 1}`, pt: 50, sex: '牡' });
       }
@@ -324,7 +321,6 @@
         { ...(cHorse || {}), isCpu: true },
         ...mobs.map(m => ({ ...m, isMob: true }))
       ];
-      // 16頭をシャッフルして枠順を決定
       return shuffleArray(fullList);
     });
 
@@ -338,6 +334,17 @@
 
     const condClass = getConditionClass(seriesTrackCondition);
 
+    // 16種類の作戦選択肢を生成 (レベル表記は除外)[span_0](start_span)[span_0](end_span)
+    let strategyOptionsHtml = '<option value="">▼ 作戦を選択</option>';
+    const categories = ["逃げ", "先行", "差し", "追込"];[span_1](start_span)[span_1](end_span)
+    categories.forEach(cat => {
+      strategyOptionsHtml += `<optgroup label="脚質: ${cat}">`;
+      Object.values(STRATEGY_MASTER).filter(st => st.style === cat).forEach(st => {[span_2](start_span)[span_2](end_span)
+        strategyOptionsHtml += `<option value="${st.strategy_id}">${st.name}</option>`;[span_3](start_span)[span_3](end_span)
+      });
+      strategyOptionsHtml += `</optgroup>`;
+    });
+
     races.forEach((race, rIdx) => {
       const pHorse = playerEntries[rIdx];
       const cHorse = cpuEntries[rIdx];
@@ -346,7 +353,6 @@
       const card = document.createElement('div');
       card.className = 'race-block';
 
-      // ミニカードレイアウト
       const vsHtml = `
         <div class="vs-container">
           <div class="mini-card player">
@@ -363,21 +369,7 @@
         </div>
       `;
 
-      // 作戦ドロップダウン
-      let strategyOptionsHtml = '<option value="">▼ 作戦を選択してください (Lv1〜4)</option>';
-      const categories = ["逃げ", "先行", "差し", "追込"];
-      categories.forEach(cat => {
-        strategyOptionsHtml += `<optgroup label="脚質: ${cat}">`;
-        Object.values(STRATEGY_MASTER).filter(st => st.style === cat).forEach(st => {
-          const lvl = getStrategyLevel(st);
-          strategyOptionsHtml += `<option value="${st.strategy_id}">${st.name} [Lv.${lvl}]</option>`;
-        });
-        strategyOptionsHtml += `</optgroup>`;
-      });
-
-      // 16頭立て出走表（コンパクトデザイン）
       const tableRowsHtml = grid.map((h, index) => {
-        // 2頭ずつ1つの枠番に入る (1枠〜8枠)
         const frameNum = Math.floor(index / 2) + 1;
         const frameClass = `w-${Math.min(frameNum, 8)}`;
         
@@ -408,9 +400,20 @@
         
         ${vsHtml}
         
-        <select class="strategy-select" id="stratSelect${rIdx}" onchange="onStrategySelected(${rIdx}, this.value)">
-          ${strategyOptionsHtml}
-        </select>
+        <!-- 作戦とレベルを別々に選択 -->
+        <div class="strategy-controls">
+          <select class="input-select strategy" id="stratSelect${rIdx}" onchange="onInputSelected(${rIdx}, 'id', this.value)">
+            ${strategyOptionsHtml}
+          </select>
+          <select class="input-select level" id="levelSelect${rIdx}" onchange="onInputSelected(${rIdx}, 'level', this.value)">
+            <option value="0">Lv -</option>
+            <option value="1">Lv 1</option>
+            <option value="2">Lv 2</option>
+            <option value="3">Lv 3</option>
+            <option value="4">Lv 4</option>
+            <option value="5">Lv 5</option>
+          </select>
+        </div>
         
         <div class="race-table-container">
           <table class="race-table">
@@ -425,8 +428,12 @@
     });
   }
 
-  window.onStrategySelected = function(rIdx, strategyId) {
-    chosenStrategies[rIdx] = strategyId || null;
+  window.onInputSelected = function(rIdx, type, value) {
+    if (type === 'id') {
+      chosenStrategies[rIdx].id = value || null;
+    } else if (type === 'level') {
+      chosenStrategies[rIdx].level = parseInt(value, 10) || 0;
+    }
     updateStatus();
   };
 
@@ -434,10 +441,11 @@
     let totalLvl = 0;
     let selectedCount = 0;
 
-    chosenStrategies.forEach(stId => {
-      if (stId && STRATEGY_MASTER[stId]) {
+    chosenStrategies.forEach(st => {
+      // 作戦IDとレベル(1以上)の両方が選択されている場合のみカウント
+      if (st.id && st.level > 0) {
         selectedCount++;
-        totalLvl += getStrategyLevel(STRATEGY_MASTER[stId]);
+        totalLvl += st.level;
       }
     });
 
@@ -468,18 +476,18 @@
   }
 
   window.submitStrategies = function() {
-    const selectedStrategyObjects = chosenStrategies.map(stId => {
-      if (!stId || !STRATEGY_MASTER[stId]) return null;
-      const st = STRATEGY_MASTER[stId];
+    // 選択された作戦マスター情報に、画面で選んだレベルをマージして保存
+    const selectedStrategyObjects = chosenStrategies.map(st => {
+      if (!st.id || !STRATEGY_MASTER[st.id] || st.level === 0) return null;
+      const master = STRATEGY_MASTER[st.id];
       return {
-        strategy_id: st.strategy_id,
-        style: st.style,
-        name: st.name,
-        level: getStrategyLevel(st)
+        strategy_id: master.strategy_id,
+        style: master.style,
+        name: master.name,
+        level: st.level // 画面で選択したレベルを適用
       };
     });
 
-    // 選択作戦、出走表、馬場コンディションを保存して次へ
     sessionStorage.setItem('chosen_strategies', JSON.stringify(selectedStrategyObjects));
     sessionStorage.setItem('full_race_grids', JSON.stringify(fullRaceGrids));
     sessionStorage.setItem('track_condition', seriesTrackCondition);
