@@ -162,20 +162,29 @@
     overflow: hidden;
   }
   .race-table { width: 100%; border-collapse: collapse; text-align: center; font-size: 11px; }
-  .race-table th { background: #e0ece1; color: var(--text-sub); padding: 6px 4px; font-weight: bold; border-bottom: 1px solid var(--border-color); }
-  .race-table td { padding: 5px 4px; border-bottom: 1px solid #eee; }
+  .race-table th { background: #e0ece1; color: var(--text-sub); padding: 6px 2px; font-weight: bold; border-bottom: 1px solid var(--border-color); }
+  .race-table td { padding: 5px 2px; border-bottom: 1px solid #eee; }
   .row-player { background-color: #e8f4fc; font-weight: bold; }
   .row-cpu { background-color: #fce8e8; font-weight: bold; }
 
+  /* 脚質バッジ */
+  .style-badge {
+    font-size: 10px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: #f0f0f0;
+    color: #333;
+  }
+
   /* 枠番バッジ */
-  .w-1 { background:#fff; color:#000; border:1px solid #ccc; padding:1px 5px; border-radius:3px; }
-  .w-2 { background:#222; color:#fff; padding:2px 5px; border-radius:3px; }
-  .w-3 { background:#e60012; color:#fff; padding:2px 5px; border-radius:3px; }
-  .w-4 { background:#0068b7; color:#fff; padding:2px 5px; border-radius:3px; }
-  .w-5 { background:#fff100; color:#000; padding:2px 5px; border-radius:3px; }
-  .w-6 { background:#009944; color:#fff; padding:2px 5px; border-radius:3px; }
-  .w-7 { background:#f39700; color:#fff; padding:2px 5px; border-radius:3px; }
-  .w-8 { background:#e4007f; color:#fff; padding:2px 5px; border-radius:3px; }
+  .w-1 { background:#fff; color:#000; border:1px solid #ccc; padding:1px 4px; border-radius:3px; }
+  .w-2 { background:#222; color:#fff; padding:1px 4px; border-radius:3px; }
+  .w-3 { background:#e60012; color:#fff; padding:1px 4px; border-radius:3px; }
+  .w-4 { background:#0068b7; color:#fff; padding:1px 4px; border-radius:3px; }
+  .w-5 { background:#fff100; color:#000; padding:1px 4px; border-radius:3px; }
+  .w-6 { background:#009944; color:#fff; padding:1px 4px; border-radius:3px; }
+  .w-7 { background:#f39700; color:#fff; padding:1px 4px; border-radius:3px; }
+  .w-8 { background:#e4007f; color:#fff; padding:1px 4px; border-radius:3px; }
 
   .btn-submit {
     background: var(--accent-color);
@@ -242,7 +251,6 @@
   let fullRaceGrids = [];
   let seriesTrackCondition = "良"; 
 
-  // 作戦IDとレベルを別々に管理する配列
   let chosenStrategies = [
     { id: null, level: 0 },
     { id: null, level: 0 },
@@ -312,8 +320,10 @@
       const candidates = unusedHorses.filter(h => h.horse_id !== (cHorse ? cHorse.horse_id : ''));
       let mobs = getRandomSubarray(candidates, 14);
       
+      const styles = ["逃げ", "先行", "差し", "追込"];
       while(mobs.length < 14) {
-        mobs.push({ horse_id: `dummy_${mobs.length}`, name: `架空馬${mobs.length + 1}`, pt: 50, sex: '牡' });
+        const randomStyle = styles[Math.floor(Math.random() * styles.length)];
+        mobs.push({ horse_id: `dummy_${mobs.length}`, name: `架空馬${mobs.length + 1}`, pt: 50, sex: '牡', style: randomStyle });
       }
 
       const fullList = [
@@ -334,7 +344,6 @@
 
     const condClass = getConditionClass(seriesTrackCondition);
 
-    // 16種類の作戦選択肢を生成
     let strategyOptionsHtml = '<option value="">▼ 作戦を選択</option>';
     const categories = ["逃げ", "先行", "差し", "追込"];
     categories.forEach(cat => {
@@ -378,13 +387,17 @@
         if (h.isPlayer) { rowClass = 'row-player'; displayMark = '<span style="color:var(--player-color);font-weight:bold;">(YOU)</span>'; }
         else if (h.isCpu) { rowClass = 'row-cpu'; displayMark = '<span style="color:var(--danger-color);font-weight:bold;">(CPU)</span>'; }
 
+        // 脚質の取得（style, running_style, strategy などのプロパティ名に対応）
+        const horseStyle = h.style || h.running_style || h.strategy || '自在';
+
         return `
           <tr class="${rowClass}">
-            <td style="width:10%;"><span class="${frameClass}">${frameNum}</span></td>
-            <td style="width:10%;">${index + 1}</td>
-            <td style="text-align:left; padding-left:8px; width:50%;">${h.name || '-'} ${displayMark}</td>
-            <td style="width:15%;">${h.sex || '-'}</td>
-            <td style="width:15%;">${h.potential || h.pt || '-'}</td>
+            <td style="width:8%;"><span class="${frameClass}">${frameNum}</span></td>
+            <td style="width:8%;">${index + 1}</td>
+            <td style="text-align:left; padding-left:4px; width:44%;">${h.name || '-'} ${displayMark}</td>
+            <td style="width:10%;">${h.sex || '-'}</td>
+            <td style="width:18%;"><span class="style-badge">${horseStyle}</span></td>
+            <td style="width:12%;">${h.potential || h.pt || '-'}</td>
           </tr>
         `;
       }).join('');
@@ -417,7 +430,14 @@
         <div class="race-table-container">
           <table class="race-table">
             <thead>
-              <tr><th>枠</th><th>馬番</th><th style="text-align:left; padding-left:8px;">馬名</th><th>性</th><th>Pt</th></tr>
+              <tr>
+                <th>枠</th>
+                <th>馬番</th>
+                <th style="text-align:left; padding-left:4px;">馬名</th>
+                <th>性</th>
+                <th>脚質</th>
+                <th>Pt</th>
+              </tr>
             </thead>
             <tbody>${tableRowsHtml}</tbody>
           </table>
