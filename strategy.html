@@ -334,13 +334,13 @@
 
     const condClass = getConditionClass(seriesTrackCondition);
 
-    // 16種類の作戦選択肢を生成 (レベル表記は除外)[span_0](start_span)[span_0](end_span)
+    // 16種類の作戦選択肢を生成
     let strategyOptionsHtml = '<option value="">▼ 作戦を選択</option>';
-    const categories = ["逃げ", "先行", "差し", "追込"];[span_1](start_span)[span_1](end_span)
+    const categories = ["逃げ", "先行", "差し", "追込"];
     categories.forEach(cat => {
       strategyOptionsHtml += `<optgroup label="脚質: ${cat}">`;
-      Object.values(STRATEGY_MASTER).filter(st => st.style === cat).forEach(st => {[span_2](start_span)[span_2](end_span)
-        strategyOptionsHtml += `<option value="${st.strategy_id}">${st.name}</option>`;[span_3](start_span)[span_3](end_span)
+      Object.values(STRATEGY_MASTER).filter(st => st.style === cat).forEach(st => {
+        strategyOptionsHtml += `<option value="${st.strategy_id}">${st.name}</option>`;
       });
       strategyOptionsHtml += `</optgroup>`;
     });
@@ -400,7 +400,6 @@
         
         ${vsHtml}
         
-        <!-- 作戦とレベルを別々に選択 -->
         <div class="strategy-controls">
           <select class="input-select strategy" id="stratSelect${rIdx}" onchange="onInputSelected(${rIdx}, 'id', this.value)">
             ${strategyOptionsHtml}
@@ -442,7 +441,6 @@
     let selectedCount = 0;
 
     chosenStrategies.forEach(st => {
-      // 作戦IDとレベル(1以上)の両方が選択されている場合のみカウント
       if (st.id && st.level > 0) {
         selectedCount++;
         totalLvl += st.level;
@@ -476,7 +474,6 @@
   }
 
   window.submitStrategies = function() {
-    // 選択された作戦マスター情報に、画面で選んだレベルをマージして保存
     const selectedStrategyObjects = chosenStrategies.map(st => {
       if (!st.id || !STRATEGY_MASTER[st.id] || st.level === 0) return null;
       const master = STRATEGY_MASTER[st.id];
@@ -484,7 +481,7 @@
         strategy_id: master.strategy_id,
         style: master.style,
         name: master.name,
-        level: st.level // 画面で選択したレベルを適用
+        level: st.level
       };
     });
 
