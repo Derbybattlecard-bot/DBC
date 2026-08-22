@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Derby Battle Card - Race Scene</title>
+<style>
+  :root {
+    --bg-color: #0b0b0e;
+    --panel-bg: #16161c;
+    --border-color: #333;
+    --accent-green: #00ff66;
+    --player-color: #ff4444;
+    --cpu-color: #3399ff;
+    --gold-color: #ffcc00;
+  }
+  
+  body { 
+    font-family: "Courier New", Consolas, "Hiragino Kaku Gothic ProN", monospace, sans-serif; 
+    background: var(--bg-color); 
+    color: #fff; 
+    padding: 10px; 
+    max-width: 650px; 
+    margin: 0 auto; 
+  }
+
+  /* 1. レース条件（大見出し） */
+  .race-title-panel {
+    background: linear-gradient(135deg, #1f242d, #11141a);
+    border: 2px solid var(--accent-green);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+    box-shadow: 0 0 10px rgba(0,255,102,0.2);
+    margin-bottom: 12px;
+  }
+  .race-venue-dist {
+    font-size: 1.4em;
+    font-weight: bold;
+    color: #fff;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .race-condition-badge {
+    display: inline-block;
+    background: #2a352c;
+    color: var(--accent-green);
+    border: 1px solid var(--accent-green);
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.9em;
+    font-weight: bold;
+  }
+
+  /* 2. レースシーン枠 */
+  #track-container { 
+    background: linear-gradient(90deg, #004400 0%, #006600 50%, #005500 100%); 
+    border: 3px solid #fff; 
+    border-radius: 6px; 
+    padding: 6px 4px; 
+    position: relative; 
+    height: 380px; 
+    overflow: hidden; 
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.6);
+    margin-bottom: 12px;
+  }
+
+  /* ワイプ演出レイヤー */
+  #wipe-overlay {
+    position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+    background: linear-gradient(90deg, #001133, #000000, #001133);
+    z-index: 50; display: flex; justify-content: center; align-items: center;
+    transition: left 0.6s cubic-bezier(0.8, 0, 0.2, 1);
+  }
+  .wipe-text {
+    color: var(--gold-color); font-size: 1.6em; font-weight: bold; text-align: center;
+    text-shadow: 2px 2px 10px #000; letter-spacing: 2px;
+  }
+
+  /* テロップ */
+  #race-telop {
+    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%) scale(0.8);
+    background: rgba(0, 0, 0, 0.85); border: 2px solid var(--gold-color); color: var(--gold-color);
+    padding: 6px 16px; border-radius: 30px; font-size: 1.1em; font-weight: bold;
+    z-index: 40; opacity: 0; transition: all 0.4s cubic-bezier(0.1, 1.2, 0.3, 1);
+    pointer-events: none; text-shadow: 0 0 8px rgba(255,204,0,0.6);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.7); white-space: nowrap;
+  }
+  #race-telop.show { opacity: 1; transform: translateX(-50%) scale(1); }
+
+  /* ゴールライン */
+  #goal-line { position: absolute; top: 0; bottom: 0; width: 4px; background: var(--gold-color); box-shadow: 0 0 15px var(--gold-color), 0 0 5px #fff; z-index: 20; display: none; }
+  #goal-flag { position: absolute; top: 2px; background: var(--gold-color); color: #000; font-weight: bold; font-size: 10px; padding: 2px 6px; border-radius: 2px; z-index: 21; display: none; }
+
+  .horse-lane { position: relative; height: 22px; border-bottom: 1px dashed rgba(255,255,255,0.15); }
+  .horse-icon { 
+    position: absolute; left: 10px; top: -2px; font-size: 11px; white-space: nowrap; 
+    background: rgba(0, 0, 0, 0.85); border: 1px solid #777; padding: 1px 5px; 
+    color: #fff; line-height: 1.1; border-radius: 4px; z-index: 10; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5); 
+  }
+  .horse-emoji { font-size: 13px; vertical-align: middle; margin-right: 2px; display: inline-block; transition: transform 0.1s; }
+  .horse-emoji.flipped { transform: scaleX(-1); margin-right: 0; margin-left: 2px; }
+
+  /* 色分け */
+  .p1-name { color: var(--player-color) !important; font-weight: bold; }
+  .p2-name { color: var(--cpu-color) !important; font-weight: bold; }
+
+  /* 3. 実況枠 */
+  #commentary-box { 
+    background: #050515; color: #ffffff; border: 2px double var(--accent-green); 
+    padding: 10px 14px; border-radius: 6px; min-height: 55px; font-size: 0.9em; 
+    margin-bottom: 12px; line-height: 1.5; 
+  }
+
+  /* 4. 対戦ミニカード */
+  .vs-container {
+    display: flex; justify-content: center; align-items: center; gap: 12px; margin-bottom: 12px;
+  }
+  .mini-card {
+    flex: 1; background: var(--panel-bg); border: 1px solid var(--border-color);
+    border-radius: 6px; padding: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+  }
+  .mini-card.p1 { border-top: 3px solid var(--player-color); }
+  .mini-card.p2 { border-top: 3px solid var(--cpu-color); }
+  .card-label { font-size: 10px; font-weight: bold; margin-bottom: 2px; }
+  .card-label.p1 { color: var(--player-color); }
+  .card-label.p2 { color: var(--cpu-color); }
+  .card-horse-name { font-weight: bold; font-size: 13px; color: #fff; }
+  .vs-badge { font-weight: bold; color: #777; font-size: 14px; font-style: italic; }
+
+  /* 5. 次のレースへのボタン */
+  .btn-next {
+    background: linear-gradient(135deg, #008800, #00aa33);
+    color: var(--gold-color); font-weight: bold; font-size: 1.1em; cursor: pointer;
+    border: 2px solid var(--gold-color); width: 100%; padding: 12px; border-radius: 6px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: all 0.2s;
+  }
+  .btn-next:hover { background: linear-gradient(135deg, #00aa33, #00cc44); }
+  .btn-next:disabled { background: #222; color: #666; border-color: #444; cursor: not-allowed; box-shadow: none; }
+
+  /* 結果テーブル */
+  .data-table { width: 100%; border-collapse: collapse; background: #111; font-size: 0.8em; border: 1px solid #333; margin-top: 10px; }
+  .data-table th, .data-table td { border: 1px solid #222; padding: 5px 6px; text-align: center; }
+  .data-table th { background: #1a1a24; color: var(--accent-green); }
+</style>
+</head>
+<body>
+
+<!-- 1. 最上部：レース条件 -->
+<div class="race-title-panel">
+  <div class="race-venue-dist" id="display-race-title">東京 芝 2000m</div>
+  <span class="race-condition-badge" id="display-race-cond">馬場: 良</span>
+</div>
+
+<!-- 2. レースシーン枠 -->
+<div id="track-container">
+  <div id="race-telop">【ペース】 ハイペース</div>
+  <div id="wipe-overlay">
+    <div class="wipe-text">第4コーナーをカーブして<br>いよいよ最後の直線！！</div>
+  </div>
+  
+  <div id="goal-line"></div>
+  <div id="goal-flag">GOAL</div>
+  <div id="lanes"></div>
+</div>
+
+<!-- 3. 実況枠 -->
+<div id="commentary-box">
+  <div style="color: var(--accent-green); font-weight: bold; font-size: 0.8em; margin-bottom: 2px;">【実況中継】</div>
+  <div id="log-content">準備完了。「レーススタート」ボタンを押してください。</div>
+</div>
+
+<!-- 4. 対戦ミニカード (VS表示) -->
+<div class="vs-container">
+  <div class="mini-card p1">
+    <div class="card-label p1">★ YOUR HORSE</div>
+    <div class="card-horse-name" id="p1-card-name">-</div>
+  </div>
+  <div class="vs-badge">VS</div>
+  <div class="mini-card p2">
+    <div class="card-label p2">CPU HORSE</div>
+    <div class="card-horse-name" id="p2-card-name">-</div>
+  </div>
+</div>
+
+<!-- 5. 次のレースへのボタン -->
+<button class="btn-next" id="nextBtn" onclick="handleButtonClick()">🏁 レーススタート！</button>
+
+<!-- 着順結果（レース終了後自動表示） -->
+<div id="result-container" style="display: none; margin-top: 15px;">
+  <div style="color: var(--accent-green); font-weight: bold; margin-bottom: 5px;">📊 確定着順結果</div>
+  <table class="data-table">
+    <thead><tr><th>着順</th><th>馬名</th><th>脚質</th><th>ポテンシャル</th><th>評価Pt</th></tr></thead>
+    <tbody id="result-body"></tbody>
+  </table>
+</div>
+
+<script>
+const MASTER_H = [
+  { name: "サイレンススズカ", pot: 19, style: "大逃" }, { name: "トウショウボーイ", pot: 20, style: "逃げ" },
+  { name: "シンボリルドルフ", pot: 21, style: "先行" }, { name: "ディープインパクト", pot: 22, style: "追込" },
+  { name: "オルフェーヴル", pot: 21, style: "差し" }, { name: "オグリキャップ", pot: 20, style: "自在" },
+  { name: "ウォッカ", pot: 19, style: "差し" }, { name: "ダイワスカーレット", pot: 18, style: "逃げ" },
+  { name: "テイエムオペラオー", pot: 20, style: "先行" }, { name: "メジロマックイーン", pot: 20, style: "先行" },
+  { name: "ナリタブライアン", pot: 21, style: "差し" }, { name: "ライスシャワー", pot: 18, style: "先行" },
+  { name: "キタサンブラック", pot: 19, style: "逃げ" }, { name: "コントレイル", pot: 20, style: "先行" },
+  { name: "アーモンドアイ", pot: 21, style: "差し" }, { name: "ゴールドシップ", pot: 19, style: "追込" }
+];
+
+let activeHorses = [];
+let p1Idx = 0, p2Idx = 1;
+let testPatternIndex = 0;
+let telopTimer = null;
+let raceState = 'ready'; // 'ready', 'running', 'finished'
+
+// かな抽出用（漢字混じり馬名からカナ頭3文字を取得するユーティリティ）
+function getKana3(name) {
+  const kanaOnly = name.replace(/[^\u30A0-\u30FF]/g, '');
+  if (kanaOnly.length >= 3) return kanaOnly.substring(0, 3);
+  return name.substring(0, 3);
+}
+
+window.onload = () => {
+  initRaceFields();
+};
+
+function initRaceFields() {
+  p1Idx = 0;
+  p2Idx = 1;
+  activeHorses = MASTER_H.map((h, i) => ({ ...h, masterIndex: i }));
+
+  // ミニカード表示の更新
+  document.getElementById('p1-card-name').textContent = activeHorses[p1Idx].name;
+  document.getElementById('p2-card-name').textContent = activeHorses[p2Idx].name;
+
+  const wipe = document.getElementById('wipe-overlay');
+  wipe.style.transition = "none";
+  wipe.style.left = "-100%"; 
+  hideTelop();
+  document.getElementById('goal-line').style.display = "none";
+  document.getElementById('goal-flag').style.display = "none";
+  
+  renderLanes();
+}
+
+function renderLanes() {
+  const lanes = document.getElementById('lanes');
+  lanes.innerHTML = "";
+  activeHorses.forEach((h, i) => {
+    let nameClass = i === p1Idx ? "p1-name" : (i === p2Idx ? "p2-name" : "");
+    // 番号なし、カナ3文字でアイコン生成
+    const shortName = getKana3(h.name);
+    lanes.innerHTML += `
+      <div class="horse-lane">
+        <div class="horse-icon" id="horse-icon-${i}" style="left: 10px;">
+          <span class="horse-emoji" id="emoji-${i}">🏇</span><span class="${nameClass}">${shortName}</span>
+        </div>
+      </div>`;
+  });
+}
+
+function handleButtonClick() {
+  const btn = document.getElementById('nextBtn');
+  if (raceState === 'ready') {
+    startRace();
+  } else if (raceState === 'finished') {
+    // 次のレースへの遷移（デモとして初期状態へリセット）
+    raceState = 'ready';
+    btn.innerText = "🏁 レーススタート！";
+    document.getElementById('result-container').style.display = "none";
+    updateLog("次のレースの準備が整いました。");
+    initRaceFields();
+  }
+}
+
+function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear") {
+  const trackWidth = document.getElementById('track-container').clientWidth - 70;
+  positionsArray.forEach((pos, i) => {
+    const el = document.getElementById(`horse-icon-${i}`);
+    if (el) {
+      const currentTiming = Array.isArray(timing) ? timing[i] : timing;
+      el.style.transition = `left ${durationSec}s ${currentTiming}`;
+      el.style.left = (10 + (trackWidth * (pos / 100))) + "px";
+    }
+  });
+}
+
+function updateLog(text) { document.getElementById('log-content').innerHTML = text; }
+
+function showTelop(text, durationMs = 1500) {
+  const telop = document.getElementById('race-telop');
+  telop.innerHTML = text;
+  telop.classList.add('show');
+  
+  if (telopTimer) clearTimeout(telopTimer);
+  telopTimer = setTimeout(() => { hideTelop(); }, durationMs);
+}
+
+function hideTelop() {
+  const telop = document.getElementById('race-telop');
+  telop.classList.remove('show');
+}
+
+function startRace() {
+  raceState = 'running';
+  const btn = document.getElementById('nextBtn');
+  btn.disabled = true;
+  document.getElementById('result-container').style.display = "none";
+  
+  const patterns = ["逃げ", "先行", "差し", "追込"];
+  const patternNames = ["逃げ切り", "先行押し切り", "差し切り", "最後尾から追込"];
+  const targetPattern = patterns[testPatternIndex % 4];
+  const targetPatternName = patternNames[testPatternIndex % 4];
+  testPatternIndex++;
+
+  updateLog(`ゲートが開いた！全16頭、揃ったスタートを切りました！<br><span style="color:#ffcc00;">※展開: 「${targetPatternName}」の展開</span>`);
+  
+  let preScored = activeHorses.map((h, i) => ({ ...h, index: i, score: h.pot * 10 + Math.random() * 25 }));
+  let winnerForced = false;
+  preScored.forEach(h => {
+    let isTarget = false;
+    if (targetPattern === "逃げ" && (h.style === "逃げ" || h.style === "大逃")) isTarget = true;
+    else if (targetPattern === "先行" && h.style === "先行") isTarget = true;
+    else if (targetPattern === "差し" && h.style === "差し") isTarget = true;
+    else if (targetPattern === "追込" && h.style === "追込") isTarget = true;
+    if (isTarget && !winnerForced) {
+      h.score += 1000;
+      winnerForced = true;
+    }
+  });
+  preScored.sort((a, b) => b.score - a.score);
+
+  // フェーズ1：スタート〜序盤
+  let p1Pos = activeHorses.map(h => {
+    if (h.style === "大逃") return 35;
+    if (h.style === "逃げ") return 28;
+    if (h.style === "先行") return 20;
+    if (h.style === "差し") return 12;
+    if (h.style === "追込") return 5;
+    return 16;
+  });
+  setPhasePositions(p1Pos, 6.0, "linear");
+
+  // フェーズ2：向正面
+  setTimeout(() => {
+    updateLog(`<strong>【向正面】</strong> 縦長の展開！逃げ馬が隊列を引っ張り、追込勢はじっくりと後方で脚を溜めます。`);
+    let p2Pos = activeHorses.map(h => {
+      if (h.style === "大逃") return 65;
+      if (h.style === "逃げ") return 55;
+      if (h.style === "先行") return 42;
+      if (h.style === "差し") return 28;
+      if (h.style === "追込") return 15;
+      return 35;
+    });
+    setPhasePositions(p2Pos, 6.4, "linear");
+  }, 6000);
+
+  // フェーズ3：3C〜4コーナー
+  setTimeout(() => {
+    updateLog(`<strong>【3C〜4コーナー】</strong> 第3コーナーから第4コーナー！各馬、隊列を保ったまま直線の入り口へ！`);
+    const paces = ["スローペース", "ミドルペース", "ハイペース", "超ハイペース"];
+    showTelop(`【ペース】 ${paces[Math.floor(Math.random() * paces.length)]}`, 1500);
+    let p3Pos = activeHorses.map(h => {
+      if (h.style === "大逃") return 90;
+      if (h.style === "逃げ") return 80;
+      if (h.style === "先行") return 65;
+      if (h.style === "差し") return 45;
+      if (h.style === "追込") return 30;
+      return 55;
+    });
+    setPhasePositions(p3Pos, 6.5, "linear");
+  }, 12400);
+
+  // フェーズ4：暗転・ワイプ＆最後の直線
+  setTimeout(() => {
+    const wipe = document.getElementById('wipe-overlay');
+    wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
+    wipe.style.left = "0";
+    hideTelop();
+
+    setTimeout(() => {
+      let gLine = document.getElementById('goal-line');
+      let gFlag = document.getElementById('goal-flag');
+      gLine.style.right = "auto"; gLine.style.left = "40px"; gLine.style.display = "block";
+      gFlag.style.right = "auto"; gFlag.style.left = "20px"; gFlag.style.display = "block";
+      activeHorses.forEach((_, i) => document.getElementById(`emoji-${i}`).classList.add("flipped"));
+      
+      let p4StartPos = activeHorses.map(h => {
+        if (h.style === "大逃") return 65 + Math.random() * 2;
+        if (h.style === "逃げ") return 72 + Math.random() * 2;
+        if (h.style === "先行") return 78 + Math.random() * 3;
+        if (h.style === "差し") return 85 + Math.random() * 3;
+        if (h.style === "追込") return 92 + Math.random() * 3;
+        return 80;
+      });
+      setPhasePositions(p4StartPos, 0, "linear");
+    }, 800);
+
+    setTimeout(() => {
+      wipe.style.left = "100%"; 
+      
+      setTimeout(() => {
+        let winner = preScored[0];
+        let finalPositions = new Array(16);
+        preScored.forEach((item, rank) => {
+          finalPositions[item.index] = -15 + (rank * 4.6); 
+        });
+        
+        let sortedByPos = activeHorses.map((h, idx) => ({ idx, pos: finalPositions[idx] })).sort((a,b) => a.pos - b.pos);
+        let top6Indices = sortedByPos.slice(0, 6).map(item => item.idx);
+        let phase4Timings = activeHorses.map((h, idx) => top6Indices.includes(idx) ? "linear" : "cubic-bezier(0.7, 0, 0.2, 1)");
+        
+        setPhasePositions(finalPositions, 13.0, phase4Timings);
+        updateLog(`<strong>【最後の直線！】</strong> 各馬互いの出方をうかがう…！ さあ、ここから一気にスパートだ！！`);
+
+        setTimeout(() => {
+          const tactics = ["叩き合いの展開", "直線強襲の展開", "前残りの展開", "スパート勝負"];
+          showTelop(`【展開】 ${tactics[Math.floor(Math.random() * tactics.length)]}`, 1500);
+        }, 3000);
+
+        setTimeout(() => {
+          updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00; font-size:1.05em;"><b>勝ち切ったのは ${winner.name} だ！！駆け抜けていく！</b></span>`);
+        }, 10000);
+
+        setTimeout(() => {
+          hideTelop();
+          renderResults(preScored);
+          raceState = 'finished';
+          btn.disabled = false; 
+          btn.innerText = "➡️ 次のレースへ進む";
+        }, 13500);
+      }, 100);
+    }, 1500);
+  }, 18900);
+}
+
+function renderResults(scoredList) {
+  const tbody = document.getElementById('result-body');
+  tbody.innerHTML = "";
+  scoredList.forEach((item, r) => {
+    let nameClass = item.index === p1Idx ? "p1-name" : (item.index === p2Idx ? "p2-name" : "");
+    tbody.innerHTML += `<tr><td><strong>${r + 1}着</strong></td><td style="text-align:left;"><span class="${nameClass}">${item.name}</span></td><td>${item.style}</td><td>P:${item.pot}</td><td>${item.score.toFixed(1)}</td></tr>`;
+  });
+  document.getElementById('result-container').style.display = "block";
+}
+</script>
+</body>
+</html>
