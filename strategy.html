@@ -14,6 +14,7 @@
     --text-sub: #4e6b52;
     --border-color: #b2d4b6;
     --danger-color: #d9534f;
+    --player-color: #2b547e;
   }
   body {
     font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
@@ -61,8 +62,8 @@
     box-shadow: 0 2px 6px rgba(0,0,0,0.05);
   }
   .status-item { text-align: center; }
-  .status-label { font-size: 10px; color: var(--text-sub); display: block; }
-  .status-val { font-size: 14px; font-weight: bold; }
+  .status-label { font-size: 10px; color: var(--text-sub); display: block; margin-bottom: 2px; }
+  .status-val { font-size: 15px; font-weight: bold; }
   .status-val.error { color: var(--danger-color); }
   .status-val.ok { color: var(--accent-color); }
 
@@ -71,110 +72,130 @@
     background: var(--panel-bg);
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    padding: 10px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
+    gap: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  }
+  
+  /* レース条件ヘッダー */
+  .race-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 6px;
     gap: 8px;
   }
-  .race-header {
+  .race-title { font-weight: bold; font-size: 14px; color: var(--accent-color); }
+  .race-conditions { font-size: 12px; color: #333; display: flex; gap: 8px; align-items: center; }
+  
+  /* 馬場コンディションバッジ */
+  .cond-badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
     font-weight: bold;
-    color: var(--accent-color);
-    display: flex;
-    justify-content: space-between;
-    border-bottom: 1px dashed var(--border-color);
-    padding-bottom: 4px;
+    color: #fff;
   }
+  .cond-ryo { background-color: #4CAF50; } /* 良 */
+  .cond-yaya { background-color: #FFC107; color: #000; } /* 稍重 */
+  .cond-omo { background-color: #FF9800; } /* 重 */
+  .cond-furyo { background-color: #9E9E9E; } /* 不良 */
 
-  /* 対決ミニカード */
+  /* 対決ミニカード (横幅150-160px) */
   .vs-container {
     display: flex;
+    justify-content: center;
     align-items: center;
-    gap: 8px;
-    background: #f4f9f5;
-    padding: 8px;
-    border-radius: 6px;
+    gap: 15px;
+    margin: 5px 0;
   }
   .mini-card {
-    flex: 1;
+    width: 155px;
+    min-height: 70px;
     background: #fff;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    padding: 6px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 8px;
     text-align: center;
-  }
-  .mini-card.player { border-left: 4px solid #2b547e; }
-  .mini-card.cpu { border-left: 4px solid #d9534f; }
-  .card-label { font-size: 9px; color: var(--text-sub); font-weight: bold; }
-  .card-horse-name { font-weight: bold; font-size: 12px; margin: 2px 0; }
-  .card-horse-stat { font-size: 10px; color: #555; }
-  .vs-badge { font-weight: bold; color: var(--danger-color); font-size: 14px; }
-
-  /* 作戦選択ドロップダウン */
-  .strategy-select-box {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    justify-content: center;
   }
+  .mini-card.player { border-top: 4px solid var(--player-color); }
+  .mini-card.cpu { border-top: 4px solid var(--danger-color); }
+  
+  .card-label { font-size: 10px; font-weight: bold; margin-bottom: 4px; }
+  .card-label.player { color: var(--player-color); }
+  .card-label.cpu { color: var(--danger-color); }
+  .card-horse-name { font-weight: bold; font-size: 13px; margin-bottom: 4px; line-height: 1.2; }
+  .card-horse-stat { font-size: 11px; color: #666; background: #f0f0f0; border-radius: 4px; padding: 2px 0; }
+  .vs-badge { font-weight: bold; color: #999; font-size: 16px; font-style: italic; }
+
+  /* 作戦選択ドロップダウン */
   .strategy-select {
     width: 100%;
-    padding: 6px;
+    padding: 8px;
     border-radius: 4px;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--accent-color);
     font-weight: bold;
-    font-size: 11px;
+    font-size: 13px;
+    background-color: #f4f9f5;
+    color: var(--text-main);
+    cursor: pointer;
   }
 
   /* 16頭立て出走表 */
-  details {
+  .race-table-container {
     background: #fff;
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    font-size: 11px;
+    overflow: hidden;
   }
-  summary {
-    padding: 6px 10px;
-    cursor: pointer;
-    font-weight: bold;
-    color: var(--text-sub);
-    background: #edf5ee;
-  }
-  .race-table { width: 100%; border-collapse: collapse; text-align: center; font-size: 10px; }
-  .race-table th { background: var(--accent-color); color: #fff; padding: 4px; }
-  .race-table td { padding: 4px; border-bottom: 1px solid #eee; }
+  .race-table { width: 100%; border-collapse: collapse; text-align: center; font-size: 11px; }
+  .race-table th { background: #e0ece1; color: var(--text-sub); padding: 6px 4px; font-weight: bold; border-bottom: 1px solid var(--border-color); }
+  .race-table td { padding: 5px 4px; border-bottom: 1px solid #eee; }
   .row-player { background-color: #e8f4fc; font-weight: bold; }
   .row-cpu { background-color: #fce8e8; font-weight: bold; }
 
   /* 枠番バッジ */
-  .w-1 { background:#fff; color:#000; border:1px solid #ccc; padding:0 4px; border-radius:2px; }
-  .w-2 { background:#222; color:#fff; padding:0 4px; border-radius:2px; }
-  .w-3 { background:#e60012; color:#fff; padding:0 4px; border-radius:2px; }
-  .w-4 { background:#0068b7; color:#fff; padding:0 4px; border-radius:2px; }
-  .w-5 { background:#fff100; color:#000; padding:0 4px; border-radius:2px; }
-  .w-6 { background:#009944; color:#fff; padding:0 4px; border-radius:2px; }
-  .w-7 { background:#f39700; color:#fff; padding:0 4px; border-radius:2px; }
-  .w-8 { background:#e4007f; color:#fff; padding:0 4px; border-radius:2px; }
+  .w-1 { background:#fff; color:#000; border:1px solid #ccc; padding:1px 5px; border-radius:3px; }
+  .w-2 { background:#222; color:#fff; padding:2px 5px; border-radius:3px; }
+  .w-3 { background:#e60012; color:#fff; padding:2px 5px; border-radius:3px; }
+  .w-4 { background:#0068b7; color:#fff; padding:2px 5px; border-radius:3px; }
+  .w-5 { background:#fff100; color:#000; padding:2px 5px; border-radius:3px; }
+  .w-6 { background:#009944; color:#fff; padding:2px 5px; border-radius:3px; }
+  .w-7 { background:#f39700; color:#fff; padding:2px 5px; border-radius:3px; }
+  .w-8 { background:#e4007f; color:#fff; padding:2px 5px; border-radius:3px; }
 
   .btn-submit {
     background: var(--accent-color);
     color: white;
     border: none;
-    padding: 14px;
-    border-radius: 6px;
+    padding: 16px;
+    border-radius: 8px;
     font-weight: bold;
-    font-size: 15px;
+    font-size: 16px;
     cursor: pointer;
     text-align: center;
     box-shadow: 0 4px 0 var(--accent-hover);
     margin-top: 10px;
+    margin-bottom: 30px;
+    transition: 0.2s;
   }
-  .btn-submit:disabled { background: #a0a0a0; box-shadow: 0 4px 0 #7a7a7a; cursor: not-allowed; }
+  .btn-submit:active { transform: translateY(4px); box-shadow: none; }
+  .btn-submit:disabled { background: #a0a0a0; box-shadow: 0 4px 0 #7a7a7a; cursor: not-allowed; transform: none; }
 </style>
 </head>
 <body>
 
 <div class="container">
   <div class="header-panel">
-    <a href="matchup.html" class="btn-back">← 出走登録へ</a>
+    <a href="matchup.html" class="btn-back">← 戻る</a>
     <h2 style="margin:0; font-size: 15px; color: var(--accent-color);">作戦決定</h2>
     <div id="syncStatus" style="font-size: 11px; color: var(--text-sub); font-weight: bold;">☁️ 読込中...</div>
   </div>
@@ -182,11 +203,11 @@
   <!-- 作戦レベル監視 -->
   <div class="status-bar">
     <div class="status-item">
-      <span class="status-label">作戦決定数</span>
+      <span class="status-label">作戦決定</span>
       <span class="status-val" id="selectedCount">0 / 5</span>
     </div>
     <div class="status-item">
-      <span class="status-label">合計作戦レベル</span>
+      <span class="status-label">合計レベル</span>
       <span class="status-val" id="totalLevelDisplay">0 / 20</span>
     </div>
     <div class="status-item">
@@ -195,7 +216,9 @@
     </div>
   </div>
 
-  <div id="raceContainer" style="display:flex; flex-direction:column; gap:12px;"></div>
+  <div id="raceContainer" style="display:flex; flex-direction:column; gap:16px;">
+    <!-- レースカードがここに生成されます -->
+  </div>
 
   <button class="btn-submit" id="btnGoRace" disabled onclick="submitStrategies()">レース開催へ進む！</button>
 </div>
@@ -212,6 +235,7 @@
   let playerEntries = [];
   let cpuEntries = [];
   let fullRaceGrids = [];
+  let seriesTrackCondition = "良"; // デフォルト
 
   let chosenStrategies = [null, null, null, null, null];
 
@@ -232,11 +256,29 @@
       initStrategyPage();
       document.getElementById('syncStatus').textContent = "✅";
     } catch (e) {
+      console.error(e);
       document.getElementById('syncStatus').textContent = "❌ エラー";
     }
   });
 
-  // 作戦レベルの取得（マスター内の level プロパティ、またはID末尾の数字を利用）
+  // 馬場コンディションの抽選 (良75%, 稍重18%, 重5%, 不良2%)
+  function generateTrackCondition() {
+    const r = Math.random() * 100;
+    if (r < 75) return "良";
+    if (r < 93) return "稍重";
+    if (r < 98) return "重";
+    return "不良";
+  }
+
+  function getConditionClass(cond) {
+    if (cond === "良") return "cond-ryo";
+    if (cond === "稍重") return "cond-yaya";
+    if (cond === "重") return "cond-omo";
+    if (cond === "不良") return "cond-furyo";
+    return "cond-ryo";
+  }
+
+  // 作戦レベルの取得
   function getStrategyLevel(st) {
     if (!st) return 0;
     if (st.level !== undefined) return parseInt(st.level, 10);
@@ -253,24 +295,36 @@
     const horseMap = {};
     HORSES_MASTER.forEach(h => horseMap[h.horse_id] = h);
 
-    playerEntries = playerHorseIds.map(id => horseMap[id]);
+    // プレイヤーの馬を取得（万が一足りない場合はエラー防止）
+    playerEntries = playerHorseIds.map(id => horseMap[id]).filter(h => h);
 
+    // CPUの馬をランダムに5頭抽出
     const unusedHorses = HORSES_MASTER.filter(h => !playerHorseIds.includes(h.horse_id));
     cpuEntries = getRandomSubarray(unusedHorses, 5);
+
+    // 同一シリーズ・同一日を想定し、馬場コンディションを統一
+    seriesTrackCondition = generateTrackCondition();
 
     const races = currentSeries.rounds[0].races;
     fullRaceGrids = races.map((race, rIdx) => {
       const pHorse = playerEntries[rIdx];
       const cHorse = cpuEntries[rIdx];
 
-      const candidates = HORSES_MASTER.filter(h => h.horse_id !== pHorse?.horse_id && h.horse_id !== cHorse?.horse_id);
-      const mobs = getRandomSubarray(candidates, 14);
+      // 出走する2頭以外の馬を14頭選ぶ
+      const candidates = unusedHorses.filter(h => h.horse_id !== (cHorse ? cHorse.horse_id : ''));
+      let mobs = getRandomSubarray(candidates, 14);
+      
+      // データ不足時（テスト環境など）のフェイルセーフ：ダミー馬を生成して14頭にする
+      while(mobs.length < 14) {
+        mobs.push({ horse_id: `dummy_${mobs.length}`, name: `架空馬${mobs.length + 1}`, pt: 50, sex: '牡' });
+      }
 
       const fullList = [
-        { ...pHorse, isPlayer: true },
-        { ...cHorse, isCpu: true },
+        { ...(pHorse || {}), isPlayer: true },
+        { ...(cHorse || {}), isCpu: true },
         ...mobs.map(m => ({ ...m, isMob: true }))
       ];
+      // 16頭をシャッフルして枠順を決定
       return shuffleArray(fullList);
     });
 
@@ -282,6 +336,8 @@
     const container = document.getElementById('raceContainer');
     container.innerHTML = '';
 
+    const condClass = getConditionClass(seriesTrackCondition);
+
     races.forEach((race, rIdx) => {
       const pHorse = playerEntries[rIdx];
       const cHorse = cpuEntries[rIdx];
@@ -290,72 +346,80 @@
       const card = document.createElement('div');
       card.className = 'race-block';
 
+      // ミニカードレイアウト
       const vsHtml = `
         <div class="vs-container">
           <div class="mini-card player">
-            <div class="card-label">YOU</div>
-            <div class="card-horse-name">${pHorse ? pHorse.name : '-'}</div>
+            <div class="card-label player">★ YOUR HORSE</div>
+            <div class="card-horse-name">${pHorse ? pHorse.name : '未選択'}</div>
             <div class="card-horse-stat">Pt: ${pHorse ? (pHorse.potential || pHorse.pt || '-') : '-'}</div>
           </div>
           <div class="vs-badge">VS</div>
           <div class="mini-card cpu">
-            <div class="card-label">CPU</div>
-            <div class="card-horse-name">${cHorse ? cHorse.name : '-'}</div>
+            <div class="card-label cpu">CPU HORSE</div>
+            <div class="card-horse-name">${cHorse ? cHorse.name : '未選択'}</div>
             <div class="card-horse-stat">Pt: ${cHorse ? (cHorse.potential || cHorse.pt || '-') : '-'}</div>
           </div>
         </div>
       `;
 
-      let strategyOptionsHtml = '<option value="">-- 作戦を選択してください --</option>';
-      const categories = ["逃げ", "先行", "差し", "追込"];[span_0](start_span)[span_0](end_span)
-      
+      // 作戦ドロップダウン
+      let strategyOptionsHtml = '<option value="">▼ 作戦を選択してください (Lv1〜4)</option>';
+      const categories = ["逃げ", "先行", "差し", "追込"];
       categories.forEach(cat => {
         strategyOptionsHtml += `<optgroup label="脚質: ${cat}">`;
-        Object.values(STRATEGY_MASTER).filter(st => st.style === cat).forEach(st => {[span_1](start_span)[span_1](end_span)
+        Object.values(STRATEGY_MASTER).filter(st => st.style === cat).forEach(st => {
           const lvl = getStrategyLevel(st);
           strategyOptionsHtml += `<option value="${st.strategy_id}">${st.name} [Lv.${lvl}]</option>`;
         });
         strategyOptionsHtml += `</optgroup>`;
       });
 
+      // 16頭立て出走表（コンパクトデザイン）
       const tableRowsHtml = grid.map((h, index) => {
+        // 2頭ずつ1つの枠番に入る (1枠〜8枠)
         const frameNum = Math.floor(index / 2) + 1;
         const frameClass = `w-${Math.min(frameNum, 8)}`;
+        
         let rowClass = '';
-        let mark = '';
-        if (h.isPlayer) { rowClass = 'row-player'; mark = '★YOU'; }
-        else if (h.isCpu) { rowClass = 'row-cpu'; mark = 'CPU'; }
+        let displayMark = '';
+        if (h.isPlayer) { rowClass = 'row-player'; displayMark = '<span style="color:var(--player-color);font-weight:bold;">(YOU)</span>'; }
+        else if (h.isCpu) { rowClass = 'row-cpu'; displayMark = '<span style="color:var(--danger-color);font-weight:bold;">(CPU)</span>'; }
 
         return `
           <tr class="${rowClass}">
-            <td><span class="${frameClass}">${frameNum}</span></td>
-            <td style="text-align:left; padding-left:5px;">${h.name} ${mark ? `<small>(${mark})</small>` : ''}</td>
-            <td>${h.sex || '牡'}</td>
-            <td>${h.potential || h.pt || '-'}</td>
+            <td style="width:10%;"><span class="${frameClass}">${frameNum}</span></td>
+            <td style="width:10%;">${index + 1}</td>
+            <td style="text-align:left; padding-left:8px; width:50%;">${h.name || '-'} ${displayMark}</td>
+            <td style="width:15%;">${h.sex || '-'}</td>
+            <td style="width:15%;">${h.potential || h.pt || '-'}</td>
           </tr>
         `;
       }).join('');
 
       card.innerHTML = `
         <div class="race-header">
-          <span>第${race.race_num}戦: ${race.race_name}</span>
-          <span>${race.surface} ${race.distance}m</span>
+          <div class="race-title">RACE ${race.race_num}: ${race.race_name}</div>
+          <div class="race-conditions">
+            <span>${race.surface || '芝'} ${race.distance || '2400'}m</span>
+            <span class="cond-badge ${condClass}">${seriesTrackCondition}</span>
+          </div>
         </div>
+        
         ${vsHtml}
-        <div class="strategy-select-box">
-          <select class="strategy-select" id="stratSelect${rIdx}" onchange="onStrategySelected(${rIdx}, this.value)">
-            ${strategyOptionsHtml}
-          </select>
-        </div>
-        <details>
-          <summary>出走表を表示 (16頭立て)</summary>
+        
+        <select class="strategy-select" id="stratSelect${rIdx}" onchange="onStrategySelected(${rIdx}, this.value)">
+          ${strategyOptionsHtml}
+        </select>
+        
+        <div class="race-table-container">
           <table class="race-table">
             <thead>
-              <tr><th style="width:25px;">枠</th><th style="text-align:left; padding-left:5px;">馬名</th><th style="width:30px;">性</th><th style="width:30px;">Pt</th></tr>
+              <tr><th>枠</th><th>馬番</th><th style="text-align:left; padding-left:8px;">馬名</th><th>性</th><th>Pt</th></tr>
             </thead>
             <tbody>${tableRowsHtml}</tbody>
           </table>
-        </details>
+        </div>
       `;
       container.appendChild(card);
     });
@@ -392,19 +456,18 @@
       btn.disabled = true;
     } else if (selectedCount === 5) {
       lvlEl.className = 'status-val ok';
-      statusEl.textContent = 'OK';
+      statusEl.textContent = '準備完了！';
       statusEl.className = 'status-val ok';
       btn.disabled = false;
     } else {
       lvlEl.className = 'status-val';
-      statusEl.textContent = '選択中';
+      statusEl.textContent = '選択中...';
       statusEl.className = 'status-val';
       btn.disabled = true;
     }
   }
 
   window.submitStrategies = function() {
-    // 選択された作戦の情報をそのまま保存（レース画面に渡す用）
     const selectedStrategyObjects = chosenStrategies.map(stId => {
       if (!stId || !STRATEGY_MASTER[stId]) return null;
       const st = STRATEGY_MASTER[stId];
@@ -416,8 +479,11 @@
       };
     });
 
+    // 選択作戦、出走表、馬場コンディションを保存して次へ
     sessionStorage.setItem('chosen_strategies', JSON.stringify(selectedStrategyObjects));
     sessionStorage.setItem('full_race_grids', JSON.stringify(fullRaceGrids));
+    sessionStorage.setItem('track_condition', seriesTrackCondition);
+    
     window.location.href = 'race_result.html';
   };
 
