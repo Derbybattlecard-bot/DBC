@@ -126,7 +126,7 @@
     font-size: 11px;
   }
 
-  /* 16頭立て出走表（アコーディオン） */
+  /* 16頭立て出走表 */
   details {
     background: #fff;
     border: 1px solid var(--border-color);
@@ -211,11 +211,11 @@
   let STRATEGY_MASTER = {};
 
   let currentSeries = null;
-  let playerEntries = []; // 5頭のHorseオブジェクト
-  let cpuEntries = [];    // CPUの5頭のHorseオブジェクト
-  let fullRaceGrids = []; // 5レース分の16頭リスト
+  let playerEntries = [];
+  let cpuEntries = [];
+  let fullRaceGrids = [];
 
-  let chosenStrategies = [null, null, null, null, null]; // 選択作戦ID
+  let chosenStrategies = [null, null, null, null, null];
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = 'auth.html'; return; }
@@ -238,17 +238,30 @@
     }
   });
 
-  // 作戦レベルの算出（Strategyオブジェクトにlevel属性があればそれを使用し、無ければ能力合計値などからLv1〜5を判定）[span_0](start_span)[span_0](end_span)
   function getStrategyLevel(st) {
     if (!st) return 0;
     if (st.level) return parseInt(st.level, 10);
-    // パラメータ合計値に基づくフォールバック判定
-    const sum = (st.speed || 0) + (st.stamina || 0) + (st.sharp || 0) + (st.jizoku || 0) + (st.guts || 0);
-    if (sum >= 25) return 5;
-    if (sum >= 22) return 4;
-    if (sum >= 19) return 3;
-    if (sum >= 16) return 2;
+    const match = st.strategy_id.match(/_(\d+)$/);
+    if (match) {
+      return parseInt(match[1], 10);
+    }
     return 1;
+  }
+
+  // 内部的なパラメータ補正計算
+  function getCalculatedStrategy(st) {
+    if (!st) return null;
+    const level = getStrategyLevel(st);
+    return {
+      ...st,
+      level: level,
+      speed: (st.speed || 0) + level,
+      stamina: (st.stamina || 0) + level,
+      sharp: (st.sharp || 0) + level,
+      jizoku: (st.jizoku || 0) + level,
+      guts: (st.guts || 0) + level,
+      potential: level
+    };
   }
 
   function initStrategyPage() {
@@ -261,21 +274,17 @@
 
     playerEntries = playerHorseIds.map(id => horseMap[id]);
 
-    // CPU馬の自動決定（プレイヤー未選択の馬からランダム抽出）
     const unusedHorses = HORSES_MASTER.filter(h => !playerHorseIds.includes(h.horse_id));
     cpuEntries = getRandomSubarray(unusedHorses, 5);
 
-    // 各レースごとのモブ14頭および16頭建ての出走表を作成
     const races = currentSeries.rounds[0].races;
     fullRaceGrids = races.map((race, rIdx) => {
       const pHorse = playerEntries[rIdx];
       const cHorse = cpuEntries[rIdx];
 
-      // 適性に合うモブ馬を抽出
       const candidates = HORSES_MASTER.filter(h => h.horse_id !== pHorse?.horse_id && h.horse_id !== cHorse?.horse_id);
       const mobs = getRandomSubarray(candidates, 14);
 
-      // 16頭のシャッフル＆枠順割り当て
       const fullList = [
         { ...pHorse, isPlayer: true },
         { ...cHorse, isCpu: true },
@@ -300,7 +309,6 @@
       const card = document.createElement('div');
       card.className = 'race-block';
 
-      // 左右ミニカード表示
       const vsHtml = `
         <div class="vs-container">
           <div class="mini-card player">
@@ -317,20 +325,18 @@
         </div>
       `;
 
-      // 作戦ドロップダウン選択肢（脚質カテゴリーごとに整理）[span_1](start_span)[span_1](end_span)
       let strategyOptionsHtml = '<option value="">-- 作戦を選択してください --</option>';
-      const categories = ["逃げ", "先行", "差し", "追込"];[span_2](start_span)[span_2](end_span)
+      const categories = ["逃げ", "先行", "差し", "追込"];[span_0](start_span)[span_0](end_span)
       
       categories.forEach(cat => {
         strategyOptionsHtml += `<optgroup label="脚質: ${cat}">`;
-        Object.values(STRATEGY_MASTER).filter(st => st.style === cat).forEach(st => {[span_3](start_span)[span_3](end_span)
+        Object.values(STRATEGY_MASTER).filter(st => st.style === cat).forEach(st => {[span_1](start_span)[span_1](end_span)
           const lvl = getStrategyLevel(st);
-          strategyOptionsHtml += `<option value="${st.strategy_id}">${st.name} [Lv.${lvl}]</option>`;[span_4](start_span)[span_4](end_span)
+          strategyOptionsHtml += `<option value="${st.strategy_id}">${st.name} [Lv.${lvl}]</option>`;
         });
         strategyOptionsHtml += `</optgroup>`;
       });
 
-      // 出走表のHTML構築
       const tableRowsHtml = grid.map((h, index) => {
         const frameNum = Math.floor(index / 2) + 1;
         const frameClass = `w-${Math.min(frameNum, 8)}`;
@@ -417,7 +423,12 @@
   }
 
   window.submitStrategies = function() {
-    sessionStorage.setItem('chosen_strategies', JSON.stringify(chosenStrategies));
+    const calculatedStrategies = chosenStrategies.map(stId => {
+      if (!stId || !STRATEGY_MASTER[stId]) return null;
+      return getCalculatedStrategy(STRATEGY_MASTER[stId]);
+    });
+
+    sessionStorage.setItem('chosen_strategies', JSON.stringify(calculatedStrategies));
     sessionStorage.setItem('full_race_grids', JSON.stringify(fullRaceGrids));
     window.location.href = 'race_result.html';
   };
