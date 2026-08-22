@@ -364,12 +364,15 @@
     document.getElementById('deckCard1').classList.toggle('selected', idx === 1);
     renderDeckTable();
     validateStartButton();
-  };
-
-  // 18頭の出走表を描画（index.htmlのフォーマットおよび性別の仮設定を統合）
+  };　
+  
+  // 18頭の出走表を描画（使用済みカード判定を追加）
   function renderDeckTable() {
     const tbody = document.getElementById('deckHorseList');
     tbody.innerHTML = '';
+
+    // 使用済みカードID／馬名リストを取得
+    const usedCards = JSON.parse(sessionStorage.getItem('used_cards_history') || '[]');
 
     const decks = globalUserData.decks || [];
     const currentDeck = decks[selectedDeckIndex] || { horse_ids: [] };
@@ -382,26 +385,33 @@
       const horse = HORSES_MASTER[horseId];
 
       const tr = document.createElement('tr');
+
       if (horse) {
-        // 仮で全馬「牡」表記（マスターに指定があればそれを優先）
+        // 使用済みかどうかの判定
+        const isUsed = usedCards.includes(horseId) || usedCards.includes(horse.name) || usedCards.includes(horse.id);
+
+        if (isUsed) {
+          tr.style.opacity = '0.4';
+          tr.style.backgroundColor = '#e0e0e0';
+        }
+
         const sex = horse.sex || "牡";
-        
-        // 芝ダ適性表示（両方可なら「万」、それ以外は「芝」「ダ」）
         const surfaceText = (horse.aptitude?.turf === "A" && horse.aptitude?.dirt === "A") || (horse.turf && horse.dirt) 
           ? "万" 
           : (horse.aptitude?.turf === "A" || horse.turf ? "芝" : "ダ");
 
-        // 距離適性表示
         const distText = horse.distance 
           ? `${horse.distance}m` 
           : (horse.aptitude ? `${horse.aptitude.min_distance}~${horse.aptitude.max_distance}m` : '-');
 
-        // ポテンシャル数値（マスターにある想定、なければハイフン）
         const pt = horse.potential || horse.pt || "-";
+        
+        // 使用済みの場合はラベルを付与
+        const usedBadge = isUsed ? `<span style="background:#d9534f; color:#fff; font-size:9px; padding:1px 3px; border-radius:2px; margin-left:4px;">使用済</span>` : '';
 
         tr.innerHTML = `
           <td><span class="${frameClass}">${frameNum}</span></td>
-          <td class="horse-name-cell">${horse.name}<span class="horse-sex">${sex}</span></td>
+          <td class="horse-name-cell">${horse.name}${usedBadge}<span class="horse-sex">${sex}</span></td>
           <td><strong>${pt}</strong></td>
           <td>${surfaceText}</td>
           <td>${distText}</td>
@@ -418,6 +428,8 @@
       tbody.appendChild(tr);
     }
   }
+
+  
 
   function validateStartButton() {
     const currentDeck = globalUserData.decks ? globalUserData.decks[selectedDeckIndex] : null;
