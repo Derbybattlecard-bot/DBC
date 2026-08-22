@@ -24,7 +24,7 @@
     margin: 0 auto; 
   }
 
-  /* 1. レース条件（大見出し） */
+  /* 1. 最上部：レース条件 */
   .race-title-panel {
     background: linear-gradient(135deg, #1f242d, #11141a);
     border: 2px solid var(--accent-green);
@@ -34,8 +34,14 @@
     box-shadow: 0 0 10px rgba(0,255,102,0.2);
     margin-bottom: 12px;
   }
+  .race-num-badge {
+    color: var(--gold-color);
+    font-size: 0.9em;
+    font-weight: bold;
+    margin-bottom: 2px;
+  }
   .race-venue-dist {
-    font-size: 1.4em;
+    font-size: 1.3em;
     font-weight: bold;
     color: #fff;
     letter-spacing: 1px;
@@ -48,7 +54,7 @@
     border: 1px solid var(--accent-green);
     padding: 2px 10px;
     border-radius: 12px;
-    font-size: 0.9em;
+    font-size: 0.85em;
     font-weight: bold;
   }
 
@@ -127,6 +133,7 @@
   .card-label.p1 { color: var(--player-color); }
   .card-label.p2 { color: var(--cpu-color); }
   .card-horse-name { font-weight: bold; font-size: 13px; color: #fff; }
+  .card-strat-info { font-size: 10px; color: #aaa; margin-top: 2px; }
   .vs-badge { font-weight: bold; color: #777; font-size: 14px; font-style: italic; }
 
   /* 5. 次のレースへのボタン */
@@ -149,13 +156,14 @@
 
 <!-- 1. 最上部：レース条件 -->
 <div class="race-title-panel">
-  <div class="race-venue-dist" id="display-race-title">東京 芝 2000m</div>
-  <span class="race-condition-badge" id="display-race-cond">馬場: 良</span>
+  <div class="race-num-badge" id="display-race-num">RACE 1 / 5</div>
+  <div class="race-venue-dist" id="display-race-title">---</div>
+  <span class="race-condition-badge" id="display-race-cond">馬場: ---</span>
 </div>
 
 <!-- 2. レースシーン枠 -->
 <div id="track-container">
-  <div id="race-telop">【ペース】 ハイペース</div>
+  <div id="race-telop">【ペース】 ---</div>
   <div id="wipe-overlay">
     <div class="wipe-text">第4コーナーをカーブして<br>いよいよ最後の直線！！</div>
   </div>
@@ -168,7 +176,7 @@
 <!-- 3. 実況枠 -->
 <div id="commentary-box">
   <div style="color: var(--accent-green); font-weight: bold; font-size: 0.8em; margin-bottom: 2px;">【実況中継】</div>
-  <div id="log-content">準備完了。「レーススタート」ボタンを押してください。</div>
+  <div id="log-content">出走データを読み込み中...</div>
 </div>
 
 <!-- 4. 対戦ミニカード (VS表示) -->
@@ -176,11 +184,13 @@
   <div class="mini-card p1">
     <div class="card-label p1">★ YOUR HORSE</div>
     <div class="card-horse-name" id="p1-card-name">-</div>
+    <div class="card-strat-info" id="p1-card-strat">作戦: -</div>
   </div>
   <div class="vs-badge">VS</div>
   <div class="mini-card p2">
     <div class="card-label p2">CPU HORSE</div>
     <div class="card-horse-name" id="p2-card-name">-</div>
+    <div class="card-strat-info" id="p2-card-strat">作戦: -</div>
   </div>
 </div>
 
@@ -191,48 +201,87 @@
 <div id="result-container" style="display: none; margin-top: 15px;">
   <div style="color: var(--accent-green); font-weight: bold; margin-bottom: 5px;">📊 確定着順結果</div>
   <table class="data-table">
-    <thead><tr><th>着順</th><th>馬名</th><th>脚質</th><th>ポテンシャル</th><th>評価Pt</th></tr></thead>
+    <thead><tr><th>着順</th><th>馬名</th><th>脚質</th><th>評価Pt</th></tr></thead>
     <tbody id="result-body"></tbody>
   </table>
 </div>
 
 <script>
-const MASTER_H = [
-  { name: "サイレンススズカ", pot: 19, style: "大逃" }, { name: "トウショウボーイ", pot: 20, style: "逃げ" },
-  { name: "シンボリルドルフ", pot: 21, style: "先行" }, { name: "ディープインパクト", pot: 22, style: "追込" },
-  { name: "オルフェーヴル", pot: 21, style: "差し" }, { name: "オグリキャップ", pot: 20, style: "自在" },
-  { name: "ウォッカ", pot: 19, style: "差し" }, { name: "ダイワスカーレット", pot: 18, style: "逃げ" },
-  { name: "テイエムオペラオー", pot: 20, style: "先行" }, { name: "メジロマックイーン", pot: 20, style: "先行" },
-  { name: "ナリタブライアン", pot: 21, style: "差し" }, { name: "ライスシャワー", pot: 18, style: "先行" },
-  { name: "キタサンブラック", pot: 19, style: "逃げ" }, { name: "コントレイル", pot: 20, style: "先行" },
-  { name: "アーモンドアイ", pot: 21, style: "差し" }, { name: "ゴールドシップ", pot: 19, style: "追込" }
-];
+// SessionStorage から渡されたデータの受け取り
+let currentRaceIndex = 0; // 0〜4 の計5レース
+let fullRaceGrids = [];
+let chosenStrategies = [];
+let trackCondition = "良";
 
-let activeHorses = [];
-let p1Idx = 0, p2Idx = 1;
-let testPatternIndex = 0;
+let activeHorses = []; // 16頭の馬データ
+let playerHorseObj = null;
+let cpuHorseObj = null;
+let playerIndexInGrid = -1;
+let cpuIndexInGrid = -1;
+
 let telopTimer = null;
 let raceState = 'ready'; // 'ready', 'running', 'finished'
+let calculatedResults = [];
 
-// かな抽出用（漢字混じり馬名からカナ頭3文字を取得するユーティリティ）
+// カナ3文字抽出
 function getKana3(name) {
+  if (!name) return 'ダミ';
   const kanaOnly = name.replace(/[^\u30A0-\u30FF]/g, '');
   if (kanaOnly.length >= 3) return kanaOnly.substring(0, 3);
   return name.substring(0, 3);
 }
 
 window.onload = () => {
-  initRaceFields();
+  loadDataFromSession();
+  setupRace(currentRaceIndex);
 };
 
-function initRaceFields() {
-  p1Idx = 0;
-  p2Idx = 1;
-  activeHorses = MASTER_H.map((h, i) => ({ ...h, masterIndex: i }));
+function loadDataFromSession() {
+  const gridsData = sessionStorage.getItem('full_race_grids');
+  const stratData = sessionStorage.getItem('chosen_strategies');
+  const condData = sessionStorage.getItem('track_condition');
 
-  // ミニカード表示の更新
-  document.getElementById('p1-card-name').textContent = activeHorses[p1Idx].name;
-  document.getElementById('p2-card-name').textContent = activeHorses[p2Idx].name;
+  if (gridsData) fullRaceGrids = JSON.parse(gridsData);
+  if (stratData) chosenStrategies = JSON.parse(stratData);
+  if (condData) trackCondition = condData;
+
+  // 万が一データがない場合の安全策
+  if (!fullRaceGrids || fullRaceGrids.length === 0) {
+    alert("レースデータが見つかりません。作戦選択画面から直してください。");
+    window.location.href = 'strategy.html';
+  }
+}
+
+function setupRace(rIdx) {
+  raceState = 'ready';
+  activeHorses = fullRaceGrids[rIdx] || [];
+  const strat = chosenStrategies[rIdx] || { name: "おまかせ", level: 1 };
+
+  // プレイヤー馬とCPU馬の特定
+  playerIndexInGrid = activeHorses.findIndex(h => h.isPlayer);
+  cpuIndexInGrid = activeHorses.findIndex(h => h.isCpu);
+
+  playerHorseObj = activeHorses[playerIndexInGrid] || { name: "自馬" };
+  cpuHorseObj = activeHorses[cpuIndexInGrid] || { name: "敵馬" };
+
+  // レース条件ヘッダーの表示更新
+  document.getElementById('display-race-num').textContent = `RACE ${rIdx + 1} / 5`;
+  document.getElementById('display-race-title').textContent = `第${rIdx + 1}戦 芝 2000m`;
+  document.getElementById('display-race-cond').textContent = `馬場: ${trackCondition}`;
+
+  // 対戦ミニカード更新
+  document.getElementById('p1-card-name').textContent = playerHorseObj.name || "-";
+  document.getElementById('p1-card-strat').textContent = strat.name ? `${strat.name} (Lv${strat.level})` : "作戦なし";
+  
+  document.getElementById('p2-card-name').textContent = cpuHorseObj.name || "-";
+  document.getElementById('p2-card-strat').textContent = "通常追走";
+
+  // ボタン＆画面リセット
+  const btn = document.getElementById('nextBtn');
+  btn.disabled = false;
+  btn.innerText = "🏁 レーススタート！";
+  document.getElementById('result-container').style.display = "none";
+  updateLog(`第${rIdx + 1}レースの準備が整いました。ボタンを押すと発走します。`);
 
   const wipe = document.getElementById('wipe-overlay');
   wipe.style.transition = "none";
@@ -240,7 +289,7 @@ function initRaceFields() {
   hideTelop();
   document.getElementById('goal-line').style.display = "none";
   document.getElementById('goal-flag').style.display = "none";
-  
+
   renderLanes();
 }
 
@@ -248,8 +297,10 @@ function renderLanes() {
   const lanes = document.getElementById('lanes');
   lanes.innerHTML = "";
   activeHorses.forEach((h, i) => {
-    let nameClass = i === p1Idx ? "p1-name" : (i === p2Idx ? "p2-name" : "");
-    // 番号なし、カナ3文字でアイコン生成
+    let nameClass = "";
+    if (h.isPlayer) nameClass = "p1-name";
+    else if (h.isCpu) nameClass = "p2-name";
+
     const shortName = getKana3(h.name);
     lanes.innerHTML += `
       <div class="horse-lane">
@@ -261,16 +312,16 @@ function renderLanes() {
 }
 
 function handleButtonClick() {
-  const btn = document.getElementById('nextBtn');
   if (raceState === 'ready') {
     startRace();
   } else if (raceState === 'finished') {
-    // 次のレースへの遷移（デモとして初期状態へリセット）
-    raceState = 'ready';
-    btn.innerText = "🏁 レーススタート！";
-    document.getElementById('result-container').style.display = "none";
-    updateLog("次のレースの準備が整いました。");
-    initRaceFields();
+    currentRaceIndex++;
+    if (currentRaceIndex < 5) {
+      setupRace(currentRaceIndex);
+    } else {
+      alert("全5レースが終了しました！対戦結果画面に移動します。");
+      window.location.href = 'matchup.html'; // または総合結果画面
+    }
   }
 }
 
@@ -306,51 +357,47 @@ function startRace() {
   raceState = 'running';
   const btn = document.getElementById('nextBtn');
   btn.disabled = true;
-  document.getElementById('result-container').style.display = "none";
-  
-  const patterns = ["逃げ", "先行", "差し", "追込"];
-  const patternNames = ["逃げ切り", "先行押し切り", "差し切り", "最後尾から追込"];
-  const targetPattern = patterns[testPatternIndex % 4];
-  const targetPatternName = patternNames[testPatternIndex % 4];
-  testPatternIndex++;
 
-  updateLog(`ゲートが開いた！全16頭、揃ったスタートを切りました！<br><span style="color:#ffcc00;">※展開: 「${targetPatternName}」の展開</span>`);
-  
-  let preScored = activeHorses.map((h, i) => ({ ...h, index: i, score: h.pot * 10 + Math.random() * 25 }));
-  let winnerForced = false;
-  preScored.forEach(h => {
-    let isTarget = false;
-    if (targetPattern === "逃げ" && (h.style === "逃げ" || h.style === "大逃")) isTarget = true;
-    else if (targetPattern === "先行" && h.style === "先行") isTarget = true;
-    else if (targetPattern === "差し" && h.style === "差し") isTarget = true;
-    else if (targetPattern === "追込" && h.style === "追込") isTarget = true;
-    if (isTarget && !winnerForced) {
-      h.score += 1000;
-      winnerForced = true;
+  // 1. レース結果の事前計算 (本番用判定ロジック)
+  const strat = chosenStrategies[currentRaceIndex];
+  calculatedResults = activeHorses.map((h, i) => {
+    let pt = h.potential || h.pt || 50;
+    // 作戦レベルによるプレイヤー馬補正
+    if (h.isPlayer && strat && strat.level) {
+      pt += strat.level * 4;
     }
+    // ランダム要素（展開・展開運）
+    const luck = Math.random() * 20;
+    return { ...h, index: i, finalScore: pt + luck };
   });
-  preScored.sort((a, b) => b.score - a.score);
 
-  // フェーズ1：スタート〜序盤
+  // スコア順にソート（着順決定）
+  calculatedResults.sort((a, b) => b.finalScore - a.finalScore);
+
+  updateLog(`ファンファーレが鳴り響き、第${currentRaceIndex + 1}レースのゲートが開きました！`);
+
+  // フェーズ1：スタート〜序盤 (脚質別位置付け)
   let p1Pos = activeHorses.map(h => {
-    if (h.style === "大逃") return 35;
-    if (h.style === "逃げ") return 28;
-    if (h.style === "先行") return 20;
-    if (h.style === "差し") return 12;
-    if (h.style === "追込") return 5;
+    const style = h.style || h.running_style || "先行";
+    if (style === "大逃") return 35;
+    if (style === "逃げ") return 28;
+    if (style === "先行") return 20;
+    if (style === "差し") return 12;
+    if (style === "追込") return 5;
     return 16;
   });
   setPhasePositions(p1Pos, 6.0, "linear");
 
   // フェーズ2：向正面
   setTimeout(() => {
-    updateLog(`<strong>【向正面】</strong> 縦長の展開！逃げ馬が隊列を引っ張り、追込勢はじっくりと後方で脚を溜めます。`);
+    updateLog(`<strong>【向正面】</strong> 隊列が定まりました。各馬落ち着いてレースを進めています。`);
     let p2Pos = activeHorses.map(h => {
-      if (h.style === "大逃") return 65;
-      if (h.style === "逃げ") return 55;
-      if (h.style === "先行") return 42;
-      if (h.style === "差し") return 28;
-      if (h.style === "追込") return 15;
+      const style = h.style || h.running_style || "先行";
+      if (style === "大逃") return 65;
+      if (style === "逃げ") return 55;
+      if (style === "先行") return 42;
+      if (style === "差し") return 28;
+      if (style === "追込") return 15;
       return 35;
     });
     setPhasePositions(p2Pos, 6.4, "linear");
@@ -358,15 +405,16 @@ function startRace() {
 
   // フェーズ3：3C〜4コーナー
   setTimeout(() => {
-    updateLog(`<strong>【3C〜4コーナー】</strong> 第3コーナーから第4コーナー！各馬、隊列を保ったまま直線の入り口へ！`);
-    const paces = ["スローペース", "ミドルペース", "ハイペース", "超ハイペース"];
+    updateLog(`<strong>【3C〜4コーナー】</strong> 各馬一斉に仕掛けを開始！先頭から後方まで一気に凝縮していきます！`);
+    const paces = ["ミドルペース", "ハイペース", "スローペース"];
     showTelop(`【ペース】 ${paces[Math.floor(Math.random() * paces.length)]}`, 1500);
     let p3Pos = activeHorses.map(h => {
-      if (h.style === "大逃") return 90;
-      if (h.style === "逃げ") return 80;
-      if (h.style === "先行") return 65;
-      if (h.style === "差し") return 45;
-      if (h.style === "追込") return 30;
+      const style = h.style || h.running_style || "先行";
+      if (style === "大逃") return 88;
+      if (style === "逃げ") return 80;
+      if (style === "先行") return 68;
+      if (style === "差し") return 48;
+      if (style === "追込") return 32;
       return 55;
     });
     setPhasePositions(p3Pos, 6.5, "linear");
@@ -387,11 +435,12 @@ function startRace() {
       activeHorses.forEach((_, i) => document.getElementById(`emoji-${i}`).classList.add("flipped"));
       
       let p4StartPos = activeHorses.map(h => {
-        if (h.style === "大逃") return 65 + Math.random() * 2;
-        if (h.style === "逃げ") return 72 + Math.random() * 2;
-        if (h.style === "先行") return 78 + Math.random() * 3;
-        if (h.style === "差し") return 85 + Math.random() * 3;
-        if (h.style === "追込") return 92 + Math.random() * 3;
+        const style = h.style || h.running_style || "先行";
+        if (style === "大逃") return 65 + Math.random() * 2;
+        if (style === "逃げ") return 72 + Math.random() * 2;
+        if (style === "先行") return 78 + Math.random() * 3;
+        if (style === "差し") return 85 + Math.random() * 3;
+        if (style === "追込") return 92 + Math.random() * 3;
         return 80;
       });
       setPhasePositions(p4StartPos, 0, "linear");
@@ -401,9 +450,11 @@ function startRace() {
       wipe.style.left = "100%"; 
       
       setTimeout(() => {
-        let winner = preScored[0];
+        let winner = calculatedResults[0];
         let finalPositions = new Array(16);
-        preScored.forEach((item, rank) => {
+        
+        // 事前に計算した着順スコアに基づいてゴールイン位置を設定
+        calculatedResults.forEach((item, rank) => {
           finalPositions[item.index] = -15 + (rank * 4.6); 
         });
         
@@ -412,23 +463,22 @@ function startRace() {
         let phase4Timings = activeHorses.map((h, idx) => top6Indices.includes(idx) ? "linear" : "cubic-bezier(0.7, 0, 0.2, 1)");
         
         setPhasePositions(finalPositions, 13.0, phase4Timings);
-        updateLog(`<strong>【最後の直線！】</strong> 各馬互いの出方をうかがう…！ さあ、ここから一気にスパートだ！！`);
+        updateLog(`<strong>【最後の直線！】</strong> 直線コースに入った！叩き合いの激戦！ここから追い上げるのはどの馬だ！？`);
 
         setTimeout(() => {
-          const tactics = ["叩き合いの展開", "直線強襲の展開", "前残りの展開", "スパート勝負"];
-          showTelop(`【展開】 ${tactics[Math.floor(Math.random() * tactics.length)]}`, 1500);
+          showTelop(`【展開】 最後の叩き合い！`, 1500);
         }, 3000);
 
         setTimeout(() => {
-          updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00; font-size:1.05em;"><b>勝ち切ったのは ${winner.name} だ！！駆け抜けていく！</b></span>`);
+          updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00; font-size:1.05em;"><b>栄冠を掴んだのは ${winner.name} だ！！</b></span>`);
         }, 10000);
 
         setTimeout(() => {
           hideTelop();
-          renderResults(preScored);
+          renderResults(calculatedResults);
           raceState = 'finished';
           btn.disabled = false; 
-          btn.innerText = "➡️ 次のレースへ進む";
+          btn.innerText = (currentRaceIndex < 4) ? "➡️ 次のレースへ進む" : "🏆 最終結果を見る";
         }, 13500);
       }, 100);
     }, 1500);
@@ -439,8 +489,18 @@ function renderResults(scoredList) {
   const tbody = document.getElementById('result-body');
   tbody.innerHTML = "";
   scoredList.forEach((item, r) => {
-    let nameClass = item.index === p1Idx ? "p1-name" : (item.index === p2Idx ? "p2-name" : "");
-    tbody.innerHTML += `<tr><td><strong>${r + 1}着</strong></td><td style="text-align:left;"><span class="${nameClass}">${item.name}</span></td><td>${item.style}</td><td>P:${item.pot}</td><td>${item.score.toFixed(1)}</td></tr>`;
+    let nameClass = "";
+    if (item.isPlayer) nameClass = "p1-name";
+    else if (item.isCpu) nameClass = "p2-name";
+
+    const style = item.style || item.running_style || "自在";
+    tbody.innerHTML += `
+      <tr>
+        <td><strong>${r + 1}着</strong></td>
+        <td style="text-align:left;"><span class="${nameClass}">${item.name}</span></td>
+        <td>${style}</td>
+        <td>${item.finalScore.toFixed(1)}</td>
+      </tr>`;
   });
   document.getElementById('result-container').style.display = "block";
 }
