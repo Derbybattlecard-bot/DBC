@@ -285,24 +285,32 @@
     return true;
   }
 
-  // ★ 距離適性適合判定（新規追加）
+  // ★ 馬の適性距離文字列（例: "1600-2400" または "1600"）を取得するヘルパー関数
+  function getHorseDistanceString(horse) {
+    if (!horse) return '';
+    if (horse.distance) return String(horse.distance);
+    if (horse.aptitude && horse.aptitude.min_distance && horse.aptitude.max_distance) {
+      return `${horse.aptitude.min_distance}-${horse.aptitude.max_distance}`;
+    }
+    return '';
+  }
+
+  // ★ 距離適性適合判定（文字列解析対応）
   function isValidDistance(horse, raceDistance) {
     if (!horse) return false;
-    
-    // 1. 単一距離指定の場合 (例: horse.distance = 1600)
-    if (horse.distance) {
-      return parseInt(horse.distance, 10) === parseInt(raceDistance, 10);
-    }
-    
-    // 2. 範囲指定の場合 (例: aptitude: { min_distance: 1200, max_distance: 1600 })
-    if (horse.aptitude && horse.aptitude.min_distance && horse.aptitude.max_distance) {
-      const min = parseInt(horse.aptitude.min_distance, 10);
-      const max = parseInt(horse.aptitude.max_distance, 10);
-      const target = parseInt(raceDistance, 10);
-      return target >= min && target <= max;
-    }
+    const distStr = getHorseDistanceString(horse);
+    if (!distStr) return true; // 適性距離データが無い場合は制限なしとみなす
 
-    return true;
+    const target = parseInt(raceDistance, 10);
+
+    if (distStr.includes('-')) {
+      const [minStr, maxStr] = distStr.split('-');
+      const min = parseInt(minStr, 10);
+      const max = parseInt(maxStr, 10);
+      return target >= min && target <= max;
+    } else {
+      return parseInt(distStr, 10) === target;
+    }
   }
 
   function renderEntryCards() {
@@ -351,8 +359,10 @@
         const isUsedPrevious = usedCardsHistory.includes(horse.horse_id) || usedCardsHistory.includes(horse.name);
         const matchesSexLimit = isValidSex(horseSex, seriesSexLimit);
         
-        // ★ 距離適性の判定
+        // 距離適性の判定
         const matchesDist = isValidDistance(horse, race.distance);
+        const distStr = getHorseDistanceString(horse);
+        const distLabel = distStr ? ` [${distStr}m]` : '';
 
         if (!isChosenElsewhere && matchesSexLimit) {
           const opt = document.createElement('option');
@@ -362,12 +372,11 @@
             opt.textContent = `[使用済] ${horse.name}`;
             opt.disabled = true;
           } else if (!matchesDist) {
-            // ★ 距離適性外の馬は無効化 (disabled)
-            const distLabel = horse.distance ? `${horse.distance}m` : (horse.aptitude ? `${horse.aptitude.min_distance}~${horse.aptitude.max_distance}m` : '');
-            opt.textContent = `[適性外: ${distLabel}] ${horse.name}`;
+            opt.textContent = `[適性外:${distStr}m] ${horse.name}`;
             opt.disabled = true;
           } else {
-            opt.textContent = `[${horseSex}] ${horse.name} (Pt: ${horse.potential || horse.pt || '-'})`;
+            // ★ 選択可能馬にも [1600-2400m] の表記を追加
+            opt.textContent = `[${horseSex}] ${horse.name}${distLabel} (Pt: ${horse.potential || horse.pt || '-'})`;
           }
           
           if (horse.horse_id === currentVal) opt.selected = true;
@@ -386,11 +395,11 @@
       const sex = horse.sex || "牡";
       const pt = horse.potential || horse.pt || "-";
       const surfaceText = (horse.aptitude?.turf === "A" && horse.aptitude?.dirt === "A") || (horse.turf && horse.dirt) ? "万" : (horse.aptitude?.turf === "A" || horse.turf ? "芝" : "ダ");
-      const distText = horse.distance ? `${horse.distance}m` : (horse.aptitude ? `${horse.aptitude.min_distance}~${horse.aptitude.max_distance}m` : '-');
+      const distStr = getHorseDistanceString(horse);
 
       preview.innerHTML = `
         <span>性別: <strong>${sex}</strong> | Pt: <strong>${pt}</strong></span>
-        <span>適性: ${surfaceText} (${distText})</span>
+        <span>適性: ${surfaceText} (${distStr ? distStr + 'm' : '-'})</span>
       `;
     } else {
       preview.innerHTML = `<span>性別: - | Pt: -</span><span>適性: -</span>`;
@@ -428,7 +437,6 @@
           hasSexError = true;
         }
 
-        // ★ 距離不適合チェック
         if (!isValidDistance(horse, race.distance)) {
           hasDistError = true;
         }
