@@ -13,8 +13,6 @@
     --text-main: #1a2e1d;
     --text-sub: #4e6b52;
     --border-color: #b2d4b6;
-    --turf-color: #4CAF50;
-    --dirt-color: #8D6E63;
     --danger-color: #d9534f;
   }
   body {
@@ -238,30 +236,13 @@
     }
   });
 
+  // 作戦レベルの取得（マスター内の level プロパティ、またはID末尾の数字を利用）
   function getStrategyLevel(st) {
     if (!st) return 0;
-    if (st.level) return parseInt(st.level, 10);
+    if (st.level !== undefined) return parseInt(st.level, 10);
     const match = st.strategy_id.match(/_(\d+)$/);
-    if (match) {
-      return parseInt(match[1], 10);
-    }
+    if (match) return parseInt(match[1], 10);
     return 1;
-  }
-
-  // 内部的なパラメータ補正計算
-  function getCalculatedStrategy(st) {
-    if (!st) return null;
-    const level = getStrategyLevel(st);
-    return {
-      ...st,
-      level: level,
-      speed: (st.speed || 0) + level,
-      stamina: (st.stamina || 0) + level,
-      sharp: (st.sharp || 0) + level,
-      jizoku: (st.jizoku || 0) + level,
-      guts: (st.guts || 0) + level,
-      potential: level
-    };
   }
 
   function initStrategyPage() {
@@ -423,12 +404,19 @@
   }
 
   window.submitStrategies = function() {
-    const calculatedStrategies = chosenStrategies.map(stId => {
+    // 選択された作戦の情報をそのまま保存（レース画面に渡す用）
+    const selectedStrategyObjects = chosenStrategies.map(stId => {
       if (!stId || !STRATEGY_MASTER[stId]) return null;
-      return getCalculatedStrategy(STRATEGY_MASTER[stId]);
+      const st = STRATEGY_MASTER[stId];
+      return {
+        strategy_id: st.strategy_id,
+        style: st.style,
+        name: st.name,
+        level: getStrategyLevel(st)
+      };
     });
 
-    sessionStorage.setItem('chosen_strategies', JSON.stringify(calculatedStrategies));
+    sessionStorage.setItem('chosen_strategies', JSON.stringify(selectedStrategyObjects));
     sessionStorage.setItem('full_race_grids', JSON.stringify(fullRaceGrids));
     window.location.href = 'race_result.html';
   };
