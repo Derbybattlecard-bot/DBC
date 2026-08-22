@@ -519,13 +519,32 @@ function showFinalSeriesResult() {
   document.getElementById('final-series-modal').style.display = "block";
 }
 
+// 5レース終了後「次のシリーズへ進む」を押した時の処理
 function goToNextSeries() {
-  // セッションのクリアまたはリセット処理を行って作戦選択/対戦開始画面へ
+  // 1. 今回の5レースで使用した自分の馬のリストを抽出
+  const usedThisSeries = fullRaceGrids.map(grid => {
+    const pHorse = grid.find(h => h.isPlayer);
+    return pHorse ? (pHorse.id || pHorse.name) : null;
+  }).filter(Boolean);
+
+  // 2. 過去に使用されたカード履歴を取得し、今回の分を追加して保存
+  let usedCardsHistory = JSON.parse(sessionStorage.getItem('used_cards_history') || '[]');
+  usedCardsHistory = [...new Set([...usedCardsHistory, ...usedThisSeries])];
+  sessionStorage.setItem('used_cards_history', JSON.stringify(usedCardsHistory));
+
+  // 3. シリーズ（回戦）カウントをインクリメント（1加算）
+  let currentSeries = parseInt(sessionStorage.getItem('current_series_num') || '1', 10);
+  sessionStorage.setItem('current_series_num', currentSeries + 1);
+
+  // 4. 不要になった今回のレース・作戦データを削除
   sessionStorage.removeItem('full_race_grids');
   sessionStorage.removeItem('chosen_strategies');
   sessionStorage.removeItem('cpu_strategies');
-  window.location.href = 'strategy.html';
+
+  // 5. battle.html へ遷移
+  window.location.href = 'battle.html';
 }
+
 </script>
 </body>
 </html>
