@@ -65,7 +65,7 @@
   }
   .status-item { text-align: center; }
   .status-label { font-size: 10px; color: var(--text-sub); display: block; margin-bottom: 2px; }
-  .status-val { font-size: 15px; font-weight: bold; }
+  .status-val { font-size: 14px; font-weight: bold; }
   .status-val.error { color: var(--danger-color); }
   .status-val.ok { color: var(--accent-color); }
 
@@ -150,6 +150,10 @@
       <span class="status-val" id="registeredCount">0 / 5</span>
     </div>
     <div class="status-item">
+      <span class="status-label">性別制限</span>
+      <span class="status-val" id="sexLimitDisplay" style="color: #c67100;">制限なし</span>
+    </div>
+    <div class="status-item">
       <span class="status-label">合計ポテンシャル</span>
       <span class="status-val" id="totalPotential">0 / 95</span>
     </div>
@@ -211,12 +215,24 @@
 
     currentSeries = SERIES_MASTER.find(s => s.series_id === seriesId) || SERIES_MASTER[0];
     
+    // 性別制限表示の更新
+    const sexLimit = currentSeries.sex || "制限なし";
+    document.getElementById('sexLimitDisplay').textContent = sexLimit;
+
     // デック内18頭のデータを取得
     const deck = (globalUserData.decks || [])[deckIdx] || { horse_ids: [] };
     deckHorses = (deck.horse_ids || []).map(id => HORSES_MASTER[id]).filter(h => h !== undefined);
 
     renderEntryCards();
     updateStatus();
+  }
+
+  // 馬の性別がシリーズ条件に適合するか判定
+  function isValidSex(horseSex, seriesSex) {
+    if (!seriesSex || seriesSex === "制限なし") return true;
+    if (seriesSex === "牝馬限定") return horseSex === "牝";
+    if (seriesSex === "牡牝限定") return horseSex === "牡" || horseSex === "牝";
+    return true;
   }
 
   function renderEntryCards() {
@@ -249,9 +265,10 @@
     populateDropdowns();
   }
 
-  // ドロップダウンの選択肢を更新（重複選択の防止）
+  // ドロップダウンの選択肢を更新（重複選択および性別制限の適用）
   function populateDropdowns() {
     const races = currentSeries.rounds[0].races;
+    const seriesSexLimit = currentSeries.sex || "制限なし";
 
     races.forEach((_, rIdx) => {
       const select = document.getElementById(`selectRace${rIdx}`);
@@ -260,12 +277,15 @@
       select.innerHTML = '<option value="">-- 出走馬を選択してください --</option>';
 
       deckHorses.forEach(horse => {
-        // 他のレースで選択済みの馬は除外（自分自身の選択値は残す）
+        const horseSex = horse.sex || "牡"; // デフォルト「牡」
         const isChosenElsewhere = selectedEntries.some((id, idx) => idx !== rIdx && id === horse.horse_id);
-        if (!isChosenElsewhere) {
+        const matchesSexLimit = isValidSex(horseSex, seriesSexLimit);
+
+        // 性別制限に一致し、他レースで未選択の馬を表示
+        if (!isChosenElsewhere && matchesSexLimit) {
           const opt = document.createElement('option');
           opt.value = horse.horse_id;
-          opt.textContent = `${horse.name} (Pt: ${horse.potential || horse.pt || '-'})`;
+          opt.textContent = `[${horseSex}] ${horse.name} (Pt: ${horse.potential || horse.pt || '-'})`;
           if (horse.horse_id === currentVal) opt.selected = true;
           select.appendChild(opt);
         }
@@ -299,18 +319,27 @@
 
   function updateStatus() {
     const limits = currentSeries.potential_limit || { min_potential_per_race: 15, max_total_potential: 95 };
+    const seriesSexLimit = currentSeries.sex || "制限なし";
     
     let totalPt = 0;
     let count = 0;
     let hasMinPtError = false;
+    let hasSexError = false;
 
     selectedEntries.forEach(id => {
       if (id && HORSES_MASTER[id]) {
         count++;
-        const pt = parseInt(HORSES_MASTER[id].potential || HORSES_MASTER[id].pt || 0, 10);
+        const horse = HORSES_MASTER[id];
+        const pt = parseInt(horse.potential || horse.pt || 0, 10);
         totalPt += pt;
+
         if (pt < limits.min_potential_per_race) {
           hasMinPtError = true;
+        }
+
+        const horseSex = horse.sex || "牡";
+        if (!isValidSex(horseSex, seriesSexLimit)) {
+          hasSexError = true;
         }
       }
     });
@@ -333,6 +362,10 @@
       startBtn.disabled = true;
     } else if (hasMinPtError) {
       limitEl.textContent = `Pt${limits.min_potential_per_race}未満不可`;
+      limitEl.className = 'status-val error';
+      startBtn.disabled = true;
+    } else if (hasSexError) {
+      limitEl.textContent = '性別条件違反';
       limitEl.className = 'status-val error';
       startBtn.disabled = true;
     } else if (isAllSelected) {
