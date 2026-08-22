@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DERBY BATTLE CARD - CPU対戦 お題発表</title>
+<style>
+  :root {
+    --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%);
+    --panel-bg: rgba(255, 255, 255, 0.94);
+    --accent-color: #2d6a37;
+    --accent-hover: #1b4d23;
+    --text-main: #1a2e1d;
+    --text-sub: #4e6b52;
+    --border-color: #b2d4b6;
+    --turf-color: #4CAF50;
+    --dirt-color: #8D6E63;
+  }
+  body {
+    font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+    background: var(--bg-gradient);
+    background-attachment: fixed;
+    color: var(--text-main);
+    margin: 0;
+    padding: 15px;
+    font-size: 13px;
+    display: flex;
+    justify-content: center;
+  }
+  .container { display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 600px; }
+  
+  .header-panel {
+    background-color: var(--panel-bg);
+    padding: 10px 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .btn-back {
+    background: #ffffff;
+    color: var(--accent-color);
+    border: 1px solid var(--accent-color);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 12px;
+    text-decoration: none;
+  }
+
+  /* お題（ランダムシリーズ）表示エリア */
+  .challenge-panel {
+    background-color: var(--panel-bg);
+    border: 2px solid var(--accent-color);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .challenge-label { font-size: 14px; font-weight: bold; color: #d9534f; margin-bottom: 5px; }
+  .series-title { font-size: 20px; font-weight: bold; color: var(--accent-color); margin-bottom: 15px; }
+  
+  .race-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 12px;
+    text-align: left;
+  }
+  .race-item {
+    display: flex;
+    align-items: center;
+    font-size: 13px;
+    border-bottom: 1px dashed #e2efe3;
+    padding-bottom: 6px;
+  }
+  .race-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .race-num { font-weight: bold; color: var(--text-sub); width: 45px; }
+  .race-name { flex: 1; font-weight: bold; color: var(--text-main); }
+  .race-cond { color: var(--text-sub); font-size: 11px; display: flex; gap: 4px; align-items: center;}
+  
+  .surface-badge { padding: 2px 5px; border-radius: 3px; color: #fff; font-size: 10px; font-weight: bold; }
+  .surface-turf { background-color: var(--turf-color); }
+  .surface-dirt { background-color: var(--dirt-color); }
+
+  /* デック選択パネル */
+  .deck-select-panel {
+    background-color: var(--panel-bg);
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .deck-options { display: flex; gap: 10px; }
+  .deck-card {
+    flex: 1;
+    background: #fff;
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .deck-card.selected {
+    border-color: var(--accent-color);
+    background-color: #f2f8f3;
+    box-shadow: 0 0 0 2px var(--accent-color);
+  }
+  .deck-title { font-weight: bold; font-size: 14px; color: var(--accent-color); margin-bottom: 4px; }
+  .deck-count { font-size: 12px; color: var(--text-sub); }
+
+  .btn-start {
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    padding: 15px;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 16px;
+    cursor: pointer;
+    text-align: center;
+    box-shadow: 0 4px 0 var(--accent-hover);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .btn-start:active { transform: translateY(4px); box-shadow: none; }
+  .btn-start:disabled { background: #a0a0a0; box-shadow: 0 4px 0 #7a7a7a; cursor: not-allowed; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header-panel">
+    <a href="index.html" class="btn-back">← 戻る</a>
+    <h2 style="margin:0; font-size: 16px; color: var(--accent-color);">対戦シリーズ抽選</h2>
+    <div id="syncStatus" style="font-size: 11px; color: var(--text-sub); font-weight: bold;">☁️ 読込中...</div>
+  </div>
+
+  <!-- ランダムに選ばれたお題を表示 -->
+  <div class="challenge-panel" id="challengePanel" style="display: none;">
+    <div class="challenge-label">＼ 今回の対戦シリーズはこちら！ ／</div>
+    <div class="series-title" id="seriesTitle"></div>
+    <div class="race-list" id="raceList"></div>
+  </div>
+
+  <!-- デック選択 -->
+  <div class="deck-select-panel" id="deckPanel" style="display: none;">
+    <h3 style="margin:0; font-size: 13px; color: var(--text-main); text-align: center;">挑戦するデックを選択してください</h3>
+    <div class="deck-options">
+      <div class="deck-card selected" id="deckCard0" onclick="selectDeck(0)">
+        <div class="deck-title" id="deckName0">メインデッキ 1</div>
+        <div class="deck-count">編成: <span id="deckCount0">0</span>/18</div>
+      </div>
+      <div class="deck-card" id="deckCard1" onclick="selectDeck(1)">
+        <div class="deck-title" id="deckName1">メインデッキ 2</div>
+        <div class="deck-count">編成: <span id="deckCount1">0</span>/18</div>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-start" id="btnStart" style="display: none;" onclick="goToMatchup()">出走登録へ進む</button>
+</div>
+
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  let currentUser = null;
+  let globalUserData = null;
+  let SERIES_MASTER = [];
+  let selectedSeries = null;
+  let selectedDeckIndex = 0;
+
+  // マスターデータ（一部省略していますが、実際は先ほどの全データを入れます）
+  const DEFAULT_SERIES = [
+    {
+      "series_id": "SERIES_001", "series_name": "新春短距離シリーズ",
+      "rounds": [{ "races": [
+        { "race_num": 1, "race_name": "京都金杯", "track": "京都", "surface": "芝", "distance": 1600 },
+        { "race_num": 2, "race_name": "根岸ステークス", "track": "東京", "surface": "ダート", "distance": 1400 },
+        { "race_num": 3, "race_name": "阪急杯", "track": "阪神", "surface": "芝", "distance": 1400 },
+        { "race_num": 4, "race_name": "フェブラリーS", "track": "東京", "surface": "ダート", "distance": 1600 },
+        { "race_num": 5, "race_name": "高松宮記念", "track": "中京", "surface": "芝", "distance": 1200 }
+      ]}]
+    },
+    {
+      "series_id": "SERIES_004", "series_name": "クラシック・血統ロマンシリーズ",
+      "rounds": [{ "races": [
+        { "race_num": 1, "race_name": "弥生賞", "track": "中山", "surface": "芝", "distance": 2000 },
+        { "race_num": 2, "race_name": "皐月賞", "track": "中山", "surface": "芝", "distance": 2000 },
+        { "race_num": 3, "race_name": "NHKマイルC", "track": "東京", "surface": "芝", "distance": 1600 },
+        { "race_num": 4, "race_name": "日本ダービー", "track": "東京", "surface": "芝", "distance": 2400 },
+        { "race_num": 5, "race_name": "菊花賞", "track": "京都", "surface": "芝", "distance": 3000 }
+      ]}]
+    },
+    // ※実際のコードでは他のシリーズデータもここに入ります
+  ];
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { window.location.href = 'auth.html'; return; }
+    currentUser = user;
+    
+    try {
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) {
+        globalUserData = userDoc.data();
+      }
+
+      try {
+        const res = await fetch('./data/series_master.json');
+        if (res.ok) SERIES_MASTER = await res.json();
+        else SERIES_MASTER = DEFAULT_SERIES;
+      } catch (e) {
+        SERIES_MASTER = DEFAULT_SERIES;
+      }
+
+      document.getElementById('syncStatus').textContent = "✅";
+      initBattle();
+    } catch (err) {
+      document.getElementById('syncStatus').textContent = "❌ エラー";
+    }
+  });
+
+  function initBattle() {
+    // 1. ランダムでシリーズを1つ選ぶ
+    const randomIndex = Math.floor(Math.random() * SERIES_MASTER.length);
+    selectedSeries = SERIES_MASTER[randomIndex];
+
+    // 2. お題の描画
+    document.getElementById('seriesTitle').textContent = selectedSeries.series_name;
+    const races = selectedSeries.rounds[0].races;
+    document.getElementById('raceList').innerHTML = races.map(r => {
+      const surfaceClass = r.surface === '芝' ? 'surface-turf' : 'surface-dirt';
+      return `
+        <div class="race-item">
+          <span class="race-num">第${r.race_num}戦</span>
+          <span class="race-name">${r.race_name}</span>
+          <span class="race-cond">
+            <span class="surface-badge ${surfaceClass}">${r.surface}</span>
+            ${r.track} ${r.distance}m
+          </span>
+        </div>
+      `;
+    }).join('');
+    document.getElementById('challengePanel').style.display = 'block';
+
+    // 3. デック情報の描画
+    const decks = globalUserData.decks || [];
+    [0, 1].forEach(idx => {
+      const deck = decks[idx] || { deck_name: `デッキ ${idx + 1}`, horse_ids: [] };
+      const validCount = (deck.horse_ids || []).filter(id => id !== null).length;
+      document.getElementById(`deckName${idx}`).textContent = deck.deck_name || `デッキ ${idx + 1}`;
+      document.getElementById(`deckCount${idx}`).textContent = validCount;
+    });
+    
+    document.getElementById('deckPanel').style.display = 'flex';
+    document.getElementById('btnStart').style.display = 'block';
+    
+    // 初期状態のバリデーション
+    validateStartButton();
+  }
+
+  window.selectDeck = function(idx) {
+    selectedDeckIndex = idx;
+    document.getElementById('deckCard0').classList.toggle('selected', idx === 0);
+    document.getElementById('deckCard1').classList.toggle('selected', idx === 1);
+    validateStartButton();
+  };
+
+  function validateStartButton() {
+    const currentDeck = globalUserData.decks ? globalUserData.decks[selectedDeckIndex] : null;
+    const validCount = currentDeck ? (currentDeck.horse_ids || []).filter(id => id !== null).length : 0;
+    const btn = document.getElementById('btnStart');
+    
+    if (validCount === 18) {
+      btn.disabled = false;
+      btn.textContent = "出走登録へ進む";
+    } else {
+      btn.disabled = true;
+      btn.textContent = "デックが18頭編成されていません";
+    }
+  }
+
+  window.goToMatchup = function() {
+    sessionStorage.setItem('selected_series_id', selectedSeries.series_id);
+    sessionStorage.setItem('selected_deck_index', selectedDeckIndex);
+    window.location.href = 'matchup.html';
+  };
+</script>
+</body>
+</html>
