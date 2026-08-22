@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DERBY BATTLE CARD - 作戦決定</title>
+<style>
+  :root {
+    --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%);
+    --panel-bg: rgba(255, 255, 255, 0.95);
+    --accent-color: #2d6a37;
+    --accent-hover: #1b4d23;
+    --text-main: #1a2e1d;
+    --text-sub: #4e6b52;
+    --border-color: #b2d4b6;
+    --turf-color: #4CAF50;
+    --dirt-color: #8D6E63;
+    --danger-color: #d9534f;
+  }
+  body {
+    font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+    background: var(--bg-gradient);
+    background-attachment: fixed;
+    color: var(--text-main);
+    margin: 0;
+    padding: 12px;
+    font-size: 12px;
+    display: flex;
+    justify-content: center;
+  }
+  .container { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 650px; }
+  
+  .header-panel {
+    background-color: var(--panel-bg);
+    padding: 10px 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .btn-back {
+    background: #ffffff;
+    color: var(--accent-color);
+    border: 1px solid var(--accent-color);
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 11px;
+    text-decoration: none;
+  }
+
+  /* 作戦レベル制限バー */
+  .status-bar {
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  }
+  .status-item { text-align: center; }
+  .status-label { font-size: 10px; color: var(--text-sub); display: block; }
+  .status-val { font-size: 14px; font-weight: bold; }
+  .status-val.error { color: var(--danger-color); }
+  .status-val.ok { color: var(--accent-color); }
+
+  /* レースカードブロック */
+  .race-block {
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .race-header {
+    font-weight: bold;
+    color: var(--accent-color);
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px dashed var(--border-color);
+    padding-bottom: 4px;
+  }
+
+  /* 対決ミニカード */
+  .vs-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f4f9f5;
+    padding: 8px;
+    border-radius: 6px;
+  }
+  .mini-card {
+    flex: 1;
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 6px;
+    text-align: center;
+  }
+  .mini-card.player { border-left: 4px solid #2b547e; }
+  .mini-card.cpu { border-left: 4px solid #d9534f; }
+  .card-label { font-size: 9px; color: var(--text-sub); font-weight: bold; }
+  .card-horse-name { font-weight: bold; font-size: 12px; margin: 2px 0; }
+  .card-horse-stat { font-size: 10px; color: #555; }
+  .vs-badge { font-weight: bold; color: var(--danger-color); font-size: 14px; }
+
+  /* 作戦選択ドロップダウン */
+  .strategy-select-box {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .strategy-select {
+    width: 100%;
+    padding: 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    font-weight: bold;
+    font-size: 11px;
+  }
+
+  /* 16頭立て出走表（アコーディオン） */
+  details {
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 11px;
+  }
+  summary {
+    padding: 6px 10px;
+    cursor: pointer;
+    font-weight: bold;
+    color: var(--text-sub);
+    background: #edf5ee;
+  }
+  .race-table { width: 100%; border-collapse: collapse; text-align: center; font-size: 10px; }
+  .race-table th { background: var(--accent-color); color: #fff; padding: 4px; }
+  .race-table td { padding: 4px; border-bottom: 1px solid #eee; }
+  .row-player { background-color: #e8f4fc; font-weight: bold; }
+  .row-cpu { background-color: #fce8e8; font-weight: bold; }
+
+  /* 枠番バッジ */
+  .w-1 { background:#fff; color:#000; border:1px solid #ccc; padding:0 4px; border-radius:2px; }
+  .w-2 { background:#222; color:#fff; padding:0 4px; border-radius:2px; }
+  .w-3 { background:#e60012; color:#fff; padding:0 4px; border-radius:2px; }
+  .w-4 { background:#0068b7; color:#fff; padding:0 4px; border-radius:2px; }
+  .w-5 { background:#fff100; color:#000; padding:0 4px; border-radius:2px; }
+  .w-6 { background:#009944; color:#fff; padding:0 4px; border-radius:2px; }
+  .w-7 { background:#f39700; color:#fff; padding:0 4px; border-radius:2px; }
+  .w-8 { background:#e4007f; color:#fff; padding:0 4px; border-radius:2px; }
+
+  .btn-submit {
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    padding: 14px;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 15px;
+    cursor: pointer;
+    text-align: center;
+    box-shadow: 0 4px 0 var(--accent-hover);
+    margin-top: 10px;
+  }
+  .btn-submit:disabled { background: #a0a0a0; box-shadow: 0 4px 0 #7a7a7a; cursor: not-allowed; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header-panel">
+    <a href="matchup.html" class="btn-back">← 出走登録へ</a>
+    <h2 style="margin:0; font-size: 15px; color: var(--accent-color);">作戦決定</h2>
+    <div id="syncStatus" style="font-size: 11px; color: var(--text-sub); font-weight: bold;">☁️ 読込中...</div>
+  </div>
+
+  <!-- 作戦レベル監視 -->
+  <div class="status-bar">
+    <div class="status-item">
+      <span class="status-label">作戦決定数</span>
+      <span class="status-val" id="selectedCount">0 / 5</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">合計作戦レベル</span>
+      <span class="status-val" id="totalLevelDisplay">0 / 20</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">判定</span>
+      <span class="status-val" id="levelStatus">未完了</span>
+    </div>
+  </div>
+
+  <div id="raceContainer" style="display:flex; flex-direction:column; gap:12px;"></div>
+
+  <button class="btn-submit" id="btnGoRace" disabled onclick="submitStrategies()">レース開催へ進む！</button>
+</div>
+
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+  let SERIES_MASTER = [];
+  let HORSES_MASTER = [];
+  let STRATEGY_MASTER = {};
+
+  let currentSeries = null;
+  let playerEntries = []; // 5頭のHorseオブジェクト
+  let cpuEntries = [];    // CPUの5頭のHorseオブジェクト
+  let fullRaceGrids = []; // 5レース分の16頭リスト
+
+  let chosenStrategies = [null, null, null, null, null]; // 選択作戦ID
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { window.location.href = 'auth.html'; return; }
+
+    try {
+      const [resSeries, resHorses, resStrategy] = await Promise.all([
+        fetch('./data/series_master.json'),
+        fetch('./data/horses_master.json'),
+        fetch('./data/strategy_master.json')
+      ]);
+
+      if (resSeries.ok) SERIES_MASTER = await resSeries.json();
+      if (resHorses.ok) HORSES_MASTER = await resHorses.json();
+      if (resStrategy.ok) STRATEGY_MASTER = await resStrategy.json();
+
+      initStrategyPage();
+      document.getElementById('syncStatus').textContent = "✅";
+    } catch (e) {
+      document.getElementById('syncStatus').textContent = "❌ エラー";
+    }
+  });
+
+  // 作戦レベルの算出（Strategyオブジェクトにlevel属性があればそれを使用し、無ければ能力合計値などからLv1〜5を判定）[span_0](start_span)[span_0](end_span)
+  function getStrategyLevel(st) {
+    if (!st) return 0;
+    if (st.level) return parseInt(st.level, 10);
+    // パラメータ合計値に基づくフォールバック判定
+    const sum = (st.speed || 0) + (st.stamina || 0) + (st.sharp || 0) + (st.jizoku || 0) + (st.guts || 0);
+    if (sum >= 25) return 5;
+    if (sum >= 22) return 4;
+    if (sum >= 19) return 3;
+    if (sum >= 16) return 2;
+    return 1;
+  }
+
+  function initStrategyPage() {
+    const seriesId = sessionStorage.getItem('selected_series_id');
+    const playerHorseIds = JSON.parse(sessionStorage.getItem('player_entry_ids') || '[]');
+
+    currentSeries = SERIES_MASTER.find(s => s.series_id === seriesId) || SERIES_MASTER[0];
+    const horseMap = {};
+    HORSES_MASTER.forEach(h => horseMap[h.horse_id] = h);
+
+    playerEntries = playerHorseIds.map(id => horseMap[id]);
+
+    // CPU馬の自動決定（プレイヤー未選択の馬からランダム抽出）
+    const unusedHorses = HORSES_MASTER.filter(h => !playerHorseIds.includes(h.horse_id));
+    cpuEntries = getRandomSubarray(unusedHorses, 5);
+
+    // 各レースごとのモブ14頭および16頭建ての出走表を作成
+    const races = currentSeries.rounds[0].races;
+    fullRaceGrids = races.map((race, rIdx) => {
+      const pHorse = playerEntries[rIdx];
+      const cHorse = cpuEntries[rIdx];
+
+      // 適性に合うモブ馬を抽出
+      const candidates = HORSES_MASTER.filter(h => h.horse_id !== pHorse?.horse_id && h.horse_id !== cHorse?.horse_id);
+      const mobs = getRandomSubarray(candidates, 14);
+
+      // 16頭のシャッフル＆枠順割り当て
+      const fullList = [
+        { ...pHorse, isPlayer: true },
+        { ...cHorse, isCpu: true },
+        ...mobs.map(m => ({ ...m, isMob: true }))
+      ];
+      return shuffleArray(fullList);
+    });
+
+    renderRaces();
+  }
+
+  function renderRaces() {
+    const races = currentSeries.rounds[0].races;
+    const container = document.getElementById('raceContainer');
+    container.innerHTML = '';
+
+    races.forEach((race, rIdx) => {
+      const pHorse = playerEntries[rIdx];
+      const cHorse = cpuEntries[rIdx];
+      const grid = fullRaceGrids[rIdx];
+
+      const card = document.createElement('div');
+      card.className = 'race-block';
+
+      // 左右ミニカード表示
+      const vsHtml = `
+        <div class="vs-container">
+          <div class="mini-card player">
+            <div class="card-label">YOU</div>
+            <div class="card-horse-name">${pHorse ? pHorse.name : '-'}</div>
+            <div class="card-horse-stat">Pt: ${pHorse ? (pHorse.potential || pHorse.pt || '-') : '-'}</div>
+          </div>
+          <div class="vs-badge">VS</div>
+          <div class="mini-card cpu">
+            <div class="card-label">CPU</div>
+            <div class="card-horse-name">${cHorse ? cHorse.name : '-'}</div>
+            <div class="card-horse-stat">Pt: ${cHorse ? (cHorse.potential || cHorse.pt || '-') : '-'}</div>
+          </div>
+        </div>
+      `;
+
+      // 作戦ドロップダウン選択肢（脚質カテゴリーごとに整理）[span_1](start_span)[span_1](end_span)
+      let strategyOptionsHtml = '<option value="">-- 作戦を選択してください --</option>';
+      const categories = ["逃げ", "先行", "差し", "追込"];[span_2](start_span)[span_2](end_span)
+      
+      categories.forEach(cat => {
+        strategyOptionsHtml += `<optgroup label="脚質: ${cat}">`;
+        Object.values(STRATEGY_MASTER).filter(st => st.style === cat).forEach(st => {[span_3](start_span)[span_3](end_span)
+          const lvl = getStrategyLevel(st);
+          strategyOptionsHtml += `<option value="${st.strategy_id}">${st.name} [Lv.${lvl}]</option>`;[span_4](start_span)[span_4](end_span)
+        });
+        strategyOptionsHtml += `</optgroup>`;
+      });
+
+      // 出走表のHTML構築
+      const tableRowsHtml = grid.map((h, index) => {
+        const frameNum = Math.floor(index / 2) + 1;
+        const frameClass = `w-${Math.min(frameNum, 8)}`;
+        let rowClass = '';
+        let mark = '';
+        if (h.isPlayer) { rowClass = 'row-player'; mark = '★YOU'; }
+        else if (h.isCpu) { rowClass = 'row-cpu'; mark = 'CPU'; }
+
+        return `
+          <tr class="${rowClass}">
+            <td><span class="${frameClass}">${frameNum}</span></td>
+            <td style="text-align:left; padding-left:5px;">${h.name} ${mark ? `<small>(${mark})</small>` : ''}</td>
+            <td>${h.sex || '牡'}</td>
+            <td>${h.potential || h.pt || '-'}</td>
+          </tr>
+        `;
+      }).join('');
+
+      card.innerHTML = `
+        <div class="race-header">
+          <span>第${race.race_num}戦: ${race.race_name}</span>
+          <span>${race.surface} ${race.distance}m</span>
+        </div>
+        ${vsHtml}
+        <div class="strategy-select-box">
+          <select class="strategy-select" id="stratSelect${rIdx}" onchange="onStrategySelected(${rIdx}, this.value)">
+            ${strategyOptionsHtml}
+          </select>
+        </div>
+        <details>
+          <summary>出走表を表示 (16頭立て)</summary>
+          <table class="race-table">
+            <thead>
+              <tr><th style="width:25px;">枠</th><th style="text-align:left; padding-left:5px;">馬名</th><th style="width:30px;">性</th><th style="width:30px;">Pt</th></tr>
+            </thead>
+            <tbody>${tableRowsHtml}</tbody>
+          </table>
+        </details>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  window.onStrategySelected = function(rIdx, strategyId) {
+    chosenStrategies[rIdx] = strategyId || null;
+    updateStatus();
+  };
+
+  function updateStatus() {
+    let totalLvl = 0;
+    let selectedCount = 0;
+
+    chosenStrategies.forEach(stId => {
+      if (stId && STRATEGY_MASTER[stId]) {
+        selectedCount++;
+        totalLvl += getStrategyLevel(STRATEGY_MASTER[stId]);
+      }
+    });
+
+    document.getElementById('selectedCount').textContent = `${selectedCount} / 5`;
+    
+    const lvlEl = document.getElementById('totalLevelDisplay');
+    lvlEl.textContent = `${totalLvl} / 20`;
+
+    const statusEl = document.getElementById('levelStatus');
+    const btn = document.getElementById('btnGoRace');
+
+    if (totalLvl > 20) {
+      lvlEl.className = 'status-val error';
+      statusEl.textContent = 'レベル上限超過';
+      statusEl.className = 'status-val error';
+      btn.disabled = true;
+    } else if (selectedCount === 5) {
+      lvlEl.className = 'status-val ok';
+      statusEl.textContent = 'OK';
+      statusEl.className = 'status-val ok';
+      btn.disabled = false;
+    } else {
+      lvlEl.className = 'status-val';
+      statusEl.textContent = '選択中';
+      statusEl.className = 'status-val';
+      btn.disabled = true;
+    }
+  }
+
+  window.submitStrategies = function() {
+    sessionStorage.setItem('chosen_strategies', JSON.stringify(chosenStrategies));
+    sessionStorage.setItem('full_race_grids', JSON.stringify(fullRaceGrids));
+    window.location.href = 'race_result.html';
+  };
+
+  function getRandomSubarray(arr, size) {
+    const shuffled = arr.slice(0);
+    let i = arr.length;
+    let temp, index;
+    while (i--) {
+      index = Math.floor((i + 1) * Math.random());
+      temp = shuffled[index];
+      shuffled[index] = shuffled[i];
+      shuffled[i] = temp;
+    }
+    return shuffled.slice(0, size);
+  }
+
+  function shuffleArray(array) {
+    return array.sort(() => Math.random() - 0.5);
+  }
+</script>
+</body>
+</html>
