@@ -212,7 +212,7 @@
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   let currentUser = null;
   let globalUserData = null;
@@ -257,10 +257,11 @@
 
     currentSeries = SERIES_MASTER.find(s => s.series_id === seriesId) || SERIES_MASTER[0];
     
-    // 成績・回戦表示更新
-    const currentRound = parseInt(sessionStorage.getItem('current_series_num') || '1', 10);
-    const wins = parseInt(sessionStorage.getItem('series_wins') || '0', 10);
-    const losses = parseInt(sessionStorage.getItem('series_losses') || '0', 10);
+    // ★ 修正：sessionStorage ではなく Firebase のデータから取得する
+    const status = globalUserData.cpu_battle_status || {};
+    const currentRound = status.current_round || 1;
+    const wins = status.series_wins || 0;
+    const losses = status.series_losses || 0;
     
     document.getElementById('seriesRoundDisplay').textContent = `第 ${currentRound} 回戦 (全5回戦)`;
     document.getElementById('seriesRecordDisplay').textContent = `${wins}勝 ${losses}敗`;
@@ -285,7 +286,7 @@
     return true;
   }
 
-  // ★ 馬の適性距離文字列（例: "1600-2400" または "1600"）を取得するヘルパー関数
+  // 馬の適性距離文字列（例: "1600-2400" または "1600"）を取得するヘルパー関数
   function getHorseDistanceString(horse) {
     if (!horse) return '';
     if (horse.distance) return String(horse.distance);
@@ -295,7 +296,7 @@
     return '';
   }
 
-  // ★ 距離適性適合判定（文字列解析対応）
+  // 距離適性適合判定（文字列解析対応）
   function isValidDistance(horse, raceDistance) {
     if (!horse) return false;
     const distStr = getHorseDistanceString(horse);
@@ -375,7 +376,6 @@
             opt.textContent = `[適性外:${distStr}m] ${horse.name}`;
             opt.disabled = true;
           } else {
-            // ★ 選択可能馬にも [1600-2400m] の表記を追加
             opt.textContent = `[${horseSex}] ${horse.name}${distLabel} (Pt: ${horse.potential || horse.pt || '-'})`;
           }
           
@@ -485,26 +485,30 @@
   }
 
   // ギブアップ処理（不戦敗）
-  window.giveUpSeries = function() {
+  window.giveUpSeries = async function() {
     if (!confirm("このシリーズをギブアップ（不戦敗）しますか？")) return;
 
-    let losses = parseInt(sessionStorage.getItem('series_losses') || '0', 10) + 1;
-    let currentRound = parseInt(sessionStorage.getItem('current_series_num') || '1', 10);
+    if (!globalUserData || !globalUserData.cpu_battle_status) return;
 
-    sessionStorage.setItem('series_losses', losses);
+    // ★ 修正：Firebaseのステータス変数を更新する
+    let status = globalUserData.cpu_battle_status;
+    status.series_losses += 1;
+    status.current_round += 1;
 
-    if (losses >= 3) {
-      alert("3敗に達したため、シリーズ挑戦失敗（敗退）となります。");
-      sessionStorage.removeItem('active_series_id');
-      sessionStorage.removeItem('used_cards_history');
-      sessionStorage.removeItem('current_series_num');
-      sessionStorage.removeItem('series_wins');
-      sessionStorage.removeItem('series_losses');
+    try {
+      // データベースに更新を反映
+      await updateDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status });
+      
+      if (status.series_losses >= 3) {
+        alert("3敗に達したため、シリーズ挑戦失敗（敗退）となります。");
+      } else {
+        alert(`ギブアップしました。(現在 ${status.series_losses}敗)\n次の回戦へ進みます。`);
+      }
+      // battle.htmlに戻る（battle側で3敗判定が行われます）
       window.location.href = 'battle.html';
-    } else {
-      alert(`ギブアップしました。(現在 ${losses}敗)\n次の回戦へ進みます。`);
-      sessionStorage.setItem('current_series_num', currentRound + 1);
-      window.location.href = 'battle.html';
+    } catch (err) {
+      console.error("更新エラー", err);
+      alert("通信エラーが発生しました。");
     }
   };
 
@@ -513,5 +517,6 @@
     window.location.href = 'strategy.html';
   };
 </script>
+
 </body>
 </html>
