@@ -10,7 +10,6 @@
     --panel-bg: #16161c;
     --border-color: #333;
     --accent-green: #00ff66;
-    /* プレイヤーとCPUのカラーを入れ替えました */
     --player-color: #3399ff;
     --cpu-color: #ff4444;
     --gold-color: #ffcc00;
@@ -91,13 +90,13 @@
     margin-bottom: 10px; line-height: 1.4; 
   }
 
-  /* 4. 対戦ミニカード (可愛らしく改修) */
+  /* 4. 対戦ミニカード */
   .vs-container { display: flex; justify-content: center; align-items: center; gap: 12px; margin-bottom: 12px; }
   .mini-card { 
     flex: 1; 
     background: linear-gradient(145deg, #1e1e28, #16161c); 
     border: 2px solid var(--border-color); 
-    border-radius: 15px; /* 丸みをつけて可愛らしく */
+    border-radius: 15px; 
     padding: 10px; 
     text-align: center; 
     box-shadow: 0 4px 8px rgba(0,0,0,0.5);
@@ -105,12 +104,11 @@
   .mini-card.p1 { border-color: var(--player-color); background: rgba(51, 153, 255, 0.1); }
   .mini-card.p2 { border-color: var(--cpu-color); background: rgba(255, 68, 68, 0.1); }
   
-  /* 追加した馬画像のスタイル */
   .card-horse-img {
     width: 48px;
     height: auto;
     margin: 5px 0;
-    image-rendering: pixelated; /* ドット絵をくっきり表示 */
+    image-rendering: pixelated; 
   }
 
   .card-label { font-size: 11px; font-weight: bold; border-bottom: 1px dashed #555; padding-bottom: 4px; margin-bottom: 4px; }
@@ -211,8 +209,6 @@
   </div>
 </div>
 
-
-
 <script>
 // ---------- 共通生成ロジック（作戦＆レベル自動割当） ----------
 function getRandomStrategyLevel() {
@@ -250,9 +246,9 @@ let activeHorses = [];
 let raceState = 'loading';
 let calculatedResults = [];
 let seriesHistory = []; // 全5レースの勝敗記録
-let raceMasterData = null; // ★追加: マスターデータ格納用
+let raceMasterData = null; // マスターデータ格納用
 
-// ★追加: 起動時の非同期処理
+// 起動時の非同期処理
 window.onload = async () => {
   updateLog("マスターデータを読み込み中...");
   await loadMasterData();
@@ -260,7 +256,7 @@ window.onload = async () => {
   setupRace(currentRaceIndex);
 };
 
-// ★追加: JSONデータのフェッチ
+// JSONデータのフェッチ
 async function loadMasterData() {
   try {
     const response = await fetch('race_master.json');
@@ -289,7 +285,7 @@ function loadDataFromSession() {
   }
 }
 
-// ★追加: ステータス欠損時の補完処理
+// ステータス欠損時の補完処理
 function ensureStats(h) {
   h.potential = h.potential || 50;
   h.speed = h.speed || 50;
@@ -323,7 +319,7 @@ function setupRace(rIdx) {
       h.tactic = mobStrat.tactic;
       h.level = mobStrat.level;
     }
-    ensureStats(h); // ★追加: モブ馬などの能力値を補完
+    ensureStats(h); // モブ馬などの能力値を補完
   });
 
   const playerObj = activeHorses.find(h => h.isPlayer) || { name: "自馬", tactic: "先行", level: 3 };
@@ -377,7 +373,7 @@ function renderLanes() {
 }
 
 // ----------------------------------------------------
-// ★追加: 新しいレース計算ロジック群
+// 新しいレース計算ロジック群
 // ----------------------------------------------------
 
 function calculatePositions(horses) {
@@ -466,14 +462,14 @@ function startRace() {
   raceState = 'running';
   document.getElementById('nextBtn').disabled = true;
 
-  // ★変更: 新しい計算フローの実行
+  // 新しい計算フローの実行
   calculatePositions(activeHorses);
   const currentPace = determineRacePace(activeHorses);
   calculatedResults = calculateScoresAndSort(activeHorses, currentPace);
 
   showTelop(`【ペース】 ${currentPace}`, 2500);
 
-  // ★変更: ポジションに応じたアニメーション (tactic ではなく positionRank に基づく)
+  // ポジションに応じたアニメーション (positionRank に基づく)
   let p1Pos = activeHorses.map(h => {
     if (h.positionRank <= 4) return 35; 
     if (h.positionRank <= 8) return 26; 
@@ -526,129 +522,8 @@ function startRace() {
       setTimeout(() => {
         let winner = calculatedResults[0];
         let finalPositions = new Array(16);
-        // ★着順に基づいてゴール位置を計算 (h.index を使って元のDOM順序に合わせる)
+        // 着順に基づいてゴール位置を計算 (h.index を使って元のDOM順序に合わせる)
         calculatedResults.forEach((item, rank) => { finalPositions[item.index] = -15 + (rank * 4.6); });
         
         setPhasePositions(finalPositions, 10.0, "linear"); 
-        updateLog(`<strong>【最後の直線！】</strong> 激しい叩き合い！ゴール目指して全馬スパート！`);
-
-        setTimeout(() => {
-          updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>1着フィニッシュは ${winner.name} ！！</b></span>`);
-        }, 7500); 
-
-        setTimeout(() => {
-          hideTelop();
-          renderResults(calculatedResults);
-          recordHistory(calculatedResults);
-          
-          raceState = 'finished';
-          const btn = document.getElementById('nextBtn');
-          btn.disabled = false; 
-          btn.innerText = (currentRaceIndex < 4) ? "➡️ 次のレースへ進む" : "🏆 5レース終了：総合リザルトを見る";
-        }, 10500); 
-      }, 100);
-    }, 1500);
-  }, 12600); 
-}
-
-function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear") {
-  const trackWidth = document.getElementById('track-container').clientWidth - 70;
-  positionsArray.forEach((pos, i) => {
-    const el = document.getElementById(`horse-icon-${i}`);
-    if (el) {
-      el.style.transition = `left ${durationSec}s ${timing}`;
-      el.style.left = (10 + (trackWidth * (pos / 100))) + "px";
-    }
-  });
-}
-
-function updateLog(text) { document.getElementById('log-content').innerHTML = text; }
-function showTelop(text, durationMs = 1500) {
-  const telop = document.getElementById('race-telop');
-  telop.innerHTML = text; telop.classList.add('show');
-  setTimeout(() => { hideTelop(); }, durationMs);
-}
-function hideTelop() { document.getElementById('race-telop').classList.remove('show'); }
-
-function renderResults(scoredList) {
-  const tbody = document.getElementById('result-body');
-  tbody.innerHTML = "";
-  scoredList.forEach((item, r) => {
-    let nameClass = item.isPlayer ? "p1-name" : (item.isCpu ? "p2-name" : "");
-    tbody.innerHTML += `
-      <tr>
-        <td><strong>${r + 1}着</strong></td>
-        <td style="text-align:left;"><span class="${nameClass}">${item.name}</span></td>
-        <td>${item.tactic} (Lv${item.level})</td>
-        <td>${Math.floor(item.finalScore)} Pt</td>
-      </tr>`;
-  });
-  document.getElementById('result-container').style.display = "block";
-}
-
-// 履歴記録
-function recordHistory(scoredList) {
-  const pRank = scoredList.findIndex(item => item.isPlayer) + 1;
-  const cRank = scoredList.findIndex(item => item.isCpu) + 1;
-  seriesHistory.push({ raceNum: currentRaceIndex + 1, pRank: pRank, cRank: cRank, win: pRank < cRank });
-}
-
-// 5レース終了時の総合結果ダイアログ表示
-function showFinalSeriesResult() {
-  let playerWins = seriesHistory.filter(h => h.win).length;
-  let cpuWins = 5 - playerWins;
-  
-  const titleEl = document.getElementById('series-result-title');
-  if (playerWins > cpuWins) {
-    titleEl.innerHTML = `🎉 あなたの勝利！！<br><span style="font-size:0.7em; color:#fff;">シリーズを制覇しました！</span>`;
-  } else {
-    titleEl.innerHTML = `💀 CPUの勝利...<br><span style="font-size:0.7em; color:#fff;">悔しさを胸に次回へ挑戦！</span>`;
-  }
-
-  document.getElementById('series-score-detail').innerHTML = `
-    <span style="color:var(--player-color)">あなた ${playerWins}勝</span> - <span style="color:var(--cpu-color)">CPU ${cpuWins}勝</span>
-  `;
-
-  const tbody = document.getElementById('series-history-body');
-  tbody.innerHTML = "";
-  seriesHistory.forEach(h => {
-    const winnerText = h.win ? `<span class="p1-name">あなた</span>` : `<span class="p2-name">CPU</span>`;
-    tbody.innerHTML += `
-      <tr>
-        <td>第${h.raceNum}戦</td>
-        <td>${h.pRank}着</td>
-        <td>${h.cRank}着</td>
-        <td>${winnerText}</td>
-      </tr>`;
-  });
-
-  document.getElementById('final-series-modal').style.display = "block";
-}
-
-// 次のシリーズへ進む
-function goToNextSeries() {
-  const usedThisSeries = fullRaceGrids.map(grid => {
-    const pHorse = grid.find(h => h.isPlayer);
-    return pHorse ? (pHorse.id || pHorse.name) : null;
-  }).filter(Boolean);
-
-  let usedCardsHistory = JSON.parse(sessionStorage.getItem('used_cards_history') || '[]');
-  usedCardsHistory = [...new Set([...usedCardsHistory, ...usedThisSeries])];
-  sessionStorage.setItem('used_cards_history', JSON.stringify(usedCardsHistory));
-
-  let currentSeries = parseInt(sessionStorage.getItem('current_series_num') || '1', 10);
-  sessionStorage.setItem('current_series_num', currentSeries + 1);
-
-  sessionStorage.removeItem('full_race_grids');
-  sessionStorage.removeItem('chosen_strategies');
-  sessionStorage.removeItem('cpu_strategies');
-
-  window.location.href = 'battle.html';
-}
-</script>
-
-      
-
-  
-</body>
-</html>
+        updateLog(
