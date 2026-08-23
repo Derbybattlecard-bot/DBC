@@ -382,6 +382,8 @@ function renderLanes() {
 // 新しいレース計算ロジック群
 // ----------------------------------------------------
 
+let currentRaceBranch = ""; // 展開名を保持するための変数を追加
+
 function calculatePositions(horses) {
   const horseStyleBonus = { "大逃": 10, "逃げ": 8, "先行": 6, "好位": 6, "差し": 4, "追込": 2 };
   const tacticStyleBonus = { "逃げ": 15, "先行": 10, "差し": 6, "追込": 2 };
@@ -422,7 +424,9 @@ function determineRacePace(horses) {
 function calculateScoresAndSort(horses, pace) {
   const branches = raceMasterData.branches_by_pace[pace];
   const selectedBranch = branches[Math.floor(Math.random() * branches.length)];
-  updateLog(`【展開】 ${pace}からの「${selectedBranch.name}」！`);
+  
+  // スタート直後のネタバレを防ぐため、ここではログを出さずに変数に展開名を保存
+  currentRaceBranch = selectedBranch.name;
 
   horses.forEach(h => {
     let score = 0;
@@ -468,14 +472,16 @@ function startRace() {
   raceState = 'running';
   document.getElementById('nextBtn').disabled = true;
 
-  // 新しい計算フローの実行
+  // 計算フローの実行
   calculatePositions(activeHorses);
   const currentPace = determineRacePace(activeHorses);
   calculatedResults = calculateScoresAndSort(activeHorses, currentPace);
 
-  showTelop(`【ペース】 ${currentPace}`, 2500);
+  // スタート直後：上位3頭の馬名を抽出して実況
+  let leaders = activeHorses.filter(h => h.positionRank <= 3).sort((a, b) => a.positionRank - b.positionRank);
+  let leaderNames = leaders.map(h => h.name).join("、");
+  updateLog(`<strong>【スタート】</strong> ゲートが開いた！ ${leaderNames} あたりがハナを主張、先頭争いだ！`);
 
-  // ポジションに応じたアニメーション
   let p1Pos = activeHorses.map(h => {
     if (h.positionRank <= 4) return 35; 
     if (h.positionRank <= 8) return 26; 
@@ -484,8 +490,10 @@ function startRace() {
   });
   setPhasePositions(p1Pos, 4.0, "linear"); 
 
+  // フェーズ2：向正面
   setTimeout(() => {
-    updateLog(`<strong>【向正面】</strong> 向正面へ。各馬ポジションが決まりました。`);
+    let msg = (currentPace.includes("ハイ")) ? "縦長の隊列になりました。" : "淡々とレースは流れていきます。";
+    updateLog(`<strong>【向正面】</strong> ${msg} 各馬ポジションが決まりました。`);
     let p2Pos = activeHorses.map(h => {
       if (h.positionRank <= 4) return 65; 
       if (h.positionRank <= 8) return 50; 
@@ -495,8 +503,11 @@ function startRace() {
     setPhasePositions(p2Pos, 4.3, "linear"); 
   }, 4000); 
 
+  // フェーズ3：3C〜4C（ここでペース発表！）
   setTimeout(() => {
-    updateLog(`<strong>【3C〜4コーナー】</strong> 最終コーナー手前！息をのむ展開！`);
+    updateLog(`<strong>【3C〜4コーナー】</strong> ペースは『${currentPace}』！ 勝負どころの最終コーナーへ！`);
+    showTelop(`【ペース】 ${currentPace}`, 3000);
+    
     let p3Pos = activeHorses.map(h => {
       if (h.positionRank <= 4) return 88; 
       if (h.positionRank <= 8) return 75; 
@@ -529,7 +540,12 @@ function startRace() {
         calculatedResults.forEach((item, rank) => { finalPositions[item.index] = -15 + (rank * 4.6); });
         
          setPhasePositions(finalPositions, 10.0, "linear"); 
-        updateLog(`<strong>【最後の直線！】</strong> 激しい叩き合い！ゴール目指して全馬スパート！`);
+
+        // 最後の直線途中：ここで展開を発表！
+        setTimeout(() => {
+          updateLog(`<strong>【最後の直線】</strong> このレースは『${currentRaceBranch}』！ 激しい叩き合いだ！`);
+          showTelop(`【展開】 ${currentRaceBranch}`, 3500);
+        }, 1500);
 
         setTimeout(() => {
           updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>1着フィニッシュは ${winner.name} ！！</b></span>`);
@@ -644,8 +660,6 @@ function goToNextSeries() {
 
   window.location.href = 'battle.html';
 }
-
-
 
     
 </script>
