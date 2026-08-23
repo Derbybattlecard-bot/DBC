@@ -210,6 +210,8 @@
 </div>
 
 <script>
+
+
 // ---------- 共通生成ロジック（作戦＆レベル自動割当） ----------
 function getRandomStrategyLevel() {
   const rand = Math.random() * 100;
@@ -256,17 +258,7 @@ window.onload = async () => {
   setupRace(currentRaceIndex);
 };
 
-// JSONデータのフェッチ
-async function loadMasterData() {
-  try {
-    const response = await fetch('race_master.json');
-    if (!response.ok) throw new Error("JSON load failed");
-    raceMasterData = await response.json();
-  } catch (error) {
-    console.error("マスターデータの読み込み失敗:", error);
-    alert("マスターデータの読み込みに失敗しました。ローカルサーバー環境か確認してください。");
-  }
-}// JSONデータのフェッチ（パスを修正）
+// JSONデータのフェッチ（正しいパス）
 async function loadMasterData() {
   try {
     const response = await fetch('data/race_master.json');
@@ -277,66 +269,6 @@ async function loadMasterData() {
     alert("マスターデータの読み込みに失敗しました。ローカルサーバー環境か確認してください。");
   }
 }
-
-// レースのセットアップ処理（tactic_levelのバインディングを追加）
-function setupRace(rIdx) {
-  if (!raceMasterData) return;
-  raceState = 'ready';
-  activeHorses = fullRaceGrids[rIdx] || [];
-
-  // 全16頭に対して作戦とレベルを設定
-  activeHorses.forEach(h => {
-    if (h.isPlayer) {
-      const pStrat = chosenPlayerStrategies[rIdx] || { tactic: "先行", level: 3 };
-      h.tactic = pStrat.tactic || pStrat.name || "先行";
-      h.level = pStrat.level || 3;
-    } else if (h.isCpu) {
-      const cStrat = (chosenCpuStrategies && chosenCpuStrategies[rIdx]) 
-        ? chosenCpuStrategies[rIdx] 
-        : getRandomStrategyByStyle(h.style || h.running_style);
-      h.tactic = cStrat.tactic || cStrat.name || "先行";
-      h.level = cStrat.level || 3;
-    } else {
-      const mobStrat = getRandomStrategyByStyle(h.style || h.running_style);
-      h.tactic = mobStrat.tactic;
-      h.level = mobStrat.level;
-    }
-    
-    // マスターデータの tie_breakers に合わせるための追加処理
-    h.tactic_level = h.level; 
-    
-    ensureStats(h); // モブ馬などの能力値を補完
-  });
-
-  const playerObj = activeHorses.find(h => h.isPlayer) || { name: "自馬", tactic: "先行", level: 3 };
-  const cpuObj = activeHorses.find(h => h.isCpu) || { name: "敵馬", tactic: "逃げ", level: 3 };
-
-  // UI更新
-  document.getElementById('display-race-num').textContent = `RACE ${rIdx + 1} / 5`;
-  document.getElementById('display-race-title').textContent = `第${rIdx + 1}戦 芝 2000m`;
-  document.getElementById('display-race-cond').textContent = `馬場: ${trackCondition}`;
-
-  document.getElementById('p1-card-name').textContent = playerObj.name;
-  document.getElementById('p1-card-strat').textContent = `作戦: ${playerObj.tactic} (Lv.${playerObj.level})`;
-  
-  document.getElementById('p2-card-name').textContent = cpuObj.name;
-  document.getElementById('p2-card-strat').textContent = `作戦: ${cpuObj.tactic} (Lv.${cpuObj.level})`;
-
-  const btn = document.getElementById('nextBtn');
-  btn.disabled = false;
-  btn.innerText = "🏁 レーススタート！";
-  document.getElementById('result-container').style.display = "none";
-  updateLog(`第${rIdx + 1}レースの準備が完了しました。`);
-
-  const wipe = document.getElementById('wipe-overlay');
-  wipe.style.transition = "none"; wipe.style.left = "-100%"; 
-  hideTelop();
-  document.getElementById('goal-line').style.display = "none";
-  document.getElementById('goal-flag').style.display = "none";
-
-  renderLanes();
-}
-
 
 function loadDataFromSession() {
   const gridsData = sessionStorage.getItem('full_race_grids');
@@ -367,6 +299,7 @@ function ensureStats(h) {
   h.style = h.style || h.running_style || "自在";
 }
 
+// レースのセットアップ処理
 function setupRace(rIdx) {
   if (!raceMasterData) return;
   raceState = 'ready';
@@ -389,7 +322,10 @@ function setupRace(rIdx) {
       h.tactic = mobStrat.tactic;
       h.level = mobStrat.level;
     }
-    ensureStats(h); // モブ馬などの能力値を補完
+    
+    // マスターデータの tie_breakers に合わせるための追加処理
+    h.tactic_level = h.level; 
+    ensureStats(h);
   });
 
   const playerObj = activeHorses.find(h => h.isPlayer) || { name: "自馬", tactic: "先行", level: 3 };
@@ -404,12 +340,22 @@ function setupRace(rIdx) {
   document.getElementById('p1-card-strat').textContent = `作戦: ${playerObj.tactic} (Lv.${playerObj.level})`;
   
   document.getElementById('p2-card-name').textContent = cpuObj.name;
-// JSONデータのフェッチ（パスを修正）
-async function loadMasterData() {
-  try {
-    const response = await fetch('data/race_master.json');
-    if (!response.ok) throw new Error("JSON load failed");
+  document.getElementById('p2-card-strat').textContent = `作戦: ${cpuObj.tactic} (Lv.${cpuObj.level})`;
 
+  const btn = document.getElementById('nextBtn');
+  btn.disabled = false;
+  btn.innerText = "🏁 レーススタート！";
+  document.getElementById('result-container').style.display = "none";
+  updateLog(`第${rIdx + 1}レースの準備が完了しました。`);
+
+  const wipe = document.getElementById('wipe-overlay');
+  wipe.style.transition = "none"; wipe.style.left = "-100%"; 
+  hideTelop();
+  document.getElementById('goal-line').style.display = "none";
+  document.getElementById('goal-flag').style.display = "none";
+
+  renderLanes();
+}
 
 function getKana3(name) {
   if (!name) return 'ダミ';
@@ -529,7 +475,7 @@ function startRace() {
 
   showTelop(`【ペース】 ${currentPace}`, 2500);
 
-  // ポジションに応じたアニメーション (positionRank に基づく)
+  // ポジションに応じたアニメーション
   let p1Pos = activeHorses.map(h => {
     if (h.positionRank <= 4) return 35; 
     if (h.positionRank <= 8) return 26; 
@@ -538,7 +484,6 @@ function startRace() {
   });
   setPhasePositions(p1Pos, 4.0, "linear"); 
 
-  // フェーズ2
   setTimeout(() => {
     updateLog(`<strong>【向正面】</strong> 向正面へ。各馬ポジションが決まりました。`);
     let p2Pos = activeHorses.map(h => {
@@ -550,7 +495,6 @@ function startRace() {
     setPhasePositions(p2Pos, 4.3, "linear"); 
   }, 4000); 
 
-  // フェーズ3
   setTimeout(() => {
     updateLog(`<strong>【3C〜4コーナー】</strong> 最終コーナー手前！息をのむ展開！`);
     let p3Pos = activeHorses.map(h => {
@@ -582,7 +526,6 @@ function startRace() {
       setTimeout(() => {
         let winner = calculatedResults[0];
         let finalPositions = new Array(16);
-        // 着順に基づいてゴール位置を計算 (h.index を使って元のDOM順序に合わせる)
         calculatedResults.forEach((item, rank) => { finalPositions[item.index] = -15 + (rank * 4.6); });
         
          setPhasePositions(finalPositions, 10.0, "linear"); 
@@ -701,6 +644,10 @@ function goToNextSeries() {
 
   window.location.href = 'battle.html';
 }
+
+
+
+    
 </script>
 </body>
 </html>
