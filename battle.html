@@ -25,6 +25,10 @@
   .header-panel { background-color: var(--panel-bg); padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
   .btn-back { background: #ffffff; color: var(--accent-color); border: 1px solid var(--accent-color); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; text-decoration: none; }
 
+  /* ★追加：戦績表示パネルのスタイル */
+  .status-header { background-color: var(--panel-bg); border: 2px solid #d4af37; border-radius: 8px; padding: 10px; text-align: center; font-weight: bold; font-size: 15px; color: #b8860b; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+  .win-loss-text { color: #d32f2f; font-size: 18px; margin: 0 5px; }
+
   .challenge-panel { background-color: var(--panel-bg); border: 2px solid var(--accent-color); border-radius: 8px; padding: 15px 20px; text-align: center; }
   .challenge-label { font-size: 13px; font-weight: bold; color: #d9534f; margin-bottom: 4px; }
   .series-title { font-size: 18px; font-weight: bold; color: var(--accent-color); margin-bottom: 10px; }
@@ -79,6 +83,11 @@
     <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中...</div>
   </div>
 
+  <!-- ★追加：現在の勝敗数表示 -->
+  <div class="status-header" id="winLossHeader" style="display: none;">
+    現在の成績： <span class="win-loss-text" id="winCount">0</span>勝 <span class="win-loss-text" id="lossCount">0</span>敗
+  </div>
+
   <div class="challenge-panel" id="challengePanel" style="display: none;">
     <div class="challenge-label">＼ 今回の対戦シリーズはこちら！ ／</div>
     <div class="series-title" id="seriesTitle"></div>
@@ -123,7 +132,8 @@
       <div class="reward-horse" id="rewardHorseName">-</div>
       <div style="font-size:12px;" id="rewardRarity"></div>
     </div>
-    <button class="modal-btn" onclick="closeModalAndReset()">次の挑戦へ進む</button>
+    <!-- ★修正：ボタンの文言を変更 -->
+    <button class="modal-btn" onclick="closeModalAndReset()">ステータス画面へ戻る</button>
   </div>
 </div>
 
@@ -187,7 +197,6 @@
       title.className = "modal-title title-clear";
       desc.innerHTML = `おめでとうございます！3勝を達成しました！<br>（累計1着回数: ${status.total_1st_places || 0}回）`;
       
-      // 報酬決定
       let pool = HORSES_ARRAY;
       const rewardHorse = pool[Math.floor(Math.random() * pool.length)];
 
@@ -195,16 +204,13 @@
       document.getElementById('rewardRarity').textContent = `ポテンシャル: ${rewardHorse.potential}`;
       rewardBox.style.display = "block";
 
-      // inventoryサブコレクションへの保存
       try {
         const invRef = doc(db, `users/${currentUser.uid}/inventory/${rewardHorse.horse_id}`);
         await setDoc(invRef, {
           count: increment(1),
           obtained_at: new Date().toISOString()
         }, { merge: true });
-      } catch (err) {
-        console.error("報酬保存エラー", err);
-      }
+      } catch (err) { console.error("報酬保存エラー", err); }
     } else {
       title.textContent = "💥 GAME OVER";
       title.className = "modal-title title-over";
@@ -212,7 +218,7 @@
       rewardBox.style.display = "none";
     }
 
-    // ★修正箇所：ステータスを完全にリセットする（古い勝敗データを消去）
+    // ステータスを完全にリセットする
     await updateDoc(doc(db, "users", currentUser.uid), { 
       cpu_battle_status: { is_active: false } 
     });
@@ -220,8 +226,9 @@
     modal.style.display = "flex";
   }
 
+  // ★修正：リロードではなく、index.html（ステータス画面）へ遷移させる
   window.closeModalAndReset = function() {
-    window.location.reload();
+    window.location.href = 'index.html'; 
   };
 
   async function initBattle(status) {
@@ -232,19 +239,29 @@
       status = { is_active: true, current_round: 1, series_lineup: lineup, series_wins: 0, series_losses: 0, total_1st_places: 0, used_cards_history: [] };
       await updateDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status });
       globalUserData.cpu_battle_status = status;
+    } else {
+      // ★修正：次の対戦（回戦）が始まるとき、使用済みカードをクリアして全回復させる
+      if (status.used_cards_history && status.used_cards_history.length > 0) {
+        status.used_cards_history = [];
+        await updateDoc(doc(db, "users", currentUser.uid), { "cpu_battle_status.used_cards_history": [] });
+      }
     }
+
+    // 念のためsessionStorage側の履歴も消去しておく
+    sessionStorage.removeItem('used_cards_history');
+
+    // ★追加：勝敗数の表示を更新
+    document.getElementById('winCount').textContent = status.series_wins || 0;
+    document.getElementById('lossCount').textContent = status.series_losses || 0;
+    document.getElementById('winLossHeader').style.display = 'block';
 
     const currentSeriesId = status.series_lineup[status.current_round - 1];
     selectedSeries = SERIES_MASTER.find(s => s.series_id === currentSeriesId) || SERIES_MASTER[0];
 
-    // タイトル表示
     document.getElementById('seriesTitle').textContent = `【第${status.current_round}回戦】${selectedSeries.series_name}`;
-    
-    // ポテンシャル制限表示
     document.getElementById('maxTotalPotentialVal').textContent = selectedSeries.potential_limit.max_total_potential;
     document.getElementById('minPotentialVal').textContent = `${selectedSeries.potential_limit.min_potential_per_race}以上`;
 
-    // 5戦分のレースリスト描画
     const races = selectedSeries.rounds[0].races;
     const raceListEl = document.getElementById('raceList');
     raceListEl.innerHTML = races.map(r => {
@@ -300,9 +317,7 @@
     window.location.href = 'matchup.html';
   };
 
-  // ==========================================
-  // ★ デバッグ用関数（勝敗のカウントアップテスト）
-  // ==========================================
+  // デバッグ用
   window.debugWin = async function() {
     if(!globalUserData || !globalUserData.cpu_battle_status) return;
     let status = globalUserData.cpu_battle_status;
@@ -311,7 +326,6 @@
     await updateDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status });
     window.location.reload();
   };
-
   window.debugLose = async function() {
     if(!globalUserData || !globalUserData.cpu_battle_status) return;
     let status = globalUserData.cpu_battle_status;
