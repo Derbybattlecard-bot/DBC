@@ -326,7 +326,7 @@ window.onload = async () => {
   setupRace(currentRaceIndex);
 };
 
-// JSONデータのフェッチ（strategy_master.json を追加）
+// JSONデータのフェッチ（strategy_master.json も読み込む）
 let strategyMasterData = null;
 
 async function loadMasterData() {
@@ -334,12 +334,12 @@ async function loadMasterData() {
     const [raceRes, seriesRes, stratRes] = await Promise.all([
       fetch('data/race_master.json'),
       fetch('data/series_master.json'),
-      fetch('data/strategy_master.json') // 追加
+      fetch('data/strategy_master.json')
     ]);
     if (!raceRes.ok || !seriesRes.ok || !stratRes.ok) throw new Error("JSON load failed");
     raceMasterData = await raceRes.json();
     seriesMasterData = await seriesRes.json();
-    strategyMasterData = await stratRes.json(); // 保存
+    strategyMasterData = await stratRes.json();
   } catch (error) {
     console.error("マスターデータの読み込み失敗:", error);
     alert("マスターデータの読み込みに失敗しました。ローカルサーバー環境か確認してください。");
@@ -375,20 +375,17 @@ function ensureStats(h) {
   h.style = h.style || h.running_style || "自在";
 }
 
-// 作戦パラメータ算出用関数（strategy_master.json ＋ 作戦レベル）
-function getCalculatedStrategyStats(horse) {
+// 作戦パラメータ計算＆馬オブジェクトへの適用関数
+function applyStrategyStats(horse) {
   const stratData = strategyMasterData ? strategyMasterData.find(s => s.name === horse.tactic) : null;
   const baseStrat = stratData || { speed: 10, stamina: 10, sharp: 10, jizoku: 10, guts: 10 };
   const level = horse.level || 1;
 
-  return {
-    potential: `${horse.potential} (Lv.${level})`,
-    speed: (baseStrat.speed || 0) + level,
-    stamina: (baseStrat.stamina || 0) + level,
-    sharp: (baseStrat.sharp || 0) + level,
-    jizoku: (baseStrat.jizoku || 0) + level,
-    guts: (baseStrat.guts || 0) + level
-  };
+  horse.calcSpeed = (baseStrat.speed || 0) + level;
+  horse.calcStamina = (baseStrat.stamina || 0) + level;
+  horse.calcSharp = (baseStrat.sharp || 0) + level;
+  horse.calcJizoku = (baseStrat.jizoku || 0) + level;
+  horse.calcGuts = (baseStrat.guts || 0) + level;
 }
 
 // デバッグパネルの馬ステータス描画更新
@@ -398,8 +395,6 @@ function updateDebugHorseStats() {
   tbody.innerHTML = "";
 
   activeHorses.forEach(h => {
-    const cStat = getCalculatedStrategyStats(h);
-
     tbody.innerHTML += `
       <tr>
         <td style="text-align:left;">${h.name}</td>
@@ -408,12 +403,12 @@ function updateDebugHorseStats() {
         <td>${h.potential}</td><td>${h.speed}</td><td>${h.stamina}</td>
         <td>${h.sharp}</td><td>${h.jizoku}</td><td>${h.guts}</td>
         <!-- 作戦算出パラメータ -->
-        <td>${cStat.potential}</td>
-        <td>${cStat.speed}</td>
-        <td>${cStat.stamina}</td>
-        <td>${cStat.sharp}</td>
-        <td>${cStat.jizoku}</td>
-        <td>${cStat.guts}</td>
+        <td>${h.potential} (Lv.${h.level})</td>
+        <td>${h.calcSpeed}</td>
+        <td>${h.calcStamina}</td>
+        <td>${h.calcSharp}</td>
+        <td>${h.calcJizoku}</td>
+        <td>${h.calcGuts}</td>
       </tr>`;
   });
 
@@ -437,7 +432,7 @@ function setupRace(rIdx) {
 
   isLeftHanded = (raceInfo.track === "東京" || raceInfo.track === "中京" || raceInfo.track === "新潟");
 
-  // ① 全頭（自馬・CPU・モブ馬）の作戦・レベルを先に判定して確定させる
+  // 全頭の作戦・レベル決定 ＋ 作戦パラメータの適用
   activeHorses.forEach(h => {
     if (h.isPlayer) {
       const pStrat = chosenPlayerStrategies[rIdx] || { tactic: "先行", level: 3 };
@@ -456,14 +451,54 @@ function setupRace(rIdx) {
     }
     h.tactic_level = h.level; 
     ensureStats(h);
+    applyStrategyStats(h);
   });
 
   const playerObj = activeHorses.find(h => h.isPlayer) || { name: "自馬", tactic: "先行", level: 3 };
-  const cpuObj = active, 100);
+  const cpuObj = activeHorses.find(h => h.isCpu) || { name: "敵馬", tactic: "逃げ", level: 3 };
 
-  // デバッグUIの更新
+  document.getElementById('display-race-num').textContent = `RACE ${rIdx + 1} / 5`;
+  document.getElementById('display-race-title').textContent = `${raceInfo.race_name}（${raceInfo.track} ${raceInfo.surface} ${raceInfo.distance}m）`;
+  document.getElementById('display-race-cond').textContent = `馬場: ${trackCondition}`;
+
+  document.getElementById('p1-card-name').textContent = playerObj.name;
+  document.getElementById('p1-card-strat').textContent = `作戦: ${playerObj.tactic} (Lv.${playerObj.level})`;
+  
+  document.getElementById('p2-card-name').textContent = cpuObj.name;
+  document.getElementById('p2-card-strat').textContent = `作戦: ${cpuObj.tactic} (Lv.${cpuObj.level})`;
+
+  const btn = document.getElementById('nextBtn');
+  btn.disabled = false;
+  btn.innerText = "🏁 レーススタート！";
+  document.getElementById('result-container').style.display = "none";
+  updateLog(`第${rIdx + 1}レース（${raceInfo.race_name}）の準備が完了しました。`);
+
+  const wipe = document.getElementById('wipe-overlay');
+  wipe.style.transition = "none"; wipe.style.left = "-100%"; 
+  hideTelop();
+  document.getElementById('goal-line').style.display = "none";
+  document.getElementById('goal-flag').style.display = "none";
+
+  renderLanes();
+
+  let initialPositions = activeHorses.map(() => 0);
+  setPhasePositions(initialPositions, 0, "linear"); 
+
+  setTimeout(() => {
+    activeHorses.forEach((_, i) => {
+      let el = document.getElementById(`emoji-${i}`);
+      if(el) {
+        if (isLeftHanded) el.classList.remove("flipped");
+        else el.classList.add("flipped");
+      }
+    });
+  }, 100);
+
   updateDebugHorseStats();
 }
+
+
+ 
 
 function getKana3(name) {
   if (!name) return 'ダミ';
@@ -498,7 +533,8 @@ function calculatePositions(horses) {
     let hBonus = horseStyleBonus[h.style] || 0;
     if (h.style === "逃追" || h.style === "自在") hBonus = tBonus * 2;
 
-    let basePosPoint = h.speed + (h.level * 2);
+    // 作戦パラメータのスピード（h.calcSpeed）を使用
+    let basePosPoint = (h.calcSpeed || h.speed) + (h.level * 2);
     h.positionPoint = basePosPoint + hBonus + tBonus;
     h.index = i;
   });
@@ -509,7 +545,6 @@ function calculatePositions(horses) {
     h.positionScore = 17 - h.positionRank; 
   });
 
-   // デバッグ：位置取りデータ＆逃げ頭数の表示更新
   updateDebugPositions(sortedForPos);
 }
 
