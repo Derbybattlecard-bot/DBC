@@ -87,6 +87,7 @@
     padding-bottom: 6px;
   }
   .race-title { font-weight: bold; font-size: 13px; color: var(--accent-color); }
+  .race-cond-group { display: flex; gap: 4px; align-items: center; }
   .race-cond-badge {
     font-size: 10px;
     padding: 2px 6px;
@@ -96,6 +97,12 @@
   }
   .surface-turf { background-color: var(--turf-color); }
   .surface-dirt { background-color: var(--dirt-color); }
+  
+  /* 馬場コンディション別バッジカラー */
+  .cond-良 { background-color: #2e7d32; }
+  .cond-稍重 { background-color: #f57f17; }
+  .cond-重 { background-color: #e65100; }
+  .cond-不良 { background-color: #c62828; }
 
   .my-horse-box {
     background: #f0f7f1;
@@ -104,7 +111,6 @@
     padding: 8px 10px;
   }
   .my-horse-title { font-weight: bold; color: var(--accent-color); font-size: 12px; margin-bottom: 4px; }
-  .my-horse-detail { font-size: 11px; color: var(--text-sub); margin-bottom: 8px; }
 
   .strategy-select-group {
     display: flex;
@@ -127,7 +133,6 @@
     font-weight: bold;
   }
 
-  /* 出走表（アコーディオン） */
   details.race-grid-toggle {
     background: #ffffff;
     border: 1px solid var(--border-color);
@@ -219,18 +224,45 @@
   let playerEntries = [];
   let generatedCpuEntries = [];
   let generatedRaceMobs = [];
+  let generatedTrackConditions = []; // 馬場コンディション配列
 
   const MAX_TOTAL_LEVEL = 18;
 
+  // GitHub Pages環境に対応するため、相対パス ./data/〇〇.json を使用
   async function fetchJsonSafe(filename) {
-    const candidatePaths = [`./data/${filename}`, `data/${filename}`, `/data/${filename}`];
-    for (const path of candidatePaths) {
-      try {
-        const res = await fetch(path);
-        if (res.ok) return await res.json();
-      } catch (e) {}
+    const path = `./data/${filename}`;
+    const res = await fetch(path);
+    if (!res.ok) {
+      throw new Error(`${path} の取得に失敗しました (Status: ${res.status})`);
     }
-    throw new Error(`${filename} の読み込みに失敗しました`);
+    return await res.json();
+  }
+
+  // 馬場コンディション確率抽選（75%:良 / 18%:稍重 / 5%:重 / 2%:不良）
+  function drawTrackCondition() {
+    const rand = Math.random() * 100;
+    if (rand < 75) return '良';
+    if (rand < 93) return '稍重';  // 75 + 18
+    if (rand < 98) return '重';    // 93 + 5
+    return '不良';                 // 残り2%
+  }
+
+  // シリーズ設定に応じた馬場コンディション算出
+  function setupTrackConditions(series, existingConditions) {
+    if (existingConditions && Array.isArray(existingConditions) && existingConditions.length === 5) {
+      return existingConditions;
+    }
+
+    // single_day / is_single_day / is_same_day 等のプロパティまたは特定キーワード（ドバイ/香港）で判別
+    const isSingleDay = series?.is_single_day || series?.is_same_day || series?.single_day || 
+                        (series?.series_name && (series.series_name.includes("ドバイ") || series.series_name.includes("香港")));
+
+    if (isSingleDay) {
+      const unifiedCondition = drawTrackCondition();
+      return [unifiedCondition, unifiedCondition, unifiedCondition, unifiedCondition, unifiedCondition];
+    } else {
+      return [drawTrackCondition(), drawTrackCondition(), drawTrackCondition(), drawTrackCondition(), drawTrackCondition()];
+    }
   }
 
   onAuthStateChanged(auth, async (user) => {
@@ -241,7 +273,6 @@
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) globalUserData = userDoc.data();
 
-      // マスターデータを並行取得（作戦データがエラーでも止まらないように分離）
       const [seriesData, horsesData] = await Promise.all([
         fetchJsonSafe('series_master.json'),
         fetchJsonSafe('horses_master.json')
@@ -249,24 +280,21 @@
 
       SERIES_MASTER = seriesData || [];
       
-      // IDの型（数値/文字列）の違いによる参照エラーを完璧に防ぐ処理
       if (Array.isArray(horsesData)) {
         HORSES_ARRAY = horsesData;
         horsesData.forEach(h => { 
           const idStr = String(h.horse_id);
           HORSES_MASTER[idStr] = h;
-          // 4桁パディング版も予備として登録
           const paddedId = idStr.padStart(4, '0');
           if (idStr !== paddedId) HORSES_MASTER[paddedId] = h;
         });
       }
 
-      // 作戦マスターの堅牢なロード（存在しない場合はデフォルト値）
       try {
         const stratData = await fetchJsonSafe('strategy_master.json');
         STRATEGY_MASTER = Array.isArray(stratData) && stratData.length > 0 ? stratData : getDefaultStrategies();
       } catch (err) {
-        console.warn("作戦データの読み込みに失敗したため、デフォルト値を使用します。");
+        console.warn("strategy_master.json 読込失敗のためデフォルト定義を使用します:", err);
         STRATEGY_MASTER = getDefaultStrategies();
       }
 
@@ -285,7 +313,6 @@
     }
   });
 
-  // フォールバック用作戦データ
   function getDefaultStrategies() {
     return [
       { name: "逃げ", category: "逃げ" }, { name: "大逃げ", category: "逃げ" },
@@ -295,7 +322,6 @@
     ];
   }
 
-  // ヘルパー関数群（undefined を防ぐ）
   function getHorsePt(horse, surface) {
     if (!horse) return 0;
     if (surface === '芝') {
@@ -329,6 +355,9 @@
 
     playerEntries = currentMatch.player_entries || [];
 
+    // 馬場コンディションの決定
+    generatedTrackConditions = setupTrackConditions(currentSeries, currentMatch.races_track_conditions);
+
     setupCpuAndMobData(currentMatch);
     renderRaceCards();
     updateTotalStatus();
@@ -341,7 +370,6 @@
     const maxPt = targetPtBase + 2;
     const seriesSex = currentSeries?.sex || "制限なし";
 
-    // null 参照を回避
     const races = (currentSeries?.rounds && currentSeries.rounds[0]?.races) || [{},{},{},{},{}];
 
     generatedCpuEntries = [];
@@ -390,7 +418,6 @@
         pool.sort(() => Math.random() - 0.5);
         const selectedMobs = pool.slice(0, 14).map(h => String(h.horse_id).padStart(4, '0'));
         
-        // 保険: もし14頭に満たない場合はダミーIDで埋める
         while(selectedMobs.length < 14) selectedMobs.push("0000");
 
         generatedRaceMobs.push(selectedMobs);
@@ -416,13 +443,13 @@
       const cpuPt = getHorsePt(cpuHorse, race.surface);
 
       const mobIds = generatedRaceMobs[rIdx] || [];
+      const trackCond = generatedTrackConditions[rIdx] || '良';
 
       const card = document.createElement('div');
       card.className = 'race-card';
 
       const surfaceClass = race.surface === '芝' ? 'surface-turf' : 'surface-dirt';
 
-      // 堅牢な作戦プルダウン生成
       let stratOptionsHtml = '';
       const categories = ['逃げ', '先行', '差し', '追込'];
       categories.forEach((cat, idx) => {
@@ -437,7 +464,6 @@
                  (s.leg_style && s.leg_style.includes(cat));
         });
         
-        // 振り分け不能な場合、強制的にリストを4分割して表示
         if (categoryStrats.length === 0 && STRATEGY_MASTER.length > 0) {
           const chunk = Math.ceil(STRATEGY_MASTER.length / 4);
           categoryStrats = STRATEGY_MASTER.slice(idx * chunk, (idx + 1) * chunk);
@@ -492,7 +518,10 @@
       card.innerHTML = `
         <div class="race-info-header">
           <span class="race-title">第${race.race_num || rIdx+1}戦: ${race.race_name || 'レース'}</span>
-          <span class="race-cond-badge ${surfaceClass}">${race.surface || '芝'} ${race.track || ''} ${race.distance || '2000'}m</span>
+          <div class="race-cond-group">
+            <span class="race-cond-badge ${surfaceClass}">${race.surface || '芝'} ${race.track || ''} ${race.distance || '2000'}m</span>
+            <span class="race-cond-badge cond-${trackCond}">馬場:${trackCond}</span>
+          </div>
         </div>
         
         <div class="my-horse-box">
@@ -549,46 +578,4 @@
 
     const lvlEl = document.getElementById('totalLevelDisplay');
     const limitEl = document.getElementById('limitStatus');
-    const goBtn = document.getElementById('btnGoRace');
-
-    lvlEl.textContent = `${totalLvl} / ${MAX_TOTAL_LEVEL}`;
-
-    if (totalLvl > MAX_TOTAL_LEVEL) {
-      lvlEl.className = 'status-val error';
-      limitEl.textContent = '合計オーバー';
-      limitEl.className = 'status-val error';
-      goBtn.disabled = true;
-    } else {
-      lvlEl.className = 'status-val ok';
-      limitEl.textContent = 'OK';
-      limitEl.className = 'status-val ok';
-      goBtn.disabled = false;
-    }
-  }
-
-  window.finalizeAndStartRace = async function() {
-    if (!currentUser) return;
-
-    const btn = document.getElementById('btnGoRace');
-    btn.disabled = true;
-    btn.textContent = "作戦データを送信中...";
-
-    try {
-      await updateDoc(doc(db, "users", currentUser.uid), {
-        "cpu_battle_status.current_match.player_entries": playerEntries,
-        "cpu_battle_status.current_match.cpu_entries": generatedCpuEntries,
-        "cpu_battle_status.current_match.races_mob_ids": generatedRaceMobs
-      });
-
-      window.location.href = 'race_result.html';
-    } catch (err) {
-      console.error("作戦保存エラー:", err);
-      alert("データの保存に失敗しました。もう一度お試しください。");
-      btn.disabled = false;
-      btn.textContent = "レースへ進む！";
-    }
-  };
-</script>
-
-</body>
-</html>
+    const goBtn = document.getElementById('btnGoRa
