@@ -3,18 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DERBY BATTLE CARD - 作戦決定</title>
+<title>DERBY BATTLE CARD - 作戦確定・展開予想</title>
 <style>
   :root {
     --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%);
-    --panel-bg: rgba(255, 255, 255, 0.95);
+    --panel-bg: rgba(255, 255, 255, 0.94);
     --accent-color: #2d6a37;
     --accent-hover: #1b4d23;
     --text-main: #1a2e1d;
     --text-sub: #4e6b52;
     --border-color: #b2d4b6;
-    --danger-color: #d9534f;
-    --player-color: #2b547e;
+    --turf-color: #4CAF50;
+    --dirt-color: #8D6E63;
+    --nige-color: #e53935;
+    --senko-color: #fb8c00;
+    --sashi-color: #1e88e5;
+    --oikomi-color: #8e24aa;
+    --jizai-color: #757575;
   }
   body {
     font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
@@ -22,13 +27,13 @@
     background-attachment: fixed;
     color: var(--text-main);
     margin: 0;
-    padding: 12px;
-    font-size: 12px;
+    padding: 15px;
+    font-size: 13px;
     display: flex;
     justify-content: center;
   }
   .container { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 650px; }
-  
+
   .header-panel {
     background-color: var(--panel-bg);
     padding: 10px 15px;
@@ -37,38 +42,21 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   }
   .btn-back {
     background: #ffffff;
     color: var(--accent-color);
     border: 1px solid var(--accent-color);
-    padding: 5px 10px;
+    padding: 6px 12px;
     border-radius: 6px;
     cursor: pointer;
     font-weight: bold;
-    font-size: 11px;
+    font-size: 12px;
     text-decoration: none;
   }
 
-  /* 作戦レベル制限バー */
-  .status-bar {
-    background: var(--panel-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 8px 12px;
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-  }
-  .status-item { text-align: center; }
-  .status-label { font-size: 10px; color: var(--text-sub); display: block; margin-bottom: 2px; }
-  .status-val { font-size: 15px; font-weight: bold; }
-  .status-val.error { color: var(--danger-color); }
-  .status-val.ok { color: var(--accent-color); }
-
-  /* レースカードブロック */
-  .race-block {
+  .strategy-card {
     background: var(--panel-bg);
     border: 1px solid var(--border-color);
     border-radius: 8px;
@@ -76,202 +64,217 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
   }
-  
-  /* レース条件ヘッダー */
-  .race-header {
+
+  .race-title-bar {
     display: flex;
-    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 2px solid var(--border-color);
+    border-bottom: 1px dashed var(--border-color);
     padding-bottom: 6px;
-    gap: 8px;
   }
-  .race-title { font-weight: bold; font-size: 14px; color: var(--accent-color); }
-  .race-conditions { font-size: 12px; color: #333; display: flex; gap: 8px; align-items: center; }
-  
-  /* 馬場コンディションバッジ */
-  .cond-badge {
+  .race-name { font-weight: bold; font-size: 14px; color: var(--accent-color); }
+  .race-badge {
+    font-size: 10px;
     padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 11px;
+    border-radius: 3px;
+    color: white;
     font-weight: bold;
-    color: #fff;
   }
-  .cond-ryo { background-color: #4CAF50; } /* 良 */
-  .cond-yaya { background-color: #FFC107; color: #000; } /* 稍重 */
-  .cond-omo { background-color: #FF9800; } /* 重 */
-  .cond-furyo { background-color: #9E9E9E; } /* 不良 */
+  .surface-turf { background-color: var(--turf-color); }
+  .surface-dirt { background-color: var(--dirt-color); }
 
-  /* 対決ミニカード (横幅150-160px) */
-  .vs-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 15px;
-    margin: 5px 0;
-  }
-  .mini-card {
-    width: 155px;
-    min-height: 70px;
-    background: #fff;
-    border: 1px solid #ccc;
-    border-radius: 6px;
+  .horse-matchup-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    background: #f7fbf7;
     padding: 8px;
-    text-align: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-radius: 6px;
+  }
+  .matchup-box {
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    gap: 2px;
   }
-  .mini-card.player { border-top: 4px solid var(--player-color); }
-  .mini-card.cpu { border-top: 4px solid var(--danger-color); }
-  
-  .card-label { font-size: 10px; font-weight: bold; margin-bottom: 4px; }
-  .card-label.player { color: var(--player-color); }
-  .card-label.cpu { color: var(--danger-color); }
-  .card-horse-name { font-weight: bold; font-size: 13px; margin-bottom: 4px; line-height: 1.2; }
-  .card-horse-stat { font-size: 11px; color: #666; background: #f0f0f0; border-radius: 4px; padding: 2px 0; }
-  .vs-badge { font-weight: bold; color: #999; font-size: 16px; font-style: italic; }
+  .matchup-label { font-size: 10px; color: var(--text-sub); font-weight: bold; }
+  .matchup-name { font-weight: bold; font-size: 12px; }
 
-  /* 作戦・レベル選択ドロップダウン */
   .strategy-controls {
     display: flex;
-    gap: 10px;
-  }
-  .input-select {
+    flex-direction: column;
+    gap: 6px;
+    background: #ffffff;
     padding: 8px;
-    border-radius: 4px;
-    border: 1px solid var(--accent-color);
-    font-weight: bold;
-    font-size: 13px;
-    background-color: #f4f9f5;
-    color: var(--text-main);
-    cursor: pointer;
-  }
-  .input-select.strategy { flex: 2; }
-  .input-select.level { flex: 1; }
-
-  /* 16頭立て出走表 */
-  .race-table-container {
-    background: #fff;
+    border-radius: 6px;
     border: 1px solid var(--border-color);
+  }
+  .control-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .control-label { font-size: 11px; font-weight: bold; color: var(--text-sub); }
+  .strategy-select {
+    padding: 5px 8px;
     border-radius: 4px;
-    overflow: hidden;
+    border: 1px solid var(--border-color);
+    font-weight: bold;
+    font-size: 12px;
+    color: var(--text-main);
+    background: #ffffff;
   }
-  .race-table { width: 100%; border-collapse: collapse; text-align: center; font-size: 11px; }
-  .race-table th { background: #e0ece1; color: var(--text-sub); padding: 6px 2px; font-weight: bold; border-bottom: 1px solid var(--border-color); }
-  .race-table td { padding: 5px 2px; border-bottom: 1px solid #eee; }
-  .row-player { background-color: #e8f4fc; font-weight: bold; }
-  .row-cpu { background-color: #fce8e8; font-weight: bold; }
 
-  /* 脚質バッジ */
-  .style-badge {
+  .level-btn-group {
+    display: flex;
+    gap: 4px;
+  }
+  .btn-level {
+    border: 1px solid var(--border-color);
+    background: #f0f4f1;
+    color: var(--text-main);
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: bold;
+  }
+  .btn-level.active {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+  }
+
+  /* 展開・脚質分布エリア */
+  .field-analysis-box {
+    background: #edf5ee;
+    border-radius: 6px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .analysis-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .analysis-title { font-size: 11px; font-weight: bold; color: var(--accent-color); }
+  .pace-badge {
     font-size: 10px;
-    padding: 1px 4px;
-    border-radius: 3px;
-    background: #f0f0f0;
-    color: #333;
+    padding: 2px 6px;
+    border-radius: 10px;
+    color: white;
+    font-weight: bold;
   }
+  .pace-slow { background-color: #42a5f5; }
+  .pace-mid { background-color: #66bb6a; }
+  .pace-high { background-color: #ef5350; }
 
-  /* 枠番バッジ */
-  .w-1 { background:#fff; color:#000; border:1px solid #ccc; padding:1px 4px; border-radius:3px; }
-  .w-2 { background:#222; color:#fff; padding:1px 4px; border-radius:3px; }
-  .w-3 { background:#e60012; color:#fff; padding:1px 4px; border-radius:3px; }
-  .w-4 { background:#0068b7; color:#fff; padding:1px 4px; border-radius:3px; }
-  .w-5 { background:#fff100; color:#000; padding:1px 4px; border-radius:3px; }
-  .w-6 { background:#009944; color:#fff; padding:1px 4px; border-radius:3px; }
-  .w-7 { background:#f39700; color:#fff; padding:1px 4px; border-radius:3px; }
-  .w-8 { background:#e4007f; color:#fff; padding:1px 4px; border-radius:3px; }
+  .style-bar-container {
+    display: flex;
+    height: 12px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #ddd;
+  }
+  .style-bar-segment {
+    height: 100%;
+    transition: width 0.3s ease;
+  }
+  .bg-nige { background-color: var(--nige-color); }
+  .bg-senko { background-color: var(--senko-color); }
+  .bg-sashi { background-color: var(--sashi-color); }
+  .bg-oikomi { background-color: var(--oikomi-color); }
+  .bg-jizai { background-color: var(--jizai-color); }
 
-  .btn-submit {
+  .style-legend-list {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--text-sub);
+    font-weight: bold;
+  }
+  .legend-item { display: flex; align-items: center; gap: 3px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  .action-group {
+    margin-top: 10px;
+    margin-bottom: 20px;
+  }
+  .btn-start-race {
+    width: 100%;
     background: var(--accent-color);
     color: white;
     border: none;
-    padding: 16px;
-    border-radius: 8px;
+    padding: 15px;
+    border-radius: 6px;
     font-weight: bold;
     font-size: 16px;
     cursor: pointer;
     text-align: center;
     box-shadow: 0 4px 0 var(--accent-hover);
-    margin-top: 10px;
-    margin-bottom: 30px;
-    transition: 0.2s;
   }
-  .btn-submit:active { transform: translateY(4px); box-shadow: none; }
-  .btn-submit:disabled { background: #a0a0a0; box-shadow: 0 4px 0 #7a7a7a; cursor: not-allowed; transform: none; }
+  .btn-start-race:disabled {
+    background: #a0a0a0;
+    box-shadow: 0 4px 0 #7a7a7a;
+    cursor: not-allowed;
+  }
 </style>
 </head>
 <body>
 
 <div class="container">
   <div class="header-panel">
-    <a href="matchup.html" class="btn-back">← 戻る</a>
-    <h2 style="margin:0; font-size: 15px; color: var(--accent-color);">作戦決定</h2>
+    <a href="matchup.html" class="btn-back">← 出走登録へ</a>
+    <h2 style="margin:0; font-size: 16px; color: var(--accent-color);">作戦決定・展開予想</h2>
     <div id="syncStatus" style="font-size: 11px; color: var(--text-sub); font-weight: bold;">☁️ 読込中...</div>
   </div>
 
-  <!-- 作戦レベル監視 -->
-  <div class="status-bar">
-    <div class="status-item">
-      <span class="status-label">作戦決定</span>
-      <span class="status-val" id="selectedCount">0 / 5</span>
-    </div>
-    <div class="status-item">
-      <span class="status-label">合計レベル</span>
-      <span class="status-val" id="totalLevelDisplay">0 / 20</span>
-    </div>
-    <div class="status-item">
-      <span class="status-label">判定</span>
-      <span class="status-val" id="levelStatus">未完了</span>
-    </div>
-  </div>
+  <div id="strategyList" style="display:flex; flex-direction:column; gap:12px;"></div>
 
-  <div id="raceContainer" style="display:flex; flex-direction:column; gap:16px;">
-    <!-- レースカードがここに生成されます -->
+  <div class="action-group">
+    <button class="btn-start-race" id="btnConfirmStrategy" onclick="confirmStrategyAndStart()">全レース作戦確定 ＆ レース開始！</button>
   </div>
-
-  <button class="btn-submit" id="btnGoRace" disabled onclick="submitStrategies()">レース開催へ進む！</button>
 </div>
 
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+  let currentUser = null;
+  let globalUserData = null;
   let SERIES_MASTER = [];
-  let HORSES_MASTER = [];
-  let STRATEGY_MASTER = {};
+  let HORSES_ARRAY = [];
+  let HORSES_MASTER = {};
 
   let currentSeries = null;
+  let matchData = null; // player_entries, cpu_entries, races_mob_ids
   let playerEntries = [];
-  let cpuEntries = [];
-  let fullRaceGrids = [];
-  let seriesTrackCondition = "良"; 
 
-  let chosenStrategies = [
-    { id: null, level: 0 },
-    { id: null, level: 0 },
-    { id: null, level: 0 },
-    { id: null, level: 0 },
-    { id: null, level: 0 }
-  ];
+  const STRATEGIES = ['逃げ', '先行', '差し', '追込', '自在'];
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = 'auth.html'; return; }
+    currentUser = user;
 
     try {
-      const [resSeries, resHorses, resStrategy] = await Promise.all([
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) globalUserData = userDoc.data();
+
+      const [resSeries, resHorses] = await Promise.all([
         fetch('./data/series_master.json'),
-        fetch('./data/horses_master.json'),
-        fetch('./data/strategy_master.json')
+        fetch('./data/horses_master.json')
       ]);
 
       if (resSeries.ok) SERIES_MASTER = await resSeries.json();
-      if (resHorses.ok) HORSES_MASTER = await resHorses.json();
-      if (resStrategy.ok) STRATEGY_MASTER = await resStrategy.json();
+      if (resHorses.ok) {
+        HORSES_ARRAY = await resHorses.json();
+        HORSES_ARRAY.forEach(h => { HORSES_MASTER[h.horse_id] = h; });
+      }
 
       initStrategyPage();
       document.getElementById('syncStatus').textContent = "✅";
@@ -281,253 +284,218 @@
     }
   });
 
-  function generateTrackCondition() {
-    const r = Math.random() * 100;
-    if (r < 75) return "良";
-    if (r < 93) return "稍重";
-    if (r < 98) return "重";
-    return "不良";
-  }
-
-  function getConditionClass(cond) {
-    if (cond === "良") return "cond-ryo";
-    if (cond === "稍重") return "cond-yaya";
-    if (cond === "重") return "cond-omo";
-    if (cond === "不良") return "cond-furyo";
-    return "cond-ryo";
-  }
-
   function initStrategyPage() {
-    const seriesId = sessionStorage.getItem('selected_series_id');
-    const playerHorseIds = JSON.parse(sessionStorage.getItem('player_entry_ids') || '[]');
+    const status = globalUserData.cpu_battle_status || {};
+    matchData = status.current_match;
 
+    if (!matchData || !matchData.player_entries) {
+      alert("出走データが見つかりません。出走登録画面へ戻ります。");
+      window.location.href = 'matchup.html';
+      return;
+    }
+
+    const seriesId = status.selected_series_id || (status.series_lineup ? status.series_lineup[(status.current_round || 1) - 1] : null);
     currentSeries = SERIES_MASTER.find(s => s.series_id === seriesId) || SERIES_MASTER[0];
-    const horseMap = {};
-    HORSES_MASTER.forEach(h => horseMap[h.horse_id] = h);
 
-    playerEntries = playerHorseIds.map(id => horseMap[id]).filter(h => h);
+    // 深いコピーを作成して編集可能な状態にする
+    playerEntries = JSON.parse(JSON.stringify(matchData.player_entries));
 
-    const unusedHorses = HORSES_MASTER.filter(h => !playerHorseIds.includes(h.horse_id));
-    cpuEntries = getRandomSubarray(unusedHorses, 5);
-
-    seriesTrackCondition = generateTrackCondition();
-
-    const races = currentSeries.rounds[0].races;
-    fullRaceGrids = races.map((race, rIdx) => {
-      const pHorse = playerEntries[rIdx];
-      const cHorse = cpuEntries[rIdx];
-
-      const candidates = unusedHorses.filter(h => h.horse_id !== (cHorse ? cHorse.horse_id : ''));
-      let mobs = getRandomSubarray(candidates, 14);
-      
-      const styles = ["逃げ", "先行", "差し", "追込"];
-      while(mobs.length < 14) {
-        const randomStyle = styles[Math.floor(Math.random() * styles.length)];
-        mobs.push({ horse_id: `dummy_${mobs.length}`, name: `架空馬${mobs.length + 1}`, pt: 50, sex: '牡', style: randomStyle });
-      }
-
-      const fullList = [
-        { ...(pHorse || {}), isPlayer: true },
-        { ...(cHorse || {}), isCpu: true },
-        ...mobs.map(m => ({ ...m, isMob: true }))
-      ];
-      return shuffleArray(fullList);
-    });
-
-    renderRaces();
+    renderStrategyCards();
   }
 
-  function renderRaces() {
+  function renderStrategyCards() {
     const races = currentSeries.rounds[0].races;
-    const container = document.getElementById('raceContainer');
+    const container = document.getElementById('strategyList');
     container.innerHTML = '';
 
-    const condClass = getConditionClass(seriesTrackCondition);
-
-    let strategyOptionsHtml = '<option value="">▼ 作戦を選択</option>';
-    const categories = ["逃げ", "先行", "差し", "追込"];
-    categories.forEach(cat => {
-      strategyOptionsHtml += `<optgroup label="脚質: ${cat}">`;
-      Object.values(STRATEGY_MASTER).filter(st => st.style === cat).forEach(st => {
-        strategyOptionsHtml += `<option value="${st.strategy_id}">${st.name}</option>`;
-      });
-      strategyOptionsHtml += `</optgroup>`;
-    });
-
     races.forEach((race, rIdx) => {
-      const pHorse = playerEntries[rIdx];
-      const cHorse = cpuEntries[rIdx];
-      const grid = fullRaceGrids[rIdx];
+      const pEntry = playerEntries[rIdx];
+      const cEntry = matchData.cpu_entries[rIdx];
+      const pHorse = HORSES_ARRAY.find(h => h.horse_id === pEntry.horse_id) || HORSES_MASTER[pEntry.horse_id];
+      const cHorse = HORSES_ARRAY.find(h => h.horse_id === cEntry.horse_id) || HORSES_MASTER[cEntry.horse_id];
+
+      const surfaceClass = race.surface === '芝' ? 'surface-turf' : 'surface-dirt';
 
       const card = document.createElement('div');
-      card.className = 'race-block';
-
-      const vsHtml = `
-        <div class="vs-container">
-          <div class="mini-card player">
-            <div class="card-label player">★ YOUR HORSE</div>
-            <div class="card-horse-name">${pHorse ? pHorse.name : '未選択'}</div>
-            <div class="card-horse-stat">Pt: ${pHorse ? (pHorse.potential || pHorse.pt || '-') : '-'}</div>
-          </div>
-          <div class="vs-badge">VS</div>
-          <div class="mini-card cpu">
-            <div class="card-label cpu">CPU HORSE</div>
-            <div class="card-horse-name">${cHorse ? cHorse.name : '未選択'}</div>
-            <div class="card-horse-stat">Pt: ${cHorse ? (cHorse.potential || cHorse.pt || '-') : '-'}</div>
-          </div>
-        </div>
-      `;
-
-      const tableRowsHtml = grid.map((h, index) => {
-        const frameNum = Math.floor(index / 2) + 1;
-        const frameClass = `w-${Math.min(frameNum, 8)}`;
-        
-        let rowClass = '';
-        let displayMark = '';
-        if (h.isPlayer) { rowClass = 'row-player'; displayMark = '<span style="color:var(--player-color);font-weight:bold;">(YOU)</span>'; }
-        else if (h.isCpu) { rowClass = 'row-cpu'; displayMark = '<span style="color:var(--danger-color);font-weight:bold;">(CPU)</span>'; }
-
-        // 脚質の取得（style, running_style, strategy などのプロパティ名に対応）
-        const horseStyle = h.style || h.running_style || h.strategy || '自在';
-
-        return `
-          <tr class="${rowClass}">
-            <td style="width:8%;"><span class="${frameClass}">${frameNum}</span></td>
-            <td style="width:8%;">${index + 1}</td>
-            <td style="text-align:left; padding-left:4px; width:44%;">${h.name || '-'} ${displayMark}</td>
-            <td style="width:10%;">${h.sex || '-'}</td>
-            <td style="width:18%;"><span class="style-badge">${horseStyle}</span></td>
-            <td style="width:12%;">${h.potential || h.pt || '-'}</td>
-          </tr>
-        `;
-      }).join('');
+      card.className = 'strategy-card';
+      card.id = `raceCard${rIdx}`;
 
       card.innerHTML = `
-        <div class="race-header">
-          <div class="race-title">RACE ${race.race_num}: ${race.race_name}</div>
-          <div class="race-conditions">
-            <span>${race.surface || '芝'} ${race.distance || '2400'}m</span>
-            <span class="cond-badge ${condClass}">${seriesTrackCondition}</span>
+        <div class="race-title-bar">
+          <span class="race-name">第${race.race_num}戦: ${race.race_name}</span>
+          <span class="race-badge ${surfaceClass}">${race.surface} ${race.track} ${race.distance}m</span>
+        </div>
+
+        <div class="horse-matchup-grid">
+          <div class="matchup-box">
+            <span class="matchup-label">🟢 あなたの出走馬</span>
+            <span class="matchup-name">${pHorse ? pHorse.name : '不明'}</span>
+            <span style="font-size:10px; color:var(--text-sub);">元脚質: ${pHorse ? (pHorse.style || '自在') : '-'}</span>
+          </div>
+          <div class="matchup-box">
+            <span class="matchup-label">🔴 CPU対戦馬</span>
+            <span class="matchup-name">${cHorse ? cHorse.name : '不明'}</span>
+            <span style="font-size:10px; color:var(--text-sub);">想定作戦: ${cEntry.strategy || '未知'}</span>
           </div>
         </div>
-        
-        ${vsHtml}
-        
+
         <div class="strategy-controls">
-          <select class="input-select strategy" id="stratSelect${rIdx}" onchange="onInputSelected(${rIdx}, 'id', this.value)">
-            ${strategyOptionsHtml}
-          </select>
-          <select class="input-select level" id="levelSelect${rIdx}" onchange="onInputSelected(${rIdx}, 'level', this.value)">
-            <option value="0">Lv -</option>
-            <option value="1">Lv 1</option>
-            <option value="2">Lv 2</option>
-            <option value="3">Lv 3</option>
-            <option value="4">Lv 4</option>
-            <option value="5">Lv 5</option>
-          </select>
+          <div class="control-row">
+            <span class="control-label">作戦選択:</span>
+            <select class="strategy-select" onchange="updatePlayerStrategy(${rIdx}, 'strategy', this.value)">
+              ${STRATEGIES.map(s => `<option value="${s}" ${s === pEntry.strategy ? 'selected' : ''}>${s}</option>`).join('')}
+            </select>
+          </div>
+          <div class="control-row">
+            <span class="control-label">作戦レベル:</span>
+            <div class="level-btn-group" id="levelGroup${rIdx}">
+              ${[1,2,3,4,5].map(lvl => `
+                <button type="button" class="btn-level ${lvl === pEntry.strategy_level ? 'active' : ''}" onclick="updatePlayerStrategy(${rIdx}, 'level', ${lvl})">Lv.${lvl}</button>
+              `).join('')}
+            </div>
+          </div>
         </div>
-        
-        <div class="race-table-container">
-          <table class="race-table">
-            <thead>
-              <tr>
-                <th>枠</th>
-                <th>馬番</th>
-                <th style="text-align:left; padding-left:4px;">馬名</th>
-                <th>性</th>
-                <th>脚質</th>
-                <th>Pt</th>
-              </tr>
-            </thead>
-            <tbody>${tableRowsHtml}</tbody>
-          </table>
+
+        <div class="field-analysis-box" id="analysisBox${rIdx}">
+          <!-- JavaScriptで動的描画 -->
         </div>
       `;
+
       container.appendChild(card);
+      renderFieldAnalysis(rIdx);
     });
   }
 
-  window.onInputSelected = function(rIdx, type, value) {
-    if (type === 'id') {
-      chosenStrategies[rIdx].id = value || null;
+  // 脚質の標準化ヘルパー
+  function normalizeStyle(styleStr) {
+    if (!styleStr) return '先行';
+    if (styleStr.includes('大逃') || styleStr.includes('逃げ')) return '逃げ';
+    if (styleStr.includes('好位') || styleStr.includes('先行')) return '先行';
+    if (styleStr.includes('差し')) return '差し';
+    if (styleStr.includes('追込')) return '追込';
+    return '自在';
+  }
+
+  // 出走16頭（自馬1 + CPU1 + モブ14）の脚質分布および展開計算
+  function renderFieldAnalysis(rIdx) {
+    const pEntry = playerEntries[rIdx];
+    const cEntry = matchData.cpu_entries[rIdx];
+    const mobIds = (matchData.races_mob_ids || [])[rIdx] || [];
+
+    const counts = { '逃げ': 0, '先行': 0, '差し': 0, '追込': 0, '自在': 0 };
+
+    // 1. プレイヤー馬（選択中の作戦）
+    const pStyle = normalizeStyle(pEntry.strategy);
+    counts[pStyle] = (counts[pStyle] || 0) + 1;
+
+    // 2. CPU馬（確定作戦）
+    const cStyle = normalizeStyle(cEntry.strategy);
+    counts[cStyle] = (counts[cStyle] || 0) + 1;
+
+    // 3. モブ馬14頭（マスターデータの脚質）
+    mobIds.forEach(id => {
+      const mob = HORSES_ARRAY.find(h => h.horse_id === id) || HORSES_MASTER[id];
+      const mStyle = normalizeStyle(mob ? mob.style : '先行');
+      counts[mStyle] = (counts[mStyle] || 0) + 1;
+    });
+
+    const total = 16;
+
+    // ペース判定
+    const nigeCount = counts['逃げ'] || 0;
+    let paceText = 'ミドルペース';
+    let paceClass = 'pace-mid';
+    if (nigeCount <= 1) {
+      paceText = 'スローペース';
+      paceClass = 'pace-slow';
+    } else if (nigeCount >= 4) {
+      paceText = 'ハイペース';
+      paceClass = 'pace-high';
+    }
+
+    // パーセンテージ計算
+    const pct = {
+      nige: ((counts['逃げ'] / total) * 100).toFixed(1),
+      senko: ((counts['先行'] / total) * 100).toFixed(1),
+      sashi: ((counts['差し'] / total) * 100).toFixed(1),
+      oikomi: ((counts['追込'] / total) * 100).toFixed(1),
+      jizai: ((counts['自在'] / total) * 100).toFixed(1)
+    };
+
+    const box = document.getElementById(`analysisBox${rIdx}`);
+    box.innerHTML = `
+      <div class="analysis-header">
+        <span class="analysis-title">📊 レース展開予想 (全${total}頭)</span>
+        <span class="pace-badge ${paceClass}">${paceText}</span>
+      </div>
+
+      <div class="style-bar-container">
+        <div class="style-bar-segment bg-nige" style="width: ${pct.nige}%;" title="逃げ: ${counts['逃げ']}頭"></div>
+        <div class="style-bar-segment bg-senko" style="width: ${pct.senko}%;" title="先行: ${counts['先行']}頭"></div>
+        <div class="style-bar-segment bg-sashi" style="width: ${pct.sashi}%;" title="差し: ${counts['差し']}頭"></div>
+        <div class="style-bar-segment bg-oikomi" style="width: ${pct.oikomi}%;" title="追込: ${counts['追込']}頭"></div>
+        <div class="style-bar-segment bg-jizai" style="width: ${pct.jizai}%;" title="自在: ${counts['自在']}頭"></div>
+      </div>
+
+      <div class="style-legend-list">
+        <div class="legend-item"><span class="legend-dot bg-nige"></span>逃:${counts['逃げ']}</div>
+        <div class="legend-item"><span class="legend-dot bg-senko"></span>先:${counts['先行']}</div>
+        <div class="legend-item"><span class="legend-dot bg-sashi"></span>差:${counts['差し']}</div>
+        <div class="legend-item"><span class="legend-dot bg-oikomi"></span>追:${counts['追込']}</div>
+        <div class="legend-item"><span class="legend-dot bg-jizai"></span>自:${counts['自在']}</div>
+      </div>
+    `;
+  }
+
+  // 作戦・レベル変更処理
+  window.updatePlayerStrategy = function(rIdx, type, val) {
+    if (type === 'strategy') {
+      playerEntries[rIdx].strategy = val;
     } else if (type === 'level') {
-      chosenStrategies[rIdx].level = parseInt(value, 10) || 0;
-    }
-    updateStatus();
-  };
-
-  function updateStatus() {
-    let totalLvl = 0;
-    let selectedCount = 0;
-
-    chosenStrategies.forEach(st => {
-      if (st.id && st.level > 0) {
-        selectedCount++;
-        totalLvl += st.level;
+      playerEntries[rIdx].strategy_level = parseInt(val, 10);
+      
+      // ボタンの見た目更新
+      const btnGroup = document.getElementById(`levelGroup${rIdx}`);
+      if (btnGroup) {
+        const btns = btnGroup.querySelectorAll('.btn-level');
+        btns.forEach((btn, idx) => {
+          if (idx + 1 === playerEntries[rIdx].strategy_level) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        });
       }
-    });
-
-    document.getElementById('selectedCount').textContent = `${selectedCount} / 5`;
-    
-    const lvlEl = document.getElementById('totalLevelDisplay');
-    lvlEl.textContent = `${totalLvl} / 20`;
-
-    const statusEl = document.getElementById('levelStatus');
-    const btn = document.getElementById('btnGoRace');
-
-    if (totalLvl > 20) {
-      lvlEl.className = 'status-val error';
-      statusEl.textContent = 'レベル上限超過';
-      statusEl.className = 'status-val error';
-      btn.disabled = true;
-    } else if (selectedCount === 5) {
-      lvlEl.className = 'status-val ok';
-      statusEl.textContent = '準備完了！';
-      statusEl.className = 'status-val ok';
-      btn.disabled = false;
-    } else {
-      lvlEl.className = 'status-val';
-      statusEl.textContent = '選択中...';
-      statusEl.className = 'status-val';
-      btn.disabled = true;
     }
-  }
 
-  window.submitStrategies = function() {
-    const selectedStrategyObjects = chosenStrategies.map(st => {
-      if (!st.id || !STRATEGY_MASTER[st.id] || st.level === 0) return null;
-      const master = STRATEGY_MASTER[st.id];
-      return {
-        strategy_id: master.strategy_id,
-        style: master.style,
-        name: master.name,
-        level: st.level
-      };
-    });
-
-    sessionStorage.setItem('chosen_strategies', JSON.stringify(selectedStrategyObjects));
-    sessionStorage.setItem('full_race_grids', JSON.stringify(fullRaceGrids));
-    sessionStorage.setItem('track_condition', seriesTrackCondition);
-    
-    window.location.href = 'race_result.html';
+    // 展開予想グラフのリアルタイム更新
+    renderFieldAnalysis(rIdx);
   };
 
-  function getRandomSubarray(arr, size) {
-    const shuffled = arr.slice(0);
-    let i = arr.length;
-    let temp, index;
-    while (i--) {
-      index = Math.floor((i + 1) * Math.random());
-      temp = shuffled[index];
-      shuffled[index] = shuffled[i];
-      shuffled[i] = temp;
-    }
-    return shuffled.slice(0, size);
-  }
+  // 確定ボタン処理
+  window.confirmStrategyAndStart = async function() {
+    if (!currentUser || !matchData) return;
 
-  function shuffleArray(array) {
-    return array.sort(() => Math.random() - 0.5);
-  }
+    const btn = document.getElementById('btnConfirmStrategy');
+    btn.disabled = true;
+    btn.textContent = "作戦保存中...";
+
+    try {
+      // 変更した player_entries を Firestore に上書き保存
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        "cpu_battle_status.current_match.player_entries": playerEntries
+      });
+
+      // レース画面へ遷移
+      window.location.href = 'race.html';
+    } catch (err) {
+      console.error("作戦保存エラー:", err);
+      alert("作戦の保存に失敗しました。再度お試しください。");
+      btn.disabled = false;
+      btn.textContent = "全レース作戦確定 ＆ レース開始！";
+    }
+  };
 </script>
+
 </body>
 </html>
