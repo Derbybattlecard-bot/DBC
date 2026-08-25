@@ -243,22 +243,24 @@
         list.forEach(h => HORSES_MASTER[h.horse_id] = h);
       }
 
-      usedCardsHistory = JSON.parse(sessionStorage.getItem('used_cards_history') || '[]');
+      // ★ 修正: sessionStorage ではなく Firebase から使用済み履歴を取得
+      usedCardsHistory = globalUserData?.cpu_battle_status?.used_cards_history || [];
       initMatchup();
       document.getElementById('syncStatus').textContent = "✅";
     } catch (e) {
+      console.error(e);
       document.getElementById('syncStatus').textContent = "❌ エラー";
     }
   });
 
   function initMatchup() {
-    const seriesId = sessionStorage.getItem('selected_series_id');
-    const deckIdx = parseInt(sessionStorage.getItem('selected_deck_index') || '0', 10);
+    // ★ 修正: sessionStorage ではなく Firebase のステータスから各種情報を取得
+    const status = globalUserData?.cpu_battle_status || {};
+    const seriesId = status.selected_series_id || (status.series_lineup ? status.series_lineup[(status.current_round || 1) - 1] : null);
+    const deckIdx = status.selected_deck_index || 0;
 
     currentSeries = SERIES_MASTER.find(s => s.series_id === seriesId) || SERIES_MASTER[0];
     
-    // ★ 修正：sessionStorage ではなく Firebase のデータから取得する
-    const status = globalUserData.cpu_battle_status || {};
     const currentRound = status.current_round || 1;
     const wins = status.series_wins || 0;
     const losses = status.series_losses || 0;
@@ -490,13 +492,11 @@
 
     if (!globalUserData || !globalUserData.cpu_battle_status) return;
 
-    // ★ 修正：Firebaseのステータス変数を更新する
     let status = globalUserData.cpu_battle_status;
     status.series_losses += 1;
     status.current_round += 1;
 
     try {
-      // データベースに更新を反映
       await updateDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status });
       
       if (status.series_losses >= 3) {
@@ -504,7 +504,6 @@
       } else {
         alert(`ギブアップしました。(現在 ${status.series_losses}敗)\n次の回戦へ進みます。`);
       }
-      // battle.htmlに戻る（battle側で3敗判定が行われます）
       window.location.href = 'battle.html';
     } catch (err) {
       console.error("更新エラー", err);
@@ -512,9 +511,38 @@
     }
   };
 
-  window.startMatch = function() {
-    sessionStorage.setItem('player_entry_ids', JSON.stringify(selectedEntries));
-    window.location.href = 'strategy.html';
+  // ★ 修正: sessionStorage への保持を廃止し、Firebase (Firestore) に直接保存して画面遷移
+  window.startMatch = async function() {
+    if (!currentUser) return;
+
+    const btn = document.getElementById('btnBattleStart');
+    btn.disabled = true;
+    btn.textContent = "データ保存中...";
+
+    try {
+      // strategy.html が参照する構造 (player_entries) に整形
+      const formattedEntries = selectedEntries.map(id => ({
+        horse_id: id,
+        strategy: "先行",  // 作戦のデフォルト値
+        strategy_level: 3 // レベルのデフォルト値
+      }));
+
+      // Firebaseへ保存
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        "cpu_battle_status.current_match.player_entries": formattedEntries
+      });
+
+      // 念のため古いセッション情報を破棄
+      sessionStorage.removeItem('player_entry_ids');
+
+      // 作戦決定画面へ遷移
+      window.location.href = 'strategy.html';
+    } catch (err) {
+      console.error("保存エラー:", err);
+      alert("データの保存に失敗しました。再度お試しください。");
+      btn.disabled = false;
+      btn.textContent = "対戦開始！";
+    }
   };
 </script>
 
