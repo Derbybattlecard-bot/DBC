@@ -51,7 +51,11 @@
   <button class="btn-start" onclick="finalizeStrategyAndGo()">🏁 レースシーンへ進む</button>
 </div>
 
-<script>
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
   let SERIES_MASTER = [];
   let HORSES_MASTER = {};
   let HORSES_ARRAY = [];
@@ -60,27 +64,61 @@
   let trackCondition = "良";
   let fullRaceGrids = []; // 5レース分の全出走馬データ
 
-  window.onload = async () => {
+  // 安全なJSONロード
+  async function fetchJsonSafe(filename) {
+    const candidatePaths = [`./data/${filename}`, `data/${filename}`, `/data/${filename}`];
+    for (const path of candidatePaths) {
+      try {
+        const res = await fetch(path);
+        if (res.ok) return await res.json();
+      } catch (e) {}
+    }
+    throw new Error(`${filename} の読み込みに失敗しました`);
+  }
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.href = 'auth.html';
+      return;
+    }
+
     try {
-      const [resSeries, resHorses] = await Promise.all([ fetch('./data/series_master.json'), fetch('./data/horses_master.json') ]);
-      if (resSeries.ok) SERIES_MASTER = await resSeries.json();
-      if (resHorses.ok) {
-        HORSES_ARRAY = await resHorses.json();
-        HORSES_ARRAY.forEach(h => HORSES_MASTER[h.horse_id] = h);
+      // 1. マスタデータの取得
+      const [seriesData, horsesData] = await Promise.all([
+        fetchJsonSafe('series_master.json'),
+        fetchJsonSafe('horses_master.json')
+      ]);
+
+      SERIES_MASTER = seriesData;
+      HORSES_ARRAY = horsesData;
+      if (Array.isArray(horsesData)) {
+        horsesData.forEach(h => HORSES_MASTER[h.horse_id] = h);
       }
 
-      // sessionStorageからデータの受け取り
-      const seriesId = sessionStorage.getItem('selected_series_id');
-      const entryIdsData = sessionStorage.getItem('player_entry_ids');
-      
-      if (!seriesId || !entryIdsData) {
-        alert("出走データが見つかりません。");
+      // 2. Firestoreから対戦データの読み込み
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (!userDoc.exists()) {
+        alert("ユーザーデータが見つかりません。");
         window.location.href = 'battle.html';
         return;
       }
 
-      currentSeries = SERIES_MASTER.find(s => s.series_id === seriesId);
-      playerEntryIds = JSON.parse(entryIdsData);
+      const userData = userDoc.data();
+      const status = userData?.cpu_battle_status || {};
+      const currentMatch = status?.current_match;
+
+      if (!currentMatch || !currentMatch.player_entries) {
+        alert("出走登録データが見つかりません。出走登録画面からやり直してください。");
+        window.location.href = 'matchup.html';
+        return;
+      }
+
+      // シリーズ情報とプレイヤーが登録した馬ID配列の取得
+      const seriesId = status.selected_series_id || (status.series_lineup ? status.series_lineup[(status.current_round || 1) - 1] : null);
+      currentSeries = SERIES_MASTER.find(s => s.series_id === seriesId) || SERIES_MASTER[0];
+
+      // [{horse_id: "..."}, ...] 形式から ID配列に変換
+      playerEntryIds = currentMatch.player_entries.map(e => e.horse_id);
 
       // 馬場状態のランダム決定
       const r = Math.random();
@@ -94,12 +132,11 @@
       console.error(err);
       document.getElementById('syncStatus').textContent = "❌ エラー";
     }
-  };
+  });
 
   // 16頭立てのレースデータを5戦分構築する
   function generateRaceData() {
     fullRaceGrids = [];
-    const races = currentSeries.rounds[0].races;
 
     for (let i = 0; i < 5; i++) {
       let raceGrid = [];
@@ -109,7 +146,7 @@
       pHorse.isPlayer = true;
       raceGrid.push(pHorse);
 
-      // 2. CPU（ライバル馬）のセット (適当にマスターから抽選)
+      // 2. CPU（ライバル馬）のセット (マスタから抽選)
       let cpuHorse = JSON.parse(JSON.stringify(HORSES_ARRAY[Math.floor(Math.random() * HORSES_ARRAY.length)]));
       cpuHorse.isCpu = true;
       raceGrid.push(cpuHorse);
@@ -157,27 +194,23 @@
   }
 
   // レース画面へデータを渡す処理
-  function finalizeStrategyAndGo() {
+  window.finalizeStrategyAndGo = function() {
     let chosenPlayerStrategies = [];
     
     // プレイヤーが選んだ作戦を収集
     for (let i = 0; i < 5; i++) {
       const tactic = document.getElementById(`strat-r${i}`).value;
-      // レベルは現状ランダムか固定（ここでは一旦ランダムで3〜5）
       const level = Math.floor(Math.random() * 3) + 3; 
       chosenPlayerStrategies.push({ tactic: tactic, level: level });
     }
 
-    // sessionStorageへ保存
+    // 次画面（race_result.html等）への受け渡し用
     sessionStorage.setItem('full_race_grids', JSON.stringify(fullRaceGrids));
     sessionStorage.setItem('chosen_strategies', JSON.stringify(chosenPlayerStrategies));
     sessionStorage.setItem('track_condition', trackCondition);
-    
-    // CPUの作戦は race_result.html 側で自動生成するロジックが既にあるため省略可能ですが、
-    // 必要であればここで生成して 'cpu_strategies' に保存しても構いません。
 
     window.location.href = 'race_result.html';
-  }
+  };
 </script>
 </body>
 </html>
