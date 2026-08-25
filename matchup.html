@@ -52,7 +52,6 @@
     text-decoration: none;
   }
 
-  /* シリーズ戦績パネル */
   .series-progress-bar {
     background: var(--panel-bg);
     border: 1px solid var(--border-color);
@@ -64,7 +63,6 @@
     font-weight: bold;
   }
 
-  /* カウンター・制限バー */
   .status-bar {
     background: var(--panel-bg);
     border: 1px solid var(--border-color);
@@ -81,7 +79,6 @@
   .status-val.error { color: var(--danger-color); }
   .status-val.ok { color: var(--accent-color); }
 
-  /* レースごとのエントリー枠 */
   .entry-card {
     background: var(--panel-bg);
     border: 1px solid var(--border-color);
@@ -174,13 +171,11 @@
     <div id="syncStatus" style="font-size: 11px; color: var(--text-sub); font-weight: bold;">☁️ 読込中...</div>
   </div>
 
-  <!-- シリーズ回戦・成績表示 -->
   <div class="series-progress-bar">
     <span id="seriesRoundDisplay">第 1 回戦 (全5回戦)</span>
     <span id="seriesRecordDisplay" style="color: var(--accent-color);">0勝 0敗</span>
   </div>
 
-  <!-- 合計ポテンシャル＆条件リアルタイム監視 -->
   <div class="status-bar">
     <div class="status-item">
       <span class="status-label">登録頭数</span>
@@ -200,7 +195,6 @@
     </div>
   </div>
 
-  <!-- 5レース分の選択リスト -->
   <div id="entryList" style="display:flex; flex-direction:column; gap:10px;"></div>
 
   <div class="action-group">
@@ -220,9 +214,23 @@
   let HORSES_MASTER = {};
   
   let currentSeries = null;
-  let deckHorses = []; // 選択デックの18頭リスト
-  let selectedEntries = [null, null, null, null, null]; // 5レース分の選択ID
+  let deckHorses = [];
+  let selectedEntries = [null, null, null, null, null];
   let usedCardsHistory = [];
+
+  // 安全なJSONロード（./ やルート相対パスのフォールバック処理）
+  async function fetchJsonSafe(filename) {
+    const candidatePaths = [`./data/${filename}`, `data/${filename}`, `/data/${filename}`];
+    for (const path of candidatePaths) {
+      try {
+        const res = await fetch(path);
+        if (res.ok) return await res.json();
+      } catch (e) {
+        // 次のパスを試行
+      }
+    }
+    throw new Error(`${filename} の読み込みに失敗しました`);
+  }
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = 'auth.html'; return; }
@@ -232,18 +240,16 @@
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) globalUserData = userDoc.data();
 
-      const [resSeries, resHorses] = await Promise.all([
-        fetch('./data/series_master.json'),
-        fetch('./data/horses_master.json')
+      const [seriesData, horsesData] = await Promise.all([
+        fetchJsonSafe('series_master.json'),
+        fetchJsonSafe('horses_master.json')
       ]);
-      
-      if (resSeries.ok) SERIES_MASTER = await resSeries.json();
-      if (resHorses.ok) {
-        const list = await resHorses.json();
-        list.forEach(h => HORSES_MASTER[h.horse_id] = h);
+
+      SERIES_MASTER = seriesData;
+      if (Array.isArray(horsesData)) {
+        horsesData.forEach(h => { HORSES_MASTER[h.horse_id] = h; });
       }
 
-      // ★ 修正: sessionStorage ではなく Firebase から使用済み履歴を取得
       usedCardsHistory = globalUserData?.cpu_battle_status?.used_cards_history || [];
       initMatchup();
       document.getElementById('syncStatus').textContent = "✅";
@@ -254,7 +260,6 @@
   });
 
   function initMatchup() {
-    // ★ 修正: sessionStorage ではなく Firebase のステータスから各種情報を取得
     const status = globalUserData?.cpu_battle_status || {};
     const seriesId = status.selected_series_id || (status.series_lineup ? status.series_lineup[(status.current_round || 1) - 1] : null);
     const deckIdx = status.selected_deck_index || 0;
@@ -268,11 +273,9 @@
     document.getElementById('seriesRoundDisplay').textContent = `第 ${currentRound} 回戦 (全5回戦)`;
     document.getElementById('seriesRecordDisplay').textContent = `${wins}勝 ${losses}敗`;
 
-    // 性別制限表示の更新
     const sexLimit = currentSeries.sex || "制限なし";
     document.getElementById('sexLimitDisplay').textContent = sexLimit;
 
-    // デック内18頭のデータを取得
     const deck = (globalUserData.decks || [])[deckIdx] || { horse_ids: [] };
     deckHorses = (deck.horse_ids || []).map(id => HORSES_MASTER[id]).filter(h => h !== undefined);
 
@@ -280,7 +283,6 @@
     updateStatus();
   }
 
-  // 性別適合判定
   function isValidSex(horseSex, seriesSex) {
     if (!seriesSex || seriesSex === "制限なし") return true;
     if (seriesSex === "牝馬限定") return horseSex === "牝";
@@ -288,7 +290,6 @@
     return true;
   }
 
-  // 馬の適性距離文字列（例: "1600-2400" または "1600"）を取得するヘルパー関数
   function getHorseDistanceString(horse) {
     if (!horse) return '';
     if (horse.distance) return String(horse.distance);
@@ -298,11 +299,10 @@
     return '';
   }
 
-  // 距離適性適合判定（文字列解析対応）
   function isValidDistance(horse, raceDistance) {
     if (!horse) return false;
     const distStr = getHorseDistanceString(horse);
-    if (!distStr) return true; // 適性距離データが無い場合は制限なしとみなす
+    if (!distStr) return true;
 
     const target = parseInt(raceDistance, 10);
 
@@ -362,7 +362,6 @@
         const isUsedPrevious = usedCardsHistory.includes(horse.horse_id) || usedCardsHistory.includes(horse.name);
         const matchesSexLimit = isValidSex(horseSex, seriesSexLimit);
         
-        // 距離適性の判定
         const matchesDist = isValidDistance(horse, race.distance);
         const distStr = getHorseDistanceString(horse);
         const distLabel = distStr ? ` [${distStr}m]` : '';
@@ -430,23 +429,13 @@
         const pt = parseInt(horse.potential || horse.pt || 0, 10);
         totalPt += pt;
 
-        if (pt < limits.min_potential_per_race) {
-          hasMinPtError = true;
-        }
-
-        const horseSex = horse.sex || "牡";
-        if (!isValidSex(horseSex, seriesSexLimit)) {
-          hasSexError = true;
-        }
-
-        if (!isValidDistance(horse, race.distance)) {
-          hasDistError = true;
-        }
+        if (pt < limits.min_potential_per_race) hasMinPtError = true;
+        if (!isValidSex(horse.sex || "牡", seriesSexLimit)) hasSexError = true;
+        if (!isValidDistance(horse, race.distance)) hasDistError = true;
       }
     });
 
     document.getElementById('registeredCount').textContent = `${count} / 5`;
-    
     const ptEl = document.getElementById('totalPotential');
     ptEl.textContent = `${totalPt} / ${limits.max_total_potential}`;
 
@@ -486,10 +475,8 @@
     }
   }
 
-  // ギブアップ処理（不戦敗）
   window.giveUpSeries = async function() {
     if (!confirm("このシリーズをギブアップ（不戦敗）しますか？")) return;
-
     if (!globalUserData || !globalUserData.cpu_battle_status) return;
 
     let status = globalUserData.cpu_battle_status;
@@ -498,7 +485,6 @@
 
     try {
       await updateDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status });
-      
       if (status.series_losses >= 3) {
         alert("3敗に達したため、シリーズ挑戦失敗（敗退）となります。");
       } else {
@@ -511,7 +497,7 @@
     }
   };
 
-  // ★ 修正: sessionStorage への保持を廃止し、Firebase (Firestore) に直接保存して画面遷移
+  // 対戦開始処理（自馬のみ保存し、CPU関連データはクリアして strategy.html 側で決定させる）
   window.startMatch = async function() {
     if (!currentUser) return;
 
@@ -520,22 +506,22 @@
     btn.textContent = "データ保存中...";
 
     try {
-      // strategy.html が参照する構造 (player_entries) に整形
       const formattedEntries = selectedEntries.map(id => ({
         horse_id: id,
-        strategy: "先行",  // 作戦のデフォルト値
-        strategy_level: 3 // レベルのデフォルト値
+        strategy: "先行",
+        strategy_level: 3
       }));
 
-      // Firebaseへ保存
+      // cpu_entries / races_mob_ids を null に初期化し、次ページでの生成を保証
       await updateDoc(doc(db, "users", currentUser.uid), {
-        "cpu_battle_status.current_match.player_entries": formattedEntries
+        "cpu_battle_status.current_match": {
+          player_entries: formattedEntries,
+          cpu_entries: null,
+          races_mob_ids: null
+        }
       });
 
-      // 念のため古いセッション情報を破棄
       sessionStorage.removeItem('player_entry_ids');
-
-      // 作戦決定画面へ遷移
       window.location.href = 'strategy.html';
     } catch (err) {
       console.error("保存エラー:", err);
