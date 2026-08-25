@@ -223,7 +223,7 @@
   let playerEntries = [];
   let generatedCpuEntries = [];
   let generatedRaceMobs = [];
-  let generatedTrackConditions = [];
+  let loadedTrackConditions = [];
 
   const MAX_TOTAL_LEVEL = 18;
 
@@ -233,30 +233,6 @@
       throw new Error(`${path} の取得に失敗しました (Status: ${res.status})`);
     }
     return await res.json();
-  }
-
-  function drawTrackCondition() {
-    const rand = Math.random() * 100;
-    if (rand < 75) return '良';
-    if (rand < 93) return '稍重';
-    if (rand < 98) return '重';
-    return '不良';
-  }
-
-  function setupTrackConditions(series, existingConditions) {
-    if (existingConditions && Array.isArray(existingConditions) && existingConditions.length === 5) {
-      return existingConditions;
-    }
-
-    const isSingleDay = series?.is_single_day || series?.is_same_day || series?.single_day || 
-                        (series?.series_name && (series.series_name.includes("ドバイ") || series.series_name.includes("香港")));
-
-    if (isSingleDay) {
-      const unifiedCondition = drawTrackCondition();
-      return [unifiedCondition, unifiedCondition, unifiedCondition, unifiedCondition, unifiedCondition];
-    } else {
-      return [drawTrackCondition(), drawTrackCondition(), drawTrackCondition(), drawTrackCondition(), drawTrackCondition()];
-    }
   }
 
   onAuthStateChanged(auth, async (user) => {
@@ -349,7 +325,12 @@
 
     playerEntries = currentMatch.player_entries || [];
 
-    generatedTrackConditions = setupTrackConditions(currentSeries, currentMatch.races_track_conditions);
+    // matchupで抽選・格納済みの馬場コンディションを取得（未定義時のフォールバック付き）
+    if (Array.isArray(currentMatch.races_track_conditions) && currentMatch.races_track_conditions.length > 0) {
+      loadedTrackConditions = currentMatch.races_track_conditions;
+    } else {
+      loadedTrackConditions = ['良', '良', '良', '良', '良'];
+    }
 
     setupCpuAndMobData(currentMatch);
     renderRaceCards();
@@ -434,7 +415,7 @@
       const cpuPt = getHorsePt(cpuHorse, race.surface);
 
       const mobIds = generatedRaceMobs[rIdx] || [];
-      const trackCond = generatedTrackConditions[rIdx] || '良';
+      const trackCond = loadedTrackConditions[rIdx] || '良';
 
       const card = document.createElement('div');
       card.className = 'race-card';
@@ -595,7 +576,7 @@
         "cpu_battle_status.current_match.player_entries": playerEntries,
         "cpu_battle_status.current_match.cpu_entries": generatedCpuEntries,
         "cpu_battle_status.current_match.races_mob_ids": generatedRaceMobs,
-        "cpu_battle_status.current_match.races_track_conditions": generatedTrackConditions
+        "cpu_battle_status.current_match.races_track_conditions": loadedTrackConditions
       });
 
       window.location.href = 'race_result.html';
