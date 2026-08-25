@@ -25,7 +25,6 @@
   .header-panel { background-color: var(--panel-bg); padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
   .btn-back { background: #ffffff; color: var(--accent-color); border: 1px solid var(--accent-color); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; text-decoration: none; }
 
-  /* ★追加：戦績表示パネルのスタイル */
   .status-header { background-color: var(--panel-bg); border: 2px solid #d4af37; border-radius: 8px; padding: 10px; text-align: center; font-weight: bold; font-size: 15px; color: #b8860b; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
   .win-loss-text { color: #d32f2f; font-size: 18px; margin: 0 5px; }
 
@@ -50,15 +49,15 @@
   .deck-card.selected { border-color: var(--accent-color); background-color: #f2f8f3; box-shadow: 0 0 0 2px var(--accent-color); }
   .deck-title { font-weight: bold; font-size: 13px; color: var(--accent-color); margin-bottom: 2px; }
 
-  .deck-table-container { background: #ffffff; border: 1px solid var(--border-color); border-radius: 6px; max-height: 280px; overflow-y: auto; }
+  .deck-table-container { background: #ffffff; border: 1px solid var(--border-color); border-radius: 6px; max-height: 320px; overflow-y: auto; }
   .deck-table { width: 100%; border-collapse: collapse; font-size: 11px; text-align: center; }
   .deck-table th { background-color: #2d6a37; color: #ffffff; padding: 6px 4px; position: sticky; top: 0; }
   .deck-table td { padding: 5px 4px; border-bottom: 1px solid #ebf4ec; }
   .horse-name-cell { text-align: left; font-weight: bold; padding-left: 6px !important; }
+  .used-row { background-color: #f5f5f5; color: #999; }
 
   .btn-start { background: var(--accent-color); color: white; border: none; padding: 15px; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; box-shadow: 0 4px 0 var(--accent-hover); }
 
-  /* モーダル用スタイル */
   .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; }
   .modal-content { background: #fff; border-radius: 12px; padding: 25px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
   .modal-title { font-size: 22px; font-weight: 900; margin-bottom: 10px; }
@@ -69,7 +68,6 @@
   .reward-horse { font-size: 18px; font-weight: bold; color: #d32f2f; margin: 8px 0; }
   .modal-btn { background: var(--accent-color); color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-weight: bold; font-size: 14px; cursor: pointer; }
 
-  /* デバッグ用パネル */
   .debug-panel { background: rgba(0,0,0,0.8); color: #fff; padding: 15px; border-radius: 8px; text-align: center; margin-top: 10px; }
   .debug-panel button { margin: 0 5px; padding: 8px 12px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; }
 </style>
@@ -83,7 +81,6 @@
     <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中...</div>
   </div>
 
-  <!-- ★追加：現在の勝敗数表示 -->
   <div class="status-header" id="winLossHeader" style="display: none;">
     現在の成績： <span class="win-loss-text" id="winCount">0</span>勝 <span class="win-loss-text" id="lossCount">0</span>敗
   </div>
@@ -98,7 +95,7 @@
   </div>
 
   <div class="deck-select-panel" id="deckPanel" style="display: none;">
-    <h3 style="margin:0; text-align: center;">挑戦するデッキを選択</h3>
+    <h3 style="margin:0; text-align: center;">挑戦するデッキを選択 (最大18頭)</h3>
     <div class="deck-options">
       <div class="deck-card selected" id="deckCard0" onclick="selectDeck(0)"><div class="deck-title" id="deckName0">メインデッキ 1</div></div>
       <div class="deck-card" id="deckCard1" onclick="selectDeck(1)"><div class="deck-title" id="deckName1">メインデッキ 2</div></div>
@@ -106,7 +103,7 @@
     <div class="deck-table-container">
       <table class="deck-table">
         <thead>
-          <tr><th style="width:28px;">枠</th><th style="text-align:left;">馬名</th><th style="width:35px;">Pt</th><th style="width:45px;">適性</th></tr>
+          <tr><th style="width:28px;">枠</th><th style="text-align:left;">馬名</th><th style="width:35px;">Pt</th><th style="width:45px;">適性</th><th style="width:45px;">状態</th></tr>
         </thead>
         <tbody id="deckHorseList"></tbody>
       </table>
@@ -114,7 +111,6 @@
   </div>
   <button class="btn-start" id="btnStart" style="display: none;" onclick="goToMatchup()">出走登録へ進む</button>
 
-  <!-- 開発用テストパネル -->
   <div class="debug-panel">
     <div style="font-size: 11px; margin-bottom: 8px; color: #aaa;">🔧 テスト用（勝敗を進める）</div>
     <button style="background: #4CAF50; color: white;" onclick="debugWin()">🏆 1勝追加</button>
@@ -122,7 +118,6 @@
   </div>
 </div>
 
-<!-- 結果発表モーダル -->
 <div class="modal-overlay" id="resultModal">
   <div class="modal-content">
     <div class="modal-title" id="modalTitle">RESULT</div>
@@ -132,7 +127,6 @@
       <div class="reward-horse" id="rewardHorseName">-</div>
       <div style="font-size:12px;" id="rewardRarity"></div>
     </div>
-    <!-- ★修正：ボタンの文言を変更 -->
     <button class="modal-btn" onclick="closeModalAndReset()">ステータス画面へ戻る</button>
   </div>
 </div>
@@ -172,12 +166,11 @@
   async function checkBattleStatus() {
     let status = globalUserData.cpu_battle_status;
 
-    // リザルト判定（3勝 または 3敗）
     if (status && status.is_active) {
       if (status.series_wins >= 3) {
         await handleGameEnd(status, true);
         return;
-      } else if (status.series_losses >= 3) {
+      } else if (status.series_losses >= 3 || status.current_round > 5) {
         await handleGameEnd(status, false);
         return;
       }
@@ -214,11 +207,10 @@
     } else {
       title.textContent = "💥 GAME OVER";
       title.className = "modal-title title-over";
-      desc.textContent = "3敗に到達したため、チャレンジ失敗となりました…。";
+      desc.textContent = "チャレンジ終了となりました。";
       rewardBox.style.display = "none";
     }
 
-    // ステータスを完全にリセットする
     await updateDoc(doc(db, "users", currentUser.uid), { 
       cpu_battle_status: { is_active: false } 
     });
@@ -226,7 +218,6 @@
     modal.style.display = "flex";
   }
 
-  // ★修正：リロードではなく、index.html（ステータス画面）へ遷移させる
   window.closeModalAndReset = function() {
     window.location.href = 'index.html'; 
   };
@@ -236,21 +227,24 @@
       const lineup = [];
       for (let i = 0; i < 5; i++) lineup.push(SERIES_MASTER[Math.floor(Math.random() * SERIES_MASTER.length)].series_id);
       
-      status = { is_active: true, current_round: 1, series_lineup: lineup, series_wins: 0, series_losses: 0, total_1st_places: 0, used_cards_history: [] };
+      status = { 
+        is_active: true, 
+        current_round: 1, 
+        series_lineup: lineup, 
+        series_wins: 0, 
+        series_losses: 0, 
+        total_1st_places: 0, 
+        used_cards_history: [] 
+      };
       await updateDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status });
       globalUserData.cpu_battle_status = status;
-    } else {
-      // ★修正：次の対戦（回戦）が始まるとき、使用済みカードをクリアして全回復させる
-      if (status.used_cards_history && status.used_cards_history.length > 0) {
-        status.used_cards_history = [];
-        await updateDoc(doc(db, "users", currentUser.uid), { "cpu_battle_status.used_cards_history": [] });
-      }
     }
 
-    // 念のためsessionStorage側の履歴も消去しておく
-    sessionStorage.removeItem('used_cards_history');
+    if (typeof status.selected_deck_index === 'number') {
+      selectedDeckIndex = status.selected_deck_index;
+      selectDeck(selectedDeckIndex);
+    }
 
-    // ★追加：勝敗数の表示を更新
     document.getElementById('winCount').textContent = status.series_wins || 0;
     document.getElementById('lossCount').textContent = status.series_losses || 0;
     document.getElementById('winLossHeader').style.display = 'block';
@@ -298,26 +292,48 @@
     const usedCards = globalUserData.cpu_battle_status?.used_cards_history || [];
     const deck = (globalUserData.decks || [])[selectedDeckIndex] || { horse_ids: [] };
 
+    // 18頭分（18枠）の馬データを生成・表示
     for (let i = 0; i < 18; i++) {
       const horse = HORSES_MASTER[deck.horse_ids[i]];
       const tr = document.createElement('tr');
+      const frameNum = i + 1;
+
       if (horse) {
-        if (usedCards.includes(horse.horse_id)) tr.style.opacity = '0.4';
-        tr.innerHTML = `<td>${Math.floor(i/2)+1}</td><td class="horse-name-cell">${horse.name}</td><td>${horse.potential}</td><td>${horse.turf ? '芝' : 'ダ'}</td>`;
+        const isUsed = usedCards.includes(horse.horse_id);
+        if (isUsed) {
+          tr.className = 'used-row';
+          tr.style.opacity = '0.4';
+        }
+        tr.innerHTML = `
+          <td>${frameNum}</td>
+          <td class="horse-name-cell">${horse.name}</td>
+          <td>${horse.potential}</td>
+          <td>${horse.turf ? '芝' : 'ダ'}</td>
+          <td>${isUsed ? '出走済' : '可'}</td>
+        `;
       } else {
-        tr.innerHTML = `<td>${Math.floor(i/2)+1}</td><td colspan="3" style="color:#aaa;">(未設定)</td>`;
+        tr.innerHTML = `<td>${frameNum}</td><td colspan="4" style="color:#aaa;">(未設定)</td>`;
       }
       tbody.appendChild(tr);
     }
   }
 
-  window.goToMatchup = function() {
-    sessionStorage.setItem('selected_series_id', selectedSeries.series_id);
-    sessionStorage.setItem('selected_deck_index', selectedDeckIndex);
-    window.location.href = 'matchup.html';
+  window.goToMatchup = async function() {
+    if (!selectedSeries || !currentUser) return;
+
+    try {
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        "cpu_battle_status.selected_series_id": selectedSeries.series_id,
+        "cpu_battle_status.selected_deck_index": selectedDeckIndex
+      });
+
+      window.location.href = 'matchup.html';
+    } catch (err) {
+      console.error("ステータス保存エラー:", err);
+      alert("通信エラーが発生しました。再度お試しください。");
+    }
   };
 
-  // デバッグ用
   window.debugWin = async function() {
     if(!globalUserData || !globalUserData.cpu_battle_status) return;
     let status = globalUserData.cpu_battle_status;
