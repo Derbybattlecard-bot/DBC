@@ -227,7 +227,6 @@
 
   const MAX_TOTAL_LEVEL = 18;
 
-  // JSON取得用関数（引数に './data/filename.json' を受け取って取得）
   async function fetchJsonSafe(path) {
     const res = await fetch(path);
     if (!res.ok) {
@@ -236,7 +235,6 @@
     return await res.json();
   }
 
-  // 馬場コンディション確率抽選（75%:良 / 18%:稍重 / 5%:重 / 2%:不良）
   function drawTrackCondition() {
     const rand = Math.random() * 100;
     if (rand < 75) return '良';
@@ -245,7 +243,6 @@
     return '不良';
   }
 
-  // シリーズ設定に応じた馬場コンディション算出
   function setupTrackConditions(series, existingConditions) {
     if (existingConditions && Array.isArray(existingConditions) && existingConditions.length === 5) {
       return existingConditions;
@@ -287,7 +284,6 @@
         });
       }
 
-      // strategy_master.json から読み込み
       try {
         const stratData = await fetchJsonSafe('./data/strategy_master.json');
         STRATEGY_MASTER = Array.isArray(stratData) && stratData.length > 0 ? stratData : getDefaultStrategies();
@@ -422,7 +418,6 @@
     });
   }
 
-  // strategy_master.json から strategy_id の接頭辞を用いて動的に <select> の選択肢を生成する関数
   function renderRaceCards() {
     const races = (currentSeries?.rounds && currentSeries.rounds[0]?.races) || [{},{},{},{},{}];
     const container = document.getElementById('raceCardList');
@@ -446,22 +441,22 @@
 
       const surfaceClass = race.surface === '芝' ? 'surface-turf' : 'surface-dirt';
 
-      // STRATEGY_MASTER から strategy_id の接頭辞ごとにグループ化して選択肢を生成
       let stratOptionsHtml = '';
       const categories = [
-        { prefix: 'NIGE_',   title: '【逃げ系】' },
-        { prefix: 'SENKO_',  title: '【先行系】' },
-        { prefix: 'SASHI_',  title: '【差し系】' },
-        { prefix: 'OIKOMI_', title: '【追込系】' }
+        { prefix: 'NIGE_',   catName: '逃げ', title: '【逃げ系】' },
+        { prefix: 'SENKO_',  catName: '先行', title: '【先行系】' },
+        { prefix: 'SASHI_',  catName: '差し', title: '【差し系】' },
+        { prefix: 'OIKOMI_', catName: '追込', title: '【追込系】' }
       ];
 
       categories.forEach(cat => {
         stratOptionsHtml += `<optgroup label="${cat.title}">`;
         
-        // strategy_id の前方一致判定で抽出
-        const categoryStrats = STRATEGY_MASTER.filter(
-          s => s && s.strategy_id && s.strategy_id.startsWith(cat.prefix)
-        );
+        const categoryStrats = STRATEGY_MASTER.filter(s => {
+          if (!s) return false;
+          if (s.strategy_id) return s.strategy_id.startsWith(cat.prefix);
+          return s.category === cat.catName;
+        });
         
         categoryStrats.forEach(s => {
           const sName = s.name || s.strategy_name || s.strategy || cat.title;
@@ -551,9 +546,6 @@
       container.appendChild(card);
     });
   }
-     `;
-
- 
 
   window.onStrategyChanged = function(rIdx) {
     if (!playerEntries[rIdx]) return;
@@ -578,7 +570,7 @@
 
     lvlEl.textContent = `${totalLvl} / ${MAX_TOTAL_LEVEL}`;
 
-     if (totalLvl > MAX_TOTAL_LEVEL) {
+    if (totalLvl > MAX_TOTAL_LEVEL) {
       lvlEl.className = 'status-val error';
       limitEl.textContent = '合計オーバー';
       limitEl.className = 'status-val error';
