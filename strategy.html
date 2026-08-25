@@ -222,14 +222,15 @@
 
   const MAX_TOTAL_LEVEL = 18;
 
-  // 指定された絶対パス /data/〇〇.json のみをストレートに読み込み
   async function fetchJsonSafe(filename) {
-    const path = `/data/${filename}`;
-    const res = await fetch(path);
-    if (!res.ok) {
-      throw new Error(`${path} の取得に失敗しました (ステータス: ${res.status})`);
+    const candidatePaths = [`./data/${filename}`, `data/${filename}`, `/data/${filename}`];
+    for (const path of candidatePaths) {
+      try {
+        const res = await fetch(path);
+        if (res.ok) return await res.json();
+      } catch (e) {}
     }
-    return await res.json();
+    throw new Error(`${filename} の読み込みに失敗しました`);
   }
 
   onAuthStateChanged(auth, async (user) => {
@@ -240,7 +241,7 @@
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) globalUserData = userDoc.data();
 
-      // マスターデータを直接取得
+      // マスターデータを並行取得（作戦データがエラーでも止まらないように分離）
       const [seriesData, horsesData] = await Promise.all([
         fetchJsonSafe('series_master.json'),
         fetchJsonSafe('horses_master.json')
@@ -248,23 +249,24 @@
 
       SERIES_MASTER = seriesData || [];
       
-      // 数値型・文字列型のID不一致を防止
+      // IDの型（数値/文字列）の違いによる参照エラーを完璧に防ぐ処理
       if (Array.isArray(horsesData)) {
         HORSES_ARRAY = horsesData;
         horsesData.forEach(h => { 
           const idStr = String(h.horse_id);
           HORSES_MASTER[idStr] = h;
+          // 4桁パディング版も予備として登録
           const paddedId = idStr.padStart(4, '0');
           if (idStr !== paddedId) HORSES_MASTER[paddedId] = h;
         });
       }
 
-      // 作戦マスターのロード
+      // 作戦マスターの堅牢なロード（存在しない場合はデフォルト値）
       try {
         const stratData = await fetchJsonSafe('strategy_master.json');
         STRATEGY_MASTER = Array.isArray(stratData) && stratData.length > 0 ? stratData : getDefaultStrategies();
       } catch (err) {
-        console.warn("strategy_master.json の読み込みに失敗したためデフォルト定義を使用します:", err);
+        console.warn("作戦データの読み込みに失敗したため、デフォルト値を使用します。");
         STRATEGY_MASTER = getDefaultStrategies();
       }
 
@@ -283,6 +285,7 @@
     }
   });
 
+  // フォールバック用作戦データ
   function getDefaultStrategies() {
     return [
       { name: "逃げ", category: "逃げ" }, { name: "大逃げ", category: "逃げ" },
@@ -292,6 +295,7 @@
     ];
   }
 
+  // ヘルパー関数群（undefined を防ぐ）
   function getHorsePt(horse, surface) {
     if (!horse) return 0;
     if (surface === '芝') {
@@ -337,6 +341,7 @@
     const maxPt = targetPtBase + 2;
     const seriesSex = currentSeries?.sex || "制限なし";
 
+    // null 参照を回避
     const races = (currentSeries?.rounds && currentSeries.rounds[0]?.races) || [{},{},{},{},{}];
 
     generatedCpuEntries = [];
@@ -385,6 +390,7 @@
         pool.sort(() => Math.random() - 0.5);
         const selectedMobs = pool.slice(0, 14).map(h => String(h.horse_id).padStart(4, '0'));
         
+        // 保険: もし14頭に満たない場合はダミーIDで埋める
         while(selectedMobs.length < 14) selectedMobs.push("0000");
 
         generatedRaceMobs.push(selectedMobs);
@@ -416,6 +422,7 @@
 
       const surfaceClass = race.surface === '芝' ? 'surface-turf' : 'surface-dirt';
 
+      // 堅牢な作戦プルダウン生成
       let stratOptionsHtml = '';
       const categories = ['逃げ', '先行', '差し', '追込'];
       categories.forEach((cat, idx) => {
@@ -430,6 +437,7 @@
                  (s.leg_style && s.leg_style.includes(cat));
         });
         
+        // 振り分け不能な場合、強制的にリストを4分割して表示
         if (categoryStrats.length === 0 && STRATEGY_MASTER.length > 0) {
           const chunk = Math.ceil(STRATEGY_MASTER.length / 4);
           categoryStrats = STRATEGY_MASTER.slice(idx * chunk, (idx + 1) * chunk);
