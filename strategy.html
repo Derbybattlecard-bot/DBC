@@ -218,19 +218,18 @@
   let currentSeries = null;
   let playerEntries = [];
   let generatedCpuEntries = [];
-  let generatedRaceMobs = []; // [ [14頭id], [14頭id], ... ]
+  let generatedRaceMobs = [];
 
   const MAX_TOTAL_LEVEL = 18;
 
+  // 指定された絶対パス /data/〇〇.json のみをストレートに読み込み
   async function fetchJsonSafe(filename) {
-    const candidatePaths = [`./data/${filename}`, `data/${filename}`, `/data/${filename}`];
-    for (const path of candidatePaths) {
-      try {
-        const res = await fetch(path);
-        if (res.ok) return await res.json();
-      } catch (e) {}
+    const path = `/data/${filename}`;
+    const res = await fetch(path);
+    if (!res.ok) {
+      throw new Error(`${path} の取得に失敗しました (ステータス: ${res.status})`);
     }
-    throw new Error(`${filename} の読み込みに失敗しました`);
+    return await res.json();
   }
 
   onAuthStateChanged(auth, async (user) => {
@@ -241,29 +240,58 @@
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) globalUserData = userDoc.data();
 
-      const [seriesData, horsesData, stratData] = await Promise.all([
+      // マスターデータを直接取得
+      const [seriesData, horsesData] = await Promise.all([
         fetchJsonSafe('series_master.json'),
-        fetchJsonSafe('horses_master.json'),
-        fetchJsonSafe('strategy_master.json')
+        fetchJsonSafe('horses_master.json')
       ]);
 
-      SERIES_MASTER = seriesData;
-      STRATEGY_MASTER = stratData;
+      SERIES_MASTER = seriesData || [];
       
+      // 数値型・文字列型のID不一致を防止
       if (Array.isArray(horsesData)) {
         HORSES_ARRAY = horsesData;
-        horsesData.forEach(h => { HORSES_MASTER[h.horse_id] = h; });
+        horsesData.forEach(h => { 
+          const idStr = String(h.horse_id);
+          HORSES_MASTER[idStr] = h;
+          const paddedId = idStr.padStart(4, '0');
+          if (idStr !== paddedId) HORSES_MASTER[paddedId] = h;
+        });
       }
 
-      initStrategyPage();
-      document.getElementById('syncStatus').textContent = "✅";
+      // 作戦マスターのロード
+      try {
+        const stratData = await fetchJsonSafe('strategy_master.json');
+        STRATEGY_MASTER = Array.isArray(stratData) && stratData.length > 0 ? stratData : getDefaultStrategies();
+      } catch (err) {
+        console.warn("strategy_master.json の読み込みに失敗したためデフォルト定義を使用します:", err);
+        STRATEGY_MASTER = getDefaultStrategies();
+      }
+
+      try {
+        initStrategyPage();
+        document.getElementById('syncStatus').textContent = "✅ 準備完了";
+      } catch (err) {
+        console.error("画面初期化エラー:", err);
+        document.getElementById('syncStatus').textContent = "❌ 画面生成エラー";
+        document.getElementById('limitStatus').textContent = "エラー発生";
+      }
+
     } catch (e) {
-      console.error(e);
+      console.error("データ通信エラー:", e);
       document.getElementById('syncStatus').textContent = "❌ エラー";
     }
   });
 
-  // ヘルパー関数
+  function getDefaultStrategies() {
+    return [
+      { name: "逃げ", category: "逃げ" }, { name: "大逃げ", category: "逃げ" },
+      { name: "先行", category: "先行" }, { name: "好位", category: "先行" },
+      { name: "差し", category: "差し" }, { name: "待機", category: "差し" },
+      { name: "追込", category: "追込" }, { name: "最後方", category: "追込" }
+    ];
+  }
+
   function getHorsePt(horse, surface) {
     if (!horse) return 0;
     if (surface === '芝') {
@@ -273,25 +301,19 @@
       if (horse.dirt_potential !== undefined) return horse.dirt_potential;
       if (horse.aptitude && horse.aptitude.dirt_potential !== undefined) return horse.aptitude.dirt_potential;
     }
-    return parseInt(horse.potential || horse.pt || 0, 10);
+    return parseInt(horse.potential || horse.pt || 0, 10) || 0;
   }
 
   function getHorseStyle(horse) {
+    if (!horse) return '先行';
     return horse.running_style || horse.leg_style || horse.style || horse.strategy || '先行';
-  }
-
-  function getHorseDistStr(horse) {
-    if (!horse) return '-';
-    if (horse.distance) return String(horse.distance);
-    if (horse.aptitude && horse.aptitude.min_distance) return `${horse.aptitude.min_distance}-${horse.aptitude.max_distance}`;
-    return '-';
   }
 
   function initStrategyPage() {
     const status = globalUserData?.cpu_battle_status || {};
-    const currentMatch = status.current_match;
+    const currentMatch = status.current_match || {};
 
-    if (!currentMatch || !currentMatch.player_entries) {
+    if (!currentMatch.player_entries || currentMatch.player_entries.length === 0) {
       alert("出走登録データが見つかりません。");
       window.location.href = 'matchup.html';
       return;
@@ -299,76 +321,72 @@
 
     const currentRound = status.current_round || 1;
     const seriesId = status.selected_series_id || (status.series_lineup ? status.series_lineup[currentRound - 1] : null);
-    currentSeries = SERIES_MASTER.find(s => s.series_id === seriesId) || SERIES_MASTER[0];
+    currentSeries = SERIES_MASTER.find(s => s.series_id === seriesId) || SERIES_MASTER[0] || {};
 
-    playerEntries = currentMatch.player_entries;
+    playerEntries = currentMatch.player_entries || [];
 
-    // CPU対戦馬 & モブ馬データの決定
     setupCpuAndMobData(currentMatch);
-
     renderRaceCards();
     updateTotalStatus();
   }
 
-  // モブ馬＆CPU対戦馬の選出ロジック
   function setupCpuAndMobData(currentMatch) {
-    const limits = currentSeries.potential_limit || { max_total_potential: 95 };
-    const targetPtBase = Math.floor(limits.max_total_potential / 5);
+    const limits = currentSeries?.potential_limit || { max_total_potential: 95 };
+    const targetPtBase = Math.floor((limits.max_total_potential || 95) / 5);
     const minPt = Math.max(0, targetPtBase - 2);
     const maxPt = targetPtBase + 2;
-    const seriesSex = currentSeries.sex || "制限なし";
+    const seriesSex = currentSeries?.sex || "制限なし";
 
-    const races = currentSeries.rounds[0].races;
+    const races = (currentSeries?.rounds && currentSeries.rounds[0]?.races) || [{},{},{},{},{}];
 
     generatedCpuEntries = [];
     generatedRaceMobs = [];
 
     races.forEach((race, rIdx) => {
-      // 1. CPU対戦馬のデータ
+      // 1. CPU対戦馬
       let cpuEntry = currentMatch.cpu_entries ? currentMatch.cpu_entries[rIdx] : null;
       if (!cpuEntry || !cpuEntry.horse_id) {
-        // 条件に合った馬をCPU用に1頭選出
         const eligibleCpu = HORSES_ARRAY.filter(h => {
           const pt = getHorsePt(h, race.surface);
-          const isPlayerHorse = playerEntries[rIdx]?.horse_id === h.horse_id;
-          return !isPlayerHorse && pt >= minPt && pt <= maxPt;
+          const pId = playerEntries[rIdx]?.horse_id;
+          return String(pId) !== String(h.horse_id) && pt >= minPt && pt <= maxPt;
         });
-        const chosenCpu = eligibleCpu.length > 0 ? eligibleCpu[Math.floor(Math.random() * eligibleCpu.length)] : HORSES_ARRAY[rIdx];
+        const fallbackHorse = HORSES_ARRAY[rIdx % HORSES_ARRAY.length] || { horse_id: "0000", sex: "牡" };
+        const chosenCpu = eligibleCpu.length > 0 ? eligibleCpu[Math.floor(Math.random() * eligibleCpu.length)] : fallbackHorse;
         
-        // ランダムで作戦とレベルを付与
         const randomStrat = STRATEGY_MASTER[Math.floor(Math.random() * STRATEGY_MASTER.length)]?.name || "先行";
-        const randomLvl = Math.floor(Math.random() * 3) + 2; // レベル2~4
+        const randomLvl = Math.floor(Math.random() * 3) + 2;
         
         cpuEntry = {
-          horse_id: chosenCpu.horse_id,
+          horse_id: String(chosenCpu.horse_id),
           strategy: randomStrat,
           strategy_level: randomLvl
         };
       }
       generatedCpuEntries.push(cpuEntry);
 
-      // 2. モブ馬14頭の選出
+      // 2. モブ馬14頭
       let mobs = currentMatch.races_mob_ids ? currentMatch.races_mob_ids[rIdx] : null;
       if (!mobs || mobs.length < 14) {
-        const usedIds = new Set([playerEntries[rIdx]?.horse_id, cpuEntry.horse_id]);
+        const usedIds = new Set([String(playerEntries[rIdx]?.horse_id), String(cpuEntry.horse_id)]);
         
-        // 優先条件: ポテンシャル±2の範囲 & 性別制限
         let pool = HORSES_ARRAY.filter(h => {
-          if (usedIds.has(h.horse_id)) return false;
+          if (usedIds.has(String(h.horse_id))) return false;
           const pt = getHorsePt(h, race.surface);
           const sexOk = seriesSex === "制限なし" || (seriesSex === "牝馬限定" && h.sex === "牝");
           return pt >= minPt && pt <= maxPt && sexOk;
         });
 
-        // 足りない場合はポテンシャル制限解除
         if (pool.length < 14) {
-          const fallbackPool = HORSES_ARRAY.filter(h => !usedIds.has(h.horse_id));
+          const fallbackPool = HORSES_ARRAY.filter(h => !usedIds.has(String(h.horse_id)));
           pool = pool.concat(fallbackPool);
         }
 
-        // シャッフルして14頭を抽出
         pool.sort(() => Math.random() - 0.5);
         const selectedMobs = pool.slice(0, 14).map(h => String(h.horse_id).padStart(4, '0'));
+        
+        while(selectedMobs.length < 14) selectedMobs.push("0000");
+
         generatedRaceMobs.push(selectedMobs);
       } else {
         generatedRaceMobs.push(mobs);
@@ -377,62 +395,73 @@
   }
 
   function renderRaceCards() {
-    const races = currentSeries.rounds[0].races;
+    const races = (currentSeries?.rounds && currentSeries.rounds[0]?.races) || [{},{},{},{},{}];
     const container = document.getElementById('raceCardList');
     container.innerHTML = '';
 
     races.forEach((race, rIdx) => {
       const pEntry = playerEntries[rIdx] || {};
-      const pHorse = HORSES_MASTER[pEntry.horse_id] || {};
+      const pHorse = HORSES_MASTER[String(pEntry.horse_id)] || {};
       const pPt = getHorsePt(pHorse, race.surface);
       const pStyle = getHorseStyle(pHorse);
 
-      const cpuEntry = generatedCpuEntries[rIdx];
-      const cpuHorse = HORSES_MASTER[cpuEntry.horse_id] || {};
+      const cpuEntry = generatedCpuEntries[rIdx] || {};
+      const cpuHorse = HORSES_MASTER[String(cpuEntry.horse_id)] || {};
       const cpuPt = getHorsePt(cpuHorse, race.surface);
 
-      const mobIds = generatedRaceMobs[rIdx];
+      const mobIds = generatedRaceMobs[rIdx] || [];
 
       const card = document.createElement('div');
       card.className = 'race-card';
 
       const surfaceClass = race.surface === '芝' ? 'surface-turf' : 'surface-dirt';
 
-      // 作戦プルダウンの生成
       let stratOptionsHtml = '';
       const categories = ['逃げ', '先行', '差し', '追込'];
-      categories.forEach(cat => {
+      categories.forEach((cat, idx) => {
         stratOptionsHtml += `<optgroup label="【${cat}系】">`;
-        const categoryStrats = STRATEGY_MASTER.filter(s => s.category === cat || s.type === cat);
-        const stratsToRender = categoryStrats.length > 0 ? categoryStrats : STRATEGY_MASTER.slice(0, 4);
         
-        stratsToRender.forEach(s => {
-          const sName = s.name || s.strategy_name;
-          const isSelected = pEntry.strategy === sName || (rIdx === 0 && sName.includes(pStyle));
+        let categoryStrats = STRATEGY_MASTER.filter(s => {
+          if (!s) return false;
+          return (s.category && s.category.includes(cat)) || 
+                 (s.type && s.type.includes(cat)) || 
+                 (s.name && s.name.includes(cat)) ||
+                 (s.strategy_name && s.strategy_name.includes(cat)) ||
+                 (s.leg_style && s.leg_style.includes(cat));
+        });
+        
+        if (categoryStrats.length === 0 && STRATEGY_MASTER.length > 0) {
+          const chunk = Math.ceil(STRATEGY_MASTER.length / 4);
+          categoryStrats = STRATEGY_MASTER.slice(idx * chunk, (idx + 1) * chunk);
+        }
+        if (categoryStrats.length === 0) categoryStrats = [{ name: cat }];
+        
+        categoryStrats.forEach(s => {
+          const sName = s.name || s.strategy_name || s.strategy || s.type_name || cat;
+          const pStyleStr = typeof pStyle === 'string' ? pStyle : "";
+          const isSelected = pEntry.strategy === sName || (!pEntry.strategy && typeof sName === 'string' && sName.includes(pStyleStr));
           stratOptionsHtml += `<option value="${sName}" ${isSelected ? 'selected' : ''}>${sName}</option>`;
         });
         stratOptionsHtml += `</optgroup>`;
       });
 
-      // レベルプルダウン
       let levelOptionsHtml = '';
       const currentLevel = pEntry.strategy_level || 3;
       for (let lvl = 1; lvl <= 5; lvl++) {
         levelOptionsHtml += `<option value="${lvl}" ${lvl === currentLevel ? 'selected' : ''}>Lv.${lvl}</option>`;
       }
 
-      // 出走表テーブル行生成
       let gridRowsHtml = `
         <tr class="row-player">
           <td>自馬</td>
-          <td style="text-align:left;">${pHorse.name || '-'}</td>
+          <td style="text-align:left;">${pHorse.name || '未設定'}</td>
           <td>${pHorse.sex || '牡'}</td>
           <td>${pPt}</td>
           <td>${pStyle}</td>
         </tr>
         <tr class="row-cpu">
           <td>ライバル</td>
-          <td style="text-align:left;">${cpuHorse.name || '-'}</td>
+          <td style="text-align:left;">${cpuHorse.name || 'CPU'}</td>
           <td>${cpuHorse.sex || '牡'}</td>
           <td>${cpuPt}</td>
           <td>${getHorseStyle(cpuHorse)}</td>
@@ -440,7 +469,7 @@
       `;
 
       mobIds.forEach((mId, mIdx) => {
-        const mHorse = HORSES_MASTER[mId] || {};
+        const mHorse = HORSES_MASTER[String(mId)] || {};
         gridRowsHtml += `
           <tr>
             <td>${mIdx + 3}</td>
@@ -454,8 +483,8 @@
 
       card.innerHTML = `
         <div class="race-info-header">
-          <span class="race-title">第${race.race_num}戦: ${race.race_name}</span>
-          <span class="race-cond-badge ${surfaceClass}">${race.surface} ${race.track} ${race.distance}m</span>
+          <span class="race-title">第${race.race_num || rIdx+1}戦: ${race.race_name || 'レース'}</span>
+          <span class="race-cond-badge ${surfaceClass}">${race.surface || '芝'} ${race.track || ''} ${race.distance || '2000'}m</span>
         </div>
         
         <div class="my-horse-box">
@@ -494,6 +523,7 @@
   }
 
   window.onStrategyChanged = function(rIdx) {
+    if (!playerEntries[rIdx]) return;
     const stratVal = document.getElementById(`selectStrat${rIdx}`).value;
     const levelVal = parseInt(document.getElementById(`selectLevel${rIdx}`).value, 10);
 
@@ -528,7 +558,6 @@
     }
   }
 
-  // 確定と更新保存処理
   window.finalizeAndStartRace = async function() {
     if (!currentUser) return;
 
@@ -537,7 +566,6 @@
     btn.textContent = "作戦データを送信中...";
 
     try {
-      // 確定データを Firestore に保存
       await updateDoc(doc(db, "users", currentUser.uid), {
         "cpu_battle_status.current_match.player_entries": playerEntries,
         "cpu_battle_status.current_match.cpu_entries": generatedCpuEntries,
