@@ -54,17 +54,18 @@
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+  let currentUser = null;
   let SERIES_MASTER = [];
   let HORSES_MASTER = {};
   let HORSES_ARRAY = [];
   let playerEntryIds = [];
   let currentSeries = null;
+  let currentRoundIdx = 0;
   let trackCondition = "良";
-  let fullRaceGrids = []; // 5レース分の全出走馬データ
+  let fullRaceGrids = [];
 
-  // 安全なJSONロード
   async function fetchJsonSafe(filename) {
     const candidatePaths = [`./data/${filename}`, `data/${filename}`, `/data/${filename}`];
     for (const path of candidatePaths) {
@@ -81,9 +82,9 @@
       window.location.href = 'auth.html';
       return;
     }
+    currentUser = user;
 
     try {
-      // 1. マスタデータの取得
       const [seriesData, horsesData] = await Promise.all([
         fetchJsonSafe('series_master.json'),
         fetchJsonSafe('horses_master.json')
@@ -95,10 +96,9 @@
         horsesData.forEach(h => HORSES_MASTER[h.horse_id] = h);
       }
 
-      // 2. Firestoreから対戦データの読み込み
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (!userDoc.exists()) {
-        alert("ユーザーデータが見つかりません。");
+        alert("ユーザーデータが存在しません。");
         window.location.href = 'battle.html';
         return;
       }
@@ -107,20 +107,25 @@
       const status = userData?.cpu_battle_status || {};
       const currentMatch = status?.current_match;
 
-      if (!currentMatch || !currentMatch.player_entries) {
-        alert("出走登録データが見つかりません。出走登録画面からやり直してください。");
+      if (!currentMatch || !currentMatch.player_entries || currentMatch.player_entries.length === 0) {
+        alert("出走登録データが見つかりません。出走登録を行ってください。");
         window.location.href = 'matchup.html';
         return;
       }
 
-      // シリーズ情報とプレイヤーが登録した馬ID配列の取得
-      const seriesId = status.selected_series_id || (status.series_lineup ? status.series_lineup[(status.current_round || 1) - 1] : null);
+      // 該当するシリーズとラウンドの特定（matchup.html のロジックと厳密に一致）
+      const currentRound = status.current_round || 1;
+      currentRoundIdx = Math.max(0, currentRound - 1);
+
+      const seriesId = status.selected_series_id || 
+                       (status.series_lineup ? status.series_lineup[currentRoundIdx] : null);
+
       currentSeries = SERIES_MASTER.find(s => s.series_id === seriesId) || SERIES_MASTER[0];
 
-      // [{horse_id: "..."}, ...] 形式から ID配列に変換
+      // プレイヤーが選択した出走馬IDの抽出
       playerEntryIds = currentMatch.player_entries.map(e => e.horse_id);
 
-      // 馬場状態のランダム決定
+      // 馬場状態決定
       const r = Math.random();
       trackCondition = r < 0.6 ? "良" : r < 0.8 ? "稍重" : r < 0.95 ? "重" : "不良";
       document.getElementById('trackCondDisplay').textContent = `本日の馬場状態: ${trackCondition}`;
@@ -134,44 +139,42 @@
     }
   });
 
-  // 16頭立てのレースデータを5戦分構築する
   function generateRaceData() {
     fullRaceGrids = [];
-
     for (let i = 0; i < 5; i++) {
       let raceGrid = [];
       
-      // 1. 自馬のセット
-      let pHorse = JSON.parse(JSON.stringify(HORSES_MASTER[playerEntryIds[i]])); // ディープコピー
+      // 1. プレイヤー馬
+      let pHorse = JSON.parse(JSON.stringify(HORSES_MASTER[playerEntryIds[i]] || HORSES_ARRAY[0]));
       pHorse.isPlayer = true;
       raceGrid.push(pHorse);
 
-      // 2. CPU（ライバル馬）のセット (マスタから抽選)
+      // 2. CPUライバル馬
       let cpuHorse = JSON.parse(JSON.stringify(HORSES_ARRAY[Math.floor(Math.random() * HORSES_ARRAY.length)]));
       cpuHorse.isCpu = true;
       raceGrid.push(cpuHorse);
 
-      // 3. モブ馬 14頭のセット
+      // 3. モブ馬 14頭
       for (let m = 0; m < 14; m++) {
         let mob = JSON.parse(JSON.stringify(HORSES_ARRAY[Math.floor(Math.random() * HORSES_ARRAY.length)]));
         mob.isPlayer = false; mob.isCpu = false;
         raceGrid.push(mob);
       }
 
-      // 枠順（配列の並び順）をシャッフル
       raceGrid.sort(() => Math.random() - 0.5);
       fullRaceGrids.push(raceGrid);
     }
   }
 
-  // 作戦選択UIの描画
   function renderStrategyUI() {
     const container = document.getElementById('strategyList');
-    const races = currentSeries.rounds[0].races;
+    // 現在のラウンドに対応するレースリストを取得
+    const roundData = currentSeries.rounds[currentRoundIdx] || currentSeries.rounds[0];
+    const races = roundData.races;
     
     container.innerHTML = "";
     races.forEach((race, i) => {
-      const pHorse = HORSES_MASTER[playerEntryIds[i]];
+      const pHorse = HORSES_MASTER[playerEntryIds[i]] || {};
       const defaultStyle = pHorse.running_style || pHorse.style || "先行";
 
       const card = document.createElement('div');
@@ -179,8 +182,8 @@
       card.innerHTML = `
         <div class="race-header">第${race.race_num}戦: ${race.race_name} (${race.distance}m)</div>
         <div class="horse-info">
-          <span class="horse-name">${pHorse.name}</span>
-          <span class="horse-stats">Pt: ${pHorse.potential} | 脚質: ${defaultStyle}</span>
+          <span class="horse-name">${pHorse.name || '未登録'}</span>
+          <span class="horse-stats">Pt: ${pHorse.potential || '-'} | 脚質: ${defaultStyle}</span>
         </div>
         <select class="strat-select" id="strat-r${i}">
           <option value="逃げ" ${defaultStyle==="逃げ"?"selected":""}>作戦: 逃げ</option>
@@ -193,18 +196,31 @@
     });
   }
 
-  // レース画面へデータを渡す処理
-  window.finalizeStrategyAndGo = function() {
+  window.finalizeStrategyAndGo = async function() {
     let chosenPlayerStrategies = [];
-    
-    // プレイヤーが選んだ作戦を収集
     for (let i = 0; i < 5; i++) {
       const tactic = document.getElementById(`strat-r${i}`).value;
       const level = Math.floor(Math.random() * 3) + 3; 
       chosenPlayerStrategies.push({ tactic: tactic, level: level });
     }
 
-    // 次画面（race_result.html等）への受け渡し用
+    // Firestoreの出走データで作戦を更新
+    if (currentUser) {
+      try {
+        const updatedEntries = playerEntryIds.map((id, idx) => ({
+          horse_id: id,
+          strategy: chosenPlayerStrategies[idx].tactic,
+          strategy_level: chosenPlayerStrategies[idx].level
+        }));
+
+        await updateDoc(doc(db, "users", currentUser.uid), {
+          "cpu_battle_status.current_match.player_entries": updatedEntries
+        });
+      } catch(e) {
+        console.error("Firestore更新失敗:", e);
+      }
+    }
+
     sessionStorage.setItem('full_race_grids', JSON.stringify(fullRaceGrids));
     sessionStorage.setItem('chosen_strategies', JSON.stringify(chosenPlayerStrategies));
     sessionStorage.setItem('track_condition', trackCondition);
