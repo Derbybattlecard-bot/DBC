@@ -411,7 +411,6 @@
             opt.textContent = `[使用済] ${horse.name}`;
             opt.disabled = true;
           } else if (!meetsMinPt) {
-            // ポテンシャル下限制限を満たさない場合はグレーアウト処理
             opt.textContent = `[Pt不足:${horsePt}] ${horse.name} (下限${minPtRequired}以上)`;
             opt.disabled = true;
           } else if (!matchesDist) {
@@ -540,7 +539,29 @@
     }
   };
 
-  // 対戦開始処理（自馬のみ保存し、CPU関連データはクリアして strategy.html 側で決定させる）
+  // 馬場コンディション確率抽選（75%:良 / 18%:稍重 / 5%:重 / 2%:不良）
+  function drawTrackCondition() {
+    const rand = Math.random() * 100;
+    if (rand < 75) return '良';
+    if (rand < 93) return '稍重';
+    if (rand < 98) return '重';
+    return '不良';
+  }
+
+  // シリーズ設定に応じた馬場コンディション配列（5戦分）の生成関数
+  function generateTrackConditions(series) {
+    const isSingleDay = series?.is_single_day || series?.is_same_day || series?.single_day || 
+                        (series?.series_name && (series.series_name.includes("ドバイ") || series.series_name.includes("香港")));
+
+    if (isSingleDay) {
+      const unifiedCondition = drawTrackCondition();
+      return Array(5).fill(unifiedCondition);
+    } else {
+      return Array.from({ length: 5 }, () => drawTrackCondition());
+    }
+  }
+
+  // 対戦開始処理（馬場コンディションを事前生成して保存）
   window.startMatch = async function() {
     if (!currentUser) return;
 
@@ -555,12 +576,16 @@
         strategy_level: 3
       }));
 
-      // cpu_entries / races_mob_ids を null に初期化し、次ページでの生成を保証
+      // 5戦分の馬場コンディションを事前抽選
+      const trackConditions = generateTrackConditions(currentSeries);
+
+      // races_track_conditions を保存して strategy.html 側でのリロード再抽選を防止
       await updateDoc(doc(db, "users", currentUser.uid), {
         "cpu_battle_status.current_match": {
           player_entries: formattedEntries,
           cpu_entries: null,
-          races_mob_ids: null
+          races_mob_ids: null,
+          races_track_conditions: trackConditions
         }
       });
 
