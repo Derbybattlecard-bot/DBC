@@ -283,6 +283,35 @@
     updateStatus();
   }
 
+  // 馬の能力値・属性取得用ヘルパー関数群
+  function getHorsePotential(horse, surface) {
+    if (!horse) return 0;
+    if (surface === '芝') {
+      if (horse.turf_potential !== undefined) return horse.turf_potential;
+      if (horse.aptitude && horse.aptitude.turf_potential !== undefined) return horse.aptitude.turf_potential;
+    } else if (surface === 'ダート' || surface === 'ダ') {
+      if (horse.dirt_potential !== undefined) return horse.dirt_potential;
+      if (horse.aptitude && horse.aptitude.dirt_potential !== undefined) return horse.aptitude.dirt_potential;
+    }
+    return parseInt(horse.potential || horse.pt || 0, 10);
+  }
+
+  function getHorseSurfaceText(horse) {
+    if (!horse) return '-';
+    if (horse.surface) return horse.surface;
+    if (horse.turf !== undefined && horse.dirt !== undefined) {
+      if (horse.turf && horse.dirt) return '芝/ダ';
+      if (horse.turf) return '芝';
+      if (horse.dirt) return 'ダ';
+    }
+    return '芝';
+  }
+
+  function getHorseLegStyle(horse) {
+    if (!horse) return '-';
+    return horse.running_style || horse.leg_style || horse.style || horse.strategy || '-';
+  }
+
   function isValidSex(horseSex, seriesSex) {
     if (!seriesSex || seriesSex === "制限なし") return true;
     if (seriesSex === "牝馬限定") return horseSex === "牝";
@@ -336,7 +365,7 @@
           <option value="">-- 出走馬を選択してください --</option>
         </select>
         <div class="horse-detail-preview" id="previewRace${rIdx}">
-          <span>性別: - | Pt: -</span>
+          <span>性別: - | Pt: - | 脚質: -</span>
           <span>適性: -</span>
         </div>
       `;
@@ -349,6 +378,8 @@
   function populateDropdowns() {
     const races = currentSeries.rounds[0].races;
     const seriesSexLimit = currentSeries.sex || "制限なし";
+    const limits = currentSeries.potential_limit || { min_potential_per_race: 15, max_total_potential: 95 };
+    const minPtRequired = limits.min_potential_per_race || 0;
 
     races.forEach((race, rIdx) => {
       const select = document.getElementById(`selectRace${rIdx}`);
@@ -364,7 +395,13 @@
         
         const matchesDist = isValidDistance(horse, race.distance);
         const distStr = getHorseDistanceString(horse);
-        const distLabel = distStr ? ` [${distStr}m]` : '';
+        const distLabel = distStr ? `${distStr}m` : '-';
+
+        const horsePt = getHorsePotential(horse, race.surface);
+        const meetsMinPt = horsePt >= minPtRequired;
+
+        const surfaceText = getHorseSurfaceText(horse);
+        const legStyle = getHorseLegStyle(horse);
 
         if (!isChosenElsewhere && matchesSexLimit) {
           const opt = document.createElement('option');
@@ -373,11 +410,15 @@
           if (isUsedPrevious) {
             opt.textContent = `[使用済] ${horse.name}`;
             opt.disabled = true;
+          } else if (!meetsMinPt) {
+            // ポテンシャル下限制限を満たさない場合はグレーアウト処理
+            opt.textContent = `[Pt不足:${horsePt}] ${horse.name} (下限${minPtRequired}以上)`;
+            opt.disabled = true;
           } else if (!matchesDist) {
-            opt.textContent = `[適性外:${distStr}m] ${horse.name}`;
+            opt.textContent = `[適性外:${distLabel}] ${horse.name}`;
             opt.disabled = true;
           } else {
-            opt.textContent = `[${horseSex}] ${horse.name}${distLabel} (Pt: ${horse.potential || horse.pt || '-'})`;
+            opt.textContent = `[${horseSex}] ${horse.name} (Pt:${horsePt} / ${surfaceText} / ${distLabel} / ${legStyle})`;
           }
           
           if (horse.horse_id === currentVal) opt.selected = true;
@@ -393,17 +434,19 @@
     const preview = document.getElementById(`previewRace${raceIdx}`);
     if (horseId && HORSES_MASTER[horseId]) {
       const horse = HORSES_MASTER[horseId];
+      const race = currentSeries.rounds[0].races[raceIdx];
       const sex = horse.sex || "牡";
-      const pt = horse.potential || horse.pt || "-";
-      const surfaceText = (horse.aptitude?.turf === "A" && horse.aptitude?.dirt === "A") || (horse.turf && horse.dirt) ? "万" : (horse.aptitude?.turf === "A" || horse.turf ? "芝" : "ダ");
+      const pt = getHorsePotential(horse, race.surface);
+      const surfaceText = getHorseSurfaceText(horse);
       const distStr = getHorseDistanceString(horse);
+      const legStyle = getHorseLegStyle(horse);
 
       preview.innerHTML = `
-        <span>性別: <strong>${sex}</strong> | Pt: <strong>${pt}</strong></span>
-        <span>適性: ${surfaceText} (${distStr ? distStr + 'm' : '-'})</span>
+        <span>[<strong>${sex}</strong>] Pt: <strong>${pt}</strong> | 脚質: <strong>${legStyle}</strong></span>
+        <span>馬場: <strong>${surfaceText}</strong> | 距離: <strong>${distStr ? distStr + 'm' : '-'}</strong></span>
       `;
     } else {
-      preview.innerHTML = `<span>性別: - | Pt: -</span><span>適性: -</span>`;
+      preview.innerHTML = `<span>性別: - | Pt: - | 脚質: -</span><span>適性: -</span>`;
     }
 
     populateDropdowns();
@@ -426,7 +469,7 @@
         count++;
         const horse = HORSES_MASTER[id];
         const race = races[rIdx];
-        const pt = parseInt(horse.potential || horse.pt || 0, 10);
+        const pt = getHorsePotential(horse, race.surface);
         totalPt += pt;
 
         if (pt < limits.min_potential_per_race) hasMinPtError = true;
