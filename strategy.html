@@ -98,7 +98,6 @@
   .surface-turf { background-color: var(--turf-color); }
   .surface-dirt { background-color: var(--dirt-color); }
   
-  /* 馬場コンディション別バッジカラー */
   .cond-良 { background-color: #2e7d32; }
   .cond-稍重 { background-color: #f57f17; }
   .cond-重 { background-color: #e65100; }
@@ -224,13 +223,12 @@
   let playerEntries = [];
   let generatedCpuEntries = [];
   let generatedRaceMobs = [];
-  let generatedTrackConditions = []; // 馬場コンディション配列
+  let generatedTrackConditions = [];
 
   const MAX_TOTAL_LEVEL = 18;
 
-  // GitHub Pages環境に対応するため、相対パス ./data/〇〇.json を使用
-  async function fetchJsonSafe(filename) {
-    const path = `./data/${filename}`;
+  // JSON取得用関数（引数に './data/filename.json' を受け取って取得）
+  async function fetchJsonSafe(path) {
     const res = await fetch(path);
     if (!res.ok) {
       throw new Error(`${path} の取得に失敗しました (Status: ${res.status})`);
@@ -242,9 +240,9 @@
   function drawTrackCondition() {
     const rand = Math.random() * 100;
     if (rand < 75) return '良';
-    if (rand < 93) return '稍重';  // 75 + 18
-    if (rand < 98) return '重';    // 93 + 5
-    return '不良';                 // 残り2%
+    if (rand < 93) return '稍重';
+    if (rand < 98) return '重';
+    return '不良';
   }
 
   // シリーズ設定に応じた馬場コンディション算出
@@ -253,7 +251,6 @@
       return existingConditions;
     }
 
-    // single_day / is_single_day / is_same_day 等のプロパティまたは特定キーワード（ドバイ/香港）で判別
     const isSingleDay = series?.is_single_day || series?.is_same_day || series?.single_day || 
                         (series?.series_name && (series.series_name.includes("ドバイ") || series.series_name.includes("香港")));
 
@@ -274,8 +271,8 @@
       if (userDoc.exists()) globalUserData = userDoc.data();
 
       const [seriesData, horsesData] = await Promise.all([
-        fetchJsonSafe('series_master.json'),
-        fetchJsonSafe('horses_master.json')
+        fetchJsonSafe('./data/series_master.json'),
+        fetchJsonSafe('./data/horses_master.json')
       ]);
 
       SERIES_MASTER = seriesData || [];
@@ -290,11 +287,12 @@
         });
       }
 
+      // strategy_master.json から読み込み
       try {
-        const stratData = await fetchJsonSafe('strategy_master.json');
+        const stratData = await fetchJsonSafe('./data/strategy_master.json');
         STRATEGY_MASTER = Array.isArray(stratData) && stratData.length > 0 ? stratData : getDefaultStrategies();
       } catch (err) {
-        console.warn("strategy_master.json 読込失敗のためデフォルト定義を使用します:", err);
+        console.warn("strategy_master.json の読み込みに失敗したためデフォルト定義を使用します:", err);
         STRATEGY_MASTER = getDefaultStrategies();
       }
 
@@ -355,7 +353,6 @@
 
     playerEntries = currentMatch.player_entries || [];
 
-    // 馬場コンディションの決定
     generatedTrackConditions = setupTrackConditions(currentSeries, currentMatch.races_track_conditions);
 
     setupCpuAndMobData(currentMatch);
@@ -376,7 +373,6 @@
     generatedRaceMobs = [];
 
     races.forEach((race, rIdx) => {
-      // 1. CPU対戦馬
       let cpuEntry = currentMatch.cpu_entries ? currentMatch.cpu_entries[rIdx] : null;
       if (!cpuEntry || !cpuEntry.horse_id) {
         const eligibleCpu = HORSES_ARRAY.filter(h => {
@@ -398,7 +394,6 @@
       }
       generatedCpuEntries.push(cpuEntry);
 
-      // 2. モブ馬14頭
       let mobs = currentMatch.races_mob_ids ? currentMatch.races_mob_ids[rIdx] : null;
       if (!mobs || mobs.length < 14) {
         const usedIds = new Set([String(playerEntries[rIdx]?.horse_id), String(cpuEntry.horse_id)]);
@@ -427,6 +422,7 @@
     });
   }
 
+  // strategy_master.json から動的に <select> の選択肢を生成する関数
   function renderRaceCards() {
     const races = (currentSeries?.rounds && currentSeries.rounds[0]?.races) || [{},{},{},{},{}];
     const container = document.getElementById('raceCardList');
@@ -450,28 +446,28 @@
 
       const surfaceClass = race.surface === '芝' ? 'surface-turf' : 'surface-dirt';
 
+      // STRATEGY_MASTER からカテゴリごとにグループ化して選択肢を生成
       let stratOptionsHtml = '';
       const categories = ['逃げ', '先行', '差し', '追込'];
+
       categories.forEach((cat, idx) => {
         stratOptionsHtml += `<optgroup label="【${cat}系】">`;
         
+        // カテゴリ、タイプ、名前にカテゴリ名が含まれる作戦を抽出
         let categoryStrats = STRATEGY_MASTER.filter(s => {
           if (!s) return false;
-          return (s.category && s.category.includes(cat)) || 
-                 (s.type && s.type.includes(cat)) || 
-                 (s.name && s.name.includes(cat)) ||
-                 (s.strategy_name && s.strategy_name.includes(cat)) ||
-                 (s.leg_style && s.leg_style.includes(cat));
+          const targetStr = `${s.category || ''} ${s.type || ''} ${s.name || ''} ${s.strategy_name || ''} ${s.leg_style || ''}`;
+          return targetStr.includes(cat);
         });
         
+        // 該当がない場合のフォールバック（均等割り）
         if (categoryStrats.length === 0 && STRATEGY_MASTER.length > 0) {
           const chunk = Math.ceil(STRATEGY_MASTER.length / 4);
           categoryStrats = STRATEGY_MASTER.slice(idx * chunk, (idx + 1) * chunk);
         }
-        if (categoryStrats.length === 0) categoryStrats = [{ name: cat }];
         
         categoryStrats.forEach(s => {
-          const sName = s.name || s.strategy_name || s.strategy || s.type_name || cat;
+          const sName = s.name || s.strategy_name || s.strategy || cat;
           const pStyleStr = typeof pStyle === 'string' ? pStyle : "";
           const isSelected = pEntry.strategy === sName || (!pEntry.strategy && typeof sName === 'string' && sName.includes(pStyleStr));
           stratOptionsHtml += `<option value="${sName}" ${isSelected ? 'selected' : ''}>${sName}</option>`;
@@ -603,7 +599,6 @@
     btn.textContent = "作戦データを送信中...";
 
     try {
-      // 出走登録・CPU・モブ・馬場コンディションをまとめて保存
       await updateDoc(doc(db, "users", currentUser.uid), {
         "cpu_battle_status.current_match.player_entries": playerEntries,
         "cpu_battle_status.current_match.cpu_entries": generatedCpuEntries,
