@@ -422,7 +422,7 @@
     });
   }
 
-  // strategy_master.json から動的に <select> の選択肢を生成する関数
+  // strategy_master.json から strategy_id の接頭辞を用いて動的に <select> の選択肢を生成する関数
   function renderRaceCards() {
     const races = (currentSeries?.rounds && currentSeries.rounds[0]?.races) || [{},{},{},{},{}];
     const container = document.getElementById('raceCardList');
@@ -446,28 +446,25 @@
 
       const surfaceClass = race.surface === '芝' ? 'surface-turf' : 'surface-dirt';
 
-      // STRATEGY_MASTER からカテゴリごとにグループ化して選択肢を生成
+      // STRATEGY_MASTER から strategy_id の接頭辞ごとにグループ化して選択肢を生成
       let stratOptionsHtml = '';
-      const categories = ['逃げ', '先行', '差し', '追込'];
+      const categories = [
+        { prefix: 'NIGE_',   title: '【逃げ系】' },
+        { prefix: 'SENKO_',  title: '【先行系】' },
+        { prefix: 'SASHI_',  title: '【差し系】' },
+        { prefix: 'OIKOMI_', title: '【追込系】' }
+      ];
 
-      categories.forEach((cat, idx) => {
-        stratOptionsHtml += `<optgroup label="【${cat}系】">`;
+      categories.forEach(cat => {
+        stratOptionsHtml += `<optgroup label="${cat.title}">`;
         
-        // カテゴリ、タイプ、名前にカテゴリ名が含まれる作戦を抽出
-        let categoryStrats = STRATEGY_MASTER.filter(s => {
-          if (!s) return false;
-          const targetStr = `${s.category || ''} ${s.type || ''} ${s.name || ''} ${s.strategy_name || ''} ${s.leg_style || ''}`;
-          return targetStr.includes(cat);
-        });
-        
-        // 該当がない場合のフォールバック（均等割り）
-        if (categoryStrats.length === 0 && STRATEGY_MASTER.length > 0) {
-          const chunk = Math.ceil(STRATEGY_MASTER.length / 4);
-          categoryStrats = STRATEGY_MASTER.slice(idx * chunk, (idx + 1) * chunk);
-        }
+        // strategy_id の前方一致判定で抽出
+        const categoryStrats = STRATEGY_MASTER.filter(
+          s => s && s.strategy_id && s.strategy_id.startsWith(cat.prefix)
+        );
         
         categoryStrats.forEach(s => {
-          const sName = s.name || s.strategy_name || s.strategy || cat;
+          const sName = s.name || s.strategy_name || s.strategy || cat.title;
           const pStyleStr = typeof pStyle === 'string' ? pStyle : "";
           const isSelected = pEntry.strategy === sName || (!pEntry.strategy && typeof sName === 'string' && sName.includes(pStyleStr));
           stratOptionsHtml += `<option value="${sName}" ${isSelected ? 'selected' : ''}>${sName}</option>`;
@@ -554,6 +551,9 @@
       container.appendChild(card);
     });
   }
+     `;
+
+ 
 
   window.onStrategyChanged = function(rIdx) {
     if (!playerEntries[rIdx]) return;
@@ -578,7 +578,7 @@
 
     lvlEl.textContent = `${totalLvl} / ${MAX_TOTAL_LEVEL}`;
 
-    if (totalLvl > MAX_TOTAL_LEVEL) {
+     if (totalLvl > MAX_TOTAL_LEVEL) {
       lvlEl.className = 'status-val error';
       limitEl.textContent = '合計オーバー';
       limitEl.className = 'status-val error';
