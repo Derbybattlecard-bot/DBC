@@ -49,11 +49,11 @@
   .deck-card.selected { border-color: var(--accent-color); background-color: #f2f8f3; box-shadow: 0 0 0 2px var(--accent-color); }
   .deck-title { font-weight: bold; font-size: 13px; color: var(--accent-color); margin-bottom: 2px; }
 
-  .deck-table-container { background: #ffffff; border: 1px solid var(--border-color); border-radius: 6px; max-height: 320px; overflow-y: auto; }
-  .deck-table { width: 100%; border-collapse: collapse; font-size: 11px; text-align: center; }
-  .deck-table th { background-color: #2d6a37; color: #ffffff; padding: 6px 4px; position: sticky; top: 0; }
-  .deck-table td { padding: 5px 4px; border-bottom: 1px solid #ebf4ec; }
-  .horse-name-cell { text-align: left; font-weight: bold; padding-left: 6px !important; }
+  .deck-table-container { background: #ffffff; border: 1px solid var(--border-color); border-radius: 6px; max-height: 340px; overflow-y: auto; }
+  .deck-table { width: 100%; border-collapse: collapse; font-size: 10.5px; text-align: center; }
+  .deck-table th { background-color: #2d6a37; color: #ffffff; padding: 6px 2px; position: sticky; top: 0; white-space: nowrap; }
+  .deck-table td { padding: 5px 2px; border-bottom: 1px solid #ebf4ec; white-space: nowrap; }
+  .horse-name-cell { text-align: left; font-weight: bold; padding-left: 4px !important; overflow: hidden; text-overflow: ellipsis; }
   .used-row { background-color: #f5f5f5; color: #999; }
 
   .btn-start { background: var(--accent-color); color: white; border: none; padding: 15px; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; box-shadow: 0 4px 0 var(--accent-hover); }
@@ -103,7 +103,16 @@
     <div class="deck-table-container">
       <table class="deck-table">
         <thead>
-          <tr><th style="width:28px;">枠</th><th style="text-align:left;">馬名</th><th style="width:35px;">Pt</th><th style="width:45px;">適性</th><th style="width:45px;">状態</th></tr>
+          <tr>
+            <th style="width:22px;">枠</th>
+            <th style="text-align:left;">馬名</th>
+            <th style="width:22px;">性</th>
+            <th style="width:26px;">Pt</th>
+            <th style="width:32px;">馬場</th>
+            <th style="width:58px;">距離</th>
+            <th style="width:34px;">脚質</th>
+            <th style="width:36px;">状態</th>
+          </tr>
         </thead>
         <tbody id="deckHorseList"></tbody>
       </table>
@@ -194,7 +203,7 @@
       const rewardHorse = pool[Math.floor(Math.random() * pool.length)];
 
       document.getElementById('rewardHorseName').textContent = rewardHorse.name;
-      document.getElementById('rewardRarity').textContent = `ポテンシャル: ${rewardHorse.potential}`;
+      document.getElementById('rewardRarity').textContent = `ポテンシャル: ${rewardHorse.potential || rewardHorse.pt || '-'}`;
       rewardBox.style.display = "block";
 
       try {
@@ -224,8 +233,9 @@
 
   async function initBattle(status) {
     if (!status || !status.is_active) {
-      const lineup = [];
-      for (let i = 0; i < 5; i++) lineup.push(SERIES_MASTER[Math.floor(Math.random() * SERIES_MASTER.length)].series_id);
+      // SERIES_MASTERをシャッフルして重複なしで5つ抽出
+      const shuffledSeries = [...SERIES_MASTER].sort(() => 0.5 - Math.random());
+      const lineup = shuffledSeries.slice(0, 5).map(s => s.series_id);
       
       status = { 
         is_active: true, 
@@ -286,6 +296,32 @@
     renderDeckTable();
   };
 
+  // 馬の表示用データ取得ヘルパー
+  function getHorseDistanceString(horse) {
+    if (!horse) return '-';
+    if (horse.distance) return `${horse.distance}m`;
+    if (horse.aptitude && horse.aptitude.min_distance && horse.aptitude.max_distance) {
+      return `${horse.aptitude.min_distance}-${horse.aptitude.max_distance}m`;
+    }
+    return '-';
+  }
+
+  function getHorseLegStyle(horse) {
+    if (!horse) return '-';
+    return horse.running_style || horse.leg_style || horse.style || horse.strategy || '-';
+  }
+
+  function getHorseSurfaceAptitude(horse) {
+    if (!horse) return '-';
+    if (horse.surface) return horse.surface;
+    if (horse.turf !== undefined && horse.dirt !== undefined) {
+      if (horse.turf && horse.dirt) return '芝/ダ';
+      if (horse.turf) return '芝';
+      if (horse.dirt) return 'ダ';
+    }
+    return '芝';
+  }
+
   function renderDeckTable() {
     const tbody = document.getElementById('deckHorseList');
     tbody.innerHTML = '';
@@ -299,20 +335,30 @@
       const frameNum = i + 1;
 
       if (horse) {
-        const isUsed = usedCards.includes(horse.horse_id);
+        const isUsed = usedCards.includes(horse.horse_id) || usedCards.includes(horse.name);
         if (isUsed) {
           tr.className = 'used-row';
           tr.style.opacity = '0.4';
         }
+
+        const sex = horse.sex || '牡';
+        const potential = horse.potential || horse.pt || 0;
+        const surface = getHorseSurfaceAptitude(horse);
+        const dist = getHorseDistanceString(horse);
+        const leg = getHorseLegStyle(horse);
+
         tr.innerHTML = `
           <td>${frameNum}</td>
           <td class="horse-name-cell">${horse.name}</td>
-          <td>${horse.potential}</td>
-          <td>${horse.turf ? '芝' : 'ダ'}</td>
+          <td>${sex}</td>
+          <td>${potential}</td>
+          <td>${surface}</td>
+          <td>${dist}</td>
+          <td>${leg}</td>
           <td>${isUsed ? '出走済' : '可'}</td>
         `;
       } else {
-        tr.innerHTML = `<td>${frameNum}</td><td colspan="4" style="color:#aaa;">(未設定)</td>`;
+        tr.innerHTML = `<td>${frameNum}</td><td colspan="7" style="color:#aaa;">(未設定)</td>`;
       }
       tbody.appendChild(tr);
     }
