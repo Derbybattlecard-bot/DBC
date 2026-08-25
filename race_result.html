@@ -512,7 +512,6 @@ function calculateScoresAndSort(horses, pace) {
   } else {
     currentRaceFormulaStr = "標準評価算定";
   }
-
   horses.forEach(h => {
     let score = 0;
     if (selectedBranch.formula === "30 - potential + random_stat_1") {
@@ -529,19 +528,120 @@ function calculateScoresAndSort(horses, pace) {
     h.random_diff = Math.random() * 10;
     h.finalScore = score + h.random_diff + (h.level * 2);
   });
-
   const tieKeys = raceMasterData.tie_breakers;
-  
-  // 元の activeHorses 配列の順番（枠順）を壊さないよう浅いコピーを作成して並び替え
-  const sorted = [...horses];
-  sorted.sort((a, b) => {
+  horses.sort((a, b) => {
     if (Math.abs(b.finalScore - a.finalScore) > 0.1) return b.finalScore - a.finalScore;
     for (let key of tieKeys) {
       if (a[key] !== b[key]) return typeof a[key] === "number" ? b[key] - a[key] : String(a[key]).localeCompare(String(a[key]));
     }
     return 0;
   });
-  return sorted;
+  return horses;
+}
+
+// ====================================================
+// モブ馬作戦マスター ＆ 自動生成ロジック
+// ====================================================
+const STRATEGY_MASTER = {
+  "NIGE_01": { "strategy_id": "NIGE_01", "style": "逃げ", "name": "ハナにこだわる", "speed": 5, "stamina": 2, "sharp": 1, "jizoku": 7, "guts": 5 },
+  "NIGE_02": { "strategy_id": "NIGE_02", "style": "逃げ", "name": "マイペース逃げ", "speed": 2, "stamina": 6, "sharp": 7, "jizoku": 3, "guts": 2 },
+  "NIGE_03": { "strategy_id": "NIGE_03", "style": "逃げ", "name": "平均ラップ逃げ", "speed": 4, "stamina": 4, "sharp": 4, "jizoku": 4, "guts": 4 },
+  "NIGE_04": { "strategy_id": "NIGE_04", "style": "逃げ", "name": "ハイラップ逃げ", "speed": 8, "stamina": 1, "sharp": 2, "jizoku": 8, "guts": 1 },
+  "SENKO_01": { "strategy_id": "SENKO_01", "style": "先行", "name": "先行集団に紛れる", "speed": 3, "stamina": 7, "sharp": 3, "jizoku": 5, "guts": 2 },
+  "SENKO_02": { "strategy_id": "SENKO_02", "style": "先行", "name": "4角先頭", "speed": 5, "stamina": 6, "sharp": 1, "jizoku": 7, "guts": 1 },
+  "SENKO_03": { "strategy_id": "SENKO_03", "style": "先行", "name": "流れに任す", "speed": 4, "stamina": 4, "sharp": 4, "jizoku": 4, "guts": 4 },
+  "SENKO_04": { "strategy_id": "SENKO_04", "style": "先行", "name": "折合いに集中", "speed": 4, "stamina": 2, "sharp": 7, "jizoku": 3, "guts": 4 },
+  "SASHI_01": { "strategy_id": "SASHI_01", "style": "差し", "name": "早目スパート", "speed": 4, "stamina": 1, "sharp": 5, "jizoku": 6, "guts": 4 },
+  "SASHI_02": { "strategy_id": "SASHI_02", "style": "差し", "name": "まくり差し", "speed": 1, "stamina": 3, "sharp": 7, "jizoku": 8, "guts": 1 },
+  "SASHI_03": { "strategy_id": "SASHI_03", "style": "差し", "name": "じっくり足をためる", "speed": 1, "stamina": 2, "sharp": 8, "jizoku": 3, "guts": 6 },
+  "SASHI_04": { "strategy_id": "SASHI_04", "style": "差し", "name": "先行マーク", "speed": 2, "stamina": 4, "sharp": 1, "jizoku": 5, "guts": 8 },
+  "OIKOMI_01": { "strategy_id": "OIKOMI_01", "style": "追込", "name": "道中死んだふり", "speed": 2, "stamina": 2, "sharp": 8, "jizoku": 2, "guts": 6 },
+  "OIKOMI_02": { "strategy_id": "OIKOMI_02", "style": "追込", "name": "早目スパート", "speed": 2, "stamina": 6, "sharp": 3, "jizoku": 6, "guts": 3 },
+  "OIKOMI_03": { "strategy_id": "OIKOMI_03", "style": "追込", "name": "大まくり", "speed": 2, "stamina": 2, "sharp": 6, "jizoku": 7, "guts": 3 },
+  "OIKOMI_04": { "strategy_id": "OIKOMI_04", "style": "追込", "name": "限界まで脚をためる", "speed": 1, "stamina": 4, "sharp": 9, "jizoku": 1, "guts": 5 }
+};
+
+const STYLE_PREFIX_MAP = { '逃げ': 'NIGE', '先行': 'SENKO', '差し': 'SASHI', '追込': 'OIKOMI' };
+
+function generateMobStrategy(horse) {
+  const umaban = horse.number || 1;
+  let strategyLevel = umaban % 5;
+  if (strategyLevel === 0) strategyLevel = 5;
+  
+  let finalStyle = horse.running_style || '先行';
+
+  switch (horse.running_style) {
+    case '自在':
+      const jizaiMod = umaban % 4;
+      if (jizaiMod === 1) finalStyle = '逃げ';
+      else if (jizaiMod === 2) finalStyle = '先行';
+      else if (jizaiMod === 3) finalStyle = '差し';
+      else finalStyle = '追込';
+      break;
+    case '先行':
+    case '好位':
+      const senkoMod = umaban % 4;
+      if (senkoMod === 1) finalStyle = '逃げ';
+      else if (senkoMod === 0) finalStyle = '差し';
+      else finalStyle = '先行';
+      break;
+    case '差し':
+      const sashiMod = umaban % 4;
+      if (sashiMod === 1) finalStyle = '先行';
+      else if (sashiMod === 0) finalStyle = '追込';
+      else finalStyle = '差し';
+      break;
+    case '追込':
+      const oikomiMod = umaban % 4;
+      if (oikomiMod === 1) finalStyle = '差し';
+      else finalStyle = '追込';
+      break;
+    case '逃追':
+      if (umaban % 2 === 1) finalStyle = '逃げ';
+      else finalStyle = '追込';
+      break;
+    case '逃げ':
+    case '大逃':
+      const nigeMod = (umaban + 10) % 5;
+      if (nigeMod === 1 || nigeMod === 2 || nigeMod === 3) {
+        finalStyle = '逃げ';
+      } else {
+        finalStyle = '先行';
+      }
+      break;
+    default:
+      finalStyle = horse.running_style || '先行';
+      break;
+  }
+
+  let tacticNum = umaban % 4;
+  if (tacticNum === 0) tacticNum = 4;
+
+  const prefix = STYLE_PREFIX_MAP[finalStyle] || 'SENKO';
+  const strategyId = `${prefix}_0${tacticNum}`;
+  const baseStrategy = STRATEGY_MASTER[strategyId] || STRATEGY_MASTER['SENKO_03'];
+
+  return {
+    level: strategyLevel,
+    ...baseStrategy
+  };
+}
+
+function applyMobStrategies(horses) {
+  horses.forEach(h => {
+    if (!h.isPlayer && !h.isCpu) {
+      const strat = generateMobStrategy(h);
+      h.tactic = strat.style;
+      h.strat_name = strat.name;
+      h.level = strat.level;
+      h.strat_potential = h.potential || 0;
+      h.strat_speed = strat.speed;
+      h.strat_stamina = strat.stamina;
+      h.strat_sharp = strat.sharp;
+      h.strat_jizoku = strat.jizoku;
+      h.strat_guts = strat.guts;
+    }
+  });
 }
 
 // ----------------------------------------------------
@@ -557,19 +657,20 @@ function handleButtonClick() {
 function startRace() {
   raceState = 'running';
   document.getElementById('nextBtn').disabled = true;
+
+  // レース開始直前にモブ馬の作戦データを自動割り当て
+  applyMobStrategies(activeHorses);
+
   calculatePositions(activeHorses);
   const currentPace = determineRacePace(activeHorses);
   calculatedResults = calculateScoresAndSort(activeHorses, currentPace);
-
-  // 実況用の上位馬抽出（枠順配列を崩さないように記述）
-  let leaders = [...activeHorses].filter(h => h.positionRank <= 3).sort((a, b) => a.positionRank - b.positionRank);
+  let leaders = activeHorses.filter(h => h.positionRank <= 3).sort((a, b) => a.positionRank - b.positionRank);
   let leaderNames = leaders.map(h => h.name).join("、");
   updateLog(`<strong>【スタート】</strong> ゲートが開いた！ ${leaderNames} あたりがハナを主張、先頭争いだ！`);
   
   // Phase 1: positionPointに応じたスタート直後の隊列（先頭: 35%, 最下位: 8%）
   let p1Pos = getPosPointsMap(activeHorses, 35, 8);
   setPhasePositions(p1Pos, 4.0, "linear"); 
-
   setTimeout(() => {
     let msg = (currentPace.includes("ハイ")) ? "縦長の隊列になりました。" : "淡々とレースは流れていきます。";
     updateLog(`<strong>【向正面】</strong> ${msg} 各馬ポジションが決まりました。`);
@@ -578,7 +679,6 @@ function startRace() {
     let p2Pos = getPosPointsMap(activeHorses, 65, 20);
     setPhasePositions(p2Pos, 4.3, "linear"); 
   }, 4000); 
-
   setTimeout(() => {
     updateLog(`<strong>【3コーナーを回って直線へ】</strong> ペースは『${currentPace}』！ 勝負どころの最終コーナーへ！`);
     showTelop(`【ペース】 ${currentPace}`, 3000);
@@ -587,8 +687,7 @@ function startRace() {
     let p3Pos = getPosPointsMap(activeHorses, 88, 35);
     setPhasePositions(p3Pos, 4.3, "linear"); 
   }, 8300); 
-
-  // Phase 4: 直線〜ゴール（既存演出を完全維持）
+  // Phase 4: 直線〜ゴール（既存演出を完全に維持）
   setTimeout(() => {
     const wipe = document.getElementById('wipe-overlay');
     wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
@@ -611,7 +710,6 @@ function startRace() {
       let p4StartPos = activeHorses.map(h => 75 + Math.random() * 15);
       setPhasePositions(p4StartPos, 0, "linear");
     }, 800);
-
     setTimeout(() => {
       wipe.style.left = "100%"; 
       setTimeout(() => {
@@ -655,18 +753,19 @@ function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear")
 }
 
 function updateLog(text) { document.getElementById('log-content').innerHTML = text; }
+
 function showTelop(text, durationMs = 1500) {
   const telop = document.getElementById('race-telop');
   telop.innerHTML = text; telop.classList.add('show');
   setTimeout(() => { hideTelop(); }, durationMs);
 }
+
 function hideTelop() { document.getElementById('race-telop').classList.remove('show'); }
 
 function renderResults(scoredList) {
   // レース展開 & 着順計算式パネルの表示更新
   document.getElementById('summary-pace-branch').textContent = `${currentRacePace} 【${currentRaceBranch}】`;
   document.getElementById('summary-formula').textContent = `${currentRaceFormulaStr} (+ Lv補正 & ランダム差)`;
-
   const tbody = document.getElementById('result-body');
   tbody.innerHTML = "";
   
@@ -680,7 +779,6 @@ function renderResults(scoredList) {
       typeLabel = '<span class="p2-name">CPU</span>';
       nameClass = "p2-name";
     }
-
     tbody.innerHTML += `
       <tr>
         <td><strong>${r + 1}着</strong></td>
@@ -698,7 +796,6 @@ function renderResults(scoredList) {
         <td><strong>${Math.floor(item.finalScore)}</strong></td>
       </tr>`;
   });
-
   document.getElementById('result-container').style.display = "block";
 }
 
@@ -750,7 +847,6 @@ function goToNextSeries() {
   sessionStorage.setItem('series_finished', 'true'); 
   sessionStorage.setItem('last_series_player_wins', seriesHistory.filter(h => h.win).length);
   sessionStorage.setItem('last_series_cpu_wins', 5 - seriesHistory.filter(h => h.win).length);
-
   sessionStorage.removeItem('full_race_grids');
   sessionStorage.removeItem('chosen_strategies');
   sessionStorage.removeItem('cpu_strategies');
@@ -759,4 +855,5 @@ function goToNextSeries() {
 </script>
 </body>
 </html>
+
 
