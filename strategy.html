@@ -274,8 +274,8 @@
       if (userDoc.exists()) globalUserData = userDoc.data();
 
       const [seriesData, horsesData] = await Promise.all([
-        fetchJsonSafe('./data/series_master.json'),
-        fetchJsonSafe('./data/horses_master.json')
+        fetchJsonSafe('series_master.json'),
+        fetchJsonSafe('horses_master.json')
       ]);
 
       SERIES_MASTER = seriesData || [];
@@ -291,10 +291,10 @@
       }
 
       try {
-        const stratData = await fetchJsonSafe('./data/strategy_master.json');
+        const stratData = await fetchJsonSafe('strategy_master.json');
         STRATEGY_MASTER = Array.isArray(stratData) && stratData.length > 0 ? stratData : getDefaultStrategies();
       } catch (err) {
-        console.warn("./data/strategy_master.json 読込失敗のためデフォルト定義を使用します:", err);
+        console.warn("strategy_master.json 読込失敗のためデフォルト定義を使用します:", err);
         STRATEGY_MASTER = getDefaultStrategies();
       }
 
@@ -578,4 +578,48 @@
 
     const lvlEl = document.getElementById('totalLevelDisplay');
     const limitEl = document.getElementById('limitStatus');
-    const goBtn = document.getElementById('btnGoRa
+    const goBtn = document.getElementById('btnGoRace');
+
+    lvlEl.textContent = `${totalLvl} / ${MAX_TOTAL_LEVEL}`;
+
+    if (totalLvl > MAX_TOTAL_LEVEL) {
+      lvlEl.className = 'status-val error';
+      limitEl.textContent = '合計オーバー';
+      limitEl.className = 'status-val error';
+      goBtn.disabled = true;
+    } else {
+      lvlEl.className = 'status-val ok';
+      limitEl.textContent = 'OK';
+      limitEl.className = 'status-val ok';
+      goBtn.disabled = false;
+    }
+  }
+
+  window.finalizeAndStartRace = async function() {
+    if (!currentUser) return;
+
+    const btn = document.getElementById('btnGoRace');
+    btn.disabled = true;
+    btn.textContent = "作戦データを送信中...";
+
+    try {
+      // 出走登録・CPU・モブ・馬場コンディションをまとめて保存
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        "cpu_battle_status.current_match.player_entries": playerEntries,
+        "cpu_battle_status.current_match.cpu_entries": generatedCpuEntries,
+        "cpu_battle_status.current_match.races_mob_ids": generatedRaceMobs,
+        "cpu_battle_status.current_match.races_track_conditions": generatedTrackConditions
+      });
+
+      window.location.href = 'race_result.html';
+    } catch (err) {
+      console.error("作戦保存エラー:", err);
+      alert("データの保存に失敗しました。もう一度お試しください。");
+      btn.disabled = false;
+      btn.textContent = "レースへ進む！";
+    }
+  };
+</script>
+
+</body>
+</html>
