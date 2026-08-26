@@ -591,18 +591,19 @@ function calculateScoresAndSort(horses, pace) {
   return horses;
 }
 
-window.handleButtonClick = function() {
+// --- 修正箇所 ---
+function handleButtonClick() {
   if (raceState === 'ready') startRace();
   else if (raceState === 'finished') {
     currentRaceIndex++;
     if (currentRaceIndex < 5) setupRace(currentRaceIndex);
     else showFinalSeriesResult();
   }
-};
+}
 
-function startRace() {
-  raceState = 'running';
-  document.getElementById('nextBtn').disabled = true;
+// ボタンに直接イベントリスナーをセット
+document.getElementById('nextBtn').addEventListener('click', handleButtonClick);
+  
   calculatePositions(activeHorses);
   const currentPace = determineRacePace(activeHorses);
   calculatedResults = calculateScoresAndSort(activeHorses, currentPace);
