@@ -210,29 +210,33 @@
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   let currentUser = null;
   let globalUserData = null;
   let SERIES_MASTER = [];
   let HORSES_MASTER = {};
-  let HORSES_ARRAY = [];
   let STRATEGY_MASTER = [];
 
   let currentSeries = null;
   let playerEntries = [];
-  let generatedCpuEntries = [];
-  let generatedRaceMobs = [];
+  let cpuEntries = [];
+  let racesMobIds = [];
   let loadedTrackConditions = [];
 
   const MAX_TOTAL_LEVEL = 18;
 
-  async function fetchJsonSafe(path) {
-    const res = await fetch(path);
-    if (!res.ok) {
-      throw new Error(`${path} の取得に失敗しました (Status: ${res.status})`);
+  async function fetchJsonSafe(filename) {
+    const candidatePaths = [`./data/${filename}`, `data/${filename}`, `/data/${filename}`];
+    for (const path of candidatePaths) {
+      try {
+        const res = await fetch(path);
+        if (res.ok) return await res.json();
+      } catch (e) {
+        // 次のパスを試行
+      }
     }
-    return await res.json();
+    throw new Error(`${filename} の読み込みに失敗しました`);
   }
 
   onAuthStateChanged(auth, async (user) => {
@@ -244,14 +248,13 @@
       if (userDoc.exists()) globalUserData = userDoc.data();
 
       const [seriesData, horsesData] = await Promise.all([
-        fetchJsonSafe('./data/series_master.json'),
-        fetchJsonSafe('./data/horses_master.json')
+        fetchJsonSafe('series_master.json'),
+        fetchJsonSafe('horses_master.json')
       ]);
 
       SERIES_MASTER = seriesData || [];
       
       if (Array.isArray(horsesData)) {
-        HORSES_ARRAY = horsesData;
         horsesData.forEach(h => { 
           const idStr = String(h.horse_id);
           HORSES_MASTER[idStr] = h;
@@ -261,21 +264,15 @@
       }
 
       try {
-        const stratData = await fetchJsonSafe('./data/strategy_master.json');
+        const stratData = await fetchJsonSafe('strategy_master.json');
         STRATEGY_MASTER = Array.isArray(stratData) && stratData.length > 0 ? stratData : getDefaultStrategies();
       } catch (err) {
         console.warn("strategy_master.json の読み込みに失敗したためデフォルト定義を使用します:", err);
         STRATEGY_MASTER = getDefaultStrategies();
       }
 
-      try {
-        initStrategyPage();
-        document.getElementById('syncStatus').textContent = "✅ 準備完了";
-      } catch (err) {
-        console.error("画面初期化エラー:", err);
-        document.getElementById('syncStatus').textContent = "❌ 画面生成エラー";
-        document.getElementById('limitStatus').textContent = "エラー発生";
-      }
+      initStrategyPage();
+      document.getElementById('syncStatus').textContent = "✅ 準備完了";
 
     } catch (e) {
       console.error("データ通信エラー:", e);
@@ -323,80 +320,14 @@
     const seriesId = status.selected_series_id || (status.series_lineup ? status.series_lineup[currentRound - 1] : null);
     currentSeries = SERIES_MASTER.find(s => s.series_id === seriesId) || SERIES_MASTER[0] || {};
 
+    // matchup.html で構築された全データを直接取得
     playerEntries = currentMatch.player_entries || [];
+    cpuEntries = currentMatch.cpu_entries || [];
+    racesMobIds = currentMatch.races_mob_ids || [];
+    loadedTrackConditions = currentMatch.races_track_conditions || ['良', '良', '良', '良', '良'];
 
-    // matchupで抽選・格納済みの馬場コンディションを取得（未定義時のフォールバック付き）
-    if (Array.isArray(currentMatch.races_track_conditions) && currentMatch.races_track_conditions.length > 0) {
-      loadedTrackConditions = currentMatch.races_track_conditions;
-    } else {
-      loadedTrackConditions = ['良', '良', '良', '良', '良'];
-    }
-
-    setupCpuAndMobData(currentMatch);
     renderRaceCards();
     updateTotalStatus();
-  }
-
-  function setupCpuAndMobData(currentMatch) {
-    const limits = currentSeries?.potential_limit || { max_total_potential: 95 };
-    const targetPtBase = Math.floor((limits.max_total_potential || 95) / 5);
-    const minPt = Math.max(0, targetPtBase - 2);
-    const maxPt = targetPtBase + 2;
-    const seriesSex = currentSeries?.sex || "制限なし";
-
-    const races = (currentSeries?.rounds && currentSeries.rounds[0]?.races) || [{},{},{},{},{}];
-
-    generatedCpuEntries = [];
-    generatedRaceMobs = [];
-
-    races.forEach((race, rIdx) => {
-      let cpuEntry = currentMatch.cpu_entries ? currentMatch.cpu_entries[rIdx] : null;
-      if (!cpuEntry || !cpuEntry.horse_id) {
-        const eligibleCpu = HORSES_ARRAY.filter(h => {
-          const pt = getHorsePt(h, race.surface);
-          const pId = playerEntries[rIdx]?.horse_id;
-          return String(pId) !== String(h.horse_id) && pt >= minPt && pt <= maxPt;
-        });
-        const fallbackHorse = HORSES_ARRAY[rIdx % HORSES_ARRAY.length] || { horse_id: "0000", sex: "牡" };
-        const chosenCpu = eligibleCpu.length > 0 ? eligibleCpu[Math.floor(Math.random() * eligibleCpu.length)] : fallbackHorse;
-        
-        const randomStrat = STRATEGY_MASTER[Math.floor(Math.random() * STRATEGY_MASTER.length)]?.name || "先行";
-        const randomLvl = Math.floor(Math.random() * 3) + 2;
-        
-        cpuEntry = {
-          horse_id: String(chosenCpu.horse_id),
-          strategy: randomStrat,
-          strategy_level: randomLvl
-        };
-      }
-      generatedCpuEntries.push(cpuEntry);
-
-      let mobs = currentMatch.races_mob_ids ? currentMatch.races_mob_ids[rIdx] : null;
-      if (!mobs || mobs.length < 14) {
-        const usedIds = new Set([String(playerEntries[rIdx]?.horse_id), String(cpuEntry.horse_id)]);
-        
-        let pool = HORSES_ARRAY.filter(h => {
-          if (usedIds.has(String(h.horse_id))) return false;
-          const pt = getHorsePt(h, race.surface);
-          const sexOk = seriesSex === "制限なし" || (seriesSex === "牝馬限定" && h.sex === "牝");
-          return pt >= minPt && pt <= maxPt && sexOk;
-        });
-
-        if (pool.length < 14) {
-          const fallbackPool = HORSES_ARRAY.filter(h => !usedIds.has(String(h.horse_id)));
-          pool = pool.concat(fallbackPool);
-        }
-
-        pool.sort(() => Math.random() - 0.5);
-        const selectedMobs = pool.slice(0, 14).map(h => String(h.horse_id).padStart(4, '0'));
-        
-        while(selectedMobs.length < 14) selectedMobs.push("0000");
-
-        generatedRaceMobs.push(selectedMobs);
-      } else {
-        generatedRaceMobs.push(mobs);
-      }
-    });
   }
 
   function renderRaceCards() {
@@ -410,11 +341,11 @@
       const pPt = getHorsePt(pHorse, race.surface);
       const pStyle = getHorseStyle(pHorse);
 
-      const cpuEntry = generatedCpuEntries[rIdx] || {};
+      const cpuEntry = cpuEntries[rIdx] || {};
       const cpuHorse = HORSES_MASTER[String(cpuEntry.horse_id)] || {};
       const cpuPt = getHorsePt(cpuHorse, race.surface);
 
-      const mobIds = generatedRaceMobs[rIdx] || [];
+      const mobIds = racesMobIds[rIdx] || [];
       const trackCond = loadedTrackConditions[rIdx] || '良';
 
       const card = document.createElement('div');
@@ -572,13 +503,22 @@
     btn.textContent = "作戦データを送信中...";
 
     try {
-      await updateDoc(doc(db, "users", currentUser.uid), {
-        "cpu_battle_status.current_match.player_entries": playerEntries,
-        "cpu_battle_status.current_match.cpu_entries": generatedCpuEntries,
-        "cpu_battle_status.current_match.races_mob_ids": generatedRaceMobs,
-        "cpu_battle_status.current_match.races_track_conditions": loadedTrackConditions
-      });
+      const currentStatus = globalUserData.cpu_battle_status || {};
+      const currentMatch = currentStatus.current_match || {};
 
+      const updatedStatus = {
+        ...currentStatus,
+        current_match: {
+          ...currentMatch,
+          player_entries: playerEntries
+        }
+      };
+
+      await setDoc(doc(db, "users", currentUser.uid), {
+        cpu_battle_status: updatedStatus
+      }, { merge: true });
+
+      globalUserData.cpu_battle_status = updatedStatus;
       window.location.href = 'race_result.html';
     } catch (err) {
       console.error("作戦保存エラー:", err);
