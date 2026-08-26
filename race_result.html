@@ -524,6 +524,7 @@ function calculatePositions(horses) {
   });
 }
 
+// 【修正箇所】位置Ptが高い馬（先頭）に大きいX座標、低い馬に小さいX座標を計算し、元の馬インデックス(h.index)にマッピング
 function getPosPointsMap(horses, leadPos, trailPos) {
   const positions = new Array(horses.length);
   const sorted = [...horses].sort((a, b) => b.positionPoint - a.positionPoint);
@@ -532,11 +533,10 @@ function getPosPointsMap(horses, leadPos, trailPos) {
   let range = maxPt - minPt;
   if (range <= 0) range = 1;
 
-  horses.forEach((h, i) => {
-    // 高い位置Pt(先頭)ほど 1.0 に近づく
+  sorted.forEach((h) => {
     const ratio = (h.positionPoint - minPt) / range;
-    // 画面の右側(leadPos)へ配置されるよう計算式を修正
-    positions[i] = trailPos + ratio * (leadPos - trailPos);
+    const calculatedX = trailPos + ratio * (leadPos - trailPos);
+    positions[h.index] = calculatedX;
   });
 
   return positions;
@@ -678,7 +678,10 @@ function startRace() {
         activeHorses.forEach((_, i) => document.getElementById(`emoji-${i}`).classList.remove("flipped"));
       }
       
-      let p4StartPos = activeHorses.map(h => 75 + Math.random() * 15);
+      let p4StartPos = new Array(activeHorses.length);
+      activeHorses.forEach((h) => {
+        p4StartPos[h.index] = 75 + Math.random() * 15;
+      });
       setPhasePositions(p4StartPos, 0, "linear");
     }, 800);
 
@@ -687,7 +690,10 @@ function startRace() {
       setTimeout(() => {
         let winner = calculatedResults[0];
         let finalPositions = new Array(activeHorses.length);
-        calculatedResults.forEach((item, rank) => { finalPositions[item.index] = -15 + (rank * 4.6); });
+        calculatedResults.forEach((item, rank) => { 
+          // 1着(rank=0)が一番前（右側）、最下位が後ろになるように元レーンインデックス(item.index)へ割り当て
+          finalPositions[item.index] = 95 - (rank * 4.5); 
+        });
         
         setPhasePositions(finalPositions, 10.0, "linear"); 
         setTimeout(() => {
@@ -712,6 +718,7 @@ function startRace() {
   }, 12600); 
 }
 
+// 【修正箇所】positionsArray[i] を activeHorses[i]（第 i レーンの馬）の X 座標% として正確に適用
 function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear") {
   const trackContainer = document.getElementById('track-container');
   if (!trackContainer) return;
@@ -862,5 +869,6 @@ window.goToNextSeries = async function() {
   }
 };
 </script>
+
 </body>
 </html>
