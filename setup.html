@@ -68,78 +68,123 @@
     return shuffled.slice(0, count);
   }
 
-  // 50頭選定 + 選択ダービー馬1頭（計51枚）のカード作成ロジック
-  function createInitialCards(masterData, selectedHorseName) {
-    const selectedMap = new Map();
-    const selectedIds = new Set();
+// 50頭選定 + 選択ダービー馬1頭（計51枚・重複なし）のカード作成ロジック
+function createInitialCards(masterData, selectedHorseName) {
+  const selectedMap = new Map();
+  const selectedIds = new Set();
 
-    const addSelected = (list) => {
-      list.forEach(h => {
-        selectedMap.set(h.horse_id, h);
-        selectedIds.add(h.horse_id);
-      });
-    };
-
-    // 1. 芝適性の選定（目標36頭）
-    const turfPool = masterData.filter(h => h.turf === true || typeof h.turf === 'number'); // 出走可能判定を考慮
-    addSelected(pickHorses(turfPool.filter(h => getPotential(h, 'turf') === 20), 2, selectedIds));
-    addSelected(pickHorses(turfPool.filter(h => getPotential(h, 'turf') === 19), 4, selectedIds));
-    addSelected(pickHorses(turfPool.filter(h => getPotential(h, 'turf') === 18), 6, selectedIds));
-    addSelected(pickHorses(turfPool.filter(h => getPotential(h, 'turf') === 17), 6, selectedIds));
-    addSelected(pickHorses(turfPool.filter(h => getPotential(h, 'turf') === 15), 5, selectedIds));
-    addSelected(pickHorses(turfPool.filter(h => getPotential(h, 'turf') === 14), 5, selectedIds));
-    addSelected(pickHorses(turfPool.filter(h => getPotential(h, 'turf') === 16), 8, selectedIds));
-    if (selectedMap.size < 36) {
-      const need = 36 - selectedMap.size;
-      const extraTurf16 = pickHorses(turfPool.filter(h => getPotential(h, 'turf') === 16), need, selectedIds);
-      addSelected(extraTurf16);
-    }
-
-    // 2. ダート適性の選定（目標40頭まで追加）
-    const dirtPool = masterData.filter(h => h.dirt === true || typeof h.dirt === 'number');
-    addSelected(pickHorses(dirtPool.filter(h => getPotential(h, 'dirt') === 19), 1, selectedIds));
-    addSelected(pickHorses(dirtPool.filter(h => getPotential(h, 'dirt') === 18), 4, selectedIds));
-    addSelected(pickHorses(dirtPool.filter(h => getPotential(h, 'dirt') === 17), 4, selectedIds));
-    addSelected(pickHorses(dirtPool.filter(h => getPotential(h, 'dirt') === 16), 3, selectedIds));
-    addSelected(pickHorses(dirtPool.filter(h => getPotential(h, 'dirt') === 15), 3, selectedIds));
-    addSelected(pickHorses(dirtPool.filter(h => getPotential(h, 'dirt') === 14), 3, selectedIds));
-
-    // 3. 50頭までの不足分調整（芝ダート問わず ポテンシャル17以下）
-    if (selectedMap.size < 50) {
-      const need = 50 - selectedMap.size;
-      const remainPool = masterData.filter(h => getPotential(h, 'turf') <= 17 || getPotential(h, 'dirt') <= 17);
-      const fillHorses = pickHorses(remainPool, need, selectedIds);
-      addSelected(fillHorses);
-    }
-
-    // Firestore保存構造への変換（マスターとの重複管理を避けるため name は保存しない）
-    const cardData = {};
-    const now = new Date().toISOString();
-    selectedMap.forEach((horse, horse_id) => {
-      cardData[horse_id] = {
-        count: 1,
-        obtained_at: now
-      };
-    });
-
-    // 4. 選択されたダービー馬の追加（ボーナス +1頭）
-    const selectedBonusHorse = masterData.find(h => h.name === selectedHorseName);
-    if (selectedBonusHorse) {
-      const bonusId = selectedBonusHorse.horse_id;
-      if (cardData[bonusId]) {
-        cardData[bonusId].count += 1;
-      } else {
-        cardData[bonusId] = {
-          count: 1,
-          obtained_at: now
-        };
-      }
-    }
-
-    return cardData;
+  // 1. ボーナス馬を特定し、50頭の自動選定プールから最初から除外（被り防止）
+  const selectedBonusHorse = masterData.find(h => h.name === selectedHorseName);
+  if (selectedBonusHorse) {
+    selectedIds.add(selectedBonusHorse.horse_id);
   }
 
-  // horse_id（例: 0101 または "101"）からクラシック世代を判定する処理
+  const addSelected = (list) => {
+    list.forEach(h => {
+      selectedMap.set(h.horse_id, h);
+      selectedIds.add(h.horse_id);
+    });
+  };
+
+  // 距離・性別判定用ヘルパー
+  const hasDistance = (h, dist) => Array.isArray(h.distance) && h.distance.includes(dist);
+  const isFemale = (h) => h.sex === '牝' || h.sex === 'female' || h.gender === 'female';
+
+  // --- 芝適性の選定 ---
+  const turfPool = masterData.filter(h => h.turf === true || typeof h.turf === 'number');
+
+  // A. 芝 特殊条件枠 (計 11頭)
+  // 牝馬枠 (18, 17, 16, 15, 14)
+  [18, 17, 16, 15, 14].forEach(p => {
+    addSelected(pickHorses(turfPool.filter(h => isFemale(h) && getPotential(h, 'turf') === p), 1, selectedIds));
+  });
+  // 3200m枠 (17, 16, 15)
+  [17, 16, 15].forEach(p => {
+    addSelected(pickHorses(turfPool.filter(h => hasDistance(h, 3200) && getPotential(h, 'turf') === p), 1, selectedIds));
+  });
+  // 1200m枠 (17, 16, 15)
+  [17, 16, 15].forEach(p => {
+    addSelected(pickHorses(turfPool.filter(h => hasDistance(h, 1200) && getPotential(h, 'turf') === p), 1, selectedIds));
+  });
+
+  // B. 芝 通常枠 (目標36頭まで残りを補充)
+  const turfTargets = [
+    { p: 20, count: 2 },
+    { p: 19, count: 4 },
+    { p: 18, count: 5 },
+    { p: 17, count: 3 },
+    { p: 16, count: 5 },
+    { p: 15, count: 2 },
+    { p: 14, count: 4 }
+  ];
+
+  turfTargets.forEach(t => {
+    addSelected(pickHorses(turfPool.filter(h => getPotential(h, 'turf') === t.p), t.count, selectedIds));
+  });
+
+  // 芝が36頭に満たない場合の予備補填
+  if (selectedMap.size < 36) {
+    const need = 36 - selectedMap.size;
+    addSelected(pickHorses(turfPool.filter(h => getPotential(h, 'turf') <= 17), need, selectedIds));
+  }
+
+  // --- ダート適性の選定 ---
+  const dirtPool = masterData.filter(h => h.dirt === true || typeof h.dirt === 'number');
+
+  // C. ダート 特殊条件枠 (計 6頭)
+  // 1200m枠 (17, 16, 15)
+  [17, 16, 15].forEach(p => {
+    addSelected(pickHorses(dirtPool.filter(h => hasDistance(h, 1200) && getPotential(h, 'dirt') === p), 1, selectedIds));
+  });
+  // 2100m枠 (17, 16, 15)
+  [17, 16, 15].forEach(p => {
+    addSelected(pickHorses(dirtPool.filter(h => hasDistance(h, 2100) && getPotential(h, 'dirt') === p), 1, selectedIds));
+  });
+
+  // D. ダート 通常枠 (目標50頭まで残りを補充)
+  const dirtTargets = [
+    { p: 19, count: 1 },
+    { p: 18, count: 4 },
+    { p: 16, count: 1 },
+    { p: 15, count: 1 },
+    { p: 14, count: 1 }
+  ];
+
+  dirtTargets.forEach(t => {
+    addSelected(pickHorses(dirtPool.filter(h => getPotential(h, 'dirt') === t.p), t.count, selectedIds));
+  });
+
+  // 50頭までの不足分調整（ポテンシャル17以下から補填）
+  if (selectedMap.size < 50) {
+    const need = 50 - selectedMap.size;
+    const remainPool = masterData.filter(h => getPotential(h, 'turf') <= 17 || getPotential(h, 'dirt') <= 17);
+    addSelected(pickHorses(remainPool, need, selectedIds));
+  }
+
+  // Firestore保存データ構造への変換
+  const cardData = {};
+  const now = new Date().toISOString();
+
+  // 50頭をセット
+  selectedMap.forEach((horse, horse_id) => {
+    cardData[horse_id] = {
+      count: 1,
+      obtained_at: now
+    };
+  });
+
+  // 最後にボーナスダービー馬を確定追加（51頭目・被りなし）
+  if (selectedBonusHorse) {
+    cardData[selectedBonusHorse.horse_id] = {
+      count: 1,
+      obtained_at: now
+    };
+  }
+
+  return cardData;
+}
+
+// horse_id（例: 0101 または "101"）からクラシック世代を判定する処理
   function getAffiliation(selectedHorse) {
     if (!selectedHorse || selectedHorse.horse_id === undefined) return "";
     const id = Number(selectedHorse.horse_id);
