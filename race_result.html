@@ -524,17 +524,24 @@ function calculatePositions(horses) {
   });
 }
 
+// ★修正: 位置取りポイント(positionPoint)の並び順に基づいて座標%（X位置）を割り分ける
 function getPosPointsMap(horses, leadPos, trailPos) {
-  const pts = horses.map(h => h.positionPoint);
-  const maxPt = Math.max(...pts);
-  const minPt = Math.min(...pts);
+  const positions = new Array(horses.length);
+  
+  // 位置取りPtの降順（高い馬が先頭）にソートした参照リストを作成
+  const sorted = [...horses].sort((a, b) => b.positionPoint - a.positionPoint);
+  const maxPt = sorted[0].positionPoint;
+  const minPt = sorted[sorted.length - 1].positionPoint;
   let range = maxPt - minPt;
-  if (range <= 0) range = 1; 
+  if (range <= 0) range = 1;
 
-  return horses.map(h => {
+  // 各馬の位置Ptに応じて leadPos(先頭) 〜 trailPos(最後方) の数値を割り当てる
+  horses.forEach((h, i) => {
     const ratio = (h.positionPoint - minPt) / range;
-    return trailPos + ratio * (leadPos - trailPos);
+    positions[i] = trailPos + ratio * (leadPos - trailPos);
   });
+
+  return positions;
 }
 
 function determineRacePace(horses) {
@@ -623,6 +630,7 @@ function startRace() {
   let leaderNames = leaders.map(h => h.name).join("、");
   updateLog(`<strong>【スタート】</strong> ゲートが開いた！ ${leaderNames} あたりがハナを主張、先頭争いだ！`);
   
+  // フェーズ1：スタート後の位置取り
   let p1Pos = getPosPointsMap(activeHorses, 35, 8);
   setPhasePositions(p1Pos, 4.0, "linear"); 
 
@@ -630,6 +638,7 @@ function startRace() {
     let msg = (currentPace.includes("ハイ")) ? "縦長の隊列になりました。" : "淡々とレースは流れていきます。";
     updateLog(`<strong>【向正面】</strong> ${msg} 各馬ポジションが決まりました。`);
     
+    // フェーズ2：向正面での位置取り
     let p2Pos = getPosPointsMap(activeHorses, 65, 20);
     setPhasePositions(p2Pos, 4.3, "linear"); 
   }, 4000); 
@@ -638,6 +647,7 @@ function startRace() {
     updateLog(`<strong>【3コーナーを回して直線へ】</strong> ペースは『${currentPace}』！ 勝負どころの最終コーナーへ！`);
     showTelop(`【ペース】 ${currentPace}`, 3000);
     
+    // フェーズ3：最終コーナー位置取り
     let p3Pos = getPosPointsMap(activeHorses, 88, 35);
     setPhasePositions(p3Pos, 4.3, "linear"); 
   }, 8300); 
@@ -670,6 +680,7 @@ function startRace() {
       setTimeout(() => {
         let winner = calculatedResults[0];
         let finalPositions = new Array(16);
+        // 直線（フェーズ4〜）は最終着順（calculatedResults）で位置を配置
         calculatedResults.forEach((item, rank) => { finalPositions[item.index] = -15 + (rank * 4.6); });
         
         setPhasePositions(finalPositions, 10.0, "linear"); 
