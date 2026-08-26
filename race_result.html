@@ -504,27 +504,7 @@ function renderLanes() {
   });
 }
 
-// レース計算ロジック
-function calculatePositions(horses) {
-  const horseStyleBonus = { "大逃": 30, "逃げ": 25, "先行": 20, "好位": 18, "差し": 10, "追込": 2 };
-  const tacticStyleBonus = { "逃げ": 40, "先行": 30, "差し": 20, "追込": 2 };
-
-  horses.forEach((h, i) => {
-    let tBonus = tacticStyleBonus[h.tactic] || 0;
-    let hBonus = horseStyleBonus[h.style] || 0;
-    if (h.style === "逃追" || h.style === "自在") hBonus = tBonus * 2;
-    let basePosPoint = h.speed + (h.level * 2);
-    h.positionPoint = basePosPoint + hBonus + tBonus;
-    h.index = i; 
-  });
-  let sortedForPos = [...horses].sort((a, b) => b.positionPoint - a.positionPoint);
-  sortedForPos.forEach((h, rank) => {
-    h.positionRank = rank + 1;
-    h.positionScore = h.positionRank; 
-  });
-}
-
-// ★修正: 位置取りポイント(positionPoint)の並び順に基づいて座標%（X位置）を割り分ける
+// 位置取りポイント(positionPoint)の並び順に基づいて座標%（X位置）を割り分ける
 function getPosPointsMap(horses, leadPos, trailPos) {
   const positions = new Array(horses.length);
   
@@ -679,7 +659,7 @@ function startRace() {
       wipe.style.left = "100%"; 
       setTimeout(() => {
         let winner = calculatedResults[0];
-        let finalPositions = new Array(16);
+        let finalPositions = new Array(activeHorses.length);
         // 直線（フェーズ4〜）は最終着順（calculatedResults）で位置を配置
         calculatedResults.forEach((item, rank) => { finalPositions[item.index] = -15 + (rank * 4.6); });
         
@@ -707,7 +687,10 @@ function startRace() {
 }
 
 function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear") {
-  const trackWidth = document.getElementById('track-container').clientWidth - 70;
+  const trackContainer = document.getElementById('track-container');
+  if (!trackContainer) return;
+  const trackWidth = trackContainer.clientWidth - 70;
+  
   positionsArray.forEach((pos, i) => {
     const el = document.getElementById(`horse-icon-${i}`);
     if (el) {
