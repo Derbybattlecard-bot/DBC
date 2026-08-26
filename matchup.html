@@ -566,7 +566,61 @@
     }
   }
 
-    window.startMatch = async function() {
+  // CPU対戦馬・モブ馬の自動抽選関数
+  function generateCpuAndMobEntries(races) {
+    const limits = currentSeries?.potential_limit || { max_total_potential: 95 };
+    const targetPtBase = Math.floor((limits.max_total_potential || 95) / 5);
+    const minPt = Math.max(0, targetPtBase - 2);
+    const maxPt = targetPtBase + 2;
+    const seriesSex = currentSeries?.sex || "制限なし";
+    const allHorses = Object.values(HORSES_MASTER);
+
+    const cpuEntries = [];
+    const racesMobIds = [];
+
+    races.forEach((race, rIdx) => {
+      const playerId = selectedEntries[rIdx];
+
+      // 1. CPU馬の抽選
+      const eligibleCpu = allHorses.filter(h => {
+        const pt = getHorsePotential(h, race.surface);
+        return String(h.horse_id) !== String(playerId) && pt >= minPt && pt <= maxPt;
+      });
+      const chosenCpu = eligibleCpu.length > 0 
+        ? eligibleCpu[Math.floor(Math.random() * eligibleCpu.length)]
+        : (allHorses.find(h => String(h.horse_id) !== String(playerId)) || { horse_id: "0000" });
+
+      cpuEntries.push({
+        horse_id: String(chosenCpu.horse_id),
+        strategy: "先行",
+        strategy_level: Math.floor(Math.random() * 3) + 2
+      });
+
+      // 2. モブ馬（14頭）の抽選
+      const usedIds = new Set([String(playerId), String(chosenCpu.horse_id)]);
+      let pool = allHorses.filter(h => {
+        if (usedIds.has(String(h.horse_id))) return false;
+        const pt = getHorsePotential(h, race.surface);
+        const sexOk = isValidSex(h.sex || "牡", seriesSex);
+        return pt >= minPt && pt <= maxPt && sexOk;
+      });
+
+      if (pool.length < 14) {
+        const fallbackPool = allHorses.filter(h => !usedIds.has(String(h.horse_id)));
+        pool = pool.concat(fallbackPool);
+      }
+
+      pool.sort(() => Math.random() - 0.5);
+      const selectedMobs = pool.slice(0, 14).map(h => String(h.horse_id).padStart(4, '0'));
+      while (selectedMobs.length < 14) selectedMobs.push("0000");
+
+      racesMobIds.push(selectedMobs);
+    });
+
+    return { cpuEntries, racesMobIds };
+  }
+
+  window.startMatch = async function() {
     if (!currentUser) return;
 
     const btn = document.getElementById('btnBattleStart');
@@ -580,15 +634,20 @@
         strategy_level: 3
       }));
 
+      const races = currentSeries.rounds[0].races;
       const trackConditions = generateTrackConditions(currentSeries);
+      
+      // CPU馬とモブ馬のデータを抽選・自動生成
+      const { cpuEntries, racesMobIds } = generateCpuAndMobEntries(races);
+
       const currentStatus = globalUserData.cpu_battle_status || {};
 
       const updatedStatus = {
         ...currentStatus,
         current_match: {
           player_entries: formattedEntries,
-          cpu_entries: null,
-          races_mob_ids: null,
+          cpu_entries: cpuEntries,
+          races_mob_ids: racesMobIds,
           races_track_conditions: trackConditions
         }
       };
@@ -608,5 +667,6 @@
     }
   };
 </script>
+
 </body>
 </html>
