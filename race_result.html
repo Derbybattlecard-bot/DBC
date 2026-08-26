@@ -288,7 +288,24 @@ onAuthStateChanged(auth, async (user) => {
 
     await loadMasterData();
     buildRaceGridsFromFirebase();
-    setupRace(currentRaceIndex);
+
+    // 保存済みの進捗（current_race_index / series_history）があれば復元
+    const status = globalUserData?.cpu_battle_status || {};
+    const currentMatch = status.current_match || {};
+    
+    if (typeof currentMatch.current_race_index === 'number') {
+      currentRaceIndex = currentMatch.current_race_index;
+    }
+    if (Array.isArray(currentMatch.series_history)) {
+      seriesHistory = currentMatch.series_history;
+    }
+
+    // すでに全5レース終了済みの場合は直接リザルトを表示、未終了なら該当レースをセットアップ
+    if (currentRaceIndex >= 5) {
+      showFinalSeriesResult();
+    } else {
+      setupRace(currentRaceIndex);
+    }
   } catch (err) {
     console.error(err);
     alert("データの読み込みに失敗しました。");
@@ -524,7 +541,6 @@ function calculatePositions(horses) {
   });
 }
 
-// 【修正箇所】位置Ptが高い馬（先頭）に大きいX座標、低い馬に小さいX座標を計算し、元の馬インデックス(h.index)にマッピング
 function getPosPointsMap(horses, leadPos, trailPos) {
   const positions = new Array(horses.length);
   const sorted = [...horses].sort((a, b) => b.positionPoint - a.positionPoint);
@@ -622,7 +638,7 @@ function handleButtonClick() {
 document.getElementById('nextBtn').addEventListener('click', handleButtonClick);
 
 // ---------- レース実行メインロジック ----------
-function startRace() {
+async function startRace() {
   if (raceState !== 'ready') return;
   raceState = 'running';
 
@@ -630,9 +646,36 @@ function startRace() {
   btn.disabled = true;
   btn.innerText = "🏃 レース進行中...";
 
+  // 1. 位置Ptおよび着順の即時計算
   calculatePositions(activeHorses);
   const currentPace = determineRacePace(activeHorses);
   calculatedResults = calculateScoresAndSort(activeHorses, currentPace);
+
+  // 2. 結果レコードの即時生成と進捗のFirebase即時保存（リロード不正対策）
+  recordHistory(calculatedResults);
+  const nextRaceIdx = currentRaceIndex + 1;
+
+  if (currentUser) {
+    try {
+      const status = globalUserData?.cpu_battle_status || {};
+      const currentMatch = status.current_match || {};
+      const updatedMatch = {
+        ...currentMatch,
+        current_race_index: nextRaceIdx,
+        series_history: seriesHistory
+      };
+      await setDoc(doc(db, "users", currentUser.uid), {
+        cpu_battle_status: {
+          ...status,
+          current_match: updatedMatch
+        }
+      }, { merge: true });
+    } catch (err) {
+      console.error("進捗即時保存エラー:", err);
+    }
+  }
+
+  // 3. アニメーション演出開始
   let leaders = activeHorses.filter(h => h.positionRank <= 3).sort((a, b) => a.positionRank - b.positionRank);
   let leaderNames = leaders.map(h => h.name).join("、");
   updateLog(`<strong>【スタート】</strong> ゲートが開いた！ ${leaderNames} あたりがハナを主張、先頭争いだ！`);
@@ -659,7 +702,7 @@ function startRace() {
     setPhasePositions(p3Pos, 4.3, "linear"); 
   }, 8300); 
 
-    setTimeout(() => {
+  setTimeout(() => {
     const wipe = document.getElementById('wipe-overlay');
     wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
     wipe.style.left = "0";
@@ -723,7 +766,6 @@ function startRace() {
         setTimeout(() => {
           hideTelop();
           renderResults(calculatedResults);
-          recordHistory(calculatedResults);
           
           raceState = 'finished';
           const btn = document.getElementById('nextBtn');
@@ -735,7 +777,6 @@ function startRace() {
   }, 12600); 
 }
 
-// 【修正箇所】positionsArray[i] を activeHorses[i]（第 i レーンの馬）の X 座標% として正確に適用
 function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear") {
   const trackContainer = document.getElementById('track-container');
   if (!trackContainer) return;
