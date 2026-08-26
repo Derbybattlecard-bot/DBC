@@ -335,7 +335,7 @@ function buildRaceGridsFromFirebase() {
   const currentMatch = status.current_match || {};
   const playerEntries = currentMatch.player_entries || [];
   const cpuEntries = currentMatch.cpu_entries || [];
-  const racesMobIds = currentMatch.races_mob_ids || [];
+  const racesMobIds = currentMatch.races_mob_ids || {};
 
   if (playerEntries.length < 5) {
     alert("対戦エントリーデータが見つかりません。お題画面へ戻ります。");
@@ -372,8 +372,8 @@ function buildRaceGridsFromFirebase() {
     };
     grid.push(cpuHorse);
 
-    // 3. モブ馬 14頭 (保存されたモブIDリストを元に確定)
-    const mobIds = racesMobIds[rIdx] || [];
+    // 3. モブ馬 14頭 (保存されたモブIDリスト(Map構造またはArray)を元に確定)
+    const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
     mobIds.forEach(mobId => {
       const mobMaster = HORSES_MASTER[mobId] || { name: "モブ馬", horse_id: mobId };
       const mobTactics = getRandomStrategyByStyle(mobMaster.style || mobMaster.running_style || "自在");
@@ -504,7 +504,7 @@ function renderLanes() {
   });
 }
 
-  // レース計算ロジック
+// レース計算ロジック
 function calculatePositions(horses) {
   const horseStyleBonus = { "大逃": 30, "逃げ": 25, "先行": 20, "好位": 18, "差し": 10, "追込": 2 };
   const tacticStyleBonus = { "逃げ": 40, "先行": 30, "差し": 20, "追込": 2 };
@@ -595,7 +595,9 @@ function calculateScoresAndSort(horses, pace) {
   horses.sort((a, b) => {
     if (Math.abs(b.finalScore - a.finalScore) > 0.1) return b.finalScore - a.finalScore;
     for (let key of tieKeys) {
-      if (a[key] !== b[key]) return typeof a[key] === "number" ? b[key] - a[key] : String(a[key]).localeCompare(String(a[key]));
+      if (a[key] !== b[key]) {
+        return typeof a[key] === "number" ? b[key] - a[key] : String(b[key]).localeCompare(String(a[key]));
+      }
     }
     return 0;
   });
@@ -812,9 +814,13 @@ window.goToNextSeries = async function() {
   const p1stCount = seriesHistory.filter(h => h.pRank === 1).length;
   const updatedTotal1st = (status.total_1st_places || 0) + p1stCount;
 
+  // チャレンジ完了判定（3勝達成・3敗達成・または5ラウンド終了時）
+  const isChallengeFinished = (newWins >= 3 || newLosses >= 3 || newRound > 5);
+
   // オブジェクト全体として構築（ドット記法排除）
   const updatedCpuBattleStatus = {
     ...status,
+    is_active: !isChallengeFinished,
     series_wins: newWins,
     series_losses: newLosses,
     current_round: newRound,
@@ -842,4 +848,3 @@ window.goToNextSeries = async function() {
 </script>
 </body>
 </html>
-
