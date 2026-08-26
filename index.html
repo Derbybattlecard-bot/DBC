@@ -303,7 +303,8 @@
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  // 修正: updateDocを削除し、setDoc, collection, getCountFromServer, incrementを追加
+  import { doc, getDoc, setDoc, collection, getCountFromServer, increment, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   let HORSES_MASTER = {};
   let HORSES_ARRAY = [];
@@ -383,7 +384,8 @@
       }
 
       renderUserProfile();
-      renderRecord();
+      // 修正: renderRecordが非同期関数になったためawaitを追加
+      await renderRecord();
       renderSelectedDeck();
       await checkAndRenderLoginBonus();
 
@@ -406,11 +408,19 @@
     `;
   }
 
-  function renderRecord() {
+  // 修正: 非同期関数(async)に変更し、getCountFromServerを用いてinventoryコレクションから種類数を取得
+  async function renderRecord() {
     const rec = globalUserData.record || { matches: 0, wins: 0, maxStreak: 0 };
     const winRate = rec.matches > 0 ? ((rec.wins / rec.matches) * 100).toFixed(1) : "0.0";
-    const cards = globalUserData.cards || {};
-    const cardTypesCount = Object.keys(cards).length;
+    
+    let cardTypesCount = 0;
+    try {
+      const collRef = collection(db, `users/${currentUser.uid}/inventory`);
+      const snapshot = await getCountFromServer(collRef);
+      cardTypesCount = snapshot.data().count;
+    } catch (error) {
+      console.error("カード種類数の取得に失敗:", error);
+    }
 
     document.getElementById('recordSection').innerHTML = `
       <div class="record-item">
@@ -454,9 +464,10 @@
         last_claim_time: null
       };
       
-      await updateDoc(doc(db, "users", currentUser.uid), {
+      // 修正: updateDoc から setDoc(..., { merge: true }) へ変更
+      await setDoc(doc(db, "users", currentUser.uid), {
         login_bonus_state: bonusState
-      });
+      }, { merge: true });
       globalUserData.login_bonus_state = bonusState;
     }
 
@@ -585,25 +596,23 @@
     try {
       const userRef = doc(db, "users", currentUser.uid);
 
-          // ユーザーデータの cards マップを更新（既存枚数を考慮）
-      if (!globalUserData.cards) globalUserData.cards = {};
-      const currentCardInfo = globalUserData.cards[chosenHorse.horse_id];
-      const newCount = currentCardInfo ? (currentCardInfo.count || 1) + 1 : 1;
+      // 修正: ユーザー状態の更新は setDoc({ merge: true }) に統一
+      await setDoc(userRef, {
+        login_bonus_state: state
+      }, { merge: true });
 
-      globalUserData.cards[chosenHorse.horse_id] = {
-        name: chosenHorse.name,
-        count: newCount,
-        obtainedAt: new Date().toISOString()
-      };
-
-      await updateDoc(userRef, {
-        login_bonus_state: state,
-        cards: globalUserData.cards
-      });
+      // 修正: 獲得カードは inventory サブコレクションへ保存（increment を使用）
+      const inventoryRef = doc(db, `users/${currentUser.uid}/inventory/${chosenHorse.horse_id}`);
+      await setDoc(inventoryRef, {
+        count: increment(1),
+        obtained_at: new Date().toISOString() // setup.htmlの初期化データとフォーマットを統一
+      }, { merge: true });
 
       globalUserData.login_bonus_state = state;
       renderBonusUI(state);
-      renderRecord();
+      // 修正: カードを獲得したので所持種類数を再取得して描画
+      await renderRecord();
+      
       alert(`🎁 ログインボーナスで「${chosenHorse.name} (${chosenHorse.rarity})」を獲得しました！`);
 
     } catch (err) {
