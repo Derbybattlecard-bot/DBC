@@ -143,10 +143,10 @@
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc, updateDoc, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { doc, getDoc, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   let currentUser = null;
-  let globalUserData = null;
+  let globalUserData = {};
   let SERIES_MASTER = [];
   let HORSES_MASTER = {};
   let HORSES_ARRAY = [];
@@ -158,7 +158,9 @@
     currentUser = user;
     try {
       const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) globalUserData = userDoc.data();
+      if (userDoc.exists()) {
+        globalUserData = userDoc.data();
+      }
 
       const [resSeries, resHorses] = await Promise.all([ fetch('./data/series_master.json'), fetch('./data/horses_master.json') ]);
       if (resSeries.ok) SERIES_MASTER = await resSeries.json();
@@ -169,7 +171,10 @@
       
       document.getElementById('syncStatus').textContent = "✅";
       checkBattleStatus();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error("初期化エラー:", err);
+      document.getElementById('syncStatus').textContent = "❌ 接続失敗";
+    }
   });
 
   async function checkBattleStatus() {
@@ -185,7 +190,7 @@
       }
     }
 
-    initBattle(status);
+    await initBattle(status);
   }
 
   async function handleGameEnd(status, isClear) {
@@ -212,7 +217,7 @@
           count: increment(1),
           obtained_at: new Date().toISOString()
         }, { merge: true });
-      } catch (err) { console.error("報酬保存エラー", err); }
+      } catch (err) { console.error("報酬保存エラー:", err); }
     } else {
       title.textContent = "💥 GAME OVER";
       title.className = "modal-title title-over";
@@ -220,9 +225,15 @@
       rewardBox.style.display = "none";
     }
 
-    await updateDoc(doc(db, "users", currentUser.uid), { 
-      cpu_battle_status: { is_active: false } 
-    });
+    try {
+      const updatedStatus = { ...status, is_active: false, current_match: null };
+      await setDoc(doc(db, "users", currentUser.uid), { 
+        cpu_battle_status: updatedStatus 
+      }, { merge: true });
+      globalUserData.cpu_battle_status = updatedStatus;
+    } catch (err) {
+      console.error("ゲーム終了ステータス保存エラー:", err);
+    }
     
     modal.style.display = "flex";
   }
@@ -233,7 +244,6 @@
 
   async function initBattle(status) {
     if (!status || !status.is_active) {
-      // SERIES_MASTERをシャッフルして重複なしで5つ抽出
       const shuffledSeries = [...SERIES_MASTER].sort(() => 0.5 - Math.random());
       const lineup = shuffledSeries.slice(0, 5).map(s => s.series_id);
       
@@ -241,13 +251,23 @@
         is_active: true, 
         current_round: 1, 
         series_lineup: lineup, 
+        selected_series_id: lineup[0] || "",
+        selected_deck_index: 0,
         series_wins: 0, 
         series_losses: 0, 
         total_1st_places: 0, 
-        used_cards_history: [] 
+        used_cards_history: [],
+        current_match: null
       };
-      await updateDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status });
-      globalUserData.cpu_battle_status = status;
+
+      try {
+        await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status }, { merge: true });
+        globalUserData.cpu_battle_status = status;
+      } catch (err) {
+        console.error("初期データ保存エラー:", err);
+        alert("初期データの作成に失敗しました。再読み込みしてください。");
+        return;
+      }
     }
 
     if (typeof status.selected_deck_index === 'number') {
@@ -296,7 +316,6 @@
     renderDeckTable();
   };
 
-  // 馬の表示用データ取得ヘルパー
   function getHorseDistanceString(horse) {
     if (!horse) return '-';
     if (horse.distance) return `${horse.distance}m`;
@@ -328,7 +347,6 @@
     const usedCards = globalUserData.cpu_battle_status?.used_cards_history || [];
     const deck = (globalUserData.decks || [])[selectedDeckIndex] || { horse_ids: [] };
 
-    // 18頭分（18枠）の馬データを生成・表示
     for (let i = 0; i < 18; i++) {
       const horse = HORSES_MASTER[deck.horse_ids[i]];
       const tr = document.createElement('tr');
@@ -368,11 +386,18 @@
     if (!selectedSeries || !currentUser) return;
 
     try {
-      await updateDoc(doc(db, "users", currentUser.uid), {
-        "cpu_battle_status.selected_series_id": selectedSeries.series_id,
-        "cpu_battle_status.selected_deck_index": selectedDeckIndex
-      });
+      const currentStatus = globalUserData.cpu_battle_status || {};
+      const updatedStatus = {
+        ...currentStatus,
+        selected_series_id: selectedSeries.series_id,
+        selected_deck_index: selectedDeckIndex
+      };
 
+      await setDoc(doc(db, "users", currentUser.uid), {
+        cpu_battle_status: updatedStatus
+      }, { merge: true });
+
+      globalUserData.cpu_battle_status = updatedStatus;
       window.location.href = 'matchup.html';
     } catch (err) {
       console.error("ステータス保存エラー:", err);
@@ -381,20 +406,29 @@
   };
 
   window.debugWin = async function() {
-    if(!globalUserData || !globalUserData.cpu_battle_status) return;
-    let status = globalUserData.cpu_battle_status;
-    status.series_wins += 1;
-    status.current_round += 1;
-    await updateDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status });
-    window.location.reload();
+    if (!currentUser || !globalUserData.cpu_battle_status) return;
+    try {
+      let status = { ...globalUserData.cpu_battle_status };
+      status.series_wins = (status.series_wins || 0) + 1;
+      status.current_round = (status.current_round || 1) + 1;
+      await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status }, { merge: true });
+      window.location.reload();
+    } catch (err) {
+      console.error("デバッグ処理エラー:", err);
+    }
   };
+
   window.debugLose = async function() {
-    if(!globalUserData || !globalUserData.cpu_battle_status) return;
-    let status = globalUserData.cpu_battle_status;
-    status.series_losses += 1;
-    status.current_round += 1;
-    await updateDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status });
-    window.location.reload();
+    if (!currentUser || !globalUserData.cpu_battle_status) return;
+    try {
+      let status = { ...globalUserData.cpu_battle_status };
+      status.series_losses = (status.series_losses || 0) + 1;
+      status.current_round = (status.current_round || 1) + 1;
+      await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status }, { merge: true });
+      window.location.reload();
+    } catch (err) {
+      console.error("デバッグ処理エラー:", err);
+    }
   };
 </script>
 </body>
