@@ -659,7 +659,7 @@ function startRace() {
     setPhasePositions(p3Pos, 4.3, "linear"); 
   }, 8300); 
 
-  setTimeout(() => {
+    setTimeout(() => {
     const wipe = document.getElementById('wipe-overlay');
     wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
     wipe.style.left = "0";
@@ -669,18 +669,22 @@ function startRace() {
       gl.style.display = "block";
       gf.style.display = "block";
       if (isLeftHanded) {
+        // 左回り（東京・中京・新潟など）：ゴールは右側(100%付近)
         gl.style.left = "calc(100% - 60px)";
         gf.style.left = "calc(100% - 40px)";
         activeHorses.forEach((_, i) => document.getElementById(`emoji-${i}`).classList.add("flipped"));
       } else {
+        // 右回り（中山・阪神・京都など）：ゴールは左側(0%付近)
         gl.style.left = "40px";
         gf.style.left = "20px";
         activeHorses.forEach((_, i) => document.getElementById(`emoji-${i}`).classList.remove("flipped"));
       }
       
+      // 直線突入時のスタート位置（4角手前）
       let p4StartPos = new Array(activeHorses.length);
       activeHorses.forEach((h) => {
-        p4StartPos[h.index] = 75 + Math.random() * 15;
+        // 右回りは右(75〜90%)からスタート、左回りは左(10〜25%)からスタート
+        p4StartPos[h.index] = isLeftHanded ? (10 + Math.random() * 15) : (75 + Math.random() * 15);
       });
       setPhasePositions(p4StartPos, 0, "linear");
     }, 800);
@@ -690,19 +694,32 @@ function startRace() {
       setTimeout(() => {
         let winner = calculatedResults[0];
         let finalPositions = new Array(activeHorses.length);
-        calculatedResults.forEach((item, rank) => { 
-          // 1着(rank=0)が一番前（右側）、最下位が後ろになるように元レーンインデックス(item.index)へ割り当て
-          finalPositions[item.index] = 95 - (rank * 4.5); 
+        
+        // 1着馬(rank=0)が進行方向の最先端（右回り＝0側、左回り＝100側）へ到達するよう計算
+        calculatedResults.forEach((item, rank) => {
+          let posVal = 0;
+          if (isLeftHanded) {
+            // 左回り：1着が画面右（95%）へ
+            posVal = 95 - (rank * 4.5);
+          } else {
+            // 右回り：1着が画面左（5%）へ
+            posVal = 5 + (rank * 4.5);
+          }
+          finalPositions[item.index] = posVal;
         });
         
+        // 元の設定通り、10.0秒かけて直線の攻防を描画
         setPhasePositions(finalPositions, 10.0, "linear"); 
+        
         setTimeout(() => {
           updateLog(`<strong>【最後の直線】</strong> このレースは『${currentRaceBranch}』！ 激しい叩き合いだ！`);
           showTelop(`【展開】 ${currentRaceBranch}`, 3500);
         }, 1500);
+        
         setTimeout(() => {
           updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>1着フィニッシュは ${winner.name} ！！</b></span>`);
         }, 7500); 
+        
         setTimeout(() => {
           hideTelop();
           renderResults(calculatedResults);
