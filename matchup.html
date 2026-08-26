@@ -218,16 +218,13 @@
   let selectedEntries = [null, null, null, null, null];
   let usedCardsHistory = [];
 
-  // 安全なJSONロード
   async function fetchJsonSafe(filename) {
     const candidatePaths = [`./data/${filename}`, `data/${filename}`, `/data/${filename}`];
     for (const path of candidatePaths) {
       try {
         const res = await fetch(path);
         if (res.ok) return await res.json();
-      } catch (e) {
-        // 次のパスを試行
-      }
+      } catch (e) {}
     }
     throw new Error(`${filename} の読み込みに失敗しました`);
   }
@@ -566,7 +563,7 @@
     }
   }
 
-  // CPU対戦馬・モブ馬の自動抽選関数（デッキ内の全18頭を除外）
+  // CPU対戦馬・モブ馬の自動抽選関数（Firestore二重配列制約回避版）
   function generateCpuAndMobEntries(races) {
     const limits = currentSeries?.potential_limit || { max_total_potential: 95 };
     const targetPtBase = Math.floor((limits.max_total_potential || 95) / 5);
@@ -575,11 +572,10 @@
     const seriesSex = currentSeries?.sex || "制限なし";
     const allHorses = Object.values(HORSES_MASTER);
 
-    // デッキに含まれる18頭全ての馬IDを取得
     const deckHorseIds = new Set(deckHorses.map(h => String(h.horse_id)));
 
     const cpuEntries = [];
-    const racesMobIds = [];
+    const racesMobIds = {}; // 二重配列エラー回避のためオブジェクト形式に設定
 
     races.forEach((race, rIdx) => {
       // 1. CPU馬の抽選（デッキ内18頭と被らないように選出）
@@ -589,7 +585,6 @@
         return !deckHorseIds.has(hId) && pt >= minPt && pt <= maxPt;
       });
 
-      // 条件に合う馬が少ない場合のフォールバック（デッキ外の全馬から選出）
       if (eligibleCpu.length === 0) {
         eligibleCpu = allHorses.filter(h => !deckHorseIds.has(String(h.horse_id)));
       }
@@ -625,10 +620,9 @@
       pool.sort(() => Math.random() - 0.5);
       const selectedMobs = pool.slice(0, 14).map(h => String(h.horse_id).padStart(4, '0'));
       
-      // undefined 対策（14頭に満たない場合はダミーIDで補填）
       while (selectedMobs.length < 14) selectedMobs.push("0000");
 
-      racesMobIds.push(selectedMobs);
+      racesMobIds[rIdx] = selectedMobs; // レースインデックス（0〜4）をキーにして格納
     });
 
     return { cpuEntries, racesMobIds };
@@ -643,7 +637,6 @@
     btn.textContent = "データ保存中...";
 
     try {
-      // 全レース選択チェック
       if (selectedEntries.some(id => !id)) {
         alert("出走馬が全レース分選択されていません。");
         btn.disabled = false;
@@ -660,10 +653,8 @@
       const races = currentSeries.rounds[0].races;
       const trackConditions = generateTrackConditions(currentSeries);
       
-      // CPU馬とモブ馬のデータを抽選（デッキと被らないよう自動生成）
       const { cpuEntries, racesMobIds } = generateCpuAndMobEntries(races);
 
-      // globalUserData の Null 安全対策
       const safeUserData = globalUserData || {};
       const currentStatus = safeUserData.cpu_battle_status || {};
 
@@ -677,12 +668,10 @@
         }
       };
 
-      // Firestoreへ保存
       await setDoc(doc(db, "users", currentUser.uid), {
         cpu_battle_status: updatedStatus
       }, { merge: true });
 
-      // メモリ上のデータも更新
       if (!globalUserData) globalUserData = {};
       globalUserData.cpu_battle_status = updatedStatus;
 
