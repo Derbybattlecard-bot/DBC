@@ -206,7 +206,7 @@
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   let currentUser = null;
   let globalUserData = null;
@@ -218,7 +218,7 @@
   let selectedEntries = [null, null, null, null, null];
   let usedCardsHistory = [];
 
-  // 安全なJSONロード（./ やルート相対パスのフォールバック処理）
+  // 安全なJSONロード
   async function fetchJsonSafe(filename) {
     const candidatePaths = [`./data/${filename}`, `data/${filename}`, `/data/${filename}`];
     for (const path of candidatePaths) {
@@ -254,7 +254,7 @@
       initMatchup();
       document.getElementById('syncStatus').textContent = "✅";
     } catch (e) {
-      console.error(e);
+      console.error("データ取得失敗:", e);
       document.getElementById('syncStatus').textContent = "❌ エラー";
     }
   });
@@ -262,7 +262,7 @@
   function initMatchup() {
     const status = globalUserData?.cpu_battle_status || {};
     const seriesId = status.selected_series_id || (status.series_lineup ? status.series_lineup[(status.current_round || 1) - 1] : null);
-    const deckIdx = status.selected_deck_index || 0;
+    const deckIdx = typeof status.selected_deck_index === 'number' ? status.selected_deck_index : 0;
 
     currentSeries = SERIES_MASTER.find(s => s.series_id === seriesId) || SERIES_MASTER[0];
     
@@ -276,14 +276,13 @@
     const sexLimit = currentSeries.sex || "制限なし";
     document.getElementById('sexLimitDisplay').textContent = sexLimit;
 
-    const deck = (globalUserData.decks || [])[deckIdx] || { horse_ids: [] };
+    const deck = (globalUserData?.decks || [])[deckIdx] || { horse_ids: [] };
     deckHorses = (deck.horse_ids || []).map(id => HORSES_MASTER[id]).filter(h => h !== undefined);
 
     renderEntryCards();
     updateStatus();
   }
 
-  // 馬の能力値・属性取得用ヘルパー関数群
   function getHorsePotential(horse, surface) {
     if (!horse) return 0;
     if (surface === '芝') {
@@ -519,27 +518,34 @@
 
   window.giveUpSeries = async function() {
     if (!confirm("このシリーズをギブアップ（不戦敗）しますか？")) return;
-    if (!globalUserData || !globalUserData.cpu_battle_status) return;
-
-    let status = globalUserData.cpu_battle_status;
-    status.series_losses += 1;
-    status.current_round += 1;
+    if (!currentUser || !globalUserData) return;
 
     try {
-      await updateDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status });
-      if (status.series_losses >= 3) {
+      const currentStatus = globalUserData.cpu_battle_status || {};
+      const updatedStatus = {
+        ...currentStatus,
+        series_losses: (currentStatus.series_losses || 0) + 1,
+        current_round: (currentStatus.current_round || 1) + 1
+      };
+
+      await setDoc(doc(db, "users", currentUser.uid), {
+        cpu_battle_status: updatedStatus
+      }, { merge: true });
+
+      globalUserData.cpu_battle_status = updatedStatus;
+
+      if (updatedStatus.series_losses >= 3) {
         alert("3敗に達したため、シリーズ挑戦失敗（敗退）となります。");
       } else {
-        alert(`ギブアップしました。(現在 ${status.series_losses}敗)\n次の回戦へ進みます。`);
+        alert(`ギブアップしました。(現在 ${updatedStatus.series_losses}敗)\n次の回戦へ進みます。`);
       }
       window.location.href = 'battle.html';
     } catch (err) {
-      console.error("更新エラー", err);
-      alert("通信エラーが発生しました。");
+      console.error("ギブアップ保存エラー:", err);
+      alert("通信エラーが発生しました。再度お試しください。");
     }
   };
 
-  // 馬場コンディション確率抽選（75%:良 / 18%:稍重 / 5%:重 / 2%:不良）
   function drawTrackCondition() {
     const rand = Math.random() * 100;
     if (rand < 75) return '良';
@@ -548,7 +554,6 @@
     return '不良';
   }
 
-  // シリーズ設定に応じた馬場コンディション配列（5戦分）の生成関数
   function generateTrackConditions(series) {
     const isSingleDay = series?.is_single_day || series?.is_same_day || series?.single_day || 
                         (series?.series_name && (series.series_name.includes("ドバイ") || series.series_name.includes("香港")));
@@ -561,7 +566,6 @@
     }
   }
 
-  // 対戦開始処理（馬場コンディションを事前生成して保存）
   window.startMatch = async function() {
     if (!currentUser) return;
 
@@ -576,29 +580,25 @@
         strategy_level: 3
       }));
 
-      // 5戦分の馬場コンディションを事前抽選
       const trackConditions = generateTrackConditions(currentSeries);
+      const currentStatus = globalUserData.cpu_battle_status || {};
 
-      // races_track_conditions を保存して strategy.html 側でのリロード再抽選を防止
-      await updateDoc(doc(db, "users", currentUser.uid), {
-        "cpu_battle_status.current_match": {
+      const updatedStatus = {
+        ...currentStatus,
+        current_match: {
           player_entries: formattedEntries,
           cpu_entries: null,
           races_mob_ids: null,
           races_track_conditions: trackConditions
         }
-      });
+      };
 
+      await setDoc(doc(db, "users", currentUser.uid), {
+        cpu_battle_status: updatedStatus
+      }, { merge: true });
+
+      globalUserData.cpu_battle_status = updatedStatus;
       sessionStorage.removeItem('player_entry_ids');
       window.location.href = 'strategy.html';
     } catch (err) {
-      console.error("保存エラー:", err);
-      alert("データの保存に失敗しました。再度お試しください。");
-      btn.disabled = false;
-      btn.textContent = "対戦開始！";
-    }
-  };
-</script>
-
-</body>
-</html>
+      console.error("出走データ保存エラー:", er
