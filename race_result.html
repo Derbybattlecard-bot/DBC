@@ -178,8 +178,8 @@
       <div class="card-strat-info" id="p2-card-strat">作戦: - (Lv.-)</div>
     </div>
   </div>
- <button class="btn-next" id="nextBtn">🏁 レーススタート！</button>
-
+  <button class="btn-next" id="nextBtn" onclick="handleButtonClick()">🏁 レーススタート！</button>
+  
   <!-- リザルトエリア -->
   <div id="result-container" style="display: none; margin-top: 10px; overflow-x: auto;">
     <div style="color: var(--accent-green); font-weight: bold; font-size: 0.9em;">📊 レース着順結果 & パラメータ検証</div>
@@ -225,6 +225,7 @@
     <button class="btn-next" style="margin-top: 20px;" onclick="goToNextSeries()">🔄 次のシリーズへ進む</button>
   </div>
 </div>
+
 
 <script type="module">
 import { auth, db } from './firebase-config.js';
@@ -348,7 +349,7 @@ function buildRaceGridsFromFirebase() {
   for (let rIdx = 0; rIdx < 5; rIdx++) {
     const grid = [];
 
-    // 1. プレイヤー馬 (Strategy画面で確定させた作戦・レベル)
+    // 1. プレイヤー馬
     const pEntry = playerEntries[rIdx];
     const pMaster = HORSES_MASTER[pEntry.horse_id] || { name: "自馬", horse_id: pEntry.horse_id };
     const playerHorse = {
@@ -360,7 +361,7 @@ function buildRaceGridsFromFirebase() {
     };
     grid.push(playerHorse);
 
-    // 2. CPU馬 (固定出走データ)
+    // 2. CPU馬
     const cEntry = cpuEntries[rIdx] || {};
     const cMaster = HORSES_MASTER[cEntry.horse_id] || { name: "CPU馬", horse_id: cEntry.horse_id };
     const cpuHorse = {
@@ -372,7 +373,7 @@ function buildRaceGridsFromFirebase() {
     };
     grid.push(cpuHorse);
 
-    // 3. モブ馬 14頭 (保存されたモブIDリスト(Map構造またはArray)を元に確定)
+    // 3. モブ馬 14頭
     const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
     mobIds.forEach(mobId => {
       const mobMaster = HORSES_MASTER[mobId] || { name: "モブ馬", horse_id: mobId };
@@ -408,7 +409,6 @@ function setupRace(rIdx) {
   raceState = 'ready';
   activeHorses = fullRaceGrids[rIdx] || [];
   
-  // 保存済みの馬場コンディションを適用
   const racesTrackConditions = globalUserData?.cpu_battle_status?.current_match?.races_track_conditions || [];
   trackCondition = racesTrackConditions[rIdx] || "良";
 
@@ -504,18 +504,35 @@ function renderLanes() {
   });
 }
 
-// 位置取りポイント(positionPoint)の並び順に基づいて座標%（X位置）を割り分ける
+function calculatePositions(horses) {
+  horses.forEach((h, i) => {
+    h.index = i;
+    let basePos = 0;
+    if (h.tactic === "逃げ") basePos = 90;
+    else if (h.tactic === "先行") basePos = 70;
+    else if (h.tactic === "差し") basePos = 40;
+    else if (h.tactic === "追込") basePos = 20;
+    else basePos = 50;
+
+    const randomVal = Math.floor(Math.random() * 15);
+    h.positionPoint = basePos + h.strat_speed + randomVal;
+  });
+
+  const sorted = [...horses].sort((a, b) => b.positionPoint - a.positionPoint);
+  sorted.forEach((h, rank) => {
+    h.positionRank = rank + 1;
+    h.positionScore = 16 - rank;
+  });
+}
+
 function getPosPointsMap(horses, leadPos, trailPos) {
   const positions = new Array(horses.length);
-  
-  // 位置取りPtの降順（高い馬が先頭）にソートした参照リストを作成
   const sorted = [...horses].sort((a, b) => b.positionPoint - a.positionPoint);
   const maxPt = sorted[0].positionPoint;
   const minPt = sorted[sorted.length - 1].positionPoint;
   let range = maxPt - minPt;
   if (range <= 0) range = 1;
 
-  // 各馬の位置Ptに応じて leadPos(先頭) 〜 trailPos(最後方) の数値を割り当てる
   horses.forEach((h, i) => {
     const ratio = (h.positionPoint - minPt) / range;
     positions[i] = trailPos + ratio * (leadPos - trailPos);
@@ -591,7 +608,7 @@ function calculateScoresAndSort(horses, pace) {
   return horses;
 }
 
-// --- 修正箇所 ---
+// ---------- ボタンクリック進行制御 ----------
 function handleButtonClick() {
   if (raceState === 'ready') startRace();
   else if (raceState === 'finished') {
@@ -601,9 +618,17 @@ function handleButtonClick() {
   }
 }
 
-// ボタンに直接イベントリスナーをセット
 document.getElementById('nextBtn').addEventListener('click', handleButtonClick);
-  
+
+// ---------- レース実行メインロジック ----------
+function startRace() {
+  if (raceState !== 'ready') return;
+  raceState = 'running';
+
+  const btn = document.getElementById('nextBtn');
+  btn.disabled = true;
+  btn.innerText = "🏃 レース進行中...";
+
   calculatePositions(activeHorses);
   const currentPace = determineRacePace(activeHorses);
   calculatedResults = calculateScoresAndSort(activeHorses, currentPace);
@@ -661,7 +686,6 @@ document.getElementById('nextBtn').addEventListener('click', handleButtonClick);
       setTimeout(() => {
         let winner = calculatedResults[0];
         let finalPositions = new Array(activeHorses.length);
-        // 直線（フェーズ4〜）は最終着順（calculatedResults）で位置を配置
         calculatedResults.forEach((item, rank) => { finalPositions[item.index] = -15 + (rank * 4.6); });
         
         setPhasePositions(finalPositions, 10.0, "linear"); 
@@ -783,7 +807,6 @@ function showFinalSeriesResult() {
   document.getElementById('final-series-modal').style.display = "block";
 }
 
-// データ格納基盤仕様書に完全準拠した結果保存処理
 window.goToNextSeries = async function() {
   if (!currentUser) return;
 
@@ -809,10 +832,8 @@ window.goToNextSeries = async function() {
   const p1stCount = seriesHistory.filter(h => h.pRank === 1).length;
   const updatedTotal1st = (status.total_1st_places || 0) + p1stCount;
 
-  // チャレンジ完了判定（3勝達成・3敗達成・または5ラウンド終了時）
   const isChallengeFinished = (newWins >= 3 || newLosses >= 3 || newRound > 5);
 
-  // オブジェクト全体として構築（ドット記法排除）
   const updatedCpuBattleStatus = {
     ...status,
     is_active: !isChallengeFinished,
@@ -825,7 +846,6 @@ window.goToNextSeries = async function() {
   };
 
   try {
-    // setDoc + { merge: true } を徹底
     await setDoc(doc(db, "users", currentUser.uid), {
       cpu_battle_status: updatedCpuBattleStatus
     }, { merge: true });
