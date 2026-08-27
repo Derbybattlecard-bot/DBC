@@ -270,7 +270,7 @@
     document.getElementById('seriesRoundDisplay').textContent = `第 ${currentRound} 回戦 (全5回戦)`;
     document.getElementById('seriesRecordDisplay').textContent = `${wins}勝 ${losses}敗`;
 
-    const sexLimit = currentSeries.sex || "制限なし";
+    const sexLimit = currentSeries.sex || "各レース指定";
     document.getElementById('sexLimitDisplay').textContent = sexLimit;
 
     const deck = (globalUserData?.decks || [])[deckIdx] || { horse_ids: [] };
@@ -308,10 +308,10 @@
     return horse.running_style || horse.leg_style || horse.style || horse.strategy || '-';
   }
 
-  function isValidSex(horseSex, seriesSex) {
-    if (!seriesSex || seriesSex === "制限なし") return true;
-    if (seriesSex === "牝馬限定") return horseSex === "牝";
-    if (seriesSex === "牡牝限定") return horseSex === "牡" || horseSex === "牝";
+  function isValidSex(horseSex, sexLimit) {
+    if (!sexLimit || sexLimit === "制限なし") return true;
+    if (sexLimit === "牝馬限定") return horseSex === "牝";
+    if (sexLimit === "牡牝限定") return horseSex === "牡" || horseSex === "牝";
     return true;
   }
 
@@ -351,11 +351,12 @@
       card.className = 'entry-card';
 
       const surfaceClass = race.surface === '芝' ? 'surface-turf' : 'surface-dirt';
+      const sexLabel = race.sex ? ` (${race.sex})` : '';
 
       card.innerHTML = `
         <div class="race-info-header">
           <span class="race-title">第${race.race_num}戦: ${race.race_name}</span>
-          <span class="race-cond-badge ${surfaceClass}">${race.surface} ${race.track} ${race.distance}m</span>
+          <span class="race-cond-badge ${surfaceClass}">${race.surface} ${race.track} ${race.distance}m${sexLabel}</span>
         </div>
         <select class="select-horse-dropdown" id="selectRace${rIdx}" onchange="onHorseSelected(${rIdx}, this.value)">
           <option value="">-- 出走馬を選択してください --</option>
@@ -373,13 +374,13 @@
 
   function populateDropdowns() {
     const races = currentSeries.rounds[0].races;
-    const seriesSexLimit = currentSeries.sex || "制限なし";
     const limits = currentSeries.potential_limit || { min_potential_per_race: 15, max_total_potential: 95 };
     const minPtRequired = limits.min_potential_per_race || 0;
 
     races.forEach((race, rIdx) => {
       const select = document.getElementById(`selectRace${rIdx}`);
       const currentVal = selectedEntries[rIdx];
+      const raceSexLimit = race.sex || currentSeries.sex || "制限なし";
 
       select.innerHTML = '<option value="">-- 出走馬を選択してください --</option>';
 
@@ -387,7 +388,7 @@
         const horseSex = horse.sex || "牡";
         const isChosenElsewhere = selectedEntries.some((id, idx) => idx !== rIdx && id === horse.horse_id);
         const isUsedPrevious = usedCardsHistory.includes(horse.horse_id) || usedCardsHistory.includes(horse.name);
-        const matchesSexLimit = isValidSex(horseSex, seriesSexLimit);
+        const matchesSexLimit = isValidSex(horseSex, raceSexLimit);
         
         const matchesDist = isValidDistance(horse, race.distance);
         const distStr = getHorseDistanceString(horse);
@@ -399,12 +400,15 @@
         const surfaceText = getHorseSurfaceText(horse);
         const legStyle = getHorseLegStyle(horse);
 
-        if (!isChosenElsewhere && matchesSexLimit) {
+        if (!isChosenElsewhere) {
           const opt = document.createElement('option');
           opt.value = horse.horse_id;
           
           if (isUsedPrevious) {
             opt.textContent = `[使用済] ${horse.name}`;
+            opt.disabled = true;
+          } else if (!matchesSexLimit) {
+            opt.textContent = `[性別不一致:${horseSex}] ${horse.name} (${raceSexLimit})`;
             opt.disabled = true;
           } else if (!meetsMinPt) {
             opt.textContent = `[Pt不足:${horsePt}] ${horse.name} (下限${minPtRequired}以上)`;
@@ -451,7 +455,6 @@
   function updateStatus() {
     const races = currentSeries.rounds[0].races;
     const limits = currentSeries.potential_limit || { min_potential_per_race: 15, max_total_potential: 95 };
-    const seriesSexLimit = currentSeries.sex || "制限なし";
     
     let totalPt = 0;
     let count = 0;
@@ -465,10 +468,12 @@
         const horse = HORSES_MASTER[id];
         const race = races[rIdx];
         const pt = getHorsePotential(horse, race.surface);
+        const raceSexLimit = race.sex || currentSeries.sex || "制限なし";
+
         totalPt += pt;
 
         if (pt < limits.min_potential_per_race) hasMinPtError = true;
-        if (!isValidSex(horse.sex || "牡", seriesSexLimit)) hasSexError = true;
+        if (!isValidSex(horse.sex || "牡", raceSexLimit)) hasSexError = true;
         if (!isValidDistance(horse, race.distance)) hasDistError = true;
       }
     });
@@ -563,30 +568,30 @@
     }
   }
 
-  // CPU対戦馬・モブ馬の自動抽選関数（Firestore二重配列制約回避版）
   function generateCpuAndMobEntries(races) {
     const limits = currentSeries?.potential_limit || { max_total_potential: 95 };
     const targetPtBase = Math.floor((limits.max_total_potential || 95) / 5);
     const minPt = Math.max(0, targetPtBase - 2);
     const maxPt = targetPtBase + 2;
-    const seriesSex = currentSeries?.sex || "制限なし";
     const allHorses = Object.values(HORSES_MASTER);
 
     const deckHorseIds = new Set(deckHorses.map(h => String(h.horse_id)));
 
     const cpuEntries = [];
-    const racesMobIds = {}; // 二重配列エラー回避のためオブジェクト形式に設定
+    const racesMobIds = {};
 
     races.forEach((race, rIdx) => {
-      // 1. CPU馬の抽選（デッキ内18頭と被らないように選出）
+      const raceSexLimit = race.sex || currentSeries?.sex || "制限なし";
+
       let eligibleCpu = allHorses.filter(h => {
         const hId = String(h.horse_id);
         const pt = getHorsePotential(h, race.surface);
-        return !deckHorseIds.has(hId) && pt >= minPt && pt <= maxPt;
+        const sexOk = isValidSex(h.sex || "牡", raceSexLimit);
+        return !deckHorseIds.has(hId) && pt >= minPt && pt <= maxPt && sexOk;
       });
 
       if (eligibleCpu.length === 0) {
-        eligibleCpu = allHorses.filter(h => !deckHorseIds.has(String(h.horse_id)));
+        eligibleCpu = allHorses.filter(h => !deckHorseIds.has(String(h.horse_id)) && isValidSex(h.sex || "牡", raceSexLimit));
       }
 
       const chosenCpu = eligibleCpu.length > 0 
@@ -601,19 +606,18 @@
         strategy_level: Math.floor(Math.random() * 3) + 2
       });
 
-      // 2. モブ馬（14頭）の抽選（デッキ18頭 ＋ 決定したCPU馬を除外）
       const excludeIds = new Set([...deckHorseIds, cpuId]);
 
       let pool = allHorses.filter(h => {
         const hId = String(h.horse_id);
         if (excludeIds.has(hId)) return false;
         const pt = getHorsePotential(h, race.surface);
-        const sexOk = isValidSex(h.sex || "牡", seriesSex);
+        const sexOk = isValidSex(h.sex || "牡", raceSexLimit);
         return pt >= minPt && pt <= maxPt && sexOk;
       });
 
       if (pool.length < 14) {
-        const fallbackPool = allHorses.filter(h => !excludeIds.has(String(h.horse_id)));
+        const fallbackPool = allHorses.filter(h => !excludeIds.has(String(h.horse_id)) && isValidSex(h.sex || "牡", raceSexLimit));
         pool = pool.concat(fallbackPool.filter(h => !pool.includes(h)));
       }
 
@@ -622,13 +626,12 @@
       
       while (selectedMobs.length < 14) selectedMobs.push("0000");
 
-      racesMobIds[rIdx] = selectedMobs; // レースインデックス（0〜4）をキーにして格納
+      racesMobIds[rIdx] = selectedMobs;
     });
 
     return { cpuEntries, racesMobIds };
   }
 
-  // 対戦開始ボタンの処理
   window.startMatch = async function() {
     if (!currentUser) return;
 
@@ -672,8 +675,7 @@
         cpu_battle_status: updatedStatus
       }, { merge: true });
 
-      if (!globalUserData) globalUserData = {};
-      globalUserData.cpu_battle_status = updatedStatus;
+      if (!globalUserData) globalUserData = {}; globalUserData.cpu_battle_status = updatedStatus;
 
       sessionStorage.removeItem('player_entry_ids');
       window.location.href = 'strategy.html';
