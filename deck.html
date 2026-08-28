@@ -365,7 +365,7 @@
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { doc, getDoc, updateDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   let HORSES_MASTER = {};
   let HORSES_ARRAY = [];
@@ -440,6 +440,7 @@
       }
 
       const userDoc = await getDoc(doc(db, "users", user.uid));
+            const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) {
         globalUserData = userDoc.data();
       } else {
@@ -447,8 +448,17 @@
         return;
       }
 
+      // 🔽 ここから6行を追加 🔽
+      const inventorySnap = await getDocs(collection(db, `users/${user.uid}/inventory`));
+      globalUserData.cards = {};
+      inventorySnap.forEach(docSnap => {
+        globalUserData.cards[docSnap.id] = docSnap.data();
+      });
+      // 🔼 ここまでを追加 🔼
+
       if (!globalUserData.decks || !Array.isArray(globalUserData.decks)) {
-        globalUserData.decks = [
+
+      globalUserData.decks = [
           { deck_name: "メインデッキ 1", horse_ids: new Array(18).fill(null) },
           { deck_name: "メインデッキ 2", horse_ids: new Array(18).fill(null) }
         ];
