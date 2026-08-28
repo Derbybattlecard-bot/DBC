@@ -377,7 +377,6 @@
 
   const RARITY_WEIGHT = { "INF": 11, "SER": 10, "UR": 9, "LGR": 8, "CLR": 7, "TR": 6, "RER": 5, "AR": 4, "VR": 3, "PR": 3, "SPR": 2, "N": 1 };
 
-  // --- マスターデータ構造の差分吸収ヘルパー ---
   function getTurfVal(horse) {
     return Number(horse.turf_potential ?? horse.turf) || 0;
   }
@@ -434,13 +433,11 @@
         HORSES_ARRAY = await res.json();
         HORSES_MASTER = {};
         HORSES_ARRAY.forEach(h => {
-          // 数値・文字列どちらのIDキーでも引けるように文字列に統一
           HORSES_MASTER[String(h.horse_id)] = h;
         });
       }
 
       const userDoc = await getDoc(doc(db, "users", user.uid));
-      
       if (userDoc.exists()) {
         globalUserData = userDoc.data();
       } else {
@@ -448,17 +445,14 @@
         return;
       }
 
-      // 🔽 ここから6行を追加 🔽
       const inventorySnap = await getDocs(collection(db, `users/${user.uid}/inventory`));
       globalUserData.cards = {};
       inventorySnap.forEach(docSnap => {
         globalUserData.cards[docSnap.id] = docSnap.data();
       });
-      // 🔼 ここまでを追加 🔼
 
       if (!globalUserData.decks || !Array.isArray(globalUserData.decks)) {
-
-      globalUserData.decks = [
+        globalUserData.decks = [
           { deck_name: "メインデッキ 1", horse_ids: new Array(18).fill(null) },
           { deck_name: "メインデッキ 2", horse_ids: new Array(18).fill(null) }
         ];
@@ -527,43 +521,50 @@
       const slotBox = document.createElement('div');
       slotBox.className = 'storage-slot-box';
       
-      const hasData = globalUserData.saved_deck_slots[i] && Array.isArray(globalUserData.saved_deck_slots[i]);
+      const slotData = globalUserData.saved_deck_slots[i];
+      const hasData = slotData && (Array.isArray(slotData) || (typeof slotData === 'object' && slotData.horse_ids && Array.isArray(slotData.horse_ids)));
+      const slotName = (slotData && slotData.deck_name) ? slotData.deck_name : (hasData ? '保存済み' : '空き');
       
       slotBox.innerHTML = `
-        <span class="storage-label">#${i + 1}</span>
-        <button class="btn-storage-save" data-index="${i}" title="現在のデッキ構成を保存">保存</button>
-        <button class="btn-storage-load" data-index="${i}" title="この構成をロード">${hasData ? 'ロード' : '空き'}</button>
+        <span class="storage-label">#${i + 1} ${slotName}</span>
+        <button class="btn-storage-save" data-index="${i}" title="現在のデッキを保存">保存</button>
+        ${hasData ? `<button class="btn-storage-load" data-index="${i}" title="このデッキを読込">読込</button>` : ''}
       `;
       container.appendChild(slotBox);
     }
 
     container.querySelectorAll('.btn-storage-save').forEach(btn => {
-      btn.onclick = (e) => {
-        const slotIdx = parseInt(e.target.getAttribute('data-index'), 10);
-        saveToDeckSlot(slotIdx);
-      };
+      btn.onclick = (e) => saveToDeckSlot(parseInt(e.target.getAttribute('data-index'), 10));
     });
 
     container.querySelectorAll('.btn-storage-load').forEach(btn => {
-      btn.onclick = (e) => {
-        const slotIdx = parseInt(e.target.getAttribute('data-index'), 10);
-        loadFromDeckSlot(slotIdx);
-      };
+      btn.onclick = (e) => loadFromDeckSlot(parseInt(e.target.getAttribute('data-index'), 10));
     });
   }
 
   function saveToDeckSlot(slotIdx) {
-    const currentHorseIds = [...globalUserData.decks[activeDeckIdx].horse_ids];
-    globalUserData.saved_deck_slots[slotIdx] = currentHorseIds;
+    const currentDeck = globalUserData.decks[activeDeckIdx];
+    globalUserData.saved_deck_slots[slotIdx] = {
+      deck_name: currentDeck.deck_name || `メインデッキ ${activeDeckIdx + 1}`,
+      horse_ids: [...currentDeck.horse_ids]
+    };
     syncSave();
     renderStorageSlots();
-    alert(`セーブスロット #${slotIdx + 1} に現在のデッキを保存しました！`);
+    alert(`セーブスロット #${slotIdx + 1} に「${globalUserData.saved_deck_slots[slotIdx].deck_name}」を保存しました！`);
   }
 
   function loadFromDeckSlot(slotIdx) {
-    const savedIds = globalUserData.saved_deck_slots[slotIdx];
+    const slotData = globalUserData.saved_deck_slots[slotIdx];
+    if (!slotData) {
+      alert(`スロット #${slotIdx + 1} にはデータがありません。`);
+      return;
+    }
+
+    const savedIds = Array.isArray(slotData) ? slotData : slotData.horse_ids;
+    const savedName = (slotData && slotData.deck_name) || `ロードデッキ #${slotIdx + 1}`;
+
     if (!savedIds || !Array.isArray(savedIds)) {
-      alert(`スロット #${slotIdx + 1} にはデータが保存されていません。`);
+      alert(`スロット #${slotIdx + 1} のデータ構造が不正です。`);
       return;
     }
 
@@ -601,16 +602,18 @@
 
     while (cleanedIds.length < 18) cleanedIds.push(null);
 
+    globalUserData.decks[activeDeckIdx].deck_name = savedName;
     globalUserData.decks[activeDeckIdx].horse_ids = cleanedIds.slice(0, 18);
     selectedSlotIndex = null;
+
     syncSave();
     renderAll();
 
-    let msg = `スロット #${slotIdx + 1} のデッキをロードしました！`;
+    let msg = `スロット #${slotIdx + 1} の「${savedName}」をロードしました！`;
     if (missingCount > 0 || duplicateCount > 0) {
-      msg += `\n\n【自動調整のご案内】\n`;
-      if (missingCount > 0) msg += `- 所持していない馬 ${missingCount}頭 を外しました。\n`;
-      if (duplicateCount > 0) msg += `- もう片方のデッキと重複している馬 ${duplicateCount}頭 を外しました。`;
+      msg += `\n\n【自動調整】\n`;
+      if (missingCount > 0) msg += `- 未所持の馬 ${missingCount}頭 を外しました。\n`;
+      if (duplicateCount > 0) msg += `- もう片方のデッキと重複する馬 ${duplicateCount}頭 を外しました。`;
     }
     alert(msg);
   }
