@@ -426,117 +426,6 @@
   </div>
 </div>
 
-<script type="module">
-  import { auth, db } from './firebase-config.js';
-  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc, updateDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-  let HORSES_MASTER = {};
-  let HORSES_ARRAY = [];
-  let currentUser = null;
-  let globalUserData = null;
-  let activeDeckIdx = 0;
-  let selectedSlotIndex = null;
-  let selectedKana = "ALL";
-
-  const RARITY_WEIGHT = { "INF": 11, "SER": 10, "UR": 9, "LGR": 8, "CLR": 7, "TR": 6, "RER": 5, "AR": 4, "VR": 3, "PR": 3, "SPR": 2, "N": 1 };
-
-  function getTurfVal(horse) {
-    return Number(horse.turf_potential ?? horse.turf) || 0;
-  }
-
-  function getDirtVal(horse) {
-    return Number(horse.dirt_potential ?? horse.dirt) || 0;
-  }
-
-  function getSurfaceText(horse) {
-    const t = getTurfVal(horse);
-    const d = getDirtVal(horse);
-    if (t > 0 && d > 0) return t === d ? `芝/ダ${t}` : `芝${t}ダ${d}`;
-    if (t > 0) return `芝${t}`;
-    if (d > 0) return `ダ${d}`;
-    return "-";
-  }
-
-  function getDistanceText(horse) {
-    if (horse.min_distance && horse.max_distance) {
-      return `${horse.min_distance}-${horse.max_distance}m`;
-    }
-    return horse.distance || '-';
-  }
-
-  function getSexText(horse) {
-    return horse.sex || horse.gender || horse.sex_name || '-';
-  }
-
-  function getStyleText(horse) {
-    return horse.style || horse.running_style || horse.style_name || '-';
-  }
-
-  function getAbilityBadgeHtml(horse) {
-    const ability = horse.ability || horse.ability_name || horse.skill || '';
-    if (!ability) return '';
-    const shortAbility = ability.substring(0, 3);
-    return `<span class="ability-badge" title="${ability}">${shortAbility}</span>`;
-  }
-
-  function getParamRank(val) {
-    if (val === undefined || val === null) return "-";
-    if (val >= 20) return "S";
-    if (val >= 18) return "A";
-    if (val >= 16) return "B";
-    return "C";
-  }
-
-  function setSyncStatus(msg) {
-    const el = document.getElementById('syncStatus');
-    if (el) el.textContent = msg;
-  }
-
-  onAuthStateChanged(auth, async (user) => {
-    if (!user) {
-      window.location.href = 'auth.html';
-      return;
-    }
-    currentUser = user;
-    setSyncStatus("☁️ データ読み込み中...");
-
-    try {
-      const res = await fetch('./data/horses_master.json');
-      if (res.ok) {
-        HORSES_ARRAY = await res.json();
-        HORSES_MASTER = {};
-        HORSES_ARRAY.forEach(h => {
-          HORSES_MASTER[String(h.horse_id)] = h;
-        });
-      }
-
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) {
-        globalUserData = userDoc.data();
-      } else {
-        window.location.href = 'setup.html';
-        return;
-      }
-
-      const inventorySnap = await getDocs(collection(db, `users/${user.uid}/inventory`));
-      globalUserData.cards = {};
-      inventorySnap.forEach(docSnap => {
-        globalUserData.cards[docSnap.id] = docSnap.data();
-      });
-
-      if (!globalUserData.decks || !Array.isArray(globalUserData.decks)) {
-        globalUserData.decks = [
-          { deck_name: "メインデッキ 1", horse_ids: new Array(18).fill(null) },
-          { deck_name: "メインデッキ 2", horse_ids: new Array(18).fill(null) }
-        ];
-      }
-
-      globalUserData.decks.forEach(deck => {
-        if (!deck.horse_ids) deck.horse_ids = new Array(18).fill(null);
-        while (deck.horse_ids.length < 18) {
-          deck.horse_ids.push(null);
-        }
       });
 
       if (!globalUserData.saved_deck_slots || !Array.isArray(globalUserData.saved_deck_slots)) {
@@ -625,28 +514,7 @@
   function saveToDeckSlot(slotIdx) {
     const currentDeck = globalUserData.decks[activeDeckIdx];
     globalUserData.saved_deck_slots[slotIdx] = {
-      deck_name: currentDeck.deck_name || `メインデッキ ${activeDeckIdx + 1}`,
-      horse_ids: [...currentDeck.horse_ids]
-    };
-    syncSave();
-    renderStorageSlots();
-    alert(`セーブスロット #${slotIdx + 1} に「${globalUserData.saved_deck_slots[slotIdx].deck_name}」を保存しました！`);
-  }
 
-  function loadFromDeckSlot(slotIdx) {
-    const slotData = globalUserData.saved_deck_slots[slotIdx];
-    if (!slotData) {
-      alert(`スロット #${slotIdx + 1} にはデータがありません。`);
-      return;
-    }
-
-    const savedIds = Array.isArray(slotData) ? slotData : slotData.horse_ids;
-    const savedName = (slotData && slotData.deck_name) || `ロードデッキ #${slotIdx + 1}`;
-
-    if (!savedIds || !Array.isArray(savedIds)) {
-      alert(`スロット #${slotIdx + 1} のデータ構造が不正です。`);
-      return;
-    }
 
     const inventory = globalUserData.cards || {};
     const otherDeckIdx = activeDeckIdx === 0 ? 1 : 0;
@@ -734,6 +602,268 @@
             <div class="stat-item"><span class="stat-label">持続</span><span class="stat-val">${getParamRank(horse.jizoku)}</span></div>
             <div class="stat-item"><span class="stat-label">根性</span><span class="stat-val">${getParamRank(horse.guts)}</span></div>
           </div>
+      
+  <script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { doc, getDoc, updateDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  let HORSES_MASTER = {};
+  let HORSES_ARRAY = [];
+  let currentUser = null;
+  let globalUserData = null;
+  let activeDeckIdx = 0;
+  let selectedSlotIndex = null;
+  let selectedKana = "ALL";
+
+  const RARITY_WEIGHT = { "INF": 11, "SER": 10, "UR": 9, "LGR": 8, "CLR": 7, "TR": 6, "RER": 5, "AR": 4, "VR": 3, "PR": 3, "SPR": 2, "N": 1 };
+
+  function getTurfVal(horse) { return Number(horse.turf_potential ?? horse.turf) || 0; }
+  function getDirtVal(horse) { return Number(horse.dirt_potential ?? horse.dirt) || 0; }
+
+  function getSurfaceText(horse) {
+    const t = getTurfVal(horse);
+    const d = getDirtVal(horse);
+    if (t > 0 && d > 0) return t === d ? `芝/ダ${t}` : `芝${t}ダ${d}`;
+    if (t > 0) return `芝${t}`;
+    if (d > 0) return `ダ${d}`;
+    return "-";
+  }
+
+  function getDistanceText(horse) {
+    if (horse.min_distance && horse.max_distance) return `${horse.min_distance}-${horse.max_distance}m`;
+    return horse.distance || '-';
+  }
+
+  function getSexText(horse) { return horse.sex || horse.gender || horse.sex_name || '-'; }
+  function getStyleText(horse) { return horse.style || horse.running_style || horse.style_name || '-'; }
+
+  function getAbilityBadgeHtml(horse) {
+    const ability = horse.ability || horse.ability_name || horse.skill || '';
+    if (!ability) return '';
+    const shortAbility = ability.substring(0, 3);
+    return `<span class="ability-badge" title="${ability}">${shortAbility}</span>`;
+  }
+
+  function getParamRank(val) {
+    if (val === undefined || val === null) return "-";
+    if (val >= 20) return "S";
+    if (val >= 18) return "A";
+    if (val >= 16) return "B";
+    return "C";
+  }
+
+  function setSyncStatus(msg) {
+    const el = document.getElementById('syncStatus');
+    if (el) el.textContent = msg;
+  }
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.href = 'auth.html';
+      return;
+    }
+    currentUser = user;
+    setSyncStatus("☁️ データ読み込み中...");
+
+    try {
+      try {
+        const res = await fetch('./data/horses_master.json');
+        if (res.ok) {
+          HORSES_ARRAY = await res.json();
+          HORSES_MASTER = {};
+          HORSES_ARRAY.forEach(h => { HORSES_MASTER[String(h.horse_id)] = h; });
+        } else {
+          console.warn("horses_master.json の読み込みに失敗しました。");
+        }
+      } catch (e) {
+        console.error("JSON fetch error:", e);
+      }
+
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) {
+        globalUserData = userDoc.data();
+      } else {
+        globalUserData = { decks: [], saved_deck_slots: [] };
+      }
+
+      try {
+        const inventorySnap = await getDocs(collection(db, `users/${user.uid}/inventory`));
+        globalUserData.cards = {};
+        inventorySnap.forEach(docSnap => {
+          globalUserData.cards[docSnap.id] = docSnap.data();
+        });
+      } catch (e) {
+        console.warn("インベントリ取得失敗:", e);
+        globalUserData.cards = {};
+      }
+
+      if (!globalUserData.decks || !Array.isArray(globalUserData.decks)) {
+        globalUserData.decks = [
+          { deck_name: "メインデッキ 1", horse_ids: new Array(18).fill(null) },
+          { deck_name: "メインデッキ 2", horse_ids: new Array(18).fill(null) }
+        ];
+      }
+
+      globalUserData.decks.forEach(deck => {
+        if (!deck.horse_ids) deck.horse_ids = new Array(18).fill(null);
+        while (deck.horse_ids.length < 18) deck.horse_ids.push(null);
+      });
+
+      if (!globalUserData.saved_deck_slots || !Array.isArray(globalUserData.saved_deck_slots)) {
+        globalUserData.saved_deck_slots = new Array(5).fill(null);
+      }
+
+      setSyncStatus("✅ クラウド同期完了");
+      renderAll();
+
+    } catch (err) {
+      console.error("初期化エラー詳細:", err);
+      setSyncStatus(`❌ データ読み込みエラー (${err.message})`);
+    }
+  });
+
+  async function syncSave() {
+    setSyncStatus("☁️ 保存中...");
+    try {
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        decks: globalUserData.decks,
+        saved_deck_slots: globalUserData.saved_deck_slots
+      });
+      setSyncStatus("✅ 保存完了");
+    } catch (err) {
+      console.error("保存失敗:", err);
+      setSyncStatus("❌ 保存失敗");
+    }
+  }
+
+  function renderAll() {
+    const currentDeck = globalUserData.decks[activeDeckIdx] || { deck_name: "メインデッキ 1", horse_ids: [] };
+    document.getElementById('deckNameInput').value = currentDeck.deck_name || `メインデッキ ${activeDeckIdx + 1}`;
+    renderDeck();
+    renderPool();
+    renderStorageSlots();
+  }
+
+  function switchDeck(idx) {
+    activeDeckIdx = idx;
+    selectedSlotIndex = null;
+    document.getElementById('tabA').className = `tab-btn ${idx === 0 ? 'active' : ''}`;
+    document.getElementById('tabB').className = `tab-btn ${idx === 1 ? 'active' : ''}`;
+    renderAll();
+  }
+
+  document.getElementById('btnChangeDeckName').addEventListener('click', () => {
+    const inputVal = document.getElementById('deckNameInput').value.trim();
+    if (!inputVal) return alert("デッキ名を入力してください。");
+    globalUserData.decks[activeDeckIdx].deck_name = inputVal;
+    syncSave();
+    alert(`デッキ名を「${inputVal}」に変更しました！`);
+  });
+
+  function renderStorageSlots() {
+    const container = document.getElementById('deckStorageContainer');
+    container.innerHTML = '';
+    for (let i = 0; i < 5; i++) {
+      const slotBox = document.createElement('div');
+      slotBox.className = 'storage-slot-box';
+      const slotData = globalUserData.saved_deck_slots[i];
+      const hasData = slotData && (Array.isArray(slotData) || (typeof slotData === 'object' && slotData.horse_ids && Array.isArray(slotData.horse_ids)));
+      const slotName = (slotData && slotData.deck_name) ? slotData.deck_name : (hasData ? '保存済み' : '空き');
+      
+      slotBox.innerHTML = `
+        <span class="storage-label">#${i + 1} ${slotName}</span>
+        <button class="btn-storage-save" data-index="${i}" title="現在のデッキを保存">保存</button>
+        ${hasData ? `<button class="btn-storage-load" data-index="${i}" title="このデッキを読込">読込</button>` : ''}
+      `;
+      container.appendChild(slotBox);
+    }
+
+    container.querySelectorAll('.btn-storage-save').forEach(btn => {
+      btn.onclick = (e) => saveToDeckSlot(parseInt(e.target.getAttribute('data-index'), 10));
+    });
+    container.querySelectorAll('.btn-storage-load').forEach(btn => {
+      btn.onclick = (e) => loadFromDeckSlot(parseInt(e.target.getAttribute('data-index'), 10));
+    });
+  }
+
+  function saveToDeckSlot(slotIdx) {
+    const currentDeck = globalUserData.decks[activeDeckIdx];
+    globalUserData.saved_deck_slots[slotIdx] = {
+      deck_name: currentDeck.deck_name || `メインデッキ ${activeDeckIdx + 1}`,
+      horse_ids: [...currentDeck.horse_ids]
+    };
+    syncSave();
+    renderStorageSlots();
+    alert(`セーブスロット #${slotIdx + 1} に「${globalUserData.saved_deck_slots[slotIdx].deck_name}」を保存しました！`);
+  }
+
+  function loadFromDeckSlot(slotIdx) {
+    const slotData = globalUserData.saved_deck_slots[slotIdx];
+    if (!slotData) return alert(`スロット #${slotIdx + 1} にはデータがありません。`);
+
+    const savedIds = Array.isArray(slotData) ? slotData : slotData.horse_ids;
+    const savedName = (slotData && slotData.deck_name) || `ロードデッキ #${slotIdx + 1}`;
+    if (!savedIds || !Array.isArray(savedIds)) return alert(`スロット #${slotIdx + 1} のデータ構造が不正です。`);
+
+    const inventory = globalUserData.cards || {};
+    const otherDeckIdx = activeDeckIdx === 0 ? 1 : 0;
+    const otherDeckAssigned = new Set();
+    if (globalUserData.decks[otherDeckIdx] && globalUserData.decks[otherDeckIdx].horse_ids) {
+      globalUserData.decks[otherDeckIdx].horse_ids.forEach(id => { if (id) otherDeckAssigned.add(String(id)); });
+    }
+
+    const cleanedIds = savedIds.map(horseId => {
+      if (!horseId) return null;
+      const strId = String(horseId);
+      const cardInfo = inventory[strId] || inventory[horseId];
+      const count = (typeof cardInfo === 'object' && cardInfo !== null) ? (cardInfo.count || 1) : (cardInfo || 0);
+      if (!cardInfo || count <= 0) return null;
+      if (otherDeckAssigned.has(strId)) return null;
+      otherDeckAssigned.add(strId);
+      return strId;
+    });
+
+    while (cleanedIds.length < 18) cleanedIds.push(null);
+
+    globalUserData.decks[activeDeckIdx].deck_name = savedName;
+    globalUserData.decks[activeDeckIdx].horse_ids = cleanedIds.slice(0, 18);
+    selectedSlotIndex = null;
+
+    syncSave();
+    renderAll();
+  }
+
+  function renderDeck() {
+    const grid = document.getElementById('slotsGrid');
+    grid.innerHTML = '';
+    const currentSlots = globalUserData.decks[activeDeckIdx].horse_ids;
+    let filledCount = 0;
+
+    currentSlots.forEach((horseId, idx) => {
+      const isSelected = (selectedSlotIndex === idx);
+      const horse = horseId ? HORSES_MASTER[String(horseId)] : null;
+      const div = document.createElement('div');
+      
+      if (horse) {
+        filledCount++;
+        div.className = `slot-card filled ${isSelected ? 'selected' : ''}`;
+        div.innerHTML = `
+          <div class="card-name-row">
+            <span class="card-name-slot" title="${horse.name}">${horse.name}</span>
+            ${getAbilityBadgeHtml(horse)}
+          </div>
+          <div class="card-details-slot">
+            <span>${getSurfaceText(horse)} ${getDistanceText(horse)} ${getSexText(horse)}</span>
+            <span>脚質: ${getStyleText(horse)}</span>
+          </div>
+          <div class="slot-stats-grid">
+            <div class="stat-item"><span class="stat-label">スピ</span><span class="stat-val">${getParamRank(horse.speed)}</span></div>
+            <div class="stat-item"><span class="stat-label">スタ</span><span class="stat-val">${getParamRank(horse.stamina)}</span></div>
+            <div class="stat-item"><span class="stat-label">瞬発</span><span class="stat-val">${getParamRank(horse.sharp ?? horse.sharpness)}</span></div>
+            <div class="stat-item"><span class="stat-label">持続</span><span class="stat-val">${getParamRank(horse.jizoku)}</span></div>
+            <div class="stat-item"><span class="stat-label">根性</span><span class="stat-val">${getParamRank(horse.guts)}</span></div>
+          </div>
         `;
         div.onclick = () => removeCardFromSlot(idx);
       } else {
@@ -763,7 +893,6 @@
   function getKanaRowGroup(name) {
     if (!name) return "";
     const firstChar = name.charAt(0);
-
     const groups = {
       "ア": ["ア","イ","ウ","エ","オ", "ァ","ィ","ゥ","ェ","ォ"],
       "カ": ["カ","キ","ク","ケ","コ","ガ","ギ","グ","ゲ","ゴ"],
@@ -776,15 +905,10 @@
       "ラ": ["ラ","リ","ル","レ","ロ"],
       "ワ": ["ワ","ヲ","ン"]
     };
-
     for (const [groupKey, chars] of Object.entries(groups)) {
       if (chars.includes(firstChar)) return groupKey;
     }
-
-    if (/^[A-Za-z]/.test(firstChar)) {
-      return "AZ";
-    }
-
+    if (/^[A-Za-z]/.test(firstChar)) return "AZ";
     return "その他";
   }
 
@@ -797,16 +921,13 @@
     const distanceVal = document.getElementById('distanceFilter').value;
     const sortKey = document.getElementById('sortKey').value;
     const sortOrder = document.getElementById('sortOrder').value;
-
     const inventory = globalUserData.cards || {};
 
     const allAssignedHorses = new Set();
     if (globalUserData.decks && Array.isArray(globalUserData.decks)) {
       globalUserData.decks.forEach(deck => {
         if (deck.horse_ids) {
-          deck.horse_ids.forEach(id => {
-            if (id) allAssignedHorses.add(String(id));
-          });
+          deck.horse_ids.forEach(id => { if (id) allAssignedHorses.add(String(id)); });
         }
       });
     }
@@ -821,7 +942,6 @@
 
       if (count > 0 && horse && !allAssignedHorses.has(strId)) {
         if (searchText && !horse.name.toLowerCase().includes(searchText)) continue;
-        
         const turfVal = getTurfVal(horse);
         const dirtVal = getDirtVal(horse);
 
@@ -833,21 +953,18 @@
           const targetDist = parseInt(distanceVal, 10);
           let minD = horse.min_distance;
           let maxD = horse.max_distance;
-          
           if (!minD && !maxD && horse.distance) {
             const parts = horse.distance.split('-').map(v => parseInt(v, 10));
             minD = parts[0];
             maxD = parts[1] || parts[0];
           }
-
           if (minD !== undefined && maxD !== undefined && !isNaN(minD) && !isNaN(maxD)) {
             if (targetDist < minD || targetDist > maxD) continue;
           }
         }
 
         if (selectedKana !== 'ALL') {
-          const rowGroup = getKanaRowGroup(horse.name);
-          if (rowGroup !== selectedKana) continue;
+          if (getKanaRowGroup(horse.name) !== selectedKana) continue;
         }
 
         poolList.push({ horse, count });
@@ -869,23 +986,16 @@
     });
 
     poolList.forEach(({ horse }) => {
-      const surfaceText = getSurfaceText(horse);
-      const distanceText = getDistanceText(horse);
-      const sexText = getSexText(horse);
-      const styleText = getStyleText(horse);
-      const abilityBadge = getAbilityBadgeHtml(horse);
-
       const div = document.createElement('div');
       div.className = 'pool-card';
-      
       div.innerHTML = `
         <div class="pool-name-row">
           <span class="pool-name" title="${horse.name}">${horse.name}</span>
-          ${abilityBadge}
+          ${getAbilityBadgeHtml(horse)}
         </div>
-        <div class="pool-surface-dist">${surfaceText} ${distanceText} ${sexText}</div>
+        <div class="pool-surface-dist">${getSurfaceText(horse)} ${getDistanceText(horse)} ${getSexText(horse)}</div>
         <div class="pool-stats-grid">
-          <div class="stat-item"><span class="stat-label">脚質</span><span class="stat-val style-val">${styleText}</span></div>
+          <div class="stat-item"><span class="stat-label">脚質</span><span class="stat-val style-val">${getStyleText(horse)}</span></div>
           <div class="stat-item"><span class="stat-label">スピ</span><span class="stat-val">${getParamRank(horse.speed)}</span></div>
           <div class="stat-item"><span class="stat-label">スタ</span><span class="stat-val">${getParamRank(horse.stamina)}</span></div>
           <div class="stat-item"><span class="stat-label">瞬発</span><span class="stat-val">${getParamRank(horse.sharp ?? horse.sharpness)}</span></div>
@@ -940,5 +1050,6 @@
     });
   });
 </script>
+
 </body>
 </html>
