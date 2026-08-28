@@ -268,6 +268,18 @@
   </div>
 </div>
 
+-item">
+        <span class="record-label">勝率</span>
+        <span class="record-value highlight">${winRate}%</span>
+      </div>
+      <div class="record-item">
+        <span class="record-label">最高連勝</span>
+        <span class="record-value">${rec.maxStreak}連勝</span>
+      </div>
+      <div class="record-item">
+        <span class="record-label">所持種類</span>
+        <span class="record-value" style="color:#0d4220;">${cardTypesDisplay}</span>
+      </div>
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
@@ -286,9 +298,11 @@
     }
     currentUser = user;
     try {
-      await cardRenderer.init();
+      // ユーザーデータとカードデータの取得を並列で開始
+      const userDocPromise = getDoc(doc(db, "users", user.uid));
+      const initCardPromise = cardRenderer.init();
 
-      const userDoc = await getDoc(doc(db, "users", user.uid));
+      const userDoc = await userDocPromise;
       if (userDoc.exists()) {
         globalUserData = userDoc.data();
       } else {
@@ -296,12 +310,16 @@
         return;
       }
 
+      // カードデータの読み込み完了を確実に待つ
+      await initCardPromise;
+
       renderUserProfile();
       renderSelectedDeck();
       renderRecord(); 
       await checkAndRenderLoginBonus();
     } catch (err) {
       console.error("初期化エラー:", err);
+      alert("データの読み込みに失敗しました。ページの再読み込みをお試しください。");
     }
   });
 
@@ -366,7 +384,6 @@
     };
 
     if (bonusState.last_date !== todayStr) {
-      // 日付が変わった場合、前日のフィーバー獲得状態を本日に反映
       const isFeverForToday = Boolean(bonusState.fever_qualified_next_day);
       bonusState = {
         last_date: todayStr,
@@ -467,7 +484,6 @@
 
     const isFeverClaim = (cards.length === 0 && Boolean(state.is_fever_today));
     
-    // ガチャ抽選を実行
     const chosenHorse = drawBonusCard(cardRenderer, globalUserData.affiliation, isFeverClaim);
 
     if (!chosenHorse || !chosenHorse.horse_id) {
@@ -498,11 +514,9 @@
     }
 
     try {
-      // ユーザーデータ更新
       const userRef = doc(db, "users", currentUser.uid);
       await setDoc(userRef, { login_bonus_state: state }, { merge: true });
 
-      // インベントリ追加
       const inventoryRef = doc(db, `users/${currentUser.uid}/inventory/${chosenHorse.horse_id}`);
       await setDoc(inventoryRef, {
         count: increment(1),
@@ -548,5 +562,6 @@
   document.getElementById('tabMain1').addEventListener('click', () => switchTab(0));
   document.getElementById('tabMain2').addEventListener('click', () => switchTab(1));
 </script>
+
 </body>
 </html>
