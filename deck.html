@@ -169,7 +169,7 @@
     border: 1px dashed var(--border-color);
     border-radius: 5px;
     padding: 5px;
-    min-height: 72px;
+    min-height: 85px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -203,7 +203,6 @@
     color: var(--accent-color);
     font-weight: bold;
   }
-
   .card-details-slot {
     display: flex;
     flex-direction: column;
@@ -301,20 +300,33 @@
     font-size: 11px;
   }
   
-  /* アビリティ用ボタン風スタイル */
+  /* ★ アビリティ最下部・横3つ並び用レイアウト */
+  .card-abilities-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    margin-top: 3px;
+  }
   .ability-btn {
     background: #e2efe3;
     border: 1px solid var(--accent-color);
     color: var(--accent-color);
     border-radius: 3px;
-    padding: 1px 4px;
+    padding: 1px 2px;
     font-size: 9px;
     font-weight: bold;
     text-align: center;
     line-height: 1.2;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-
+  /* 空白保持用透明バッジ */
+  .ability-btn.empty {
+    visibility: hidden;
+    border-color: transparent;
+    background: transparent;
+  }
 </style>
 </head>
 <body>
@@ -449,6 +461,30 @@
   function setSyncStatus(msg) {
     const el = document.getElementById('syncStatus');
     if (el) el.textContent = msg;
+  }
+
+  // ★ アビリティ横3つ並び用のHTML生成（ない馬も高さ・領域を3枠分確保）
+  function getAbilityBadgeHtml(horse) {
+    let abilities = [];
+    if (Array.isArray(horse.ability)) {
+      abilities = horse.ability;
+    } else if (typeof horse.ability === 'string' && horse.ability) {
+      abilities = [horse.ability];
+    } else if (horse.skill) {
+      abilities = Array.isArray(horse.skill) ? horse.skill : [horse.skill];
+    }
+
+    let html = '<div class="card-abilities-row">';
+    for (let i = 0; i < 3; i++) {
+      if (abilities[i]) {
+        const label = String(abilities[i]).substring(0, 3);
+        html += `<div class="ability-btn" title="${abilities[i]}">${label}</div>`;
+      } else {
+        html += `<div class="ability-btn empty">---</div>`;
+      }
+    }
+    html += '</div>';
+    return html;
   }
   
   onAuthStateChanged(auth, async (user) => {
@@ -592,7 +628,7 @@
       alert(`スロット #${slotIdx + 1} のデータ構造が不正です。`);
       return;
     }
-    const inventory = globalUserData.cards || {};
+ const inventory = globalUserData.cards || {};
     const otherDeckIdx = activeDeckIdx === 0 ? 1 : 0;
     const otherDeckAssigned = new Set();
     if (globalUserData.decks[otherDeckIdx] && globalUserData.decks[otherDeckIdx].horse_ids) {
@@ -647,25 +683,13 @@
         filledCount++;
         const surfaceText = getSurfaceText(horse);
         const distanceText = getDistanceText(horse);
+        const sexText = horse.sex || "-";
+        const abilitiesHtml = getAbilityBadgeHtml(horse);
         
-      // ★ 修正: オブジェクトから正確に取得し、配列ハンドリングを追加
-const sexText = horse.sex || "-";
-let abilityText = "---";
-
-if (Array.isArray(horse.ability) && horse.ability.length > 0) {
-  abilityText = horse.ability[0].substring(0, 3); // 1つ目のアビリティの先頭3文字
-} else if (typeof horse.ability === 'string' && horse.ability) {
-  abilityText = horse.ability.substring(0, 3);
-}
-
         div.className = `slot-card filled ${isSelected ? 'selected' : ''}`;
         
-        // ★ 変更: Pを削除し、脚質・性別・S~Cパラメータ・アビリティを追加
         div.innerHTML = `
-          <div style="display: flex; justify-content: space-between; align-items: center; gap: 4px;">
-            <div class="card-name-slot" style="flex: 1;">${horse.name}</div>
-            <div class="ability-btn" style="flex-shrink: 0;">${abilityText}</div>
-          </div>
+          <div class="card-name-slot">${horse.name}</div>
           <div class="card-details-slot">
             <span style="font-size: 10px;">${surfaceText} ${distanceText} ${sexText} | 脚:${horse.style || '-'}</span>
             <div class="card-params-slot">
@@ -676,6 +700,7 @@ if (Array.isArray(horse.ability) && horse.ability.length > 0) {
               <span>根${getParamRank(horse.guts)}</span>
             </div>
           </div>
+          ${abilitiesHtml}
         `;
         div.onclick = () => removeCardFromSlot(idx);
       } else {
@@ -798,21 +823,14 @@ if (Array.isArray(horse.ability) && horse.ability.length > 0) {
     poolList.forEach(({ horse }) => {
       const surfaceText = getSurfaceText(horse);
       const distanceText = getDistanceText(horse);
-      
-      // ★ 追加: 性別・アビリティの取得
-      const sexText = sex || "-";
-      const abilityRaw = ability || horse.skill || "---";
-      const abilityText = abilityRaw.substring(0, 3);
+      const sexText = horse.sex || "-";
+      const abilitiesHtml = getAbilityBadgeHtml(horse);
       
       const div = document.createElement('div');
       div.className = 'pool-card';
       
-      // ★ 変更: ポテ欄を脚質に、距離の後に性別、名前の横にアビリティボタンを追加
       div.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; gap: 4px;">
-          <div class="pool-name" style="flex: 1;">${horse.name}</div>
-          <div class="ability-btn" style="flex-shrink: 0;">${abilityText}</div>
-        </div>
+        <div class="pool-name">${horse.name}</div>
         <div class="pool-surface-dist">${surfaceText} ${distanceText} ${sexText}</div>
         <div class="pool-stats-grid">
           <div class="stat-item"><span class="stat-label">脚質</span><span class="stat-val">${horse.style || '-'}</span></div>
@@ -822,6 +840,7 @@ if (Array.isArray(horse.ability) && horse.ability.length > 0) {
           <div class="stat-item"><span class="stat-label">持続</span><span class="stat-val">${getParamRank(horse.jizoku)}</span></div>
           <div class="stat-item"><span class="stat-label">根性</span><span class="stat-val">${getParamRank(horse.guts)}</span></div>
         </div>
+        ${abilitiesHtml}
       `;
       div.onclick = () => addCardToDeck(String(horse.horse_id));
       grid.appendChild(div);
