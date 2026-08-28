@@ -57,10 +57,6 @@
       font-weight: bold;
       box-shadow: 0 1px 4px rgba(0,0,0,0.05);
     }
-    .affiliation-mark { font-weight: bold; margin-right: 4px; }
-    .affiliation-antique { color: #28a745; }
-    .affiliation-vintage { color: #e0a800; }
-    .affiliation-traditional { color: #dc3545; }
     .record-section {
       background: var(--card-bg);
       border: 1px solid #b2d4b6;
@@ -214,15 +210,6 @@
     .race-table th { background: #2d6a37; color: #ffffff; padding: 6px 2px; font-weight: bold; }
     .race-table td { padding: 5px 2px; border-bottom: 1px solid #ebf4ec; color: #222; }
     .race-table tr:nth-child(even) { background: #f7fbf7; }
-    .horse-name { text-align: left; font-weight: bold; padding-left: 4px !important; }
-    .w-1 { background: #ffffff; color: #000; font-weight: bold; border: 1px solid #ccc; border-radius: 2px; padding: 1px 4px; }
-    .w-2 { background: #222222; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
-    .w-3 { background: #e60012; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
-    .w-4 { background: #0068b7; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
-    .w-5 { background: #fff100; color: #000; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
-    .w-6 { background: #009944; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
-    .w-7 { background: #f39700; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
-    .w-8 { background: #e4007f; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
   </style>
 </head>
 <body>
@@ -286,57 +273,12 @@
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { doc, getDoc, setDoc, collection, getCountFromServer, increment, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
   import { cardRenderer } from './js/card_renderer.js';
+  // 外部化したログインボーナス用モジュールの読み込み
+  import { drawBonusCard, getGenerationYear, getGenYearLastDigit } from './js/login_bonus.js';
 
   let globalUserData = null;
   let currentUser = null;
   let activeDeckIndex = 0;
-
-  // ガチャ確率テーブル（Ver 3.0）
-  const NORMAL_PROBABILITY_TABLE = [
-    { rarity: "INF", prob: 0.005 },
-    { rarity: "SER", prob: 0.005 },
-    { rarity: "URR", prob: 0.010 },
-    { rarity: "LGR", prob: 0.010 },
-    { rarity: "CLR", prob: 0.010 },
-    { rarity: "TRR", prob: 0.010 },
-    { rarity: "RER", prob: 0.020 },
-    { rarity: "ANR", prob: 0.020 },
-    { rarity: "VIR", prob: 0.020 },
-    { rarity: "PRR", prob: 0.020 },
-    { rarity: "SPR", prob: 0.030 },
-    { rarity: "NOR", prob: 0.840 }
-  ];
-  const FEVER_PROBABILITY_TABLE = [
-    { rarity: "INF", prob: 0.10 },
-    { rarity: "SER", prob: 0.10 },
-    { rarity: "URR", prob: 0.10 },
-    { rarity: "LGR", prob: 0.10 },
-    { rarity: "CLR", prob: 0.10 },
-    { rarity: "TRR", prob: 0.10 },
-    { rarity: "RER", prob: 0.10 },
-    { rarity: "ANR", prob: 0.10 },
-    { rarity: "VIR", prob: 0.10 },
-    { rarity: "PRR", prob: 0.10 }
-  ];
-
-  function getGenerationYear(horseId) {
-    if (!horseId || horseId.length < 2) return 2000;
-    const prefix = parseInt(horseId.substring(0, 2), 10);
-    return prefix >= 60 ? 1900 + prefix : 2000 + prefix;
-  }
-
-  function getGenYearLastDigit(horseId) {
-    return getGenerationYear(horseId) % 10;
-  }
-
-  function getAffiliationDigit(affiliationStr) {
-    if (!affiliationStr) return null;
-    const match = affiliationStr.match(/\d/g);
-    if (match && match.length > 0) {
-      return parseInt(match[match.length - 1], 10);
-    }
-    return null;
-  }
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
@@ -345,7 +287,6 @@
     }
     currentUser = user;
     try {
-      // モジュール経由で全2000頭超のマスターデータとデザイン設定を一括取得
       await cardRenderer.init();
 
       const userDoc = await getDoc(doc(db, "users", user.uid));
@@ -366,9 +307,7 @@
   });
 
   function renderUserProfile() {
-    // setup.html の display_name を最優先で読み込み
     const name = globalUserData.display_name || globalUserData.displayName || currentUser.displayName || "ゲスト";
-    
     document.getElementById('userProfileDisplay').innerHTML = `
       👤 プレイヤー: <strong>${name}</strong>
     `;
@@ -504,35 +443,16 @@
     const cards = state.today_cards || [];
     if (cards.length >= 3) return;
 
-    const affDigit = getAffiliationDigit(globalUserData.affiliation);
-    
-    // cardRenderer 内の全馬データ配列からフィルター対象を選定
-    const allHorses = Array.from(cardRenderer.horsesMap.values());
-    let eligibleHorses = allHorses.filter(h => {
-      if (affDigit === null) return true;
-      return getGenYearLastDigit(h.horse_id) !== affDigit;
-    });
-
     const isFeverClaim = (cards.length === 0 && state.is_fever_today);
-    const table = isFeverClaim ? FEVER_PROBABILITY_TABLE : NORMAL_PROBABILITY_TABLE;
-    const rand = Math.random();
-    let cumulative = 0;
-    let selectedRarity = "NOR";
+    
+    // 外部化した drawBonusCard 関数で安全に抽選を実行
+    const chosenHorse = drawBonusCard(cardRenderer, globalUserData.affiliation, isFeverClaim);
 
-    for (const entry of table) {
-      cumulative += entry.prob;
-      if (rand <= cumulative) {
-        selectedRarity = entry.rarity;
-        break;
-      }
+    if (!chosenHorse) {
+      alert("カードデータの取得に失敗しました。");
+      return;
     }
 
-    let pool = eligibleHorses.filter(h => h.rarity === selectedRarity);
-    if (pool.length === 0) {
-      pool = eligibleHorses;
-    }
-
-    const chosenHorse = pool[Math.floor(Math.random() * pool.length)];
     const newCardItem = {
       horse_id: chosenHorse.horse_id,
       rarity: chosenHorse.rarity,
@@ -553,7 +473,7 @@
       }
     }
 
-   try {
+    try {
       const userRef = doc(db, "users", currentUser.uid);
       await setDoc(userRef, { login_bonus_state: state }, { merge: true });
 
@@ -596,7 +516,6 @@
       return;
     }
 
-    // モジュール側の renderRaceTableRow を使用して一括描画
     tbody.innerHTML = deck.horse_ids.map((hId, index) => cardRenderer.renderRaceTableRow(hId, index)).join('');
   }
 
