@@ -271,7 +271,7 @@
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc, setDoc, collection, getCountFromServer, increment, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { doc, getDoc, setDoc, collection, getCountFromServer, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
   import { cardRenderer } from './js/card_renderer.js';
   import { drawBonusCard, getGenerationYear, getGenYearLastDigit } from './js/login_bonus.js';
 
@@ -362,17 +362,18 @@
       today_cards: [],
       fever_qualified_next_day: false,
       is_fever_today: false,
-      last_claim_time: null
+      last_claim_time: 0
     };
 
     if (bonusState.last_date !== todayStr) {
-      const isFeverForToday = bonusState.fever_qualified_next_day || false;
+      // 日付が変わった場合、前日のフィーバー獲得状態を本日に反映
+      const isFeverForToday = Boolean(bonusState.fever_qualified_next_day);
       bonusState = {
         last_date: todayStr,
         today_cards: [],
         fever_qualified_next_day: false,
         is_fever_today: isFeverForToday,
-        last_claim_time: null
+        last_claim_time: 0
       };
       
       await setDoc(doc(db, "users", currentUser.uid), {
@@ -381,6 +382,14 @@
       globalUserData.login_bonus_state = bonusState;
     }
     renderBonusUI(bonusState);
+  }
+
+  function parseTimestampToMs(val) {
+    if (!val) return 0;
+    if (typeof val === 'number') return val;
+    if (typeof val === 'object' && typeof val.toMillis === 'function') return val.toMillis();
+    if (typeof val === 'object' && val.seconds !== undefined) return val.seconds * 1000;
+    return 0;
   }
 
   function renderBonusUI(state) {
@@ -417,7 +426,7 @@
     }
 
     const nowMs = Date.now();
-    const lastMs = state.last_claim_time ? (state.last_claim_time.toMillis ? state.last_claim_time.toMillis() : state.last_claim_time) : 0;
+    const lastMs = parseTimestampToMs(state.last_claim_time);
     const ONE_HOUR_MS = 60 * 60 * 1000;
     const diffMs = nowMs - lastMs;
 
@@ -451,6 +460,11 @@
     const cards = state.today_cards || [];
     if (cards.length >= 3) return;
 
+    if (!cardRenderer.horsesMap || cardRenderer.horsesMap.size === 0) {
+      alert("カードデータの初期化中です。少々お待ちください。");
+      return;
+    }
+
     const isFeverClaim = (cards.length === 0 && Boolean(state.is_fever_today));
     
     // ガチャ抽選を実行
@@ -462,16 +476,16 @@
       return;
     }
 
-    const nowTimestamp = Timestamp.now();
+    const nowMs = Date.now();
     const newCardItem = {
       horse_id: chosenHorse.horse_id,
       rarity: chosenHorse.rarity,
-      timestamp: nowTimestamp
+      timestamp: nowMs
     };
     
     const updatedCards = [...cards, newCardItem];
     state.today_cards = updatedCards;
-    state.last_claim_time = nowTimestamp;
+    state.last_claim_time = nowMs;
 
     if (updatedCards.length === 3) {
       const d1 = getGenYearLastDigit(updatedCards[0].horse_id);
