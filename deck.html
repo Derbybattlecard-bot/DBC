@@ -22,7 +22,7 @@
     background-attachment: fixed;
     color: var(--text-main);
     margin: 0;
-    padding: 15px;
+    padding: 10px;
     font-size: 13px;
     display: flex;
     justify-content: center;
@@ -145,22 +145,24 @@
   .btn-storage-save:hover { background: #d0edd3; color: var(--accent-hover); }
   .btn-storage-load { border-left: 1px solid var(--border-color); color: var(--accent-color); }
   .btn-storage-load:hover { background: var(--accent-color); color: #ffffff; }
-  .main-layout { display: grid; grid-template-columns: 1fr 1.2fr; gap: 12px; }
+  .main-layout { display: grid; grid-template-columns: 1fr 1.2fr; gap: 10px; }
   @media (max-width: 900px) { .main-layout { grid-template-columns: 1fr; } }
   .panel {
     background-color: var(--panel-bg);
     border-radius: 8px;
     border: 1px solid var(--border-color);
-    padding: 10px 12px;
+    padding: 8px 10px;
     display: flex;
     flex-direction: column;
     gap: 8px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
   }
+  
+  /* ★ 3列均等表示のためのレイアウト調整 */
   .slots-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 5px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
     max-height: 580px;
     overflow-y: auto;
   }
@@ -168,21 +170,23 @@
     background-color: var(--slot-empty);
     border: 1px dashed var(--border-color);
     border-radius: 5px;
-    padding: 5px;
-    min-height: 85px;
+    padding: 4px;
+    min-height: 96px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     cursor: pointer;
     position: relative;
     font-size: 11px;
+    box-sizing: border-box;
+    min-width: 0; /* 崩れ防止 */
   }
   .slot-card.filled { border-style: solid; border-color: #a0ca33; background-color: #ffffff; }
   .slot-card.selected { border-color: var(--gold); box-shadow: 0 0 5px rgba(194, 155, 29, 0.6); }
   
   .card-name-slot {
     font-weight: bold;
-    font-size: 12px;
+    font-size: 11.5px;
     color: var(--text-main);
     white-space: nowrap;
     overflow: hidden;
@@ -196,10 +200,10 @@
     justify-content: space-between;
     background: #f8faf8;
     border: 1px solid #e2efe3;
-    padding: 2px 4px;
+    padding: 1px 2px;
     border-radius: 3px;
     margin-top: 2px;
-    font-size: 9px;
+    font-size: 8.5px;
     color: var(--accent-color);
     font-weight: bold;
   }
@@ -208,8 +212,14 @@
     flex-direction: column;
     gap: 1px;
     color: var(--text-sub);
-    font-size: 10px;
+    font-size: 9.5px;
   }
+  .card-details-slot span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
   .empty-text { color: var(--text-sub); text-align: center; margin: auto; font-size: 11px; }
   .filter-box { display: flex; flex-direction: column; gap: 6px; background: #f2f8f3; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 12px; }
   .filter-row { display: flex; gap: 5px; flex-wrap: wrap; }
@@ -240,7 +250,7 @@
   }
   .pool-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
     max-height: 440px;
     overflow-y: auto;
@@ -255,19 +265,20 @@
     display: flex;
     flex-direction: column;
     gap: 3px;
+    min-width: 0;
   }
   .pool-card:hover { border-color: var(--accent-color); background-color: #f7fbf7; }
   
   .pool-name {
     font-weight: bold;
-    font-size: 13px;
+    font-size: 12.5px;
     color: var(--text-main);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
   .pool-surface-dist {
-    font-size: 11px;
+    font-size: 10.5px;
     color: var(--text-sub);
     font-weight: bold;
     white-space: nowrap;
@@ -300,28 +311,31 @@
     font-size: 11px;
   }
   
-  /* ★ アビリティ最下部・横3つ並び用レイアウト */
+  /* ★ アビリティ最下部・3つ並び用CSS（幅最適化） */
   .card-abilities-row {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 2px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.5px;
     margin-top: 3px;
+    width: 100%;
+    box-sizing: border-box;
   }
   .ability-btn {
     background: #e2efe3;
     border: 1px solid var(--accent-color);
     color: var(--accent-color);
     border-radius: 3px;
-    padding: 1px 2px;
-    font-size: 9px;
+    padding: 1px 0px;
+    font-size: 8.5px;
     font-weight: bold;
     text-align: center;
     line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    letter-spacing: -0.5px; /* 3文字が確実に納まるよう微調整 */
   }
-  /* 空白保持用透明バッジ */
+  /* 空白保持用バッジ */
   .ability-btn.empty {
     visibility: hidden;
     border-color: transparent;
@@ -463,7 +477,7 @@
     if (el) el.textContent = msg;
   }
 
-  // ★ アビリティ横3つ並び用のHTML生成（ない馬も高さ・領域を3枠分確保）
+  // ★ アビリティ3つ並び生成（3文字切り出し対応）
   function getAbilityBadgeHtml(horse) {
     let abilities = [];
     if (Array.isArray(horse.ability)) {
@@ -620,7 +634,7 @@
     const slotData = globalUserData.saved_deck_slots[slotIdx];
     if (!slotData) {
       alert(`スロット #${slotIdx + 1} にはデータがありません。`);
-      return;
+     return;
     }
     const savedIds = Array.isArray(slotData) ? slotData : slotData.horse_ids;
     const savedName = (slotData && slotData.deck_name) || `ロードデッキ #${slotIdx + 1}`;
@@ -628,7 +642,7 @@
       alert(`スロット #${slotIdx + 1} のデータ構造が不正です。`);
       return;
     }
- const inventory = globalUserData.cards || {};
+    const inventory = globalUserData.cards || {};
     const otherDeckIdx = activeDeckIdx === 0 ? 1 : 0;
     const otherDeckAssigned = new Set();
     if (globalUserData.decks[otherDeckIdx] && globalUserData.decks[otherDeckIdx].horse_ids) {
@@ -688,10 +702,12 @@
         
         div.className = `slot-card filled ${isSelected ? 'selected' : ''}`;
         
+        // ★ 変更: 1行目:適性+距離 / 2行目:脚質+性別 に分けました
         div.innerHTML = `
           <div class="card-name-slot">${horse.name}</div>
           <div class="card-details-slot">
-            <span style="font-size: 10px;">${surfaceText} ${distanceText} ${sexText} | 脚:${horse.style || '-'}</span>
+            <span>${surfaceText} ${distanceText}</span>
+            <span>脚:${horse.style || '-'} ${sexText}</span>
             <div class="card-params-slot">
               <span>ス${getParamRank(horse.speed)}</span>
               <span>タ${getParamRank(horse.stamina)}</span>
