@@ -10,31 +10,38 @@ export class CardRenderer {
     if (this.isLoaded) return;
 
     try {
+      // パスを相対パス `./data/...` に変更（環境による404防止）
       const [horsesRes, designRes] = await Promise.all([
-        fetch('/data/horses_master.json'),
-        fetch('/data/card_design.json')
+        fetch('./data/horses_master.json'),
+        fetch('./data/card_design.json')
       ]);
+
+      if (!horsesRes.ok) throw new Error(`horses_master.json 取得失敗 (${horsesRes.status})`);
+      if (!designRes.ok) throw new Error(`card_design.json 取得失敗 (${designRes.status})`);
 
       const horsesArray = await horsesRes.json();
       this.designConfig = await designRes.json();
 
-      // 2,000頭超のデータを O(1) で高速参照するために Map 化
+      this.horsesMap.clear();
       horsesArray.forEach(horse => {
+        // IDは常に文字列として統一保持
         this.horsesMap.set(String(horse.horse_id), horse);
       });
 
       this.isLoaded = true;
+      console.log("CardRenderer 初期化完了:", this.horsesMap.size, "件");
     } catch (error) {
       console.error("CardRenderer の初期化に失敗しました:", error);
+      // 呼び出し元（index.html）へエラーを通知してストップさせる
+      throw error; 
     }
   }
 
-  // 馬データを取得
   getHorse(horseId) {
+    if (!horseId) return null;
     return this.horsesMap.get(String(horseId));
   }
 
-  // 芝・ダート適性のフォーマット
   formatAptitude(turf, dirt) {
     const t = Number(turf) || 0;
     const d = Number(dirt) || 0;
@@ -44,7 +51,6 @@ export class CardRenderer {
     return '-';
   }
 
-  // レース表用の 1 行 HTML 生成 (index.html用)
   renderRaceTableRow(horseId, index) {
     const horse = this.getHorse(horseId);
     const frameNum = Math.floor(index / 2) + 1;
@@ -75,12 +81,13 @@ export class CardRenderer {
       </tr>`;
   }
 
-  // カード型UIの表示 HTML 生成 (コレクション画面・ガチャ画面用)
   renderCardUI(horseId) {
     const horse = this.getHorse(horseId);
     if (!horse) return `<div class="card-error">データが見つかりません (ID: ${horseId})</div>`;
 
-    const rarityInfo = this.designConfig.rarity_styles[horse.rarity] || this.designConfig.rarity_styles["NOR"];
+    const rarityInfo = (this.designConfig && this.designConfig.rarity_styles && this.designConfig.rarity_styles[horse.rarity]) 
+      || { border_color: '#ccc', badge_bg: '#999', text_color: '#fff', label: horse.rarity };
+      
     const abilities = Array.isArray(horse.ability) ? horse.ability.join(', ') : (horse.ability || 'なし');
 
     return `
@@ -99,5 +106,4 @@ export class CardRenderer {
   }
 }
 
-// シングルトンインスタンスをエクスポート
 export const cardRenderer = new CardRenderer();
