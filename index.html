@@ -285,7 +285,6 @@
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { doc, getDoc, setDoc, collection, getCountFromServer, increment, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-  // 修正箇所1: 相対パス (./js/...) に修正
   import { cardRenderer } from './js/card_renderer.js';
 
   let globalUserData = null;
@@ -346,7 +345,7 @@
     }
     currentUser = user;
     try {
-      // モジュール経由でマスターデータ・初期化
+      // モジュール経由で全2000頭超のマスターデータとデザイン設定を一括取得
       await cardRenderer.init();
 
       const userDoc = await getDoc(doc(db, "users", user.uid));
@@ -367,15 +366,11 @@
   });
 
   function renderUserProfile() {
-    // 修正箇所2: スネークケース (display_name) と キャメルケース (displayName) の両方に対応
-    const name = globalUserData.display_name || globalUserData.displayName || "ゲスト";
-    const affiliation = globalUserData.affiliation || "未設定";
-    let colorClass = "";
-    if (affiliation.includes("アンティーク")) colorClass = "affiliation-antique";
-    else if (affiliation.includes("ビンテージ")) colorClass = "affiliation-vintage";
-    else if (affiliation.includes("トラディショナル")) colorClass = "affiliation-traditional";
+    // setup.html の display_name を最優先で読み込み
+    const name = globalUserData.display_name || globalUserData.displayName || currentUser.displayName || "ゲスト";
+    
     document.getElementById('userProfileDisplay').innerHTML = `
-      <span class="affiliation-mark ${colorClass}">◆</span> ${name} (${affiliation})
+      👤 プレイヤー: <strong>${name}</strong>
     `;
   }
 
@@ -511,18 +506,12 @@
 
     const affDigit = getAffiliationDigit(globalUserData.affiliation);
     
-    // 修正箇所3: 安全に全馬データ配列を取得
-    const horsesMap = cardRenderer.horsesMap || new Map();
-    const allHorses = Array.from(horsesMap.values());
-
+    // cardRenderer 内の全馬データ配列からフィルター対象を選定
+    const allHorses = Array.from(cardRenderer.horsesMap.values());
     let eligibleHorses = allHorses.filter(h => {
       if (affDigit === null) return true;
       return getGenYearLastDigit(h.horse_id) !== affDigit;
     });
-
-    if (eligibleHorses.length === 0) {
-      eligibleHorses = allHorses;
-    }
 
     const isFeverClaim = (cards.length === 0 && state.is_fever_today);
     const table = isFeverClaim ? FEVER_PROBABILITY_TABLE : NORMAL_PROBABILITY_TABLE;
@@ -544,11 +533,6 @@
     }
 
     const chosenHorse = pool[Math.floor(Math.random() * pool.length)];
-    if (!chosenHorse) {
-      alert("カードデータの選定に失敗しました。");
-      return;
-    }
-
     const newCardItem = {
       horse_id: chosenHorse.horse_id,
       rarity: chosenHorse.rarity,
@@ -569,7 +553,7 @@
       }
     }
 
-    try {
+   try {
       const userRef = doc(db, "users", currentUser.uid);
       await setDoc(userRef, { login_bonus_state: state }, { merge: true });
 
@@ -612,6 +596,7 @@
       return;
     }
 
+    // モジュール側の renderRaceTableRow を使用して一括描画
     tbody.innerHTML = deck.horse_ids.map((hId, index) => cardRenderer.renderRaceTableRow(hId, index)).join('');
   }
 
