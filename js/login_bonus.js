@@ -1,4 +1,4 @@
-// login_bonus.js[span_1](start_span)[span_1](end_span)
+// login_bonus.js
 
 // 全12種類のレアリティ定義（正式名称 ＆ 専用カラー/シャドウ設定）
 const RARITY_CONFIG = {
@@ -28,53 +28,72 @@ function injectCutInStyles() {
   const style = document.createElement('style');
   style.id = 'login-cutin-style';
   style.textContent = `
-    .corner-cutin-overlay {
-      position: fixed; top: 0; left: -100%;
-      width: 100vw; height: 100vh;
-      background: rgba(0, 10, 25, 0.90);
-      backdrop-filter: blur(6px);
+    .cutin-overlay {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(5, 10, 20, 0.92);
+      backdrop-filter: blur(8px);
       z-index: 9999;
-      display: flex; justify-content: center; align-items: center;
-      transition: left 0.35s cubic-bezier(0.15, 0.85, 0.35, 1.2);
-      pointer-events: none;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      overflow: hidden; pointer-events: none; opacity: 0;
+      transition: opacity 0.4s ease;
     }
-    .corner-cutin-overlay.active { left: 0; }
-    .corner-cutin-overlay.exit { left: 100%; }
+    .cutin-overlay.active { opacity: 1; }
 
-    .corner-cutin-box {
-      width: 88%; max-width: 480px;
-      background: linear-gradient(135deg, #0a0d1a, #161c33);
-      border: 3px solid #ffcc00;
+    /* スリムな横帯カットイン（縦幅約半分） */
+    .cutin-banner {
+      width: 100%; height: 52px;
+      display: flex; align-items: center;
+      font-weight: 900; color: #fff;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.8);
+      transition: transform 0.35s cubic-bezier(0.15, 0.85, 0.35, 1.2), opacity 0.3s ease;
+      margin: 8px 0;
+    }
+    .cutin-banner-gen {
+      background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #0d3b66 20%, #0077b6 80%, rgba(0,0,0,0) 100%);
+      justify-content: flex-start; padding-left: 12%; font-size: 1.4rem; color: #70d6ff;
+      letter-spacing: 2px;
+      transform: translateX(-100%);
+    }
+    .cutin-banner-gen.in { transform: translateX(0); }
+
+    .cutin-banner-name {
+      background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #7209b7 20%, #f72585 80%, rgba(0,0,0,0) 100%);
+      justify-content: flex-end; padding-right: 12%; font-size: 1.8rem; color: #ffffff;
+      text-shadow: 0 0 10px rgba(255,255,255,0.8);
+      transform: translateX(100%);
+    }
+    .cutin-banner-name.in { transform: translateX(0); }
+
+    .cutin-banner.out-left { transform: translateX(-100%); opacity: 0; }
+    .cutin-banner.out-right { transform: translateX(100%); opacity: 0; }
+
+    /* カード風表示ボックス */
+    .cutin-card-box {
+      position: absolute;
+      width: 260px; height: 370px;
+      background: linear-gradient(135deg, #0a0d1a, #1a2238);
+      border: 3px solid #ffcc00; border-radius: 16px;
       box-shadow: 0 0 35px rgba(255, 204, 0, 0.5);
-      border-radius: 16px; padding: 28px 20px;
-      text-align: center; color: #fff;
+      display: flex; flex-direction: column; justify-content: space-between; align-items: center;
+      padding: 24px 16px; box-sizing: border-box; color: #fff;
+      transform: scale(0.4); opacity: 0;
+      transition: transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.25), opacity 0.35s ease;
     }
-    .corner-cutin-title {
-      font-size: 1.2rem; color: #70d6ff;
-      font-weight: bold; letter-spacing: 2px; margin-bottom: 8px;
-    }
-    .corner-cutin-horse {
-      font-size: 2.2rem; color: #ffffff; font-weight: 900;
-      text-shadow: 0 0 12px rgba(255, 255, 255, 0.8);
-      margin-bottom: 16px;
-    }
+    .cutin-card-box.in { transform: scale(1); opacity: 1; }
 
-    /* レア度ポップアップバッジ */
-    .corner-rarity-container {
-      display: inline-flex; flex-direction: column; align-items: center; gap: 2px;
-      padding: 8px 30px; border-radius: 12px;
+    .card-gen-text { font-size: 1rem; color: #70d6ff; font-weight: bold; letter-spacing: 1px; }
+    .card-horse-text { font-size: 1.8rem; font-weight: 900; color: #fff; text-shadow: 0 0 8px rgba(255,255,255,0.7); text-align: center; }
+
+    /* 正式名称ポップアップ */
+    .cutin-rarity-badge {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 10px 20px; border-radius: 12px; width: 85%;
       transform: scale(0); opacity: 0;
-      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.4), opacity 0.3s;
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.4), opacity 0.3s ease;
     }
-    .corner-rarity-container.pop { transform: scale(1.1); opacity: 1; }
-    .rarity-code {
-      font-size: 2.2rem; font-weight: 900; font-style: italic;
-      color: #fff; line-height: 1; text-shadow: 2px 2px 4px #000;
-    }
-    .rarity-full {
-      font-size: 0.9rem; font-weight: 700; color: #fff;
-      letter-spacing: 1px; text-shadow: 1px 1px 3px #000;
-    }
+    .cutin-rarity-badge.pop { transform: scale(1.1); opacity: 1; }
+    .rarity-full-title { font-size: 1.1rem; font-weight: 900; color: #fff; text-shadow: 1px 1px 4px #000; letter-spacing: 1px; text-align: center; }
+    .rarity-code-sub { font-size: 0.85rem; font-weight: 700; color: rgba(255,255,255,0.85); font-style: italic; margin-top: 2px; }
   `;
   document.head.appendChild(style);
 }
@@ -86,51 +105,71 @@ export async function playFourthCornerCutIn(chosenHorse) {
   if (!overlay) {
     overlay = document.createElement('div');
     overlay.id = 'login-cutin-overlay';
-    overlay.className = 'corner-cutin-overlay';
+    overlay.className = 'cutin-overlay';
     document.body.appendChild(overlay);
   }
 
-  // 1. レア度設定の取得（未定義の場合は NOR をフォールバック）[span_2](start_span)[span_2](end_span)
+  const genYear = getGenerationYear(chosenHorse.horse_id || chosenHorse.id);
   const code = (chosenHorse.rarity || 'NOR').toUpperCase();
   const config = RARITY_CONFIG[code] || RARITY_CONFIG['NOR'];
 
-  // 2. HTML生成
+  // DOM生成
   overlay.innerHTML = `
-    <div class="corner-cutin-box">
-      <div class="corner-cutin-title">第4コーナーをカーブして…！</div>
-      <div class="corner-cutin-horse">${chosenHorse.name}</div>
-      <div id="corner-rarity" class="corner-rarity-container">
-        <span class="rarity-code">${code}</span>
-        <span class="rarity-full">${config.name}</span>
+    <div id="banner-gen" class="cutin-banner cutin-banner-gen">${genYear}年世代</div>
+    <div id="banner-name" class="cutin-banner cutin-banner-name">${chosenHorse.name}</div>
+    <div id="card-box" class="cutin-card-box">
+      <div class="card-gen-text">【 ${genYear}年世代 】</div>
+      <div class="card-horse-text">${chosenHorse.name}</div>
+      <div id="rarity-badge" class="cutin-rarity-badge">
+        <span class="rarity-full-title">${config.name}</span>
+        <span class="rarity-code-sub">-[ ${code} ]-</span>
       </div>
     </div>
   `;
 
-  // 3. レア度に応じた動的スタイル適用
-  const rarityBadge = document.getElementById('corner-rarity');
+  const bannerGen = document.getElementById('banner-gen');
+  const bannerName = document.getElementById('banner-name');
+  const cardBox = document.getElementById('card-box');
+  const rarityBadge = document.getElementById('rarity-badge');
+
   if (rarityBadge) {
     rarityBadge.style.background = config.bg;
     rarityBadge.style.boxShadow = config.shadow;
   }
 
-  // 4. アニメーション実行（中央へスライドイン）
-  await new Promise(r => setTimeout(r, 50));
-  overlay.classList.remove('exit');
+  const wait = (ms) => new Promise(r => setTimeout(r, ms));
+
+  // --- タイムライン（トータル約7秒）---
+  
+  // 1. 背景フェードイン（0.0s）
   overlay.classList.add('active');
+  await wait(100);
 
-  // 5. 追いかけでレア度ポップアップ表示
-  await new Promise(r => setTimeout(r, 600));
-  if (rarityBadge) rarityBadge.classList.add('pop');
+  // 2. 世代帯が左から登場（0.1s - 1.1s）
+  bannerGen.classList.add('in');
+  await wait(900);
 
-  // 6. 中央で3秒間停止・保持
-  await new Promise(r => setTimeout(r, 3000));
+  // 3. 馬名帯が右から登場（1.0s - 2.2s）
+  bannerName.classList.add('in');
+  await wait(1200);
 
-  // 7. スライドアウト消去
+  // 4. 帯が左右に退出 & カード枠がズームイン（2.2s - 2.8s）
+  bannerGen.classList.remove('in');
+  bannerGen.classList.add('out-left');
+  bannerName.classList.remove('in');
+  bannerName.classList.add('out-right');
+  await wait(200);
+  cardBox.classList.add('in');
+  await wait(1000);
+
+  // 5. レアランク（正式名称）ポップアップ（3.4s - 6.2s）
+  rarityBadge.classList.add('pop');
+  await wait(2800);
+
+  // 6. 全体フェードアウト（6.2s - 6.8s）
   overlay.classList.remove('active');
-  overlay.classList.add('exit');
-  await new Promise(r => setTimeout(r, 400));
+  await wait(600);
 }
-// login_bonus.js の末尾に追加
 
 export function drawBonusCard(cardRenderer, affiliation, isFever) {
   const allHorses = cardRenderer && cardRenderer.horses ? Object.values(cardRenderer.horses) : [];
@@ -146,7 +185,6 @@ export function drawBonusCard(cardRenderer, affiliation, isFever) {
 }
 
 export function getGenerationYear(horseId) {
-  // IDやデータから世代年（西暦）を取得する処理
   return 2020;
 }
 
