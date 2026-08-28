@@ -296,11 +296,8 @@
         return;
       }
 
-      // UI描画を並列化・即時実行
       renderUserProfile();
       renderSelectedDeck();
-      
-      // 重いデータ非同期取得とログインボーナスチェックを並列化
       renderRecord(); 
       await checkAndRenderLoginBonus();
     } catch (err) {
@@ -319,11 +316,9 @@
     const rec = globalUserData.record || { matches: 0, wins: 0, maxStreak: 0 };
     const winRate = rec.matches > 0 ? ((rec.wins / rec.matches) * 100).toFixed(1) : "0.0";
     
-    // 一旦基礎情報のみ即時更新
     updateRecordDOM(rec, winRate, "取得中...");
 
     try {
-      // タイムアウト付きで安全に件数を取得（最長3秒）
       const collRef = collection(db, `users/${currentUser.uid}/inventory`);
       const countPromise = getCountFromServer(collRef);
       const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 3000));
@@ -332,7 +327,7 @@
       const cardTypesCount = snapshot.data().count;
       updateRecordDOM(rec, winRate, `${cardTypesCount}種`);
     } catch (error) {
-      console.warn("カード種類数の取得をスキップ（タイムアウトまたはエラー）:", error);
+      console.warn("カード種類数の取得をスキップ:", error);
       updateRecordDOM(rec, winRate, "- 種");
     }
   }
@@ -422,7 +417,7 @@
     }
 
     const nowMs = Date.now();
-    const lastMs = state.last_claim_time ? state.last_claim_time.toMillis() : 0;
+    const lastMs = state.last_claim_time ? (state.last_claim_time.toMillis ? state.last_claim_time.toMillis() : state.last_claim_time) : 0;
     const ONE_HOUR_MS = 60 * 60 * 1000;
     const diffMs = nowMs - lastMs;
 
@@ -452,28 +447,31 @@
   }
 
   async function claimLoginBonus() {
-    let state = globalUserData.login_bonus_state;
+    let state = globalUserData.login_bonus_state || {};
     const cards = state.today_cards || [];
     if (cards.length >= 3) return;
 
-    const isFeverClaim = (cards.length === 0 && state.is_fever_today);
+    const isFeverClaim = (cards.length === 0 && Boolean(state.is_fever_today));
     
+    // ガチャ抽選を実行
     const chosenHorse = drawBonusCard(cardRenderer, globalUserData.affiliation, isFeverClaim);
 
-    if (!chosenHorse) {
-      alert("カードデータの取得に失敗しました。");
+    if (!chosenHorse || !chosenHorse.horse_id) {
+      console.error("カードデータの抽出に失敗:", chosenHorse);
+      alert("カードデータの取得に失敗しました。馬データが正常に読み込まれているか確認してください。");
       return;
     }
 
+    const nowTimestamp = Timestamp.now();
     const newCardItem = {
       horse_id: chosenHorse.horse_id,
       rarity: chosenHorse.rarity,
-      timestamp: Timestamp.now()
+      timestamp: nowTimestamp
     };
     
     const updatedCards = [...cards, newCardItem];
     state.today_cards = updatedCards;
-    state.last_claim_time = Timestamp.now();
+    state.last_claim_time = nowTimestamp;
 
     if (updatedCards.length === 3) {
       const d1 = getGenYearLastDigit(updatedCards[0].horse_id);
@@ -486,9 +484,11 @@
     }
 
     try {
+      // ユーザーデータ更新
       const userRef = doc(db, "users", currentUser.uid);
       await setDoc(userRef, { login_bonus_state: state }, { merge: true });
 
+      // インベントリ追加
       const inventoryRef = doc(db, `users/${currentUser.uid}/inventory/${chosenHorse.horse_id}`);
       await setDoc(inventoryRef, {
         count: increment(1),
@@ -502,7 +502,7 @@
       alert(`🎁 ログインボーナスで「${chosenHorse.name} (${chosenHorse.rarity})」を獲得しました！`);
     } catch (err) {
       console.error("ログインボーナス処理失敗:", err);
-      alert("カード獲得処理時にエラーが発生しました。");
+      alert("カード獲得処理時にエラーが発生しました: " + err.message);
     }
   }
 
