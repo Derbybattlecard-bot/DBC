@@ -14,7 +14,6 @@
       --sub-text: #4e6b52;
       --header-green: #0d4220;
     }
-
     body {
       margin: 0;
       padding: 10px;
@@ -25,7 +24,6 @@
       display: flex;
       justify-content: center;
     }
-
     .container {
       width: 100%;
       max-width: 480px;
@@ -33,7 +31,6 @@
       flex-direction: column;
       gap: 12px;
     }
-
     .header {
       text-align: center;
       padding: 12px 8px;
@@ -50,7 +47,6 @@
       font-weight: 900;
       text-shadow: 1px 1px 0px rgba(255,255,255,0.8);
     }
-
     .user-profile {
       background: #ffffff;
       border: 1px solid #b2d4b6;
@@ -65,7 +61,6 @@
     .affiliation-antique { color: #28a745; }
     .affiliation-vintage { color: #e0a800; }
     .affiliation-traditional { color: #dc3545; }
-
     .record-section {
       background: var(--card-bg);
       border: 1px solid #b2d4b6;
@@ -80,7 +75,6 @@
     .record-label { font-size: 10px; color: var(--sub-text); display: block; margin-bottom: 2px; }
     .record-value { font-size: 14px; font-weight: bold; color: var(--text-color); }
     .record-value.highlight { color: var(--accent-gold); }
-
     .bonus-section {
       background: var(--card-bg);
       border: 2px solid #82c088;
@@ -137,7 +131,6 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
     .bonus-claim-btn:active { transform: scale(0.95); }
-
     .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .btn-link { text-decoration: none; display: block; }
     .btn-link.full-width { grid-column: span 2; }
@@ -159,7 +152,6 @@
       box-shadow: 0 3px 6px rgba(0,0,0,0.15);
     }
     .btn:active { transform: scale(0.98); background: var(--accent-gold); }
-
     .deck-section {
       background: var(--card-bg);
       border-radius: 8px;
@@ -186,7 +178,6 @@
       border-color: #143b1a;
       box-shadow: 0 2px 4px rgba(0,0,0,0.15);
     }
-
     .deck-control-bar {
       display: flex;
       justify-content: space-between;
@@ -210,7 +201,6 @@
       font-weight: bold;
     }
     .action-btn:hover { background: #eaf5eb; border-color: var(--header-green); }
-
     .race-table {
       width: 100%;
       border-collapse: collapse;
@@ -225,7 +215,6 @@
     .race-table td { padding: 5px 2px; border-bottom: 1px solid #ebf4ec; color: #222; }
     .race-table tr:nth-child(even) { background: #f7fbf7; }
     .horse-name { text-align: left; font-weight: bold; padding-left: 4px !important; }
-
     .w-1 { background: #ffffff; color: #000; font-weight: bold; border: 1px solid #ccc; border-radius: 2px; padding: 1px 4px; }
     .w-2 { background: #222222; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
     .w-3 { background: #e60012; color: #fff; font-weight: bold; border-radius: 2px; padding: 1px 4px; }
@@ -237,20 +226,16 @@
   </style>
 </head>
 <body>
-
 <div class="container">
   <div class="header">
     <h1>DERBY BATTLE CARD</h1>
   </div>
-
   <div class="user-profile" id="userProfileDisplay">
     読み込み中...
   </div>
-
   <div class="record-section" id="recordSection">
     <div class="record-item"><span class="record-label">データ取得中...</span></div>
   </div>
-
   <div class="bonus-section" id="loginBonusSection">
     <div class="bonus-title">🎰 DAILY LOGIN BONUS</div>
     <div class="cards-container" id="bonusCardsContainer">
@@ -261,7 +246,6 @@
     <div id="bonusMessageContainer"></div>
     <div class="bonus-btn-container" id="bonusBtnContainer"></div>
   </div>
-
   <div class="menu-grid">
     <a href="battle.html" class="btn-link"><button class="btn">💻 VS COMPUTER</button></a>
     <a href="battle_online.html" class="btn-link"><button class="btn">🌐 ONLINE MATCH</button></a>
@@ -269,20 +253,17 @@
     <a href="trade.html" class="btn-link"><button class="btn">🔁 TRADE BOARD</button></a>
     <a href="collection.html" class="btn-link full-width"><button class="btn" style="background: linear-gradient(135deg, #d4af37, #aa820a);">📚 CARD COLLECTION</button></a>
   </div>
-
   <div class="deck-section">
     <div class="main-deck-tabs">
       <div class="main-tab active" id="tabMain1">🏇 MAIN DECK 1</div>
       <div class="main-tab" id="tabMain2">🏇 MAIN DECK 2</div>
     </div>
-
     <div class="deck-control-bar">
       <span class="deck-name" id="deckNameDisplay">✏️ 読み込み中...</span>
       <div class="save-load-btns">
         <a href="deck.html" style="text-decoration:none;"><button class="action-btn">✏️ 編集する</button></a>
       </div>
     </div>
-
     <table class="race-table">
       <thead>
         <tr>
@@ -304,14 +285,13 @@
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { doc, getDoc, setDoc, collection, getCountFromServer, increment, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { cardRenderer } from '/js/card_renderer.js';
 
-  let HORSES_MASTER = {};
-  let HORSES_ARRAY = [];
   let globalUserData = null;
   let currentUser = null;
   let activeDeckIndex = 0;
 
-  // ガチャ確率テーブル（Ver 3.0の3文字レアリティ表記に準拠）
+  // ガチャ確率テーブル（Ver 3.0）
   const NORMAL_PROBABILITY_TABLE = [
     { rarity: "INF", prob: 0.005 },
     { rarity: "SER", prob: 0.005 },
@@ -326,7 +306,6 @@
     { rarity: "SPR", prob: 0.030 },
     { rarity: "NOR", prob: 0.840 }
   ];
-
   const FEVER_PROBABILITY_TABLE = [
     { rarity: "INF", prob: 0.10 },
     { rarity: "SER", prob: 0.10 },
@@ -339,33 +318,6 @@
     { rarity: "VIR", prob: 0.10 },
     { rarity: "PRR", prob: 0.10 }
   ];
-
-  /**
-   * 馬場適性・ポテンシャル表示生成関数
-   */
-  function formatAptitude(turf, dirt) {
-    const t = Number(turf) || 0;
-    const d = Number(dirt) || 0;
-
-    if (t > 0 && d > 0) {
-      return (t === d) ? `芝/ダ${t}` : `芝${t}ダ${d}`;
-    } else if (t > 0) {
-      return `芝${t}`;
-    } else if (d > 0) {
-      return `ダ${d}`;
-    }
-    return '-';
-  }
-
-  /**
-   * 距離適性表示生成関数
-   */
-  function formatDistance(minDist, maxDist) {
-    if (minDist && maxDist) {
-      return `${minDist}-${maxDist}m`;
-    }
-    return '-';
-  }
 
   function getGenerationYear(horseId) {
     if (!horseId || horseId.length < 2) return 2000;
@@ -392,18 +344,9 @@
       return;
     }
     currentUser = user;
-
     try {
-      // 指定されたパス `/data/card_design.json` からデータをロード
-      const res = await fetch('/data/card_design.json');
-      if (res.ok) {
-        HORSES_ARRAY = await res.json();
-        HORSES_ARRAY.forEach(h => {
-          HORSES_MASTER[h.horse_id] = h;
-        });
-      } else {
-        console.error("card_design.json の読み込みに失敗しました:", res.status);
-      }
+      // モジュール経由で全2000頭超のマスターデータとデザイン設定を一括取得
+      await cardRenderer.init();
 
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) {
@@ -417,7 +360,6 @@
       await renderRecord();
       renderSelectedDeck();
       await checkAndRenderLoginBonus();
-
     } catch (err) {
       console.error("初期化エラー:", err);
     }
@@ -426,12 +368,10 @@
   function renderUserProfile() {
     const name = globalUserData.displayName || "ゲスト";
     const affiliation = globalUserData.affiliation || "未設定";
-
     let colorClass = "";
     if (affiliation.includes("アンティーク")) colorClass = "affiliation-antique";
     else if (affiliation.includes("ビンテージ")) colorClass = "affiliation-vintage";
     else if (affiliation.includes("トラディショナル")) colorClass = "affiliation-traditional";
-
     document.getElementById('userProfileDisplay').innerHTML = `
       <span class="affiliation-mark ${colorClass}">◆</span> ${name} (${affiliation})
     `;
@@ -449,7 +389,6 @@
     } catch (error) {
       console.error("カード種類数の取得に失敗:", error);
     }
-
     document.getElementById('recordSection').innerHTML = `
       <div class="record-item">
         <span class="record-label">通算成績</span>
@@ -497,7 +436,6 @@
       }, { merge: true });
       globalUserData.login_bonus_state = bonusState;
     }
-
     renderBonusUI(bonusState);
   }
 
@@ -505,21 +443,18 @@
     const container = document.getElementById('bonusCardsContainer');
     const msgContainer = document.getElementById('bonusMessageContainer');
     const btnContainer = document.getElementById('bonusBtnContainer');
-
     container.innerHTML = '';
     msgContainer.innerHTML = '';
     btnContainer.innerHTML = '';
-
     const cards = state.today_cards || [];
 
     for (let i = 0; i < 3; i++) {
       if (i < cards.length) {
         const item = cards[i];
-        const horse = HORSES_MASTER[item.horse_id];
+        const horse = cardRenderer.getHorse(item.horse_id);
         const genYear = getGenerationYear(item.horse_id);
         const lastDigit = getGenYearLastDigit(item.horse_id);
         const horseName = horse ? horse.name : item.horse_id;
-
         const cardEl = document.createElement('div');
         cardEl.className = 'bonus-card';
         cardEl.innerHTML = `
@@ -550,7 +485,6 @@
         btn.textContent = isFever ? "🔥 確変ボーナスを受け取る！" : `🎁 ${cards.length + 1}枚目を受け取る`;
         btn.onclick = () => claimLoginBonus();
         btnContainer.appendChild(btn);
-
         if (isFever) {
           msgContainer.innerHTML = `<div class="bonus-msg">✨ 前日のスロット達成特典適用中！レアカード確定！ ✨</div>`;
         }
@@ -574,18 +508,20 @@
     if (cards.length >= 3) return;
 
     const affDigit = getAffiliationDigit(globalUserData.affiliation);
-
-    let eligibleHorses = HORSES_ARRAY.filter(h => {
+    
+    // cardRenderer 内の全馬データ配列からフィルター対象を選定
+    const allHorses = Array.from(cardRenderer.horsesMap.values());
+    let eligibleHorses = allHorses.filter(h => {
       if (affDigit === null) return true;
       return getGenYearLastDigit(h.horse_id) !== affDigit;
     });
 
     const isFeverClaim = (cards.length === 0 && state.is_fever_today);
     const table = isFeverClaim ? FEVER_PROBABILITY_TABLE : NORMAL_PROBABILITY_TABLE;
-
     const rand = Math.random();
     let cumulative = 0;
     let selectedRarity = "NOR";
+
     for (const entry of table) {
       cumulative += entry.prob;
       if (rand <= cumulative) {
@@ -598,8 +534,8 @@
     if (pool.length === 0) {
       pool = eligibleHorses;
     }
-    const chosenHorse = pool[Math.floor(Math.random() * pool.length)];
 
+    const chosenHorse = pool[Math.floor(Math.random() * pool.length)];
     const newCardItem = {
       horse_id: chosenHorse.horse_id,
       rarity: chosenHorse.rarity,
@@ -620,12 +556,9 @@
       }
     }
 
-    try {
+   try {
       const userRef = doc(db, "users", currentUser.uid);
-
-      await setDoc(userRef, {
-        login_bonus_state: state
-      }, { merge: true });
+      await setDoc(userRef, { login_bonus_state: state }, { merge: true });
 
       const inventoryRef = doc(db, `users/${currentUser.uid}/inventory/${chosenHorse.horse_id}`);
       await setDoc(inventoryRef, {
@@ -638,7 +571,6 @@
       await renderRecord();
       
       alert(`🎁 ログインボーナスで「${chosenHorse.name} (${chosenHorse.rarity})」を獲得しました！`);
-
     } catch (err) {
       console.error("ログインボーナス処理失敗:", err);
       alert("カード獲得処理時にエラーが発生しました。");
@@ -661,51 +593,18 @@
     document.getElementById('deckNameDisplay').textContent = `✏️ ${deck.deck_name || "メインデッキ"}`;
     
     const tbody = document.getElementById('raceTableBody');
-    tbody.innerHTML = '';
     
     if (!deck.horse_ids || deck.horse_ids.length === 0) {
       tbody.innerHTML = '<tr><td colspan="5" style="color:#888; padding:12px;">デッキが設定されていません（EDIT DECKから編成してください）</td></tr>';
       return;
     }
 
-    deck.horse_ids.forEach((hId, index) => {
-      if (!hId) return;
-      const frameNum = Math.floor(index / 2) + 1;
-      const frameClass = `w-${Math.min(frameNum, 8)}`;
-      const horse = HORSES_MASTER[hId];
-      const tr = document.createElement('tr');
-
-      if (horse) {
-        const surfaceText = formatAptitude(horse.turf_potential, horse.dirt_potential);
-        const distanceText = formatDistance(horse.min_distance, horse.max_distance);
-
-        tr.innerHTML = `
-          <td><span class="${frameClass}">${frameNum}</span></td>
-          <td>${index === 0 ? '◎' : index === 1 ? '○' : index === 2 ? '▲' : ''}</td>
-          <td class="horse-name">${horse.name}</td>
-          <td>${surfaceText}</td>
-          <td>${distanceText}</td>
-        `;
-      } else {
-        tr.innerHTML = `
-          <td><span class="${frameClass}">${frameNum}</span></td>
-          <td>-</td>
-          <td class="horse-name" style="color:#aaa;">(未設定: ID ${hId})</td>
-          <td>-</td>
-          <td>-</td>
-        `;
-      }
-      tbody.appendChild(tr);
-    });
-
-    if (tbody.children.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="color:#888; padding:12px;">デッキに馬が登録されていません</td></tr>';
-    }
+    // モジュール側の renderRaceTableRow を使用して一括描画
+    tbody.innerHTML = deck.horse_ids.map((hId, index) => cardRenderer.renderRaceTableRow(hId, index)).join('');
   }
 
   document.getElementById('tabMain1').addEventListener('click', () => switchTab(0));
   document.getElementById('tabMain2').addEventListener('click', () => switchTab(1));
 </script>
-
 </body>
 </html>
