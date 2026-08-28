@@ -173,7 +173,7 @@
     border: 1px dashed var(--border-color);
     border-radius: 5px;
     padding: 5px;
-    min-height: 65px;
+    min-height: 85px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -183,6 +183,14 @@
   }
   .slot-card.filled { border-style: solid; border-color: #a0ca33; background-color: #ffffff; }
   .slot-card.selected { border-color: var(--gold); box-shadow: 0 0 5px rgba(194, 155, 29, 0.6); }
+
+  .card-name-row, .pool-name-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+  }
   .card-name-slot {
     font-weight: bold;
     font-size: 12px;
@@ -190,15 +198,44 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    width: 100%;
   }
+
+  .ability-badge {
+    background: #e1f5fe;
+    color: #0288d1;
+    border: 1px solid #81d4fa;
+    border-radius: 4px;
+    padding: 1px 4px;
+    font-size: 9px;
+    font-weight: bold;
+    white-space: nowrap;
+    flex-shrink: 0;
+    line-height: 1.2;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+
   .card-details-slot {
     display: flex;
     flex-direction: column;
     gap: 1px;
     color: var(--text-sub);
     font-size: 10px;
+    margin-top: 2px;
   }
+
+  .slot-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    background: #f8faf8;
+    border: 1px solid #e2efe3;
+    border-radius: 4px;
+    padding: 2px;
+    text-align: center;
+    font-size: 10px;
+    gap: 1px;
+    margin-top: 3px;
+  }
+
   .empty-text { color: var(--text-sub); text-align: center; margin: auto; font-size: 11px; }
 
   .filter-box { display: flex; flex-direction: column; gap: 6px; background: #f2f8f3; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 12px; }
@@ -267,7 +304,7 @@
   }
   .pool-stats-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     background: #f8faf8;
     border: 1px solid #e2efe3;
     border-radius: 4px;
@@ -289,6 +326,12 @@
     font-weight: bold;
     color: var(--accent-color);
     font-size: 11px;
+  }
+  .style-val {
+    font-size: 10px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 </style>
 </head>
@@ -355,7 +398,6 @@
         <div class="filter-row">
           <select id="sortKey" class="filter-select">
             <option value="kana">順: 名前の順</option>
-            <option value="potential">順: ポテンシャル</option>
             <option value="rarity">順: レアリティ</option>
           </select>
           <select id="sortOrder" class="filter-select">
@@ -423,9 +465,19 @@
     return horse.distance || '-';
   }
 
-  function getPotentialVal(horse) {
-    const val = horse.total_potential ?? horse.potential;
-    return (val !== undefined && val !== null) ? val : "-";
+  function getSexText(horse) {
+    return horse.sex || horse.gender || horse.sex_name || '-';
+  }
+
+  function getStyleText(horse) {
+    return horse.style || horse.running_style || horse.style_name || '-';
+  }
+
+  function getAbilityBadgeHtml(horse) {
+    const ability = horse.ability || horse.ability_name || horse.skill || '';
+    if (!ability) return '';
+    const shortAbility = ability.substring(0, 3);
+    return `<span class="ability-badge" title="${ability}">${shortAbility}</span>`;
   }
 
   function getParamRank(val) {
@@ -530,7 +582,6 @@
     renderAll();
   }
 
-  // 名前変更ボタンのクリックイベント
   document.getElementById('btnChangeDeckName').addEventListener('click', () => {
     const inputVal = document.getElementById('deckNameInput').value.trim();
     if (!inputVal) {
@@ -662,14 +713,26 @@
         filledCount++;
         const surfaceText = getSurfaceText(horse);
         const distanceText = getDistanceText(horse);
-        const potentialVal = getPotentialVal(horse);
+        const sexText = getSexText(horse);
+        const styleText = getStyleText(horse);
+        const abilityBadge = getAbilityBadgeHtml(horse);
 
         div.className = `slot-card filled ${isSelected ? 'selected' : ''}`;
         div.innerHTML = `
-          <div class="card-name-slot">${horse.name}</div>
+          <div class="card-name-row">
+            <span class="card-name-slot" title="${horse.name}">${horse.name}</span>
+            ${abilityBadge}
+          </div>
           <div class="card-details-slot">
-            <span>${surfaceText} ${distanceText}</span>
-            <span>P:${potentialVal} | 脚:${horse.style || '-'}</span>
+            <span>${surfaceText} ${distanceText} ${sexText}</span>
+            <span>脚質: ${styleText}</span>
+          </div>
+          <div class="slot-stats-grid">
+            <div class="stat-item"><span class="stat-label">スピ</span><span class="stat-val">${getParamRank(horse.speed)}</span></div>
+            <div class="stat-item"><span class="stat-label">スタ</span><span class="stat-val">${getParamRank(horse.stamina)}</span></div>
+            <div class="stat-item"><span class="stat-label">瞬発</span><span class="stat-val">${getParamRank(horse.sharp ?? horse.sharpness)}</span></div>
+            <div class="stat-item"><span class="stat-label">持続</span><span class="stat-val">${getParamRank(horse.jizoku)}</span></div>
+            <div class="stat-item"><span class="stat-label">根性</span><span class="stat-val">${getParamRank(horse.guts)}</span></div>
           </div>
         `;
         div.onclick = () => removeCardFromSlot(idx);
@@ -798,9 +861,6 @@
         valB = b.horse.name;
         const res = valA.localeCompare(valB, 'ja');
         return sortOrder === 'asc' ? res : -res;
-      } else if (sortKey === 'potential') {
-        valA = a.horse.total_potential ?? a.horse.potential ?? 0;
-        valB = b.horse.total_potential ?? b.horse.potential ?? 0;
       } else if (sortKey === 'rarity') {
         valA = RARITY_WEIGHT[a.horse.rarity] || 0;
         valB = RARITY_WEIGHT[b.horse.rarity] || 0;
@@ -811,16 +871,21 @@
     poolList.forEach(({ horse }) => {
       const surfaceText = getSurfaceText(horse);
       const distanceText = getDistanceText(horse);
-      const potentialVal = getPotentialVal(horse);
+      const sexText = getSexText(horse);
+      const styleText = getStyleText(horse);
+      const abilityBadge = getAbilityBadgeHtml(horse);
 
       const div = document.createElement('div');
       div.className = 'pool-card';
       
       div.innerHTML = `
-        <div class="pool-name">${horse.name}</div>
-        <div class="pool-surface-dist">${surfaceText} ${distanceText}</div>
+        <div class="pool-name-row">
+          <span class="pool-name" title="${horse.name}">${horse.name}</span>
+          ${abilityBadge}
+        </div>
+        <div class="pool-surface-dist">${surfaceText} ${distanceText} ${sexText}</div>
         <div class="pool-stats-grid">
-          <div class="stat-item"><span class="stat-label">ポテ</span><span class="stat-val">${potentialVal}</span></div>
+          <div class="stat-item"><span class="stat-label">脚質</span><span class="stat-val style-val">${styleText}</span></div>
           <div class="stat-item"><span class="stat-label">スピ</span><span class="stat-val">${getParamRank(horse.speed)}</span></div>
           <div class="stat-item"><span class="stat-label">スタ</span><span class="stat-val">${getParamRank(horse.stamina)}</span></div>
           <div class="stat-item"><span class="stat-label">瞬発</span><span class="stat-val">${getParamRank(horse.sharp ?? horse.sharpness)}</span></div>
