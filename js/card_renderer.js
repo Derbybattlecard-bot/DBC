@@ -10,17 +10,28 @@ export class CardRenderer {
     if (this.isLoaded) return;
 
     try {
-      // 先頭に '/' を戻し、ルートパス指定にします
+      // 【重要】先頭の '/' を './' に変更（現在のHTMLファイルからの相対パス）
+      const horsesPath = './data/horses_master.json';
+      const designPath = './data/card_design.json';
+
+      // ネットワークエラーも検知できるように catch を挟む
       const [horsesRes, designRes] = await Promise.all([
-        fetch('/data/horses_master.json'),
-        fetch('/data/card_design.json')
+        fetch(horsesPath).catch(e => { throw new Error(`[通信エラー] ${horsesPath} にアクセスできません`); }),
+        fetch(designPath).catch(e => { throw new Error(`[通信エラー] ${designPath} にアクセスできません`); })
       ]);
 
-      if (!horsesRes.ok) throw new Error(`horses_master.json 取得失敗 (${horsesRes.status})`);
-      if (!designRes.ok) throw new Error(`card_design.json 取得失敗 (${designRes.status})`);
-
+      // ステータスコードのチェック
+      if (!horsesRes.ok) throw new Error(`馬データが見つかりません (ステータス: ${horsesRes.status}) パス: ${horsesPath}`);
+      
       const horsesArray = await horsesRes.json();
-      this.designConfig = await designRes.json();
+      
+      // デザインファイルは無くてもエラーで止めず、空の設定で進める（フォールバック）
+      if (designRes.ok) {
+        this.designConfig = await designRes.json();
+      } else {
+        console.warn(`[警告] ${designPath} が読み込めませんでしたが、デフォルトデザインで続行します。`);
+        this.designConfig = { rarity_styles: {} };
+      }
 
       this.horsesMap.clear();
       horsesArray.forEach(horse => {
@@ -28,13 +39,12 @@ export class CardRenderer {
       });
 
       this.isLoaded = true;
-      console.log("CardRenderer 初期化完了:", this.horsesMap.size, "件");
+      console.log("✅ CardRenderer 初期化完了:", this.horsesMap.size, "件");
     } catch (error) {
-      console.error("CardRenderer の初期化に失敗しました:", error);
-      throw error; 
+      console.error("❌ CardRenderer の初期化に失敗:", error);
+      throw error; // index.html にエラーを投げて知らせる
     }
   }
-
 
   getHorse(horseId) {
     if (!horseId) return null;
@@ -84,6 +94,7 @@ export class CardRenderer {
     const horse = this.getHorse(horseId);
     if (!horse) return `<div class="card-error">データが見つかりません (ID: ${horseId})</div>`;
 
+    // デザインが読み込めなかった場合でもエラーにならないようガード
     const rarityInfo = (this.designConfig && this.designConfig.rarity_styles && this.designConfig.rarity_styles[horse.rarity]) 
       || { border_color: '#ccc', badge_bg: '#999', text_color: '#fff', label: horse.rarity };
       
