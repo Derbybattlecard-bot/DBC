@@ -377,6 +377,36 @@
 
   const RARITY_WEIGHT = { "INF": 11, "SER": 10, "UR": 9, "LGR": 8, "CLR": 7, "TR": 6, "RER": 5, "AR": 4, "VR": 3, "PR": 3, "SPR": 2, "N": 1 };
 
+  // --- マスターデータ構造の差分吸収ヘルパー ---
+  function getTurfVal(horse) {
+    return Number(horse.turf_potential ?? horse.turf) || 0;
+  }
+
+  function getDirtVal(horse) {
+    return Number(horse.dirt_potential ?? horse.dirt) || 0;
+  }
+
+  function getSurfaceText(horse) {
+    const t = getTurfVal(horse);
+    const d = getDirtVal(horse);
+    if (t > 0 && d > 0) return t === d ? `芝/ダ${t}` : `芝${t}ダ${d}`;
+    if (t > 0) return `芝${t}`;
+    if (d > 0) return `ダ${d}`;
+    return "-";
+  }
+
+  function getDistanceText(horse) {
+    if (horse.min_distance && horse.max_distance) {
+      return `${horse.min_distance}-${horse.max_distance}m`;
+    }
+    return horse.distance || '-';
+  }
+
+  function getPotentialVal(horse) {
+    const val = horse.total_potential ?? horse.potential;
+    return (val !== undefined && val !== null) ? val : "-";
+  }
+
   function getParamRank(val) {
     if (val === undefined || val === null) return "-";
     if (val >= 20) return "S";
@@ -402,8 +432,10 @@
       const res = await fetch('./data/horses_master.json');
       if (res.ok) {
         HORSES_ARRAY = await res.json();
+        HORSES_MASTER = {};
         HORSES_ARRAY.forEach(h => {
-          HORSES_MASTER[h.horse_id] = h;
+          // 数値・文字列どちらのIDキーでも引けるように文字列に統一
+          HORSES_MASTER[String(h.horse_id)] = h;
         });
       }
 
@@ -530,7 +562,7 @@
     const otherDeckAssigned = new Set();
     if (globalUserData.decks[otherDeckIdx] && globalUserData.decks[otherDeckIdx].horse_ids) {
       globalUserData.decks[otherDeckIdx].horse_ids.forEach(id => {
-        if (id) otherDeckAssigned.add(id);
+        if (id) otherDeckAssigned.add(String(id));
       });
     }
 
@@ -539,21 +571,22 @@
 
     const cleanedIds = savedIds.map(horseId => {
       if (!horseId) return null;
+      const strId = String(horseId);
 
-      const cardInfo = inventory[horseId];
-      const count = (typeof cardInfo === 'object' && cardInfo !== null) ? (cardInfo.count || 1) : 1;
+      const cardInfo = inventory[strId] || inventory[horseId];
+      const count = (typeof cardInfo === 'object' && cardInfo !== null) ? (cardInfo.count || 1) : (cardInfo || 0);
       if (!cardInfo || count <= 0) {
         missingCount++;
         return null;
       }
 
-      if (otherDeckAssigned.has(horseId)) {
+      if (otherDeckAssigned.has(strId)) {
         duplicateCount++;
         return null;
       }
 
-      otherDeckAssigned.add(horseId);
-      return horseId;
+      otherDeckAssigned.add(strId);
+      return strId;
     });
 
     while (cleanedIds.length < 18) cleanedIds.push(null);
@@ -580,22 +613,21 @@
 
     currentSlots.forEach((horseId, idx) => {
       const isSelected = (selectedSlotIndex === idx);
-      const horse = HORSES_MASTER[horseId];
+      const horse = horseId ? HORSES_MASTER[String(horseId)] : null;
       const div = document.createElement('div');
       
       if (horse) {
         filledCount++;
-        let surfaceText = "-";
-        if (horse.turf !== null && horse.dirt !== null) surfaceText = "両";
-        else if (horse.turf !== null) surfaceText = "芝";
-        else if (horse.dirt !== null) surfaceText = "ダ";
+        const surfaceText = getSurfaceText(horse);
+        const distanceText = getDistanceText(horse);
+        const potentialVal = getPotentialVal(horse);
 
         div.className = `slot-card filled ${isSelected ? 'selected' : ''}`;
         div.innerHTML = `
           <div class="card-name-slot">${horse.name}</div>
           <div class="card-details-slot">
-            <span>${surfaceText} ${horse.distance || '-'}</span>
-            <span>P:${horse.potential !== undefined && horse.potential !== null ? horse.potential : '-'} | 脚:${horse.style || '-'}</span>
+            <span>${surfaceText} ${distanceText}</span>
+            <span>P:${potentialVal} | 脚:${horse.style || '-'}</span>
           </div>
         `;
         div.onclick = () => removeCardFromSlot(idx);
@@ -668,7 +700,7 @@
       globalUserData.decks.forEach(deck => {
         if (deck.horse_ids) {
           deck.horse_ids.forEach(id => {
-            if (id) allAssignedHorses.add(id);
+            if (id) allAssignedHorses.add(String(id));
           });
         }
       });
@@ -676,22 +708,34 @@
 
     let poolList = [];
 
-    for (const horseId in inventory) {
-      const cardInfo = inventory[horseId];
-      const count = (typeof cardInfo === 'object' && cardInfo !== null) ? (cardInfo.count || 1) : 1;
-      const horse = HORSES_MASTER[horseId];
+    for (const rawId in inventory) {
+      const cardInfo = inventory[rawId];
+      const count = (typeof cardInfo === 'object' && cardInfo !== null) ? (cardInfo.count || 1) : (cardInfo || 0);
+      const strId = String(rawId);
+      const horse = HORSES_MASTER[strId];
 
-      if (count > 0 && horse && !allAssignedHorses.has(horseId)) {
+      if (count > 0 && horse && !allAssignedHorses.has(strId)) {
         if (searchText && !horse.name.toLowerCase().includes(searchText)) continue;
         
-        if (surfaceVal === 'turf' && horse.turf === null) continue;
-        if (surfaceVal === 'dirt' && horse.dirt === null) continue;
-        if (surfaceVal === 'both' && (horse.turf === null || horse.dirt === null)) continue;
+        const turfVal = getTurfVal(horse);
+        const dirtVal = getDirtVal(horse);
+
+        if (surfaceVal === 'turf' && turfVal <= 0) continue;
+        if (surfaceVal === 'dirt' && dirtVal <= 0) continue;
+        if (surfaceVal === 'both' && (turfVal <= 0 || dirtVal <= 0)) continue;
 
         if (distanceVal !== 'ALL') {
           const targetDist = parseInt(distanceVal, 10);
-          const [minD, maxD] = (horse.distance || "").split("-").map(v => parseInt(v, 10));
-          if (!isNaN(minD) && !isNaN(maxD)) {
+          let minD = horse.min_distance;
+          let maxD = horse.max_distance;
+          
+          if (!minD && !maxD && horse.distance) {
+            const parts = horse.distance.split('-').map(v => parseInt(v, 10));
+            minD = parts[0];
+            maxD = parts[1] || parts[0];
+          }
+
+          if (minD !== undefined && maxD !== undefined && !isNaN(minD) && !isNaN(maxD)) {
             if (targetDist < minD || targetDist > maxD) continue;
           }
         }
@@ -713,8 +757,8 @@
         const res = valA.localeCompare(valB, 'ja');
         return sortOrder === 'asc' ? res : -res;
       } else if (sortKey === 'potential') {
-        valA = a.horse.potential || 0;
-        valB = b.horse.potential || 0;
+        valA = a.horse.total_potential ?? a.horse.potential ?? 0;
+        valB = b.horse.total_potential ?? b.horse.potential ?? 0;
       } else if (sortKey === 'rarity') {
         valA = RARITY_WEIGHT[a.horse.rarity] || 0;
         valB = RARITY_WEIGHT[b.horse.rarity] || 0;
@@ -723,30 +767,26 @@
     });
 
     poolList.forEach(({ horse }) => {
-      let surfaceText = "-";
-      if (horse.turf !== null && horse.dirt !== null) surfaceText = "両";
-      else if (horse.turf !== null) surfaceText = "芝";
-      else if (horse.dirt !== null) surfaceText = "ダ";
-
-      const potentialVal = (horse.potential !== undefined && horse.potential !== null) ? horse.potential : "-";
+      const surfaceText = getSurfaceText(horse);
+      const distanceText = getDistanceText(horse);
+      const potentialVal = getPotentialVal(horse);
 
       const div = document.createElement('div');
       div.className = 'pool-card';
       
-      // ポテンシャルのみ数値、他はアルファベット表記（上段：ポテ、スピ、スタ ／ 下段：瞬発、持続、根性）
       div.innerHTML = `
         <div class="pool-name">${horse.name}</div>
-        <div class="pool-surface-dist">${surfaceText} ${horse.distance || '-'}</div>
+        <div class="pool-surface-dist">${surfaceText} ${distanceText}</div>
         <div class="pool-stats-grid">
           <div class="stat-item"><span class="stat-label">ポテ</span><span class="stat-val">${potentialVal}</span></div>
           <div class="stat-item"><span class="stat-label">スピ</span><span class="stat-val">${getParamRank(horse.speed)}</span></div>
           <div class="stat-item"><span class="stat-label">スタ</span><span class="stat-val">${getParamRank(horse.stamina)}</span></div>
-          <div class="stat-item"><span class="stat-label">瞬発</span><span class="stat-val">${getParamRank(horse.sharp)}</span></div>
+          <div class="stat-item"><span class="stat-label">瞬発</span><span class="stat-val">${getParamRank(horse.sharp ?? horse.sharpness)}</span></div>
           <div class="stat-item"><span class="stat-label">持続</span><span class="stat-val">${getParamRank(horse.jizoku)}</span></div>
           <div class="stat-item"><span class="stat-label">根性</span><span class="stat-val">${getParamRank(horse.guts)}</span></div>
         </div>
       `;
-      div.onclick = () => addCardToDeck(horse.horse_id);
+      div.onclick = () => addCardToDeck(String(horse.horse_id));
       grid.appendChild(div);
     });
 
@@ -795,4 +835,3 @@
 </script>
 </body>
 </html>
-  
