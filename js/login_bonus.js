@@ -3,7 +3,7 @@
  * ログインボーナスの抽選および判定ロジック
  */
 
-// 1. ガチャ確率テーブル (index.html より移植)
+// 1. ガチャ確率テーブル
 export const NORMAL_PROBABILITY_TABLE = [
   { rarity: "INF", prob: 0.005 },
   { rarity: "SER", prob: 0.005 },
@@ -34,8 +34,13 @@ export const FEVER_PROBABILITY_TABLE = [
 
 // 2. 世代年数の取得関数
 export function getGenerationYear(horseId) {
-  if (!horseId || horseId.length < 2) return 2000;
-  const prefix = parseInt(horseId.substring(0, 2), 10);
+  if (!horseId) return 2000;
+  const strId = String(horseId);
+  if (strId.length < 2) return 2000;
+  
+  const prefix = parseInt(strId.substring(0, 2), 10);
+  if (isNaN(prefix)) return 2000;
+  
   return prefix >= 60 ? 1900 + prefix : 2000 + prefix;
 }
 
@@ -56,10 +61,6 @@ export function getAffiliationDigit(affiliationStr) {
 
 /**
  * 5. ログインボーナスの抽選メイン処理
- * @param {Object} cardRenderer - 全馬データ（horsesMap）を持つレンダラーオブジェクト
- * @param {string|number} affiliationStr - ユーザーの所属設定情報
- * @param {boolean} isFever - 確変（フィーバー）状態かどうか
- * @returns {Object} 選出された馬オブジェクト
  */
 export function drawBonusCard(cardRenderer, affiliationStr, isFever = false) {
   const excludeDigit = getAffiliationDigit(affiliationStr);
