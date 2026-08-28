@@ -10,10 +10,10 @@ export class CardRenderer {
     if (this.isLoaded) return;
 
     try {
-      // パスを相対パス `./data/...` に変更（環境による404防止）
+      // 先頭に '/' を戻し、ルートパス指定にします
       const [horsesRes, designRes] = await Promise.all([
-        fetch('./data/horses_master.json'),
-        fetch('./data/card_design.json')
+        fetch('/data/horses_master.json'),
+        fetch('/data/card_design.json')
       ]);
 
       if (!horsesRes.ok) throw new Error(`horses_master.json 取得失敗 (${horsesRes.status})`);
@@ -24,7 +24,6 @@ export class CardRenderer {
 
       this.horsesMap.clear();
       horsesArray.forEach(horse => {
-        // IDは常に文字列として統一保持
         this.horsesMap.set(String(horse.horse_id), horse);
       });
 
@@ -32,10 +31,10 @@ export class CardRenderer {
       console.log("CardRenderer 初期化完了:", this.horsesMap.size, "件");
     } catch (error) {
       console.error("CardRenderer の初期化に失敗しました:", error);
-      // 呼び出し元（index.html）へエラーを通知してストップさせる
       throw error; 
     }
   }
+
 
   getHorse(horseId) {
     if (!horseId) return null;
