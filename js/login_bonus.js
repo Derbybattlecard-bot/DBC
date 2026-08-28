@@ -1,4 +1,5 @@
 // login_bonus.js
+import { cardRenderer } from './card_renderer.js';
 
 // 全12種類のレアリティ定義（正式名称 ＆ 専用カラー/シャドウ設定）
 const RARITY_CONFIG = {
@@ -39,7 +40,7 @@ function injectCutInStyles() {
     }
     .cutin-overlay.active { opacity: 1; }
 
-    /* スリムな横帯カットイン（縦幅約半分） */
+    /* 縦幅半分のスリムな横帯カットイン */
     .cutin-banner {
       width: 100%; height: 52px;
       display: flex; align-items: center;
@@ -67,38 +68,39 @@ function injectCutInStyles() {
     .cutin-banner.out-left { transform: translateX(-100%); opacity: 0; }
     .cutin-banner.out-right { transform: translateX(100%); opacity: 0; }
 
-    /* カード風表示ボックス */
-    .cutin-card-box {
+    /* CardRendererをそのまま描画するカードラッパー */
+    .cutin-card-wrapper {
       position: absolute;
-      width: 260px; height: 370px;
-      background: linear-gradient(135deg, #0a0d1a, #1a2238);
-      border: 3px solid #ffcc00; border-radius: 16px;
-      box-shadow: 0 0 35px rgba(255, 204, 0, 0.5);
-      display: flex; flex-direction: column; justify-content: space-between; align-items: center;
-      padding: 24px 16px; box-sizing: border-box; color: #fff;
-      transform: scale(0.4); opacity: 0;
+      width: 88%; max-width: 320px;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      transform: scale(0.3); opacity: 0;
       transition: transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.25), opacity 0.35s ease;
     }
-    .cutin-card-box.in { transform: scale(1); opacity: 1; }
+    .cutin-card-wrapper.in { transform: scale(1); opacity: 1; }
 
-    .card-gen-text { font-size: 1rem; color: #70d6ff; font-weight: bold; letter-spacing: 1px; }
-    .card-horse-text { font-size: 1.8rem; font-weight: 900; color: #fff; text-shadow: 0 0 8px rgba(255,255,255,0.7); text-align: center; }
+    .card-render-container {
+      width: 100%;
+      border-radius: 8px;
+      box-shadow: 0 0 25px rgba(255, 204, 0, 0.6);
+      background: #ffffff;
+      overflow: hidden;
+    }
 
     /* 正式名称ポップアップ */
     .cutin-rarity-badge {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      padding: 10px 20px; border-radius: 12px; width: 85%;
+      padding: 10px 20px; border-radius: 12px; width: 90%;
       transform: scale(0); opacity: 0;
       transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.4), opacity 0.3s ease;
     }
-    .cutin-rarity-badge.pop { transform: scale(1.1); opacity: 1; }
-    .rarity-full-title { font-size: 1.1rem; font-weight: 900; color: #fff; text-shadow: 1px 1px 4px #000; letter-spacing: 1px; text-align: center; }
+    .cutin-rarity-badge.pop { transform: scale(1.05); opacity: 1; }
+    .rarity-full-title { font-size: 1.15rem; font-weight: 900; color: #fff; text-shadow: 1px 1px 4px #000; letter-spacing: 1px; text-align: center; }
     .rarity-code-sub { font-size: 0.85rem; font-weight: 700; color: rgba(255,255,255,0.85); font-style: italic; margin-top: 2px; }
   `;
   document.head.appendChild(style);
 }
 
-export async function playFourthCornerCutIn(chosenHorse) {
+export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRenderer) {
   injectCutInStyles();
 
   let overlay = document.getElementById('login-cutin-overlay');
@@ -109,17 +111,23 @@ export async function playFourthCornerCutIn(chosenHorse) {
     document.body.appendChild(overlay);
   }
 
-  const genYear = getGenerationYear(chosenHorse.horse_id || chosenHorse.id);
+  const horseId = chosenHorse.horse_id || chosenHorse.id || 'H001';
+  const genYear = getGenerationYear(horseId, customRenderer);
   const code = (chosenHorse.rarity || 'NOR').toUpperCase();
   const config = RARITY_CONFIG[code] || RARITY_CONFIG['NOR'];
 
-  // DOM生成
+  // CardRenderer より pool モードの HTML を取得して挿入
+  const cardHtml = customRenderer && customRenderer.isLoaded 
+    ? customRenderer.renderCardUI(horseId, 'pool') 
+    : `<div style="padding:20px; text-align:center; background:#fff;">${chosenHorse.name}</div>`;
+
   overlay.innerHTML = `
     <div id="banner-gen" class="cutin-banner cutin-banner-gen">${genYear}年世代</div>
     <div id="banner-name" class="cutin-banner cutin-banner-name">${chosenHorse.name}</div>
-    <div id="card-box" class="cutin-card-box">
-      <div class="card-gen-text">【 ${genYear}年世代 】</div>
-      <div class="card-horse-text">${chosenHorse.name}</div>
+    <div id="card-wrapper" class="cutin-card-wrapper">
+      <div class="card-render-container">
+        ${cardHtml}
+      </div>
       <div id="rarity-badge" class="cutin-rarity-badge">
         <span class="rarity-full-title">${config.name}</span>
         <span class="rarity-code-sub">-[ ${code} ]-</span>
@@ -129,7 +137,7 @@ export async function playFourthCornerCutIn(chosenHorse) {
 
   const bannerGen = document.getElementById('banner-gen');
   const bannerName = document.getElementById('banner-name');
-  const cardBox = document.getElementById('card-box');
+  const cardWrapper = document.getElementById('card-wrapper');
   const rarityBadge = document.getElementById('rarity-badge');
 
   if (rarityBadge) {
@@ -140,55 +148,56 @@ export async function playFourthCornerCutIn(chosenHorse) {
   const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
   // --- タイムライン（トータル約7秒）---
-  
-  // 1. 背景フェードイン（0.0s）
   overlay.classList.add('active');
   await wait(100);
 
-  // 2. 世代帯が左から登場（0.1s - 1.1s）
+  // 1. 世代帯が左から登場（0.1s - 1.0s）
   bannerGen.classList.add('in');
   await wait(900);
 
-  // 3. 馬名帯が右から登場（1.0s - 2.2s）
+  // 2. 馬名帯が右から登場（1.0s - 2.2s）
   bannerName.classList.add('in');
   await wait(1200);
 
-  // 4. 帯が左右に退出 & カード枠がズームイン（2.2s - 2.8s）
+  // 3. 帯が左右に退出 ＆ CardRendererのカードUIがズームイン（2.2s - 2.8s）
   bannerGen.classList.remove('in');
   bannerGen.classList.add('out-left');
   bannerName.classList.remove('in');
   bannerName.classList.add('out-right');
   await wait(200);
-  cardBox.classList.add('in');
+  cardWrapper.classList.add('in');
   await wait(1000);
 
-  // 5. レアランク（正式名称）ポップアップ（3.4s - 6.2s）
+  // 4. 正式名称レアリティがポップアップ（3.4s - 6.2s）
   rarityBadge.classList.add('pop');
   await wait(2800);
 
-  // 6. 全体フェードアウト（6.2s - 6.8s）
+  // 5. 全体フェードアウト（6.2s - 6.8s）
   overlay.classList.remove('active');
   await wait(600);
 }
 
-export function drawBonusCard(cardRenderer, affiliation, isFever) {
-  const allHorses = cardRenderer && cardRenderer.horses ? Object.values(cardRenderer.horses) : [];
+export function drawBonusCard(renderer = cardRenderer, affiliation, isFever) {
+  const allHorses = renderer && renderer.horsesMap ? Array.from(renderer.horsesMap.values()) : [];
   if (allHorses.length === 0) {
     return { horse_id: "H001", name: "トウカイテイオー", rarity: "TRR" };
   }
   const selected = allHorses[Math.floor(Math.random() * allHorses.length)];
   return {
-    horse_id: selected.id || selected.horse_id || "H001",
+    horse_id: selected.horse_id || selected.id || "H001",
     name: selected.name || "競走馬",
     rarity: isFever ? "ULR" : (selected.rarity || "NOR")
   };
 }
 
-export function getGenerationYear(horseId) {
+export function getGenerationYear(horseId, renderer = cardRenderer) {
+  if (renderer && typeof renderer.getGenerationYear === 'function') {
+    return renderer.getGenerationYear(horseId);
+  }
   return 2020;
 }
 
-export function getGenYearLastDigit(horseId) {
-  const year = getGenerationYear(horseId);
+export function getGenYearLastDigit(horseId, renderer = cardRenderer) {
+  const year = getGenerationYear(horseId, renderer);
   return String(year).slice(-1);
 }
