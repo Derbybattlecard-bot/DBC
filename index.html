@@ -273,7 +273,6 @@
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { doc, getDoc, setDoc, collection, getCountFromServer, increment, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
   import { cardRenderer } from './js/card_renderer.js';
-  // 外部化したログインボーナス用モジュールの読み込み
   import { drawBonusCard, getGenerationYear, getGenYearLastDigit } from './js/login_bonus.js';
 
   let globalUserData = null;
@@ -297,9 +296,12 @@
         return;
       }
 
+      // UI描画を並列化・即時実行
       renderUserProfile();
-      await renderRecord();
       renderSelectedDeck();
+      
+      // 重いデータ非同期取得とログインボーナスチェックを並列化
+      renderRecord(); 
       await checkAndRenderLoginBonus();
     } catch (err) {
       console.error("初期化エラー:", err);
@@ -317,14 +319,25 @@
     const rec = globalUserData.record || { matches: 0, wins: 0, maxStreak: 0 };
     const winRate = rec.matches > 0 ? ((rec.wins / rec.matches) * 100).toFixed(1) : "0.0";
     
-    let cardTypesCount = 0;
+    // 一旦基礎情報のみ即時更新
+    updateRecordDOM(rec, winRate, "取得中...");
+
     try {
+      // タイムアウト付きで安全に件数を取得（最長3秒）
       const collRef = collection(db, `users/${currentUser.uid}/inventory`);
-      const snapshot = await getCountFromServer(collRef);
-      cardTypesCount = snapshot.data().count;
+      const countPromise = getCountFromServer(collRef);
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 3000));
+      
+      const snapshot = await Promise.race([countPromise, timeoutPromise]);
+      const cardTypesCount = snapshot.data().count;
+      updateRecordDOM(rec, winRate, `${cardTypesCount}種`);
     } catch (error) {
-      console.error("カード種類数の取得に失敗:", error);
+      console.warn("カード種類数の取得をスキップ（タイムアウトまたはエラー）:", error);
+      updateRecordDOM(rec, winRate, "- 種");
     }
+  }
+
+  function updateRecordDOM(rec, winRate, cardTypesDisplay) {
     document.getElementById('recordSection').innerHTML = `
       <div class="record-item">
         <span class="record-label">通算成績</span>
@@ -340,7 +353,7 @@
       </div>
       <div class="record-item">
         <span class="record-label">所持種類</span>
-        <span class="record-value" style="color:#0d4220;">${cardTypesCount}種</span>
+        <span class="record-value" style="color:#0d4220;">${cardTypesDisplay}</span>
       </div>
     `;
   }
@@ -445,7 +458,6 @@
 
     const isFeverClaim = (cards.length === 0 && state.is_fever_today);
     
-    // 外部化した drawBonusCard 関数で安全に抽選を実行
     const chosenHorse = drawBonusCard(cardRenderer, globalUserData.affiliation, isFeverClaim);
 
     if (!chosenHorse) {
@@ -485,7 +497,7 @@
 
       globalUserData.login_bonus_state = state;
       renderBonusUI(state);
-      await renderRecord();
+      renderRecord();
       
       alert(`🎁 ログインボーナスで「${chosenHorse.name} (${chosenHorse.rarity})」を獲得しました！`);
     } catch (err) {
