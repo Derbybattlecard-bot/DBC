@@ -204,8 +204,9 @@ export class CardRenderer {
 
   getParamRank(val) {
     if (val === undefined || val === null) return "-";
-    if (val >= 20) return "S";
-    if (val >= 18) return "A";
+    if (val >= 23) return "SS";
+    if (val >= 21) return "Sは";
+    if (val >= 18) return "Aし";
     if (val >= 16) return "B";
     return "C";
   }
