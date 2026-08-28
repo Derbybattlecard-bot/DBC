@@ -648,11 +648,16 @@
         const surfaceText = getSurfaceText(horse);
         const distanceText = getDistanceText(horse);
         
-        // ★ 追加: 性別・アビリティの取得
-        const sexText = sex || "-"; 
-        const abilityRaw = ability || horse.skill || "---";
-        const abilityText = abilityRaw.substring(0, 3);
-        
+      // ★ 修正: オブジェクトから正確に取得し、配列ハンドリングを追加
+const sexText = horse.sex || "-";
+let abilityText = "---";
+
+if (Array.isArray(horse.ability) && horse.ability.length > 0) {
+  abilityText = horse.ability[0].substring(0, 3); // 1つ目のアビリティの先頭3文字
+} else if (typeof horse.ability === 'string' && horse.ability) {
+  abilityText = horse.ability.substring(0, 3);
+}
+
         div.className = `slot-card filled ${isSelected ? 'selected' : ''}`;
         
         // ★ 変更: Pを削除し、脚質・性別・S~Cパラメータ・アビリティを追加
