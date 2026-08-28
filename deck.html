@@ -158,7 +158,6 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
   }
   
-  /* ★ 3列均等表示のためのレイアウト調整 */
   .slots-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -179,7 +178,7 @@
     position: relative;
     font-size: 11px;
     box-sizing: border-box;
-    min-width: 0; /* 崩れ防止 */
+    min-width: 0;
   }
   .slot-card.filled { border-style: solid; border-color: #a0ca33; background-color: #ffffff; }
   .slot-card.selected { border-color: var(--gold); box-shadow: 0 0 5px rgba(194, 155, 29, 0.6); }
@@ -194,7 +193,6 @@
     width: 100%;
   }
   
-  /* デッキ用 パラメータ帯 */
   .card-params-slot {
     display: flex;
     justify-content: space-between;
@@ -311,7 +309,6 @@
     font-size: 11px;
   }
   
-  /* ★ アビリティ最下部・3つ並び用CSS（幅最適化） */
   .card-abilities-row {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -333,9 +330,8 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    letter-spacing: -0.5px; /* 3文字が確実に納まるよう微調整 */
+    letter-spacing: -0.5px;
   }
-  /* 空白保持用バッジ */
   .ability-btn.empty {
     visibility: hidden;
     border-color: transparent;
@@ -428,10 +424,12 @@
     </div>
   </div>
 </div>
+
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { doc, getDoc, updateDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
   let HORSES_MASTER = {};
   let HORSES_ARRAY = [];
   let currentUser = null;
@@ -439,7 +437,11 @@
   let activeDeckIdx = 0;
   let selectedSlotIndex = null;
   let selectedKana = "ALL";
-  const RARITY_WEIGHT = { "INF": 11, "SER": 10, "UR": 9, "LGR": 8, "CLR": 7, "TR": 6, "RER": 5, "AR": 4, "VR": 3, "PR": 3, "SPR": 2, "N": 1 };
+
+  const RARITY_WEIGHT = { 
+    "INF": 11, "SER": 10, "UR": 9, "LGR": 8, "CLR": 7, 
+    "TR": 6, "RER": 5, "AR": 4, "VR": 3, "PR": 3, "SPR": 2, "N": 1 
+  };
   
   function getTurfVal(horse) {
     return Number(horse.turf_potential ?? horse.turf) || 0;
@@ -461,10 +463,6 @@
     }
     return horse.distance || '-';
   }
-  function getPotentialVal(horse) {
-    const val = horse.total_potential ?? horse.potential;
-    return (val !== undefined && val !== null) ? val : "-";
-  }
   function getParamRank(val) {
     if (val === undefined || val === null) return "-";
     if (val >= 20) return "S";
@@ -477,7 +475,6 @@
     if (el) el.textContent = msg;
   }
 
-  // ★ アビリティ3つ並び生成（3文字切り出し対応）
   function getAbilityBadgeHtml(horse) {
     let abilities = [];
     if (Array.isArray(horse.ability)) {
@@ -517,6 +514,7 @@
           HORSES_MASTER[String(h.horse_id)] = h;
         });
       }
+
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) {
         globalUserData = userDoc.data();
@@ -524,11 +522,13 @@
         window.location.href = 'setup.html';
         return;
       }
+
       const inventorySnap = await getDocs(collection(db, `users/${user.uid}/inventory`));
       globalUserData.cards = {};
       inventorySnap.forEach(docSnap => {
         globalUserData.cards[docSnap.id] = docSnap.data();
       });
+
       if (!globalUserData.decks || !Array.isArray(globalUserData.decks)) {
         globalUserData.decks = [
           { deck_name: "メインデッキ 1", horse_ids: new Array(18).fill(null) },
@@ -544,6 +544,7 @@
       if (!globalUserData.saved_deck_slots || !Array.isArray(globalUserData.saved_deck_slots)) {
         globalUserData.saved_deck_slots = new Array(5).fill(null);
       }
+
       setSyncStatus("✅ クラウド同期完了");
       renderAll();
     } catch (err) {
@@ -634,7 +635,7 @@
     const slotData = globalUserData.saved_deck_slots[slotIdx];
     if (!slotData) {
       alert(`スロット #${slotIdx + 1} にはデータがありません。`);
-     return;
+      return;
     }
     const savedIds = Array.isArray(slotData) ? slotData : slotData.horse_ids;
     const savedName = (slotData && slotData.deck_name) || `ロードデッキ #${slotIdx + 1}`;
@@ -702,7 +703,6 @@
         
         div.className = `slot-card filled ${isSelected ? 'selected' : ''}`;
         
-        // ★ 変更: 1行目:適性+距離 / 2行目:脚質+性別 に分けました
         div.innerHTML = `
           <div class="card-name-slot">${horse.name}</div>
           <div class="card-details-slot">
