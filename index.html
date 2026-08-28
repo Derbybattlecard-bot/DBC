@@ -268,6 +268,13 @@
     <div class="cards-container" id="bonusCardsContainer"></div>
     <div id="bonusMessageContainer"></div>
     <div id="bonusBtnContainer"></div>
+    
+    <!-- テスト用動作確認ボタン -->
+    <div style="margin-top: 10px; padding-top: 6px; border-top: 1px dashed #b2d4b6; text-align: center;">
+      <button id="testCutinBtn" style="background: #333; color: #fff; border: 1px solid #555; padding: 5px 12px; border-radius: 4px; font-size: 10px; cursor: pointer; font-weight: bold;">
+        🎬 【テスト】演出再生（TRR）
+      </button>
+    </div>
   </div>
 
   <div class="menu-grid">
@@ -303,7 +310,7 @@
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { doc, getDoc, setDoc, collection, getCountFromServer, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
   import { cardRenderer } from './js/card_renderer.js';
-  import { drawBonusCard, getGenerationYear, getGenYearLastDigit } from './js/login_bonus.js';
+  import { drawBonusCard, getGenerationYear, getGenYearLastDigit, playFourthCornerCutIn } from './js/login_bonus.js';
 
   let globalUserData = null;
   let currentUser = null;
@@ -485,6 +492,9 @@
       return;
     }
 
+    // 🎬 第4コーナーカットイン演出を動的に呼び出し
+    await playFourthCornerCutIn(chosenHorse);
+
     const nowMs = Date.now();
     state.today_cards = [...cards, { horse_id: chosenHorse.horse_id, rarity: chosenHorse.rarity, timestamp: nowMs }];
     state.last_claim_time = nowMs;
@@ -512,6 +522,14 @@
       alert("保存時にエラーが発生しました。");
     }
   }
+
+  // 🎬 テスト確認用ボタンのイベント設定
+  document.getElementById('testCutinBtn').onclick = async () => {
+    await playFourthCornerCutIn({
+      name: "トウカイテイオー",
+      rarity: "TRR"
+    });
+  };
 
   function switchTab(idx) {
     activeDeckIndex = idx;
