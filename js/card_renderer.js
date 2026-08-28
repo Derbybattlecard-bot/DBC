@@ -68,6 +68,61 @@ export class CardRenderer {
         box-shadow: 0 3px 8px rgba(0,0,0,0.12);
       }
 
+      /* レアリティバッジ（グラフィック風デザイン） */
+      .crc-rarity-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1px 5px;
+        font-size: 8.5px;
+        font-weight: 900;
+        border-radius: 8px;
+        border: 1px solid #c29b1d;
+        background: linear-gradient(135deg, #ffffff 0%, #f4f4f4 100%);
+        color: #c29b1d;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+        letter-spacing: 0.5px;
+        line-height: 1.1;
+        white-space: nowrap;
+      }
+      .crc-rarity-badge.rarity-ur {
+        background: linear-gradient(135deg, #fff2cb 0%, #ffd700 100%);
+        color: #6b4d00;
+        border-color: #d4af37;
+        box-shadow: 0 1px 3px rgba(212, 175, 55, 0.4);
+      }
+      .crc-rarity-badge.rarity-ssr {
+        background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+        color: #ffffff;
+        border-color: #e63956;
+        box-shadow: 0 1px 3px rgba(230, 57, 86, 0.4);
+      }
+      .crc-rarity-badge.rarity-sr {
+        background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%);
+        color: #ffffff;
+        border-color: #1e90ff;
+      }
+      .crc-rarity-badge.rarity-r {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        color: #0d4220;
+        border-color: #2ed573;
+      }
+
+      /* 世代表記バッジ */
+      .crc-gen-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1px 4px;
+        font-size: 8.5px;
+        font-weight: bold;
+        border-radius: 3px;
+        background: #2d6a37;
+        color: #ffffff;
+        line-height: 1.1;
+        white-space: nowrap;
+      }
+
       /* アビリティバッジ（3列均等表示） */
       .crc-abilities-row {
         display: grid;
@@ -107,12 +162,19 @@ export class CardRenderer {
         justify-content: space-between;
         font-size: 11px;
       }
+      .crc-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 2px;
+      }
       .crc-deck-name {
         font-weight: bold;
         font-size: 11.5px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        flex: 1;
       }
       .crc-deck-details {
         display: flex;
@@ -162,6 +224,9 @@ export class CardRenderer {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        display: flex;
+        align-items: center;
+        gap: 4px;
       }
       .crc-pool-stats-grid {
         display: grid;
@@ -184,6 +249,25 @@ export class CardRenderer {
   getHorse(horseId) {
     if (!horseId) return null;
     return this.horsesMap.get(String(horseId));
+  }
+
+  // --- 世代表記関連メソッド ---
+  /**
+   * 誕生年（西暦4桁: 例 1996）を取得
+   */
+  getGenerationYear(horseOrId) {
+    const horse = typeof horseOrId === 'object' ? horseOrId : this.getHorse(horseOrId);
+    if (!horse) return '----';
+    const year = horse.generation_year || horse.birth_year || horse.generation || horse.gen_year;
+    return year ? String(year) : '----';
+  }
+
+  /**
+   * 世代の2桁表記（例: "96"）を取得
+   */
+  getGenYearTwoDigits(horseOrId) {
+    const yearStr = this.getGenerationYear(horseOrId);
+    return yearStr.length >= 4 ? yearStr.slice(-2) : '--';
   }
 
   formatAptitude(turf, dirt) {
@@ -209,6 +293,22 @@ export class CardRenderer {
     if (val >= 18) return "A";
     if (val >= 16) return "B";
     return "C";
+  }
+
+  /**
+   * レアリティバッジHTMLを生成
+   */
+  getRarityBadgeHtml(horse) {
+    const rarity = (horse.rarity || 'N').toUpperCase();
+    return `<span class="crc-rarity-badge rarity-${rarity.toLowerCase()}">${rarity}</span>`;
+  }
+
+  /**
+   * 世代表記バッジHTMLを生成 (2桁表示: 例 "96世代")
+   */
+  getGenBadgeHtml(horse) {
+    const gen2 = this.getGenYearTwoDigits(horse);
+    return `<span class="crc-gen-badge">${gen2}世代</span>`;
   }
 
   getAbilityBadgesHtml(horse) {
@@ -250,12 +350,18 @@ export class CardRenderer {
     const distanceText = this.getDistanceText(horse);
     const sexText = horse.sex || '-';
     const abilitiesHtml = this.getAbilityBadgesHtml(horse);
+    const rarityBadgeHtml = this.getRarityBadgeHtml(horse);
+    const genBadgeHtml = this.getGenBadgeHtml(horse);
 
     // 1. デック用（コンパクト表示）
     if (mode === 'deck') {
       return `
         <div class="crc-card crc-card-deck" style="border: 1px solid ${rarityInfo.border_color}; border-left: 4px solid ${rarityInfo.border_color};">
-          <div class="crc-deck-name">${horse.name}</div>
+          <div class="crc-card-header">
+            <div class="crc-deck-name">${horse.name}</div>
+            ${genBadgeHtml}
+            ${rarityBadgeHtml}
+          </div>
           <div class="crc-deck-details">
             <span>${surfaceText} ${distanceText}</span>
             <span>脚:${horse.style || '-'} ${sexText}</span>
@@ -274,7 +380,13 @@ export class CardRenderer {
     // 2. プール/一覧用（標準表示）
     return `
       <div class="crc-card crc-card-pool" style="border: 1px solid ${rarityInfo.border_color};">
-        <div class="crc-pool-name">${horse.name}</div>
+        <div class="crc-card-header">
+          <div class="crc-pool-name">${horse.name}</div>
+          <div style="display:flex; gap:3px;">
+            ${genBadgeHtml}
+            ${rarityBadgeHtml}
+          </div>
+        </div>
         <div class="crc-pool-sub">${surfaceText} ${distanceText} ${sexText}</div>
         <div class="crc-pool-stats-grid">
           <div class="crc-stat-item"><span class="crc-stat-label">脚質</span><span class="crc-stat-val">${horse.style || '-'}</span></div>
