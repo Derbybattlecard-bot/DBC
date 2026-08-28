@@ -72,11 +72,29 @@
     border-color: var(--accent-color);
   }
   .deck-info { display: flex; gap: 12px; font-weight: bold; font-size: 13px; }
+  
+  .deck-name-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
   .deck-name-input {
     background: #ffffff; border: 1px solid var(--border-color);
-    color: var(--text-main); padding: 4px 6px; border-radius: 4px; font-size: 13px;
+    color: var(--text-main); padding: 4px 8px; border-radius: 4px; font-size: 13px;
     font-weight: bold;
   }
+  .btn-change-name {
+    background: var(--accent-color);
+    color: #ffffff;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .btn-change-name:hover { background: var(--accent-hover); }
 
   .save-load-panel {
     background-color: var(--panel-bg);
@@ -285,9 +303,13 @@
         <button class="tab-btn" id="tabB">MAIN 2</button>
       </div>
     </div>
-    <div>
-      デッキ名: <input type="text" id="deckNameInput" class="deck-name-input" value="読み込み中...">
+    
+    <div class="deck-name-container">
+      デッキ名: 
+      <input type="text" id="deckNameInput" class="deck-name-input" value="読み込み中...">
+      <button id="btnChangeDeckName" class="btn-change-name">名前変更</button>
     </div>
+
     <div class="deck-info">
       <span>編成: <span id="countDisplay">0</span> / 18</span>
     </div>
@@ -508,9 +530,16 @@
     renderAll();
   }
 
-  document.getElementById('deckNameInput').addEventListener('change', (e) => {
-    globalUserData.decks[activeDeckIdx].deck_name = e.target.value;
+  // 名前変更ボタンのクリックイベント
+  document.getElementById('btnChangeDeckName').addEventListener('click', () => {
+    const inputVal = document.getElementById('deckNameInput').value.trim();
+    if (!inputVal) {
+      alert("デッキ名を入力してください。");
+      return;
+    }
+    globalUserData.decks[activeDeckIdx].deck_name = inputVal;
     syncSave();
+    alert(`デッキ名を「${inputVal}」に変更しました！`);
   });
 
   function renderStorageSlots() {
