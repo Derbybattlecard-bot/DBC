@@ -130,3 +130,27 @@ export async function playFourthCornerCutIn(chosenHorse) {
   overlay.classList.add('exit');
   await new Promise(r => setTimeout(r, 400));
 }
+// login_bonus.js の末尾に追加
+
+export function drawBonusCard(cardRenderer, affiliation, isFever) {
+  const allHorses = cardRenderer && cardRenderer.horses ? Object.values(cardRenderer.horses) : [];
+  if (allHorses.length === 0) {
+    return { horse_id: "H001", name: "トウカイテイオー", rarity: "TRR" };
+  }
+  const selected = allHorses[Math.floor(Math.random() * allHorses.length)];
+  return {
+    horse_id: selected.id || selected.horse_id || "H001",
+    name: selected.name || "競走馬",
+    rarity: isFever ? "ULR" : (selected.rarity || "NOR")
+  };
+}
+
+export function getGenerationYear(horseId) {
+  // IDやデータから世代年（西暦）を取得する処理
+  return 2020;
+}
+
+export function getGenYearLastDigit(horseId) {
+  const year = getGenerationYear(horseId);
+  return String(year).slice(-1);
+}
