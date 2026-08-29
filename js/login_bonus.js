@@ -65,6 +65,8 @@ function injectCutInStyles() {
     .slot-banner.out { transform: translateX(-100%); }
 
     .bg-ability { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #1e5128 20%, #4e9f3d 80%, rgba(0,0,0,0) 100%); color: #d8f3dc; font-size: 1.15rem; }
+    .bg-surface { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #d4a373 20%, #faedcd 80%, rgba(0,0,0,0) 100%); color: #332211; }
+    .bg-dist { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #2a9d8f 20%, #e9c46a 80%, rgba(0,0,0,0) 100%); color: #112233; }
     .bg-gen { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #0d3b66 20%, #0077b6 80%, rgba(0,0,0,0) 100%); color: #70d6ff; }
     .bg-name { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #7209b7 20%, #f72585 80%, rgba(0,0,0,0) 100%); color: #ffffff; text-shadow: 0 0 8px rgba(255,255,255,0.8); }
     .bg-rare { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #b8860b 20%, #ffd700 80%, rgba(0,0,0,0) 100%); color: #3a2500; font-weight: 900; }
@@ -83,21 +85,11 @@ function injectCutInStyles() {
       box-shadow: 0 4px 20px rgba(0,0,0,0.6);
       background: #fff; overflow: hidden;
     }
-
-    .cutin-rarity-pop {
-      width: 100%; padding: 8px 12px; border-radius: 8px; box-sizing: border-box;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      transform: scale(0); opacity: 0;
-      transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.4), opacity 0.25s ease;
-    }
-    .cutin-rarity-pop.show { transform: scale(1); opacity: 1; }
-    .rarity-pop-title { font-size: 1.05rem; font-weight: 900; color: #fff; text-shadow: 1px 1px 3px #000; }
-    .rarity-pop-code { font-size: 0.75rem; font-weight: 700; color: rgba(255,255,255,0.85); margin-top: 1px; }
   `;
   document.head.appendChild(style);
 }
 
-// 馬ID（4桁）の千の位・百の位から西暦4桁を取得するヘルパー関数
+// 馬ID（4桁）から西暦4桁を取得
 export function getGenerationYear(horseOrId) {
   if (!horseOrId) return '----';
 
@@ -109,12 +101,12 @@ export function getGenerationYear(horseOrId) {
   }
 
   if (idStr.length >= 2) {
-    const genYY = idStr.substring(0, 2); // "9801" -> "98"
+    const genYY = idStr.substring(0, 2);
     const yyNum = parseInt(genYY, 10);
 
     if (!isNaN(yyNum)) {
       const century = yyNum >= 50 ? '19' : '20';
-      return `${century}${genYY}`; // "1998"
+      return `${century}${genYY}`;
     }
   }
 
@@ -160,6 +152,23 @@ export function getGenYearLastDigit(horseOrId) {
   return '0';
 }
 
+// 芝・ダート適性文字列のヘルパー取得
+function getSurfaceAptitudeText(horse) {
+  const turf = Number(horse.turf ?? horse.aptitude?.turf ?? 0);
+  const dirt = Number(horse.dirt ?? horse.aptitude?.dirt ?? 0);
+
+  if (turf > 0 && dirt > 0) return '芝/ダート適性';
+  if (dirt > 0 && turf === 0) return 'ダート適性';
+  return '芝適性';
+}
+
+// 距離適性文字列のヘルパー取得
+function getDistanceAptitudeText(horse) {
+  const minDist = horse.min_distance || horse.distance_min || horse.aptitude?.min || 1600;
+  const maxDist = horse.max_distance || horse.distance_max || horse.aptitude?.max || 2400;
+  return `${minDist}m-${maxDist}m`;
+}
+
 export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRenderer) {
   injectCutInStyles();
 
@@ -184,6 +193,9 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   };
 
   const genText = parseGeneration(horse);
+  const surfaceText = getSurfaceAptitudeText(horse);
+  const distText = getDistanceAptitudeText(horse);
+
   const rarityCode = (horse.rarity || 'NOR').toUpperCase();
   const isRare = rarityCode !== 'NOR';
   const rarityConfig = RARITY_CONFIG[rarityCode] || RARITY_CONFIG['NOR'];
@@ -223,10 +235,6 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
 
       <div id="card-box" class="cutin-card-box">
         <div class="card-render-inner">${cardHtml}</div>
-        <div id="rarity-pop" class="cutin-rarity-pop">
-          <span class="rarity-pop-title">${rarityConfig.name}</span>
-          <span class="rarity-pop-code">-[ ${rarityCode} ]-</span>
-        </div>
       </div>
     </div>
   `;
@@ -235,16 +243,10 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   const slotTop = document.getElementById('slot-top');
   const slotBottom = document.getElementById('slot-bottom');
   const cardBox = document.getElementById('card-box');
-  const rarityPop = document.getElementById('rarity-pop');
-
-  if (rarityPop) {
-    rarityPop.style.background = rarityConfig.bg;
-    rarityPop.style.boxShadow = rarityConfig.shadow;
-  }
 
   const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
-  // バナー表示ヘルパー (デフォルト表示時間を 2000ms に設定)
+  // 各ステップ約2秒（2000ms）表示
   const playBanner = async (targetSlot, text, bgClass, displayMs = 2000) => {
     const banner = document.createElement('div');
     banner.className = `slot-banner ${bgClass}`;
@@ -253,7 +255,7 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
 
     await wait(20);
     banner.classList.add('in');
-    await wait(displayMs); // 2秒間固定表示
+    await wait(displayMs);
 
     banner.classList.remove('in');
     banner.classList.add('out');
@@ -264,42 +266,40 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   backdrop.classList.add('active');
   await wait(200);
 
-  // --- カットイン演出シーケンス（各約2秒） ---
+  // --- カットイン演出シーケンス ---
 
-  // 1. アビリティ全件（各2秒表示）
+  // 1. アビリティ全件（上段）
   if (abilities.length > 0) {
     for (let i = 0; i < abilities.length; i++) {
       await playBanner(slotTop, `⚡ ${abilities[i]}`, 'bg-ability', 2000);
     }
   }
 
-  // 2. 世代（2秒表示）
+  // 2. 芝/ダート適性（下段）
+  await playBanner(slotBottom, `🌱 ${surfaceText}`, 'bg-surface', 2000);
+
+  // 3. 距離適性（上段）
+  await playBanner(slotTop, `🏁 ${distText}`, 'bg-dist', 2000);
+
+  // 4. 世代（下段）
   await playBanner(slotBottom, genText, 'bg-gen', 2000);
 
-  // 3. 馬名（2秒表示）
+  // 5. 馬名（上段）
   await playBanner(slotTop, horse.name || '馬名不明', 'bg-name', 2000);
 
-  // 4. レア名称（2秒表示 ※ノーマル時はスキップ）
+  // 6. レア名称（下段 ※レア馬のみ表示し、同時にカード本体を表示）
+  stage.classList.add('expanded');
+  await wait(300);
+  cardBox.classList.add('in');
+
   if (isRare) {
     await playBanner(slotBottom, `✨ ${rarityConfig.name} ✨`, 'bg-rare', 2000);
+  } else {
+    await wait(2000); // ノーマルの場合はカードのみを2秒見せる
   }
 
   slotTop.classList.remove('active');
   slotBottom.classList.remove('active');
-
-  // 5. 中央枠拡大・カード全体表示
-  stage.classList.add('expanded');
-  await wait(300);
-  cardBox.classList.add('in');
-  await wait(2000); // カード全体をじっくり見せるため2秒待機
-
-  // 6. 下部レアリティポップアップ
-  if (isRare) {
-    rarityPop.classList.add('show');
-    await wait(2500); // レアポップアップ表示時も2.5秒保持
-  } else {
-    await wait(1500);
-  }
 
   backdrop.classList.remove('active');
   await wait(350);
