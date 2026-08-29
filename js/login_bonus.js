@@ -165,10 +165,10 @@ function getSurfaceAptitudes(horse) {
 
   const results = [];
   if (turf >= 14) {
-    results.push({ text: `🌱 芝適性 (${turf})`, bgClass: 'bg-surface-turf' });
+    results.push({ text: `🌱 芝適性`, bgClass: 'bg-surface-turf' });
   }
   if (dirt >= 14) {
-    results.push({ text: `🏜️ ダート適性 (${dirt})`, bgClass: 'bg-surface-dirt' });
+    results.push({ text: `🏜️ ダート適性`, bgClass: 'bg-surface-dirt' });
   }
 
   // どちらも14未満の場合は数値が大きい方をフォールバック表示
