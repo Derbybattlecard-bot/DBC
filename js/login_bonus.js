@@ -97,18 +97,48 @@ function injectCutInStyles() {
   document.head.appendChild(style);
 }
 
+// 馬ID（4桁）の千の位・百の位から西暦4桁を取得するヘルパー関数
 export function getGenerationYear(horseOrId) {
   if (!horseOrId) return '----';
-  let horse = typeof horseOrId === 'object' ? horseOrId : cardRenderer.getHorse(horseOrId);
-  if (!horse && typeof horseOrId === 'string') {
-    const idStr = horseOrId;
-    if (idStr.length >= 4) return `19${idStr.substring(0, 2)}`;
+
+  let idStr = '';
+  if (typeof horseOrId === 'object' && horseOrId !== null) {
+    idStr = String(horseOrId.horse_id || horseOrId.id || '');
+  } else {
+    idStr = String(horseOrId || '');
   }
+
+  if (idStr.length >= 2) {
+    const genYY = idStr.substring(0, 2); // "9801" -> "98"
+    const yyNum = parseInt(genYY, 10);
+
+    if (!isNaN(yyNum)) {
+      const century = yyNum >= 50 ? '19' : '20';
+      return `${century}${genYY}`; // "1998"
+    }
+  }
+
+  let horse = typeof horseOrId === 'object' ? horseOrId : cardRenderer.getHorse(horseOrId);
   const year = horse?.generation_year || horse?.birth_year || horse?.generation || horse?.gen_year;
   return year ? String(year) : '----';
 }
 
+// 世代表記（例: "98世代"）を返す関数
 export function parseGeneration(horseOrId) {
+  let idStr = '';
+  if (typeof horseOrId === 'object' && horseOrId !== null) {
+    idStr = String(horseOrId.horse_id || horseOrId.id || '');
+  } else {
+    idStr = String(horseOrId || '');
+  }
+
+  if (idStr.length >= 2) {
+    const genYY = idStr.substring(0, 2);
+    if (!isNaN(parseInt(genYY, 10))) {
+      return `${genYY}世代`;
+    }
+  }
+
   const yearStr = getGenerationYear(horseOrId);
   if (yearStr.length >= 4) {
     return `${yearStr.slice(-2)}世代`;
@@ -117,11 +147,13 @@ export function parseGeneration(horseOrId) {
 }
 
 export function getGenYearLastDigit(horseOrId) {
-  const yearStr = getGenerationYear(horseOrId);
-  if (yearStr.length >= 4) {
-    return yearStr.slice(-1);
+  let idStr = '';
+  if (typeof horseOrId === 'object' && horseOrId !== null) {
+    idStr = String(horseOrId.horse_id || horseOrId.id || '');
+  } else {
+    idStr = String(horseOrId || '');
   }
-  const idStr = String(typeof horseOrId === 'object' ? horseOrId?.horse_id || horseOrId?.id : horseOrId || '');
+
   if (idStr.length >= 2) {
     return idStr.substring(1, 2);
   }
@@ -145,7 +177,6 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   let horseId = String(chosenHorse?.horse_id || chosenHorse?.id || chosenHorse || '');
   const masterHorse = customRenderer.getHorse ? customRenderer.getHorse(horseId) : null;
   
-  // 渡されたデータとマスターデータを結合
   const horse = {
     ...(masterHorse || {}),
     ...(typeof chosenHorse === 'object' ? chosenHorse : {}),
@@ -166,7 +197,7 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
     abilities = horse.skill.filter(s => s);
   }
 
-  // CardRenderer による本描画HTMLの取得
+  // CardRenderer による描画HTML取得
   let cardHtml = '';
   try {
     cardHtml = (customRenderer && customRenderer.isLoaded)
@@ -213,7 +244,8 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
 
   const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
-  const playBanner = async (targetSlot, text, bgClass, displayMs = 700) => {
+  // バナー表示ヘルパー (デフォルト表示時間を 2000ms に設定)
+  const playBanner = async (targetSlot, text, bgClass, displayMs = 2000) => {
     const banner = document.createElement('div');
     banner.className = `slot-banner ${bgClass}`;
     banner.textContent = text;
@@ -221,7 +253,7 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
 
     await wait(20);
     banner.classList.add('in');
-    await wait(displayMs);
+    await wait(displayMs); // 2秒間固定表示
 
     banner.classList.remove('in');
     banner.classList.add('out');
@@ -230,50 +262,49 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   };
 
   backdrop.classList.add('active');
-  await wait(150);
+  await wait(200);
 
-  // 演出 1. アビリティ全件
+  // --- カットイン演出シーケンス（各約2秒） ---
+
+  // 1. アビリティ全件（各2秒表示）
   if (abilities.length > 0) {
     for (let i = 0; i < abilities.length; i++) {
-      await playBanner(slotTop, `⚡ ${abilities[i]}`, 'bg-ability', 650);
+      await playBanner(slotTop, `⚡ ${abilities[i]}`, 'bg-ability', 2000);
     }
   }
 
-  // 演出 2. 世代
-  await playBanner(slotBottom, genText, 'bg-gen', 800);
+  // 2. 世代（2秒表示）
+  await playBanner(slotBottom, genText, 'bg-gen', 2000);
 
-  // 演出 3. 馬名
-  await playBanner(slotTop, horse.name || '馬名不明', 'bg-name', 900);
+  // 3. 馬名（2秒表示）
+  await playBanner(slotTop, horse.name || '馬名不明', 'bg-name', 2000);
 
-  // 演出 4. レア名称（ノーマル時はスキップ）
+  // 4. レア名称（2秒表示 ※ノーマル時はスキップ）
   if (isRare) {
-    await playBanner(slotBottom, `✨ ${rarityConfig.name} ✨`, 'bg-rare', 850);
+    await playBanner(slotBottom, `✨ ${rarityConfig.name} ✨`, 'bg-rare', 2000);
   }
 
   slotTop.classList.remove('active');
   slotBottom.classList.remove('active');
+
+  // 5. 中央枠拡大・カード全体表示
   stage.classList.add('expanded');
-  await wait(250);
-
-  // 演出 5. CardRendererで描画したカードUIを表示
+  await wait(300);
   cardBox.classList.add('in');
-  await wait(800);
+  await wait(2000); // カード全体をじっくり見せるため2秒待機
 
-  // 演出 6. ポップアップ
+  // 6. 下部レアリティポップアップ
   if (isRare) {
     rarityPop.classList.add('show');
-    await wait(2000);
+    await wait(2500); // レアポップアップ表示時も2.5秒保持
   } else {
-    await wait(1400);
+    await wait(1500);
   }
 
   backdrop.classList.remove('active');
   await wait(350);
 }
 
-/**
- * 実データ（horses_master.json）に基づくランダム抽選関数
- */
 export function drawBonusCard(renderer = cardRenderer, affiliation, isFever) {
   const allHorses = (renderer && renderer.horsesMap && renderer.horsesMap.size > 0)
     ? Array.from(renderer.horsesMap.values())
@@ -283,7 +314,6 @@ export function drawBonusCard(renderer = cardRenderer, affiliation, isFever) {
     return { horse_id: "8801", name: "オグリキャップ", rarity: "CLR", ability: ["地方からの勇者", "連勝街道"] };
   }
   
-  // 完全ランダム抽選
   const selected = allHorses[Math.floor(Math.random() * allHorses.length)];
   return {
     ...selected,
