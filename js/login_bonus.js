@@ -1,4 +1,3 @@
-// login_bonus.js
 import { cardRenderer } from './card_renderer.js';
 
 // 仕様書 Ver3.0 準拠のレアリティ定義
@@ -98,26 +97,47 @@ function injectCutInStyles() {
   document.head.appendChild(style);
 }
 
-export function parseGeneration(horse) {
-  const idStr = String(horse?.horse_id || horse?.id || '');
-  if (idStr.length >= 4) {
-    return `${idStr.substring(0, 2)}世代`;
+// 誕生年の西暦4桁を取得するヘルパー関数
+export function getGenerationYear(horseOrId) {
+  if (!horseOrId) return '----';
+  let horse = typeof horseOrId === 'object' ? horseOrId : cardRenderer.getHorse(horseOrId);
+  if (!horse && typeof horseOrId === 'string') {
+    const idStr = horseOrId;
+    if (idStr.length >= 4) return `19${idStr.substring(0, 2)}`;
+  }
+  const year = horse?.generation_year || horse?.birth_year || horse?.generation || horse?.gen_year;
+  return year ? String(year) : '----';
+}
+
+export function parseGeneration(horseOrId) {
+  const yearStr = getGenerationYear(horseOrId);
+  if (yearStr.length >= 4) {
+    return `${yearStr.slice(-2)}世代`;
   }
   return '----世代';
 }
 
-// index.htmlの313行目で要求されている関数
-export function getGenYearLastDigit(horse) {
-  const idStr = String(horse?.horse_id || horse?.id || '');
+export function getGenYearLastDigit(horseOrId) {
+  const yearStr = getGenerationYear(horseOrId);
+  if (yearStr.length >= 4) {
+    return yearStr.slice(-1);
+  }
+  const idStr = String(typeof horseOrId === 'object' ? horseOrId?.horse_id || horseOrId?.id : horseOrId || '');
   if (idStr.length >= 2) {
     return idStr.substring(1, 2);
   }
   return '0';
 }
 
-export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRenderer) {
+/**
+ * 第4コーナーカットイン演出の再生
+ * @param {object|string} targetHorse 抽選された馬オブジェクトまたは horse_id
+ * @param {CardRenderer} customRenderer 
+ */
+export async function playFourthCornerCutIn(targetHorse, customRenderer = cardRenderer) {
   injectCutInStyles();
 
+  // 1. CardRendererの初期化待機
   if (customRenderer && !customRenderer.isLoaded) {
     try {
       await Promise.race([
@@ -129,6 +149,43 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
     }
   }
 
+  // 2. データ参照 (IDからの補完およびマスターデータ統合)
+  let horseId = '';
+  let masterHorse = null;
+
+  if (typeof targetHorse === 'object' && targetHorse !== null) {
+    horseId = String(targetHorse.horse_id || targetHorse.id || '');
+  } else {
+    horseId = String(targetHorse || '');
+  }
+
+  if (customRenderer && customRenderer.getHorse) {
+    masterHorse = customRenderer.getHorse(horseId);
+  }
+
+  // 渡されたデータとマスターデータをマージ（フォールバック付き）
+  const horse = {
+    ...(masterHorse || {}),
+    ...(typeof targetHorse === 'object' ? targetHorse : {}),
+    horse_id: horseId
+  };
+
+  const genText = parseGeneration(horse);
+  const rarityCode = (horse.rarity || 'NOR').toUpperCase();
+  const isRare = rarityCode !== 'NOR';
+  const rarityConfig = RARITY_CONFIG[rarityCode] || RARITY_CONFIG['NOR'];
+
+  // アビリティ抽出
+  let abilities = [];
+  if (Array.isArray(horse.ability)) {
+    abilities = horse.ability.filter(a => a);
+  } else if (typeof horse.ability === 'string' && horse.ability) {
+    abilities = [horse.ability];
+  } else if (Array.isArray(horse.skill)) {
+    abilities = horse.skill.filter(s => s);
+  }
+
+  // DOM構築
   let backdrop = document.getElementById('login-cutin-backdrop');
   if (!backdrop) {
     backdrop = document.createElement('div');
@@ -137,20 +194,7 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
     document.body.appendChild(backdrop);
   }
 
-  const horse = chosenHorse || {};
-  const horseId = String(horse.horse_id || horse.id || '');
-  const genText = parseGeneration(horse);
-  const rarityCode = (horse.rarity || 'NOR').toUpperCase();
-  const isRare = rarityCode !== 'NOR';
-  const rarityConfig = RARITY_CONFIG[rarityCode] || RARITY_CONFIG['NOR'];
-
-  let abilities = [];
-  if (Array.isArray(horse.ability)) {
-    abilities = horse.ability.filter(a => a);
-  } else if (typeof horse.ability === 'string' && horse.ability) {
-    abilities = [horse.ability];
-  }
-
+  // 3. CardRenderer によるカード本描画データの作成
   let cardHtml = '';
   try {
     cardHtml = (customRenderer && customRenderer.isLoaded)
@@ -158,7 +202,7 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
       : `<div style="padding:20px; text-align:center; font-weight:bold;">${horse.name || '馬データ取得中'}</div>`;
   } catch (err) {
     console.error('Render error:', err);
-    cardHtml = `<div style="padding:20px; text-align:center; font-weight:bold;">${horse.name || '馬データ'}</div>`;
+    cardHtml = `<div style="padding:20px; text-align:center; font-weight:bold;">${horse.name || '馬データ未登録'}</div>`;
   }
 
   backdrop.innerHTML = `
@@ -208,34 +252,36 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   backdrop.classList.add('active');
   await wait(150);
 
-  // 1. アビリティ全件（上段）
+  // --- カットイン演出シーケンス ---
+
+  // 1. アビリティ全件（上の段）
   if (abilities.length > 0) {
     for (let i = 0; i < abilities.length; i++) {
       await playBanner(slotTop, `⚡ ${abilities[i]}`, 'bg-ability', 650);
     }
   }
 
-  // 2. 世代（下段）
+  // 2. 世代（下の段）
   await playBanner(slotBottom, genText, 'bg-gen', 800);
 
-  // 3. 馬名（上段）
+  // 3. 馬名（上の段）
   await playBanner(slotTop, horse.name || '馬名不明', 'bg-name', 900);
 
-  // 4. レア名称（下段）
+  // 4. レア名称（下の段 ※ノーマル時はスキップ）
   if (isRare) {
     await playBanner(slotBottom, `✨ ${rarityConfig.name} ✨`, 'bg-rare', 850);
   }
 
   slotTop.classList.remove('active');
   slotBottom.classList.remove('active');
+
+  // 5. 中央枠拡大・カード全体表示
   stage.classList.add('expanded');
   await wait(250);
-
-  // 5. カード表示
   cardBox.classList.add('in');
   await wait(800);
 
-  // 6. ポップアップ
+  // 6. 下部レアリティポップアップ
   if (isRare) {
     rarityPop.classList.add('show');
     await wait(2000);
@@ -247,6 +293,9 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   await wait(350);
 }
 
+/**
+ * ログインボーナス抽選関数
+ */
 export function drawBonusCard(renderer = cardRenderer, affiliation, isFever) {
   const allHorses = (renderer && renderer.horsesMap && renderer.horsesMap.size > 0)
     ? Array.from(renderer.horsesMap.values())
