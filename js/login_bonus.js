@@ -304,7 +304,7 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   slotBottom.classList.remove('active');
 
   backdrop.classList.remove('active');
-  await wait(800);
+  await wait(1000);
 }
 
 export function drawBonusCard(renderer = cardRenderer, affiliation, isFever) {
