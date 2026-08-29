@@ -211,7 +211,7 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   let cardHtml = '';
   try {
     cardHtml = (customRenderer && customRenderer.isLoaded)
-      ? customRenderer.renderCardUI(horseId, 'pool')
+      ? customRenderer.renderCardUI(horseId, 'large')
       : `<div style="padding:20px; text-align:center; font-weight:bold;">${horse.name || '馬データ取得中'}</div>`;
   } catch (err) {
     console.error('Render error:', err);
