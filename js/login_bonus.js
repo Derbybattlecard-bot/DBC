@@ -131,7 +131,6 @@ export function getGenYearLastDigit(horseOrId) {
 export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRenderer) {
   injectCutInStyles();
 
-  // 1. CardRenderer の初期化とマスターデータのロード完了を保証
   if (customRenderer && !customRenderer.isLoaded) {
     try {
       await Promise.race([
@@ -143,26 +142,15 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
     }
   }
 
-  // 2. IDを抽出してCardRendererのマスターデータと統合
-  let horseId = '';
-  if (typeof chosenHorse === 'object' && chosenHorse !== null) {
-    horseId = String(chosenHorse.horse_id || chosenHorse.id || '');
-  } else {
-    horseId = String(chosenHorse || '');
-  }
-
-  // CardRenderer内に登録されているか確認（なければ渡されたオブジェクトを使用）
+  let horseId = String(chosenHorse?.horse_id || chosenHorse?.id || chosenHorse || '');
   const masterHorse = customRenderer.getHorse ? customRenderer.getHorse(horseId) : null;
+  
+  // 渡されたデータとマスターデータを結合
   const horse = {
     ...(masterHorse || {}),
     ...(typeof chosenHorse === 'object' ? chosenHorse : {}),
     horse_id: horseId
   };
-
-  // テスト用等でIDが登録されていない場合は一時的に登録してCardRendererに描画を行わせる
-  if (horseId && !customRenderer.horsesMap.has(horseId)) {
-    customRenderer.horsesMap.set(horseId, horse);
-  }
 
   const genText = parseGeneration(horse);
   const rarityCode = (horse.rarity || 'NOR').toUpperCase();
@@ -178,16 +166,14 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
     abilities = horse.skill.filter(s => s);
   }
 
-  // 3. CardRendererの標準デザイン描画関数を呼び出し (mode: 'pool' で全ステータス表示)
+  // CardRenderer による本描画HTMLの取得
   let cardHtml = '';
   try {
-    if (customRenderer && typeof customRenderer.renderCardUI === 'function') {
-      cardHtml = customRenderer.renderCardUI(horseId, 'pool');
-    } else {
-      cardHtml = `<div style="padding:20px; text-align:center; font-weight:bold;">${horse.name || '馬データ'}</div>`;
-    }
+    cardHtml = (customRenderer && customRenderer.isLoaded)
+      ? customRenderer.renderCardUI(horseId, 'pool')
+      : `<div style="padding:20px; text-align:center; font-weight:bold;">${horse.name || '馬データ取得中'}</div>`;
   } catch (err) {
-    console.error('CardRenderer render error:', err);
+    console.error('Render error:', err);
     cardHtml = `<div style="padding:20px; text-align:center; font-weight:bold;">${horse.name || '馬データ'}</div>`;
   }
 
@@ -246,20 +232,20 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   backdrop.classList.add('active');
   await wait(150);
 
-  // 1. アビリティ全件（上段）
+  // 演出 1. アビリティ全件
   if (abilities.length > 0) {
     for (let i = 0; i < abilities.length; i++) {
       await playBanner(slotTop, `⚡ ${abilities[i]}`, 'bg-ability', 650);
     }
   }
 
-  // 2. 世代（下段）
+  // 演出 2. 世代
   await playBanner(slotBottom, genText, 'bg-gen', 800);
 
-  // 3. 馬名（上段）
+  // 演出 3. 馬名
   await playBanner(slotTop, horse.name || '馬名不明', 'bg-name', 900);
 
-  // 4. レア名称（下段）
+  // 演出 4. レア名称（ノーマル時はスキップ）
   if (isRare) {
     await playBanner(slotBottom, `✨ ${rarityConfig.name} ✨`, 'bg-rare', 850);
   }
@@ -269,11 +255,11 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   stage.classList.add('expanded');
   await wait(250);
 
-  // 5. CardRendererでデザイン生成されたカードの拡大表示
+  // 演出 5. CardRendererで描画したカードUIを表示
   cardBox.classList.add('in');
   await wait(800);
 
-  // 6. ポップアップ
+  // 演出 6. ポップアップ
   if (isRare) {
     rarityPop.classList.add('show');
     await wait(2000);
@@ -285,6 +271,9 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   await wait(350);
 }
 
+/**
+ * 実データ（horses_master.json）に基づくランダム抽選関数
+ */
 export function drawBonusCard(renderer = cardRenderer, affiliation, isFever) {
   const allHorses = (renderer && renderer.horsesMap && renderer.horsesMap.size > 0)
     ? Array.from(renderer.horsesMap.values())
@@ -293,6 +282,8 @@ export function drawBonusCard(renderer = cardRenderer, affiliation, isFever) {
   if (allHorses.length === 0) {
     return { horse_id: "8801", name: "オグリキャップ", rarity: "CLR", ability: ["地方からの勇者", "連勝街道"] };
   }
+  
+  // 完全ランダム抽選
   const selected = allHorses[Math.floor(Math.random() * allHorses.length)];
   return {
     ...selected,
