@@ -48,6 +48,7 @@ function injectCutInStyles() {
       font-weight: 900; color: #fff;
       overflow: hidden; opacity: 0;
       transition: opacity 0.2s ease;
+      z-index: 20;
     }
     .cutin-slot.slot-top { top: 4px; }
     .cutin-slot.slot-bottom { bottom: 4px; }
@@ -152,7 +153,6 @@ export function getGenYearLastDigit(horseOrId) {
   return '0';
 }
 
-// 芝・ダート適性文字列のヘルパー取得
 function getSurfaceAptitudeText(horse) {
   const turf = Number(horse.turf ?? horse.aptitude?.turf ?? 0);
   const dirt = Number(horse.dirt ?? horse.aptitude?.dirt ?? 0);
@@ -162,7 +162,6 @@ function getSurfaceAptitudeText(horse) {
   return '芝適性';
 }
 
-// 距離適性文字列のヘルパー取得
 function getDistanceAptitudeText(horse) {
   const minDist = horse.min_distance || horse.distance_min || horse.aptitude?.min || 1600;
   const maxDist = horse.max_distance || horse.distance_max || horse.aptitude?.max || 2400;
@@ -209,7 +208,6 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
     abilities = horse.skill.filter(s => s);
   }
 
-  // CardRenderer による描画HTML取得
   let cardHtml = '';
   try {
     cardHtml = (customRenderer && customRenderer.isLoaded)
@@ -246,7 +244,6 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
 
   const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
-  // 各ステップ約2秒（2000ms）表示
   const playBanner = async (targetSlot, text, bgClass, displayMs = 2000) => {
     const banner = document.createElement('div');
     banner.className = `slot-banner ${bgClass}`;
@@ -268,34 +265,39 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
 
   // --- カットイン演出シーケンス ---
 
-  // 1. アビリティ全件（上段）
+  // 1. アビリティ全件（上段 / 各2秒）
   if (abilities.length > 0) {
     for (let i = 0; i < abilities.length; i++) {
       await playBanner(slotTop, `⚡ ${abilities[i]}`, 'bg-ability', 2000);
     }
   }
 
-  // 2. 芝/ダート適性（下段）
+  // 2. 芝/ダート適性（下段 / 2秒）
   await playBanner(slotBottom, `🌱 ${surfaceText}`, 'bg-surface', 2000);
 
-  // 3. 距離適性（上段）
+  // 3. 距離適性（上段 / 2秒）
   await playBanner(slotTop, `🏁 ${distText}`, 'bg-dist', 2000);
 
-  // 4. 世代（下段）
+  // 4. 世代（下段 / 2秒）
   await playBanner(slotBottom, genText, 'bg-gen', 2000);
 
-  // 5. 馬名（上段）
+  // 5. 馬名（上段 / 2秒）
   await playBanner(slotTop, horse.name || '馬名不明', 'bg-name', 2000);
 
-  // 6. レア名称（下段 ※レア馬のみ表示し、同時にカード本体を表示）
+  // 6. カードバチッと表示 & 終盤（4秒後）にレア名称追いかけ表示
   stage.classList.add('expanded');
   await wait(300);
-  cardBox.classList.add('in');
+  cardBox.classList.add('in'); // カード表示開始
 
   if (isRare) {
-    await playBanner(slotBottom, `✨ ${rarityConfig.name} ✨`, 'bg-rare', 2000);
+    // 4秒間カードだけを見せる
+    await wait(4000);
+    // 4秒経過後、下の段からレア名称が追いかけ表示（1.5秒間）
+    slotBottom.classList.add('active');
+    await playBanner(slotBottom, `✨ ${rarityConfig.name} ✨`, 'bg-rare', 1500);
   } else {
-    await wait(2000); // ノーマルの場合はカードのみを2秒見せる
+    // ノーマルの場合はカードのみを5秒間じっくり見せる
+    await wait(5000);
   }
 
   slotTop.classList.remove('active');
