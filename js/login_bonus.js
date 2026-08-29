@@ -291,20 +291,20 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
 
   if (isRare) {
     // 4秒間カードだけを見せる
-    await wait(4000);
+    await wait(2600);
     // 4秒経過後、下の段からレア名称が追いかけ表示（1.5秒間）
     slotBottom.classList.add('active');
     await playBanner(slotBottom, `✨ ${rarityConfig.name} ✨`, 'bg-rare', 1500);
   } else {
     // ノーマルの場合はカードのみを5秒間じっくり見せる
-    await wait(5000);
+    await wait(4000);
   }
 
   slotTop.classList.remove('active');
   slotBottom.classList.remove('active');
 
   backdrop.classList.remove('active');
-  await wait(350);
+  await wait(800);
 }
 
 export function drawBonusCard(renderer = cardRenderer, affiliation, isFever) {
