@@ -280,25 +280,31 @@
     updateStatus();
   }
 
-  // ─── 仕様書 Ver 3.0 準拠 データ取得・判定関数 ───
+  // ─── 修正後：データ取得・判定関数 ───
 
-  // 対象馬場でのポテンシャル値を取得
+  // 対象馬場でのポテンシャル値を取得（pt/potentialフォールバックを撤去）
   function getHorsePotential(horse, surface) {
     if (!horse) return 0;
     if (surface === '芝') {
-      if (horse.turf_potential !== undefined) return Number(horse.turf_potential) || 0;
-      if (horse.aptitude && horse.aptitude.turf_potential !== undefined) return Number(horse.aptitude.turf_potential) || 0;
+      const val = horse.turf_potential ?? horse.aptitude?.turf_potential;
+      return val !== undefined && val !== null ? Number(val) || 0 : 0;
     } else if (surface === 'ダート' || surface === 'ダ') {
-      if (horse.dirt_potential !== undefined) return Number(horse.dirt_potential) || 0;
-      if (horse.aptitude && horse.aptitude.dirt_potential !== undefined) return Number(horse.aptitude.dirt_potential) || 0;
+      const val = horse.dirt_potential ?? horse.aptitude?.dirt_potential;
+      return val !== undefined && val !== null ? Number(val) || 0 : 0;
     }
-    return parseInt(horse.potential || horse.pt || 0, 10);
+    return 0;
   }
 
-  // 馬場適性の出走可否 (ポテンシャル > 0)
+  // 馬場適性の出走可否（芝: 14以上、ダート: 0より大きい数値あり）
   function isValidSurface(horse, surface) {
     if (!horse) return false;
-    return getHorsePotential(horse, surface) > 0;
+    const pt = getHorsePotential(horse, surface);
+    if (surface === '芝') {
+      return pt >= 14;
+    } else if (surface === 'ダート' || surface === 'ダ') {
+      return pt > 0;
+    }
+    return false;
   }
 
   // 芝・ダート適性表示文字列 (例: 芝20/ダ18)
@@ -307,10 +313,12 @@
     const t = Number(horse.turf_potential ?? horse.aptitude?.turf_potential ?? 0);
     const d = Number(horse.dirt_potential ?? horse.aptitude?.dirt_potential ?? 0);
 
-    if (t > 0 && d > 0) return `芝${t}/ダ${d}`;
-    if (t > 0) return `芝${t}`;
-    if (d > 0) return `ダ${d}`;
-    if (horse.surface) return horse.surface;
+    const hasTurf = t >= 14;
+    const hasDirt = d > 0;
+
+    if (hasTurf && hasDirt) return `芝${t}/ダ${d}`;
+    if (hasTurf) return `芝${t}`;
+    if (hasDirt) return `ダ${d}`;
     return '-';
   }
 
@@ -320,7 +328,7 @@
     return horse.style || horse.running_style || horse.leg_style || horse.strategy || '-';
   }
 
-  // 性別制限判定 (仕様書の "牡馬", "牝馬", "セン" および旧データ "牡", "牝" の両対応)
+  // 性別制限判定
   function isValidSex(horseSex, sexLimit) {
     if (!sexLimit || sexLimit === "制限なし") return true;
     const isMare = horseSex === "牝" || horseSex === "牝馬";
@@ -440,7 +448,8 @@
             opt.textContent = `[性別不一致:${horseSex}] ${horse.name} (${raceSexLimit})`;
             opt.disabled = true;
           } else if (!matchesSurface) {
-            opt.textContent = `[馬場適性不可] ${horse.name} (${race.surface}0)`;
+            const reqText = race.surface === '芝' ? '芝14以上' : 'ダートなし';
+            opt.textContent = `[馬場適性不可:${reqText}] ${horse.name}`;
             opt.disabled = true;
           } else if (!meetsMinPt) {
             opt.textContent = `[Pt不足:${horsePt}] ${horse.name} (下限${minPtRequired}以上)`;
