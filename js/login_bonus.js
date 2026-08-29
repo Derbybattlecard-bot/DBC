@@ -66,7 +66,12 @@ function injectCutInStyles() {
     .slot-banner.out { transform: translateX(-100%); }
 
     .bg-ability { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #1e5128 20%, #4e9f3d 80%, rgba(0,0,0,0) 100%); color: #d8f3dc; font-size: 1.15rem; }
-    .bg-surface { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #d4a373 20%, #faedcd 80%, rgba(0,0,0,0) 100%); color: #332211; }
+    
+    /* 芝適性：緑基調 */
+    .bg-surface-turf { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #1e7e34 20%, #28a745 80%, rgba(0,0,0,0) 100%); color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+    /* ダート適性：茶色基調 */
+    .bg-surface-dirt { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #5c2e0b 20%, #8b4513 80%, rgba(0,0,0,0) 100%); color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+
     .bg-dist { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #2a9d8f 20%, #e9c46a 80%, rgba(0,0,0,0) 100%); color: #112233; }
     .bg-gen { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #0d3b66 20%, #0077b6 80%, rgba(0,0,0,0) 100%); color: #70d6ff; }
     .bg-name { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #7209b7 20%, #f72585 80%, rgba(0,0,0,0) 100%); color: #ffffff; text-shadow: 0 0 8px rgba(255,255,255,0.8); }
@@ -153,13 +158,29 @@ export function getGenYearLastDigit(horseOrId) {
   return '0';
 }
 
-function getSurfaceAptitudeText(horse) {
-  const turf = Number(horse.turf ?? horse.aptitude?.turf ?? 0);
-  const dirt = Number(horse.dirt ?? horse.aptitude?.dirt ?? 0);
+// 14以上の適性を判定して配列で返す（芝は緑・ダートは茶色）
+function getSurfaceAptitudes(horse) {
+  const turf = Number(horse.turf_potential ?? horse.turf ?? horse.aptitude?.turf ?? 0);
+  const dirt = Number(horse.dirt_potential ?? horse.dirt ?? horse.aptitude?.dirt ?? 0);
 
-  if (turf > 0 && dirt > 0) return '芝/ダート適性';
-  if (dirt > 0 && turf === 0) return 'ダート適性';
-  return '芝適性';
+  const results = [];
+  if (turf >= 14) {
+    results.push({ text: `🌱 芝適性 (${turf})`, bgClass: 'bg-surface-turf' });
+  }
+  if (dirt >= 14) {
+    results.push({ text: `🏜️ ダート適性 (${dirt})`, bgClass: 'bg-surface-dirt' });
+  }
+
+  // どちらも14未満の場合は数値が大きい方をフォールバック表示
+  if (results.length === 0) {
+    if (dirt > turf) {
+      results.push({ text: `🏜️ ダート適性 (${dirt})`, bgClass: 'bg-surface-dirt' });
+    } else {
+      results.push({ text: `🌱 芝適性 (${turf})`, bgClass: 'bg-surface-turf' });
+    }
+  }
+
+  return results;
 }
 
 function getDistanceAptitudeText(horse) {
@@ -192,7 +213,7 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   };
 
   const genText = parseGeneration(horse);
-  const surfaceText = getSurfaceAptitudeText(horse);
+  const surfaces = getSurfaceAptitudes(horse);
   const distText = getDistanceAptitudeText(horse);
 
   const rarityCode = (horse.rarity || 'NOR').toUpperCase();
@@ -272,8 +293,10 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
     }
   }
 
-  // 2. 芝/ダート適性（下段 / 2秒）
-  await playBanner(slotBottom, `🌱 ${surfaceText}`, 'bg-surface', 2000);
+  // 2. 芝/ダート適性（下段 / 各2秒 アビリティ同様に14以上のものを順次表示）
+  for (const s of surfaces) {
+    await playBanner(slotBottom, s.text, s.bgClass, 2000);
+  }
 
   // 3. 距離適性（上段 / 2秒）
   await playBanner(slotTop, `🏁 ${distText}`, 'bg-dist', 2000);
