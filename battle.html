@@ -104,14 +104,14 @@
       <table class="deck-table">
         <thead>
           <tr>
-            <th style="width:22px;">枠</th>
+            <th style="width:20px;">枠</th>
             <th style="text-align:left;">馬名</th>
-            <th style="width:22px;">性</th>
-            <th style="width:26px;">Pt</th>
-            <th style="width:32px;">馬場</th>
-            <th style="width:58px;">距離</th>
-            <th style="width:34px;">脚質</th>
-            <th style="width:36px;">状態</th>
+            <th style="width:28px;">性</th>
+            <th style="width:24px;">Pt</th>
+            <th style="width:75px;">馬場</th>
+            <th style="width:75px;">距離</th>
+            <th style="width:32px;">脚質</th>
+            <th style="width:34px;">状態</th>
           </tr>
         </thead>
         <tbody id="deckHorseList"></tbody>
@@ -316,31 +316,91 @@
     renderDeckTable();
   };
 
-  function getHorseDistanceString(horse) {
+  // ─── 馬データ解析解析用ヘルパー ───
+  function getTurfVal(horse) {
+    if (!horse) return 0;
+    if (horse.turf_potential !== undefined && horse.turf_potential !== null) return Number(horse.turf_potential) || 0;
+    if (typeof horse.turf === 'number') return horse.turf;
+    if (typeof horse.turf === 'boolean') return horse.turf ? 1 : 0;
+    return 0;
+  }
+
+  function getDirtVal(horse) {
+    if (!horse) return 0;
+    if (horse.dirt_potential !== undefined && horse.dirt_potential !== null) return Number(horse.dirt_potential) || 0;
+    if (typeof horse.dirt === 'number') return horse.dirt;
+    if (typeof horse.dirt === 'boolean') return horse.dirt ? 1 : 0;
+    return 0;
+  }
+
+  // Pt（ポテンシャル値）算出
+  function getPotentialVal(horse) {
+    if (!horse) return 0;
+    if (horse.total_potential !== undefined && horse.total_potential !== null) return horse.total_potential;
+    if (horse.potential !== undefined && horse.potential !== null) return horse.potential;
+    if (horse.pt !== undefined && horse.pt !== null) return horse.pt;
+    
+    // データ直下にpt系がない場合、芝/ダートの大きい方の値をPtとして扱う
+    const t = getTurfVal(horse);
+    const d = getDirtVal(horse);
+    return Math.max(t, d);
+  }
+
+  // 芝ダート適性テキスト取得 (例: 芝18, ダ16, 芝21/ダ16)
+  function getSurfaceText(horse) {
     if (!horse) return '-';
-    if (horse.distance) return `${horse.distance}m`;
-    if (horse.aptitude && horse.aptitude.min_distance && horse.aptitude.max_distance) {
-      return `${horse.aptitude.min_distance}-${horse.aptitude.max_distance}m`;
-    }
+    
+    const t = getTurfVal(horse);
+    const d = getDirtVal(horse);
+    
+    if (t > 0 && d > 0) return `芝${t}/ダ${d}`;
+    if (t > 0) return `芝${t}`;
+    if (d > 0) return `ダ${d}`;
+    
+    if (horse.surface) return horse.surface;
     return '-';
   }
 
+  // 距離適性テキスト取得 (例: 2000-2400m)
+  function getDistanceText(horse) {
+    if (!horse) return '-';
+
+    // 1. min_distance / max_distance 直接指定
+    let minD = horse.min_distance ?? horse.min_dist ?? horse.aptitude?.min_distance;
+    let maxD = horse.max_distance ?? horse.max_dist ?? horse.aptitude?.max_distance;
+
+    if (minD !== undefined && maxD !== undefined && minD !== null && maxD !== null && minD !== '' && maxD !== '') {
+      minD = Number(minD);
+      maxD = Number(maxD);
+      if (!isNaN(minD) && !isNaN(maxD)) {
+        return minD === maxD ? `${minD}m` : `${minD}-${maxD}m`;
+      }
+    }
+
+    // 2. distance プロパティ判定 (配列/文字列/数値)
+    const distVal = horse.distance ?? horse.dist;
+    if (distVal !== undefined && distVal !== null && distVal !== '') {
+      if (Array.isArray(distVal)) {
+        if (distVal.length === 0) return '-';
+        const min = Math.min(...distVal);
+        const max = Math.max(...distVal);
+        return min === max ? `${min}m` : `${min}-${max}m`;
+      }
+      const distStr = String(distVal).trim();
+      if (distStr.endsWith('m')) return distStr;
+      return `${distStr}m`;
+    }
+
+    return '-';
+  }
+
+  // 脚質取得
   function getHorseLegStyle(horse) {
     if (!horse) return '-';
-    return horse.running_style || horse.leg_style || horse.style || horse.strategy || '-';
+    return horse.style || horse.running_style || horse.leg_style || horse.strategy || '-';
   }
 
-  function getHorseSurfaceAptitude(horse) {
-    if (!horse) return '-';
-    if (horse.surface) return horse.surface;
-    if (horse.turf !== undefined && horse.dirt !== undefined) {
-      if (horse.turf && horse.dirt) return '芝/ダ';
-      if (horse.turf) return '芝';
-      if (horse.dirt) return 'ダ';
-    }
-    return '芝';
-  }
-
+  // 出走表レンダリング関数
   function renderDeckTable() {
     const tbody = document.getElementById('deckHorseList');
     tbody.innerHTML = '';
@@ -359,10 +419,10 @@
           tr.style.opacity = '0.4';
         }
 
-        const sex = horse.sex || '牡';
-        const potential = horse.potential || horse.pt || 0;
-        const surface = getHorseSurfaceAptitude(horse);
-        const dist = getHorseDistanceString(horse);
+        const sex = horse.sex || '牡馬';
+        const potential = getPotentialVal(horse);
+        const surface = getSurfaceText(horse);
+        const dist = getDistanceText(horse);
         const leg = getHorseLegStyle(horse);
 
         tr.innerHTML = `
