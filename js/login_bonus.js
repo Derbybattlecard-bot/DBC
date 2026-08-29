@@ -1,504 +1,324 @@
-export class CardRenderer {
-  constructor() {
-    this.horsesMap = new Map();
-    this.designConfig = null;
-    this.isLoaded = false;
-  }
+import { cardRenderer } from './card_renderer.js';
 
-  // データ・デザイン読み込み ＆ 専用スタイルの自動注入
-  async init() {
-    if (this.isLoaded) return;
+// 仕様書 Ver3.0 準拠のレアリティ定義
+const RARITY_CONFIG = {
+  'INF': { name: 'インフィニティレア', bg: 'linear-gradient(45deg, #ff00ff, #00ffff, #ffff00)', shadow: '0 0 30px rgba(0, 255, 255, 0.9)' },
+  'SER': { name: 'シークレットレア', bg: 'linear-gradient(45deg, #2c3e50, #000000, #8a2be2)', shadow: '0 0 30px rgba(138, 43, 226, 0.9)' },
+  'ULR': { name: 'アルティメットレア', bg: 'linear-gradient(45deg, #ffd700, #ff4500, #ff0055)', shadow: '0 0 25px rgba(255, 215, 0, 0.9)' },
+  'LGR': { name: 'レジェンダリーレア', bg: 'linear-gradient(45deg, #b8860b, #ffd700, #8b0000)', shadow: '0 0 25px rgba(218, 165, 32, 0.8)' },
+  'CLR': { name: 'クラシカルレア', bg: 'linear-gradient(45deg, #d2691e, #ff8c00, #ffd700)', shadow: '0 0 25px rgba(210, 105, 30, 0.8)' },
+  'TRR': { name: 'トラディショナルレア', bg: 'linear-gradient(45deg, #4b0082, #8a2be2, #d4af37)', shadow: '0 0 25px rgba(138, 43, 226, 0.8)' },
+  'RER': { name: 'レトロレア', bg: 'linear-gradient(45deg, #708090, #c0c0c0, #4682b4)', shadow: '0 0 18px rgba(192, 192, 192, 0.7)' },
+  'ANR': { name: 'アンティークレア', bg: 'linear-gradient(45deg, #2e8b57, #3cb371, #8fbc8f)', shadow: '0 0 18px rgba(46, 139, 87, 0.7)' },
+  'VIR': { name: 'ビンテージレア', bg: 'linear-gradient(45deg, #1e90ff, #00bfff, #87cefa)', shadow: '0 0 18px rgba(30, 144, 255, 0.7)' },
+  'PRR': { name: 'プレミアレア', bg: 'linear-gradient(45deg, #9370db, #ba55d3, #ee82ee)', shadow: '0 0 18px rgba(186, 85, 211, 0.7)' },
+  'SPR': { name: 'スペシャルレア', bg: 'linear-gradient(45deg, #32cd32, #00ff7f, #98fb98)', shadow: '0 0 15px rgba(50, 205, 50, 0.6)' },
+  'NOR': { name: 'ノーマル', bg: 'linear-gradient(45deg, #555555, #888888, #aaaaaa)', shadow: '0 0 12px rgba(136, 136, 136, 0.5)' }
+};
 
-    try {
-      const horsesPath = './data/horses_master.json';
-      const designPath = './data/card_design.json';
-
-      const [horsesRes, designRes] = await Promise.all([
-        fetch(horsesPath).catch(e => { throw new Error(`[通信エラー] ${horsesPath} にアクセスできません`); }),
-        fetch(designPath).catch(e => { throw new Error(`[通信エラー] ${designPath} にアクセスできません`); })
-      ]);
-
-      if (!horsesRes.ok) throw new Error(`馬データが見つかりません (ステータス: ${horsesRes.status}) パス: ${horsesPath}`);
-      const horsesArray = await horsesRes.json();
-      
-      if (designRes.ok) {
-        this.designConfig = await designRes.json();
-      } else {
-        console.warn(`[警告] ${designPath} が読み込めませんでしたが、デフォルトデザインで続行します。`);
-        this.designConfig = { rarity_styles: {} };
-      }
-
-      this.horsesMap.clear();
-      horsesArray.forEach(horse => {
-        this.horsesMap.set(String(horse.horse_id), horse);
-      });
-
-      // スタイルの自動注入
-      this.injectStyles();
-
-      this.isLoaded = true;
-      console.log("✅ CardRenderer 初期化完了:", this.horsesMap.size, "件");
-    } catch (error) {
-      console.error("❌ CardRenderer の初期化に失敗:", error);
-      throw error;
+function injectCutInStyles() {
+  if (document.getElementById('login-cutin-style')) return;
+  const style = document.createElement('style');
+  style.id = 'login-cutin-style';
+  style.textContent = `
+    .cutin-backdrop {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.82);
+      backdrop-filter: blur(4px);
+      z-index: 9999;
+      display: flex; justify-content: center; align-items: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease;
     }
-  }
+    .cutin-backdrop.active { opacity: 1; pointer-events: auto; }
 
-  // カード専用CSSを<head>に自動挿入
-  injectStyles() {
-    if (document.getElementById('card-renderer-styles')) return;
-
-    const style = document.createElement('style');
-    style.id = 'card-renderer-styles';
-    style.textContent = `
-      /* 共通カード基本設定 */
-      .crc-card {
-        box-sizing: border-box;
-        border-radius: 6px;
-        background: #ffffff;
-        font-family: 'Helvetica Neue', Arial, sans-serif;
-        color: #1a2e1d;
-        width: 100%;
-        min-width: 0;
-        cursor: pointer;
-        transition: transform 0.1s ease, box-shadow 0.1s ease;
-      }
-      .crc-card:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 3px 8px rgba(0,0,0,0.12);
-      }
-
-      /* レアリティバッジ */
-      .crc-rarity-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 1px 5px;
-        font-size: 8.5px;
-        font-weight: 900;
-        border-radius: 8px;
-        border: 1px solid #c29b1d;
-        background: linear-gradient(135deg, #ffffff 0%, #f4f4f4 100%);
-        color: #c29b1d;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.12);
-        letter-spacing: 0.5px;
-        line-height: 1.1;
-        white-space: nowrap;
-      }
-      .crc-rarity-badge.rarity-ur {
-        background: linear-gradient(135deg, #fff2cb 0%, #ffd700 100%);
-        color: #6b4d00;
-        border-color: #d4af37;
-        box-shadow: 0 1px 3px rgba(212, 175, 55, 0.4);
-      }
-      .crc-rarity-badge.rarity-ssr {
-        background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
-        color: #ffffff;
-        border-color: #e63956;
-        box-shadow: 0 1px 3px rgba(230, 57, 86, 0.4);
-      }
-      .crc-rarity-badge.rarity-sr {
-        background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%);
-        color: #ffffff;
-        border-color: #1e90ff;
-      }
-      .crc-rarity-badge.rarity-r {
-        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-        color: #0d4220;
-        border-color: #2ed573;
-      }
-
-      /* 世代表記バッジ */
-      .crc-gen-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 1px 4px;
-        font-size: 8.5px;
-        font-weight: bold;
-        border-radius: 3px;
-        background: #2d6a37;
-        color: #ffffff;
-        line-height: 1.1;
-        white-space: nowrap;
-      }
-
-      /* アビリティバッジ（3列均等表示） */
-      .crc-abilities-row {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 1.5px;
-        margin-top: 3px;
-        width: 100%;
-        box-sizing: border-box;
-      }
-      .crc-ability-btn {
-        background: #e2efe3;
-        border: 1px solid #2d6a37;
-        color: #2d6a37;
-        border-radius: 3px;
-        padding: 1px 0;
-        font-size: 8.5px;
-        font-weight: bold;
-        text-align: center;
-        line-height: 1.2;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        letter-spacing: -0.5px;
-      }
-      .crc-ability-btn.empty {
-        visibility: hidden;
-        border-color: transparent;
-        background: transparent;
-      }
-
-      /* --- モード①: deck (コンパクト / スロット用) --- */
-      .crc-card-deck {
-        padding: 4px;
-        min-height: 96px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        font-size: 11px;
-      }
-      .crc-card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 2px;
-      }
-      .crc-deck-name {
-        font-weight: bold;
-        font-size: 11.5px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        flex: 1;
-      }
-      .crc-deck-details {
-        display: flex;
-        flex-direction: column;
-        gap: 1px;
-        color: #4e6b52;
-        font-size: 9.5px;
-      }
-      .crc-deck-details span {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .crc-deck-params {
-        display: flex;
-        justify-content: space-between;
-        background: #f8faf8;
-        border: 1px solid #e2efe3;
-        padding: 1px 2px;
-        border-radius: 3px;
-        margin-top: 2px;
-        font-size: 8.5px;
-        color: #2d6a37;
-        font-weight: bold;
-        font-family: 'Consolas', 'Monaco', monospace;
-      }
-
-      /* --- モード②: pool (標準 / 一覧・プール用) --- */
-      .crc-card-pool {
-        padding: 6px 8px;
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-        font-size: 12px;
-      }
-      .crc-pool-name {
-        font-weight: bold;
-        font-size: 12.5px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .crc-pool-sub {
-        font-size: 10.5px;
-        color: #4e6b52;
-        font-weight: bold;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-      }
-      .crc-pool-stats-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        background: #f8faf8;
-        border: 1px solid #e2efe3;
-        border-radius: 4px;
-        padding: 2px 4px;
-        text-align: center;
-        font-size: 11px;
-        gap: 1px;
-      }
-      .crc-stat-item { display: flex; flex-direction: column; line-height: 1.1; }
-      .crc-stat-label { font-size: 9px; color: #4e6b52; }
-      .crc-stat-val { font-weight: bold; color: #2d6a37; font-size: 11px; font-family: 'Consolas', 'Monaco', monospace; }
-
-      /* --- モード③: large (拡大表示 / 演出・詳細用) --- */
-      .crc-card-large {
-        padding: 12px;
-        min-height: 280px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        gap: 8px;
-        border-radius: 10px;
-        background: #ffffff;
-      }
-      .crc-card-large .crc-deck-name {
-        font-size: 20px;
-      }
-      .crc-card-large .crc-rarity-badge,
-      .crc-card-large .crc-gen-badge {
-        font-size: 13px;
-        padding: 3px 8px;
-        border-radius: 6px;
-      }
-      .crc-card-large .crc-deck-details {
-        font-size: 14px;
-        gap: 4px;
-      }
-      .crc-card-large .crc-deck-params {
-        font-size: 14px;
-        padding: 4px 8px;
-        border-radius: 6px;
-      }
-      .crc-card-large .crc-ability-btn {
-        font-size: 13px;
-        padding: 4px 0;
-        border-radius: 5px;
-      }
-      .crc-large-image-box {
-        width: 100%;
-        height: 120px;
-        background: #f2f7f3;
-        border-radius: 6px;
-        border: 1px dashed #b5d4ba;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-      }
-      .crc-large-image-box img {
-        max-width: 100%;
-        max-height: 100%;
-        object-fit: contain;
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  getHorse(horseId) {
-    if (!horseId) return null;
-    return this.horsesMap.get(String(horseId));
-  }
-
-  getGenerationYear(horseOrId) {
-    const horse = typeof horseOrId === 'object' ? horseOrId : this.getHorse(horseOrId);
-    if (!horse) return '----';
-    const year = horse.generation_year || horse.birth_year || horse.generation || horse.gen_year;
-    return year ? String(year) : '----';
-  }
-
-  getGenYearTwoDigits(horseOrId) {
-    const yearStr = this.getGenerationYear(horseOrId);
-    return yearStr.length >= 4 ? yearStr.slice(-2) : '--';
-  }
-
-  formatAptitude(turf, dirt) {
-    const t = Number(turf) || 0;
-    const d = Number(dirt) || 0;
-    if (t > 0 && d > 0) return t === d ? `芝/ダ${t}` : `芝${t}ダ${d}`;
-    if (t > 0) return `芝${t}`;
-    if (d > 0) return `ダ${d}`;
-    return '-';
-  }
-
-  getDistanceText(horse) {
-    if (horse.min_distance && horse.max_distance) {
-      return `${horse.min_distance}-${horse.max_distance}m`;
+    .cutin-stage {
+      position: relative; width: 92%; max-width: 400px;
+      height: 116px;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      overflow: hidden;
+      transition: height 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.2);
     }
-    return horse.distance || '-';
-  }
+    .cutin-stage.expanded { height: 380px; }
 
-  getParamRank(val) {
-    if (val === undefined || val === null) return "-";
-    if (val >= 23) return "SS";
-    if (val >= 21) return "S";
-    if (val >= 18) return "A";
-    if (val >= 16) return "B";
-    return "C";
-  }
-
-  getRarityBadgeHtml(horse) {
-    const rarity = (horse.rarity || 'N').toUpperCase();
-    return `<span class="crc-rarity-badge rarity-${rarity.toLowerCase()}">${rarity}</span>`;
-  }
-
-  getGenBadgeHtml(horse) {
-    const gen2 = this.getGenYearTwoDigits(horse);
-    return `<span class="crc-gen-badge">${gen2}世代</span>`;
-  }
-
-  getAbilityBadgesHtml(horse) {
-    let abilities = [];
-    if (Array.isArray(horse.ability)) {
-      abilities = horse.ability;
-    } else if (typeof horse.ability === 'string' && horse.ability) {
-      abilities = [horse.ability];
-    } else if (horse.skill) {
-      abilities = Array.isArray(horse.skill) ? horse.skill : [horse.skill];
+    .cutin-slot {
+      width: 100%; height: 52px;
+      position: absolute; left: 0;
+      display: flex; align-items: center;
+      font-weight: 900; color: #fff;
+      overflow: hidden; opacity: 0;
+      transition: opacity 0.2s ease;
+      z-index: 20;
     }
+    .cutin-slot.slot-top { top: 4px; }
+    .cutin-slot.slot-bottom { bottom: 4px; }
+    .cutin-slot.active { opacity: 1; }
 
-    let html = '<div class="crc-abilities-row">';
-    for (let i = 0; i < 3; i++) {
-      if (abilities[i]) {
-        const label = String(abilities[i]).substring(0, 3);
-        html += `<div class="crc-ability-btn" title="${abilities[i]}">${label}</div>`;
-      } else {
-        html += `<div class="crc-ability-btn empty">---</div>`;
-      }
+    .slot-banner {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem; letter-spacing: 1px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+      transform: translateX(100%);
+      transition: transform 0.28s cubic-bezier(0.15, 0.85, 0.35, 1.2);
     }
-    html += '</div>';
-    return html;
-  }
+    .slot-banner.in { transform: translateX(0); }
+    .slot-banner.out { transform: translateX(-100%); }
 
-  /**
-   * カードUI描画処理
-   * @param {string|number} horseId 
-   * @param {'deck'|'pool'|'large'} mode 'deck' (コンパクト) | 'pool' (標準) | 'large' (拡大表示/演出用)
-   */
-  renderCardUI(horseId, mode = 'deck') {
-    const horse = this.getHorse(horseId);
-    if (!horse) return `<div class="card-error" style="color:#888; font-size:11px; text-align:center; padding:10px;">(未設定: ID ${horseId})</div>`;
+    .bg-ability { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #1e5128 20%, #4e9f3d 80%, rgba(0,0,0,0) 100%); color: #d8f3dc; font-size: 1.15rem; }
+    .bg-surface { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #d4a373 20%, #faedcd 80%, rgba(0,0,0,0) 100%); color: #332211; }
+    .bg-dist { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #2a9d8f 20%, #e9c46a 80%, rgba(0,0,0,0) 100%); color: #112233; }
+    .bg-gen { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #0d3b66 20%, #0077b6 80%, rgba(0,0,0,0) 100%); color: #70d6ff; }
+    .bg-name { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #7209b7 20%, #f72585 80%, rgba(0,0,0,0) 100%); color: #ffffff; text-shadow: 0 0 8px rgba(255,255,255,0.8); }
+    .bg-rare { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #b8860b 20%, #ffd700 80%, rgba(0,0,0,0) 100%); color: #3a2500; font-weight: 900; }
 
-    const rarityInfo = (this.designConfig && this.designConfig.rarity_styles && this.designConfig.rarity_styles[horse.rarity]) 
-      || { border_color: '#a0ca33', bg_color: '#ffffff' };
-
-    const surfaceText = this.formatAptitude(horse.turf_potential ?? horse.turf, horse.dirt_potential ?? horse.dirt);
-    const distanceText = this.getDistanceText(horse);
-    const sexText = horse.sex || '-';
-    const abilitiesHtml = this.getAbilityBadgesHtml(horse);
-    const rarityBadgeHtml = this.getRarityBadgeHtml(horse);
-    const genBadgeHtml = this.getGenBadgeHtml(horse);
-
-    // 1. デック用（コンパクト表示）
-    if (mode === 'deck') {
-      return `
-        <div class="crc-card crc-card-deck" style="border: 1px solid ${rarityInfo.border_color}; border-left: 4px solid ${rarityInfo.border_color};">
-          <div class="crc-card-header">
-            <div class="crc-deck-name">${horse.name}</div>
-            ${genBadgeHtml}
-            ${rarityBadgeHtml}
-          </div>
-          <div class="crc-deck-details">
-            <span>${surfaceText} ${distanceText}</span>
-            <span>脚:${horse.style || '-'} ${sexText}</span>
-            <div class="crc-deck-params">
-              <span>ス${this.getParamRank(horse.speed)}</span>
-              <span>タ${this.getParamRank(horse.stamina)}</span>
-              <span>瞬${this.getParamRank(horse.sharp ?? horse.sharpness)}</span>
-              <span>持${this.getParamRank(horse.jizoku)}</span>
-              <span>根${this.getParamRank(horse.guts)}</span>
-            </div>
-          </div>
-          ${abilitiesHtml}
-        </div>`;
+    .cutin-card-box {
+      width: 100%; max-width: 320px;
+      transform: scale(0.5); opacity: 0;
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.25), opacity 0.3s ease;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      z-index: 10;
     }
+    .cutin-card-box.in { transform: scale(1); opacity: 1; }
 
-    // 2. 拡大パターン（デック画面の表示を約2倍化 ＋ 馬画像追加）
-    if (mode === 'large') {
-      const imgPath = horse.image_url || horse.image || `./images/horses/${horse.horse_id}.png`;
-      return `
-        <div class="crc-card crc-card-large" style="border: 2px solid ${rarityInfo.border_color}; border-left: 6px solid ${rarityInfo.border_color};">
-          <div class="crc-card-header">
-            <div class="crc-deck-name">${horse.name}</div>
-            <div style="display:flex; gap:6px; align-items:center;">
-              ${genBadgeHtml}
-              ${rarityBadgeHtml}
-            </div>
-          </div>
-
-          <div class="crc-large-image-box">
-            <img src="${imgPath}" alt="${horse.name}" onerror="this.style.display='none'; this.parentElement.innerText='🐴 No Image';">
-          </div>
-
-          <div class="crc-deck-details">
-            <span>${surfaceText} ${distanceText}</span>
-            <span>脚質:${horse.style || '-'} 性別:${sexText}</span>
-            <div class="crc-deck-params">
-              <span>ス:${this.getParamRank(horse.speed)}</span>
-              <span>タ:${this.getParamRank(horse.stamina)}</span>
-              <span>瞬:${this.getParamRank(horse.sharp ?? horse.sharpness)}</span>
-              <span>持:${this.getParamRank(horse.jizoku)}</span>
-              <span>根:${this.getParamRank(horse.guts)}</span>
-            </div>
-          </div>
-          ${abilitiesHtml}
-        </div>`;
+    .card-render-inner {
+      width: 100%; border-radius: 6px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      background: #fff; overflow: hidden;
     }
-
-    // 3. プール/一覧用（標準表示）
-    return `
-      <div class="crc-card crc-card-pool" style="border: 1px solid ${rarityInfo.border_color};">
-        <div class="crc-card-header">
-          <div class="crc-pool-name">${horse.name}</div>
-          <div style="display:flex; gap:3px;">
-            ${genBadgeHtml}
-            ${rarityBadgeHtml}
-          </div>
-        </div>
-        <div class="crc-pool-sub">${surfaceText} ${distanceText} ${sexText}</div>
-        <div class="crc-pool-stats-grid">
-          <div class="crc-stat-item"><span class="crc-stat-label">脚質</span><span class="crc-stat-val">${horse.style || '-'}</span></div>
-          <div class="crc-stat-item"><span class="crc-stat-label">スピ</span><span class="crc-stat-val">${this.getParamRank(horse.speed)}</span></div>
-          <div class="crc-stat-item"><span class="crc-stat-label">スタ</span><span class="crc-stat-val">${this.getParamRank(horse.stamina)}</span></div>
-          <div class="crc-stat-item"><span class="crc-stat-label">瞬発</span><span class="crc-stat-val">${this.getParamRank(horse.sharp ?? horse.sharpness)}</span></div>
-          <div class="crc-stat-item"><span class="crc-stat-label">持続</span><span class="crc-stat-val">${this.getParamRank(horse.jizoku)}</span></div>
-          <div class="crc-stat-item"><span class="crc-stat-label">根性</span><span class="crc-stat-val">${this.getParamRank(horse.guts)}</span></div>
-        </div>
-        ${abilitiesHtml}
-      </div>`;
-  }
-
-  renderRaceTableRow(horseId, index) {
-    const horse = this.getHorse(horseId);
-    const frameNum = Math.floor(index / 2) + 1;
-    const frameClass = `w-${Math.min(frameNum, 8)}`;
-    const mark = index === 0 ? '◎' : index === 1 ? '○' : index === 2 ? '▲' : '';
-
-    if (!horse) {
-      return `
-        <tr>
-          <td><span class="${frameClass}">${frameNum}</span></td>
-          <td>-</td>
-          <td class="horse-name" style="color:#aaa;">(未設定: ID ${horseId})</td>
-          <td>-</td>
-          <td>-</td>
-        </tr>`;
-    }
-
-    const surfaceText = this.formatAptitude(horse.turf_potential ?? horse.turf, horse.dirt_potential ?? horse.dirt);
-    const distanceText = this.getDistanceText(horse);
-
-    return `
-      <tr>
-        <td><span class="${frameClass}">${frameNum}</span></td>
-        <td>${mark}</td>
-        <td class="horse-name">${horse.name}</td>
-        <td>${surfaceText}</td>
-        <td>${distanceText}</td>
-      </tr>`;
-  }
+  `;
+  document.head.appendChild(style);
 }
 
-export const cardRenderer = new CardRenderer();
+// 馬ID（4桁）から西暦4桁を取得
+export function getGenerationYear(horseOrId) {
+  if (!horseOrId) return '----';
+
+  let idStr = '';
+  if (typeof horseOrId === 'object' && horseOrId !== null) {
+    idStr = String(horseOrId.horse_id || horseOrId.id || '');
+  } else {
+    idStr = String(horseOrId || '');
+  }
+
+  if (idStr.length >= 2) {
+    const genYY = idStr.substring(0, 2);
+    const yyNum = parseInt(genYY, 10);
+
+    if (!isNaN(yyNum)) {
+      const century = yyNum >= 50 ? '19' : '20';
+      return `${century}${genYY}`;
+    }
+  }
+
+  let horse = typeof horseOrId === 'object' ? horseOrId : cardRenderer.getHorse(horseOrId);
+  const year = horse?.generation_year || horse?.birth_year || horse?.generation || horse?.gen_year;
+  return year ? String(year) : '----';
+}
+
+// 世代表記（例: "98世代"）を返す関数
+export function parseGeneration(horseOrId) {
+  let idStr = '';
+  if (typeof horseOrId === 'object' && horseOrId !== null) {
+    idStr = String(horseOrId.horse_id || horseOrId.id || '');
+  } else {
+    idStr = String(horseOrId || '');
+  }
+
+  if (idStr.length >= 2) {
+    const genYY = idStr.substring(0, 2);
+    if (!isNaN(parseInt(genYY, 10))) {
+      return `${genYY}世代`;
+    }
+  }
+
+  const yearStr = getGenerationYear(horseOrId);
+  if (yearStr.length >= 4) {
+    return `${yearStr.slice(-2)}世代`;
+  }
+  return '----世代';
+}
+
+export function getGenYearLastDigit(horseOrId) {
+  let idStr = '';
+  if (typeof horseOrId === 'object' && horseOrId !== null) {
+    idStr = String(horseOrId.horse_id || horseOrId.id || '');
+  } else {
+    idStr = String(horseOrId || '');
+  }
+
+  if (idStr.length >= 2) {
+    return idStr.substring(1, 2);
+  }
+  return '0';
+}
+
+function getSurfaceAptitudeText(horse) {
+  const turf = Number(horse.turf ?? horse.aptitude?.turf ?? 0);
+  const dirt = Number(horse.dirt ?? horse.aptitude?.dirt ?? 0);
+
+  if (turf > 0 && dirt > 0) return '芝/ダート適性';
+  if (dirt > 0 && turf === 0) return 'ダート適性';
+  return '芝適性';
+}
+
+function getDistanceAptitudeText(horse) {
+  const minDist = horse.min_distance || horse.distance_min || horse.aptitude?.min || 1600;
+  const maxDist = horse.max_distance || horse.distance_max || horse.aptitude?.max || 2400;
+  return `${minDist}m-${maxDist}m`;
+}
+
+export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRenderer) {
+  injectCutInStyles();
+
+  if (customRenderer && !customRenderer.isLoaded) {
+    try {
+      await Promise.race([
+        customRenderer.init(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Init Timeout')), 3000))
+      ]);
+    } catch (e) {
+      console.warn('CardRenderer init bypassed or timed out:', e);
+    }
+  }
+
+  let horseId = String(chosenHorse?.horse_id || chosenHorse?.id || chosenHorse || '');
+  const masterHorse = customRenderer.getHorse ? customRenderer.getHorse(horseId) : null;
+  
+  const horse = {
+    ...(masterHorse || {}),
+    ...(typeof chosenHorse === 'object' ? chosenHorse : {}),
+    horse_id: horseId
+  };
+
+  const genText = parseGeneration(horse);
+  const surfaceText = getSurfaceAptitudeText(horse);
+  const distText = getDistanceAptitudeText(horse);
+
+  const rarityCode = (horse.rarity || 'NOR').toUpperCase();
+  const isRare = rarityCode !== 'NOR';
+  const rarityConfig = RARITY_CONFIG[rarityCode] || RARITY_CONFIG['NOR'];
+
+  let abilities = [];
+  if (Array.isArray(horse.ability)) {
+    abilities = horse.ability.filter(a => a);
+  } else if (typeof horse.ability === 'string' && horse.ability) {
+    abilities = [horse.ability];
+  } else if (Array.isArray(horse.skill)) {
+    abilities = horse.skill.filter(s => s);
+  }
+
+  let cardHtml = '';
+  try {
+    cardHtml = (customRenderer && customRenderer.isLoaded)
+      ? customRenderer.renderCardUI(horse, 'large')
+      : `<div style="padding:20px; text-align:center; font-weight:bold;">${horse.name || '馬データ取得中'}</div>`;
+  } catch (err) {
+    console.error('Render error:', err);
+    cardHtml = `<div style="padding:20px; text-align:center; font-weight:bold;">${horse.name || '馬データ'}</div>`;
+  }
+
+  let backdrop = document.getElementById('login-cutin-backdrop');
+  if (!backdrop) {
+    backdrop = document.createElement('div');
+    backdrop.id = 'login-cutin-backdrop';
+    backdrop.className = 'cutin-backdrop';
+    document.body.appendChild(backdrop);
+  }
+
+  backdrop.innerHTML = `
+    <div id="cutin-stage" class="cutin-stage">
+      <div id="slot-top" class="cutin-slot slot-top active"></div>
+      <div id="slot-bottom" class="cutin-slot slot-bottom active"></div>
+
+      <div id="card-box" class="cutin-card-box">
+        <div class="card-render-inner">${cardHtml}</div>
+      </div>
+    </div>
+  `;
+
+  const stage = document.getElementById('cutin-stage');
+  const slotTop = document.getElementById('slot-top');
+  const slotBottom = document.getElementById('slot-bottom');
+  const cardBox = document.getElementById('card-box');
+
+  const wait = (ms) => new Promise(r => setTimeout(r, ms));
+
+  const playBanner = async (targetSlot, text, bgClass, displayMs = 2000) => {
+    const banner = document.createElement('div');
+    banner.className = `slot-banner ${bgClass}`;
+    banner.textContent = text;
+    targetSlot.appendChild(banner);
+
+    await wait(20);
+    banner.classList.add('in');
+    await wait(displayMs);
+
+    banner.classList.remove('in');
+    banner.classList.add('out');
+    await wait(260);
+    banner.remove();
+  };
+
+  backdrop.classList.add('active');
+  await wait(200);
+
+  // --- カットイン演出シーケンス ---
+
+  // 1. アビリティ全件（上段 / 各2秒）
+  if (abilities.length > 0) {
+    for (let i = 0; i < abilities.length; i++) {
+      await playBanner(slotTop, `⚡ ${abilities[i]}`, 'bg-ability', 2000);
+    }
+  }
+
+  // 2. 芝/ダート適性（下段 / 2秒）
+  await playBanner(slotBottom, `🌱 ${surfaceText}`, 'bg-surface', 2000);
+
+  // 3. 距離適性（上段 / 2秒）
+  await playBanner(slotTop, `🏁 ${distText}`, 'bg-dist', 2000);
+
+  // 4. 世代（下段 / 2秒）
+  await playBanner(slotBottom, genText, 'bg-gen', 2000);
+
+  // 5. 馬名（上段 / 2秒）
+  await playBanner(slotTop, horse.name || '馬名不明', 'bg-name', 2000);
+
+  // 6. カードバチッと表示 & 終盤（4秒後）にレア名称追いかけ表示
+  stage.classList.add('expanded');
+  await wait(300);
+  cardBox.classList.add('in'); // カード表示開始
+
+  if (isRare) {
+    // 4秒間カードだけを見せる
+    await wait(2600);
+    // 4秒経過後、下の段からレア名称が追いかけ表示（1.5秒間）
+    slotBottom.classList.add('active');
+    await playBanner(slotBottom, `✨ ${rarityConfig.name} ✨`, 'bg-rare', 1500);
+  } else {
+    // ノーマルの場合はカードのみを5秒間じっくり見せる
+    await wait(4000);
+  }
+
+  slotTop.classList.remove('active');
+  slotBottom.classList.remove('active');
+
+  backdrop.classList.remove('active');
+  await wait(1000);
+}
+
+export function drawBonusCard(renderer = cardRenderer, affiliation, isFever) {
+  const allHorses = (renderer && renderer.horsesMap && renderer.horsesMap.size > 0)
+    ? Array.from(renderer.horsesMap.values())
+    : [];
+    
+  if (allHorses.length === 0) {
+    return { horse_id: "8801", name: "オグリキャップ", rarity: "CLR", ability: ["地方からの勇者", "連勝街道"] };
+  }
+  
+  const selected = allHorses[Math.floor(Math.random() * allHorses.length)];
+  return {
+    ...selected,
+    rarity: isFever ? "ULR" : (selected.rarity || "NOR")
+  };
+}
