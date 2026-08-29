@@ -5,7 +5,6 @@ export class CardRenderer {
     this.isLoaded = false;
   }
 
-  // データ・デザイン読み込み ＆ 専用スタイルの自動注入
   async init() {
     if (this.isLoaded) return;
 
@@ -30,12 +29,10 @@ export class CardRenderer {
 
       this.horsesMap.clear();
       horsesArray.forEach(horse => {
-        this.horsesMap.set(String(horse.horse_id), horse);
+        this.horsesMap.set(String(horse.horse_id || horse.id), horse);
       });
 
-      // スタイルの自動注入
       this.injectStyles();
-
       this.isLoaded = true;
       console.log("✅ CardRenderer 初期化完了:", this.horsesMap.size, "件");
     } catch (error) {
@@ -44,14 +41,12 @@ export class CardRenderer {
     }
   }
 
-  // カード専用CSSを<head>に自動挿入
   injectStyles() {
     if (document.getElementById('card-renderer-styles')) return;
 
     const style = document.createElement('style');
     style.id = 'card-renderer-styles';
     style.textContent = `
-      /* 共通カード基本設定 */
       .crc-card {
         box-sizing: border-box;
         border-radius: 6px;
@@ -68,7 +63,6 @@ export class CardRenderer {
         box-shadow: 0 3px 8px rgba(0,0,0,0.12);
       }
 
-      /* レアリティバッジ */
       .crc-rarity-badge {
         display: inline-flex;
         align-items: center;
@@ -108,7 +102,6 @@ export class CardRenderer {
         border-color: #2ed573;
       }
 
-      /* 世代表記バッジ */
       .crc-gen-badge {
         display: inline-flex;
         align-items: center;
@@ -123,7 +116,6 @@ export class CardRenderer {
         white-space: nowrap;
       }
 
-      /* アビリティバッジ（3列均等表示） */
       .crc-abilities-row {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -153,7 +145,6 @@ export class CardRenderer {
         background: transparent;
       }
 
-      /* --- モード①: deck (コンパクト / スロット用) --- */
       .crc-card-deck {
         padding: 4px;
         min-height: 96px;
@@ -202,7 +193,6 @@ export class CardRenderer {
         font-family: 'Consolas', 'Monaco', monospace;
       }
 
-      /* --- モード②: pool (標準 / 一覧・プール用) --- */
       .crc-card-pool {
         padding: 6px 8px;
         display: flex;
@@ -243,43 +233,45 @@ export class CardRenderer {
       .crc-stat-label { font-size: 9px; color: #4e6b52; }
       .crc-stat-val { font-weight: bold; color: #2d6a37; font-size: 11px; font-family: 'Consolas', 'Monaco', monospace; }
 
-      /* --- モード③: large (拡大表示 / 演出・詳細用) --- */
+      /* --- 拡大表示（.crc-card-large）のフォントサイズ拡大 & レイアウト補正 --- */
       .crc-card-large {
-        padding: 12px;
-        min-height: 280px;
+        padding: 10px;
+        min-height: 350px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        gap: 8px;
+        gap: 6px;
         border-radius: 10px;
         background: #ffffff;
       }
       .crc-card-large .crc-deck-name {
-        font-size: 20px;
+        font-size: 24px;
+        line-height: 1.2;
       }
       .crc-card-large .crc-rarity-badge,
       .crc-card-large .crc-gen-badge {
-        font-size: 13px;
-        padding: 3px 8px;
+        font-size: 16px;
+        padding: 2px 6px;
         border-radius: 6px;
       }
       .crc-card-large .crc-deck-details {
-        font-size: 14px;
-        gap: 4px;
+        font-size: 18px;
+        line-height: 1.3;
+        gap: 3px;
       }
       .crc-card-large .crc-deck-params {
-        font-size: 14px;
-        padding: 4px 8px;
+        font-size: 18px;
+        padding: 4px 6px;
         border-radius: 6px;
       }
       .crc-card-large .crc-ability-btn {
-        font-size: 13px;
+        font-size: 16px;
         padding: 4px 0;
-        border-radius: 5px;
+        border-radius: 4px;
       }
       .crc-large-image-box {
         width: 100%;
-        height: 120px;
+        height: 140px;
         background: #f2f7f3;
         border-radius: 6px;
         border: 1px dashed #b5d4ba;
@@ -304,6 +296,16 @@ export class CardRenderer {
 
   getGenerationYear(horseOrId) {
     const horse = typeof horseOrId === 'object' ? horseOrId : this.getHorse(horseOrId);
+    let idStr = String(horse?.horse_id || horse?.id || horseOrId || '');
+
+    if (idStr.length >= 2) {
+      const yyNum = parseInt(idStr.substring(0, 2), 10);
+      if (!isNaN(yyNum)) {
+        const century = yyNum >= 50 ? '19' : '20';
+        return `${century}${idStr.substring(0, 2)}`;
+      }
+    }
+
     if (!horse) return '----';
     const year = horse.generation_year || horse.birth_year || horse.generation || horse.gen_year;
     return year ? String(year) : '----';
@@ -324,19 +326,31 @@ export class CardRenderer {
   }
 
   getDistanceText(horse) {
-    if (horse.min_distance && horse.max_distance) {
-      return `${horse.min_distance}-${horse.max_distance}m`;
+    const min = horse.min_distance || horse.distance_min;
+    const max = horse.max_distance || horse.distance_max;
+    if (min && max) {
+      return `${min}-${max}m`;
     }
     return horse.distance || '-';
   }
 
   getParamRank(val) {
-    if (val === undefined || val === null) return "-";
-    if (val >= 23) return "SS";
-    if (val >= 21) return "S";
-    if (val >= 18) return "A";
-    if (val >= 16) return "B";
+    if (val === undefined || val === null || val === "" || isNaN(Number(val))) return "-";
+    const num = Number(val);
+    if (num >= 23) return "SS";
+    if (num >= 21) return "S";
+    if (num >= 18) return "A";
+    if (num >= 16) return "B";
     return "C";
+  }
+
+  getHorseParam(horse, keys) {
+    for (const key of keys) {
+      if (horse[key] !== undefined && horse[key] !== null) {
+        return horse[key];
+      }
+    }
+    return undefined;
   }
 
   getRarityBadgeHtml(horse) {
@@ -372,26 +386,34 @@ export class CardRenderer {
     return html;
   }
 
-  /**
-   * カードUI描画処理
-   * @param {string|number} horseId 
-   * @param {'deck'|'pool'|'large'} mode 'deck' (コンパクト) | 'pool' (標準) | 'large' (拡大表示/演出用)
-   */
   renderCardUI(horseId, mode = 'deck') {
-    const horse = this.getHorse(horseId);
+    let horse = this.getHorse(horseId);
+    
+    if (!horse && typeof horseId === 'object' && horseId !== null) {
+      horse = horseId;
+    }
+
     if (!horse) return `<div class="card-error" style="color:#888; font-size:11px; text-align:center; padding:10px;">(未設定: ID ${horseId})</div>`;
 
     const rarityInfo = (this.designConfig && this.designConfig.rarity_styles && this.designConfig.rarity_styles[horse.rarity]) 
       || { border_color: '#a0ca33', bg_color: '#ffffff' };
 
-    const surfaceText = this.formatAptitude(horse.turf_potential ?? horse.turf, horse.dirt_potential ?? horse.dirt);
+    const surfaceText = this.formatAptitude(
+      this.getHorseParam(horse, ['turf_potential', 'turf']),
+      this.getHorseParam(horse, ['dirt_potential', 'dirt'])
+    );
     const distanceText = this.getDistanceText(horse);
     const sexText = horse.sex || '-';
     const abilitiesHtml = this.getAbilityBadgesHtml(horse);
     const rarityBadgeHtml = this.getRarityBadgeHtml(horse);
     const genBadgeHtml = this.getGenBadgeHtml(horse);
 
-    // 1. デック用（コンパクト表示）
+    const spd = this.getParamRank(this.getHorseParam(horse, ['speed', 'spd']));
+    const stm = this.getParamRank(this.getHorseParam(horse, ['stamina', 'stm']));
+    const shp = this.getParamRank(this.getHorseParam(horse, ['sharp', 'sharpness', 'agility']));
+    const jzk = this.getParamRank(this.getHorseParam(horse, ['jizoku', 'durability', 'tenacity']));
+    const gut = this.getParamRank(this.getHorseParam(horse, ['guts', 'stren']));
+
     if (mode === 'deck') {
       return `
         <div class="crc-card crc-card-deck" style="border: 1px solid ${rarityInfo.border_color}; border-left: 4px solid ${rarityInfo.border_color};">
@@ -404,25 +426,24 @@ export class CardRenderer {
             <span>${surfaceText} ${distanceText}</span>
             <span>脚:${horse.style || '-'} ${sexText}</span>
             <div class="crc-deck-params">
-              <span>ス${this.getParamRank(horse.speed)}</span>
-              <span>タ${this.getParamRank(horse.stamina)}</span>
-              <span>瞬${this.getParamRank(horse.sharp ?? horse.sharpness)}</span>
-              <span>持${this.getParamRank(horse.jizoku)}</span>
-              <span>根${this.getParamRank(horse.guts)}</span>
+              <span>ス:${spd}</span>
+              <span>タ:${stm}</span>
+              <span>瞬:${shp}</span>
+              <span>持:${jzk}</span>
+              <span>根:${gut}</span>
             </div>
           </div>
           ${abilitiesHtml}
         </div>`;
     }
 
-    // 2. 拡大パターン（デック画面の表示を約2倍化 ＋ 馬画像追加）
     if (mode === 'large') {
-      const imgPath = horse.image_url || horse.image || `./images/horses/${horse.horse_id}.png`;
+      const imgPath = horse.image_url || horse.image || `./images/horses/${horse.horse_id || horse.id}.png`;
       return `
         <div class="crc-card crc-card-large" style="border: 2px solid ${rarityInfo.border_color}; border-left: 6px solid ${rarityInfo.border_color};">
           <div class="crc-card-header">
             <div class="crc-deck-name">${horse.name}</div>
-            <div style="display:flex; gap:6px; align-items:center;">
+            <div style="display:flex; gap:4px; align-items:center;">
               ${genBadgeHtml}
               ${rarityBadgeHtml}
             </div>
@@ -436,18 +457,17 @@ export class CardRenderer {
             <span>${surfaceText} ${distanceText}</span>
             <span>脚質:${horse.style || '-'} 性別:${sexText}</span>
             <div class="crc-deck-params">
-              <span>ス:${this.getParamRank(horse.speed)}</span>
-              <span>タ:${this.getParamRank(horse.stamina)}</span>
-              <span>瞬:${this.getParamRank(horse.sharp ?? horse.sharpness)}</span>
-              <span>持:${this.getParamRank(horse.jizoku)}</span>
-              <span>根:${this.getParamRank(horse.guts)}</span>
+              <span>ス:${spd}</span>
+              <span>タ:${stm}</span>
+              <span>瞬:${shp}</span>
+              <span>持:${jzk}</span>
+              <span>根:${gut}</span>
             </div>
           </div>
           ${abilitiesHtml}
         </div>`;
     }
 
-    // 3. プール/一覧用（標準表示）
     return `
       <div class="crc-card crc-card-pool" style="border: 1px solid ${rarityInfo.border_color};">
         <div class="crc-card-header">
@@ -460,11 +480,11 @@ export class CardRenderer {
         <div class="crc-pool-sub">${surfaceText} ${distanceText} ${sexText}</div>
         <div class="crc-pool-stats-grid">
           <div class="crc-stat-item"><span class="crc-stat-label">脚質</span><span class="crc-stat-val">${horse.style || '-'}</span></div>
-          <div class="crc-stat-item"><span class="crc-stat-label">スピ</span><span class="crc-stat-val">${this.getParamRank(horse.speed)}</span></div>
-          <div class="crc-stat-item"><span class="crc-stat-label">スタ</span><span class="crc-stat-val">${this.getParamRank(horse.stamina)}</span></div>
-          <div class="crc-stat-item"><span class="crc-stat-label">瞬発</span><span class="crc-stat-val">${this.getParamRank(horse.sharp ?? horse.sharpness)}</span></div>
-          <div class="crc-stat-item"><span class="crc-stat-label">持続</span><span class="crc-stat-val">${this.getParamRank(horse.jizoku)}</span></div>
-          <div class="crc-stat-item"><span class="crc-stat-label">根性</span><span class="crc-stat-val">${this.getParamRank(horse.guts)}</span></div>
+          <div class="crc-stat-item"><span class="crc-stat-label">スピ</span><span class="crc-stat-val">${spd}</span></div>
+          <div class="crc-stat-item"><span class="crc-stat-label">スタ</span><span class="crc-stat-val">${stm}</span></div>
+          <div class="crc-stat-item"><span class="crc-stat-label">瞬発</span><span class="crc-stat-val">${shp}</span></div>
+          <div class="crc-stat-item"><span class="crc-stat-label">持続</span><span class="crc-stat-val">${jzk}</span></div>
+          <div class="crc-stat-item"><span class="crc-stat-label">根性</span><span class="crc-stat-val">${gut}</span></div>
         </div>
         ${abilitiesHtml}
       </div>`;
@@ -487,7 +507,10 @@ export class CardRenderer {
         </tr>`;
     }
 
-    const surfaceText = this.formatAptitude(horse.turf_potential ?? horse.turf, horse.dirt_potential ?? horse.dirt);
+    const surfaceText = this.formatAptitude(
+      this.getHorseParam(horse, ['turf_potential', 'turf']),
+      this.getHorseParam(horse, ['dirt_potential', 'dirt'])
+    );
     const distanceText = this.getDistanceText(horse);
 
     return `
