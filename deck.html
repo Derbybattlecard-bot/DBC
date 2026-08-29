@@ -106,9 +106,9 @@
           <tr>
             <th style="width:20px;">枠</th>
             <th style="text-align:left;">馬名</th>
-            <th style="width:20px;">性</th>
+            <th style="width:28px;">性</th>
             <th style="width:24px;">Pt</th>
-            <th style="width:42px;">馬場</th>
+            <th style="width:65px;">馬場</th>
             <th style="width:68px;">距離</th>
             <th style="width:32px;">脚質</th>
             <th style="width:34px;">状態</th>
@@ -316,7 +316,7 @@
     renderDeckTable();
   };
 
-  // ─── 馬データ解析ヘルパー関数（デッキ構築画面と同一化） ───
+  // ─── 馬データ解析ヘルパー関数 ───
   function getTurfVal(horse) {
     if (!horse) return 0;
     if (typeof horse.turf === 'boolean') return horse.turf ? 1 : 0;
@@ -329,37 +329,34 @@
     return Number(horse.dirt_potential ?? horse.dirt) || 0;
   }
 
-  // 芝ダート適性テキスト取得
+  // 芝ダート適性テキスト取得 (例: 芝18, ダ16, 芝21/ダ16)
   function getSurfaceText(horse) {
     if (!horse) return '-';
-    if (horse.surface) return horse.surface;
     
     const t = getTurfVal(horse);
     const d = getDirtVal(horse);
     
-    if (t > 1 && d > 1) return t === d ? `芝/ダ${t}` : `芝${t}ダ${d}`;
-    if (t > 1) return `芝${t}`;
-    if (d > 1) return `ダ${d}`;
+    if (t > 0 && d > 0) return `芝${t}/ダ${d}`;
+    if (t > 0) return `芝${t}`;
+    if (d > 0) return `ダ${d}`;
     
-    if (t > 0 && d > 0) return '芝/ダ';
-    if (t > 0) return '芝';
-    if (d > 0) return 'ダ';
+    if (horse.surface) return horse.surface;
     return '-';
   }
 
-  // 距離適性テキスト取得
+  // 距離適性テキスト取得 (例: 2000-2400m)
   function getDistanceText(horse) {
     if (!horse) return '-';
 
-    // 1. min_distance / max_distance 指定
+    // 1. min_distance / max_distance 指定 (新データ構造)
     let minD = horse.min_distance ?? horse.aptitude?.min_distance;
     let maxD = horse.max_distance ?? horse.aptitude?.max_distance;
 
-    if (minD !== undefined && maxD !== undefined) {
+    if (minD !== undefined && maxD !== undefined && minD !== null && maxD !== null) {
       return minD === maxD ? `${minD}m` : `${minD}-${maxD}m`;
     }
 
-    // 2. distance プロパティ判定 (配列/文字列/数値)
+    // 2. distance プロパティ判定 (旧互換用: 配列/文字列/数値)
     if (horse.distance !== undefined && horse.distance !== null) {
       if (Array.isArray(horse.distance)) {
         if (horse.distance.length === 0) return '-';
@@ -400,7 +397,7 @@
           tr.style.opacity = '0.4';
         }
 
-        const sex = horse.sex || '牡';
+        const sex = horse.sex || '牡馬';
         const potential = horse.total_potential ?? horse.potential ?? horse.pt ?? 0;
         const surface = getSurfaceText(horse);
         const dist = getDistanceText(horse);
