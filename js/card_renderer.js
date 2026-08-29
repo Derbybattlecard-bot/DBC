@@ -68,7 +68,7 @@ export class CardRenderer {
         box-shadow: 0 3px 8px rgba(0,0,0,0.12);
       }
 
-      /* レアリティバッジ（グラフィック風デザイン） */
+      /* レアリティバッジ */
       .crc-rarity-badge {
         display: inline-flex;
         align-items: center;
@@ -242,6 +242,57 @@ export class CardRenderer {
       .crc-stat-item { display: flex; flex-direction: column; line-height: 1.1; }
       .crc-stat-label { font-size: 9px; color: #4e6b52; }
       .crc-stat-val { font-weight: bold; color: #2d6a37; font-size: 11px; font-family: 'Consolas', 'Monaco', monospace; }
+
+      /* --- モード③: large (拡大表示 / 演出・詳細用) --- */
+      .crc-card-large {
+        padding: 12px;
+        min-height: 280px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 8px;
+        border-radius: 10px;
+        background: #ffffff;
+      }
+      .crc-card-large .crc-deck-name {
+        font-size: 20px;
+      }
+      .crc-card-large .crc-rarity-badge,
+      .crc-card-large .crc-gen-badge {
+        font-size: 13px;
+        padding: 3px 8px;
+        border-radius: 6px;
+      }
+      .crc-card-large .crc-deck-details {
+        font-size: 14px;
+        gap: 4px;
+      }
+      .crc-card-large .crc-deck-params {
+        font-size: 14px;
+        padding: 4px 8px;
+        border-radius: 6px;
+      }
+      .crc-card-large .crc-ability-btn {
+        font-size: 13px;
+        padding: 4px 0;
+        border-radius: 5px;
+      }
+      .crc-large-image-box {
+        width: 100%;
+        height: 120px;
+        background: #f2f7f3;
+        border-radius: 6px;
+        border: 1px dashed #b5d4ba;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+      .crc-large-image-box img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -251,10 +302,6 @@ export class CardRenderer {
     return this.horsesMap.get(String(horseId));
   }
 
-  // --- 世代表記関連メソッド ---
-  /**
-   * 誕生年（西暦4桁: 例 1996）を取得
-   */
   getGenerationYear(horseOrId) {
     const horse = typeof horseOrId === 'object' ? horseOrId : this.getHorse(horseOrId);
     if (!horse) return '----';
@@ -262,9 +309,6 @@ export class CardRenderer {
     return year ? String(year) : '----';
   }
 
-  /**
-   * 世代の2桁表記（例: "96"）を取得
-   */
   getGenYearTwoDigits(horseOrId) {
     const yearStr = this.getGenerationYear(horseOrId);
     return yearStr.length >= 4 ? yearStr.slice(-2) : '--';
@@ -295,17 +339,11 @@ export class CardRenderer {
     return "C";
   }
 
-  /**
-   * レアリティバッジHTMLを生成
-   */
   getRarityBadgeHtml(horse) {
     const rarity = (horse.rarity || 'N').toUpperCase();
     return `<span class="crc-rarity-badge rarity-${rarity.toLowerCase()}">${rarity}</span>`;
   }
 
-  /**
-   * 世代表記バッジHTMLを生成 (2桁表示: 例 "96世代")
-   */
   getGenBadgeHtml(horse) {
     const gen2 = this.getGenYearTwoDigits(horse);
     return `<span class="crc-gen-badge">${gen2}世代</span>`;
@@ -337,7 +375,7 @@ export class CardRenderer {
   /**
    * カードUI描画処理
    * @param {string|number} horseId 
-   * @param {'deck'|'pool'} mode 'deck' (コンパクト) または 'pool' (標準)
+   * @param {'deck'|'pool'|'large'} mode 'deck' (コンパクト) | 'pool' (標準) | 'large' (拡大表示/演出用)
    */
   renderCardUI(horseId, mode = 'deck') {
     const horse = this.getHorse(horseId);
@@ -377,7 +415,39 @@ export class CardRenderer {
         </div>`;
     }
 
-    // 2. プール/一覧用（標準表示）
+    // 2. 拡大パターン（デック画面の表示を約2倍化 ＋ 馬画像追加）
+    if (mode === 'large') {
+      const imgPath = horse.image_url || horse.image || `./images/horses/${horse.horse_id}.png`;
+      return `
+        <div class="crc-card crc-card-large" style="border: 2px solid ${rarityInfo.border_color}; border-left: 6px solid ${rarityInfo.border_color};">
+          <div class="crc-card-header">
+            <div class="crc-deck-name">${horse.name}</div>
+            <div style="display:flex; gap:6px; align-items:center;">
+              ${genBadgeHtml}
+              ${rarityBadgeHtml}
+            </div>
+          </div>
+
+          <div class="crc-large-image-box">
+            <img src="${imgPath}" alt="${horse.name}" onerror="this.style.display='none'; this.parentElement.innerText='🐴 No Image';">
+          </div>
+
+          <div class="crc-deck-details">
+            <span>${surfaceText} ${distanceText}</span>
+            <span>脚質:${horse.style || '-'} 性別:${sexText}</span>
+            <div class="crc-deck-params">
+              <span>ス:${this.getParamRank(horse.speed)}</span>
+              <span>タ:${this.getParamRank(horse.stamina)}</span>
+              <span>瞬:${this.getParamRank(horse.sharp ?? horse.sharpness)}</span>
+              <span>持:${this.getParamRank(horse.jizoku)}</span>
+              <span>根:${this.getParamRank(horse.guts)}</span>
+            </div>
+          </div>
+          ${abilitiesHtml}
+        </div>`;
+    }
+
+    // 3. プール/一覧用（標準表示）
     return `
       <div class="crc-card crc-card-pool" style="border: 1px solid ${rarityInfo.border_color};">
         <div class="crc-card-header">
