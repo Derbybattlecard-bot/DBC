@@ -28,7 +28,7 @@ function injectCutInStyles() {
       z-index: 9999;
       display: flex; 
       justify-content: center; 
-      align-items: center; /* 完全な中央配置に変更 */
+      align-items: center;
       opacity: 0; pointer-events: none;
       transition: opacity 0.3s ease;
       box-sizing: border-box;
@@ -37,34 +37,37 @@ function injectCutInStyles() {
       opacity: 1; pointer-events: auto;
     }
 
-    /* 上から順にずらして表示するためのバナーコンテナ */
+    /* バナーコンテナ: 上から下へ追加し、古いものは下に押し出される */
     .dynamic-banners {
       position: absolute;
-      top: 15vh; /* 画面上部から開始 */
+      top: 10vh; /* 少し上からスタート */
       left: 0; width: 100%;
       display: flex;
       flex-direction: column;
-      gap: 16px; /* バナー間の間隔 */
       z-index: 20;
       transition: opacity 0.3s ease;
+      overflow-x: hidden;
     }
 
+    /* 滑らかに高さが開いて一段ずれるためのラッパー */
     .banner-row {
-      width: 100%; height: 52px;
-      position: relative;
-      overflow: hidden;
+      width: 100%;
+      height: 0; /* 追加時は高さ0 */
+      transition: height 0.25s ease-out;
+    }
+    .banner-row.open {
+      height: 64px; /* バナーの高さ52px + 隙間12px */
     }
 
     .slot-banner {
-      width: 100%; height: 100%;
+      width: 100%; height: 52px;
       display: flex; align-items: center; justify-content: center;
       font-size: 1.3rem; letter-spacing: 1px; font-weight: 900;
       box-shadow: 0 2px 10px rgba(0,0,0,0.5);
       transform: translateX(100%);
-      transition: transform 0.28s cubic-bezier(0.15, 0.85, 0.35, 1.2);
+      transition: transform 0.35s cubic-bezier(0.15, 0.85, 0.35, 1.2);
     }
     .slot-banner.in { transform: translateX(0); }
-    .slot-banner.out { transform: translateX(-100%); }
 
     /* 背景色設定 */
     .bg-ability { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #1e5128 20%, #4e9f3d 80%, rgba(0,0,0,0) 100%); color: #d8f3dc; font-size: 1.15rem; }
@@ -75,15 +78,22 @@ function injectCutInStyles() {
     .bg-name { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #7209b7 20%, #f72585 80%, rgba(0,0,0,0) 100%); color: #ffffff; text-shadow: 0 0 8px rgba(255,255,255,0.8); }
     .bg-rare { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #b8860b 20%, #ffd700 80%, rgba(0,0,0,0) 100%); color: #3a2500; text-shadow: 0 0 8px rgba(255,255,255,0.6); }
 
-    /* 中央のカードボックス */
+    /* 中央のカードボックス（縦並びにしてレア帯と分離し、全体を上にずらす） */
     .cutin-card-box {
-      position: relative; /* 子要素（レアバナー）の絶対配置の基準 */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px; /* カードとレア帯の間隔 */
       width: 90%; max-width: 320px;
-      transform: scale(0.5); opacity: 0;
+      /* translateYで帯の分だけ全体を少し上へずらす */
+      transform: translateY(-8vh) scale(0.5); opacity: 0;
       transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.25), opacity 0.3s ease;
       z-index: 10;
     }
-    .cutin-card-box.in { transform: scale(1); opacity: 1; }
+    .cutin-card-box.in { 
+      transform: translateY(-8vh) scale(1); 
+      opacity: 1; 
+    }
 
     .card-render-inner {
       width: 100%; border-radius: 6px;
@@ -91,13 +101,11 @@ function injectCutInStyles() {
       background: #fff; overflow: hidden;
     }
 
-    /* カード直下に被せるレア表示スロット */
+    /* レア表示スロット：カードに被らず、直下に表示される */
     .rare-banner-slot {
-      position: absolute;
-      bottom: 0px; /* カード下部にピッタリかぶせる */
-      left: -2%; width: 104%; /* カードより少し幅広にする */
+      position: relative;
+      width: 108%; /* カードより少し幅広 */
       height: 52px;
-      overflow: hidden;
       z-index: 30;
       pointer-events: none;
     }
@@ -214,6 +222,7 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
     <!-- カード＆レア表示コンテナ -->
     <div id="card-box" class="cutin-card-box">
       <div class="card-render-inner">${cardHtml}</div>
+      <!-- カードの直下に分離して配置 -->
       <div id="rare-slot" class="rare-banner-slot"></div>
     </div>
   `;
@@ -223,8 +232,8 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   const rareSlot = document.getElementById('rare-slot');
   const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
-  // --- 素材を順にずらしながら表示する関数 ---
-  const playBannerDynamic = async (text, bgClass, displayMs = 1100) => {
+  // --- 素材を「消さずに上に追加し、古いものを一段ずつ押し下げる」関数 ---
+  const playBannerDynamic = async (text, bgClass, delayBeforeNext) => {
     const row = document.createElement('div');
     row.className = 'banner-row';
     const banner = document.createElement('div');
@@ -232,68 +241,76 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
     banner.textContent = text;
     row.appendChild(banner);
     
-    // コンテナに追加することで、1段ずつ自動で下にずれていく
-    dynamicBanners.appendChild(row);
+    // コンテナの一番上に追加（これで古いものは下へずれる）
+    dynamicBanners.prepend(row);
 
-    await wait(320);
+    // 追加直後に高さを広げて、滑らかに押し出す
+    requestAnimationFrame(() => {
+      row.classList.add('open');
+    });
+
+    await wait(20);
     banner.classList.add('in');
-    await wait(displayMs);
-
-    banner.classList.remove('in');
-    banner.classList.add('out');
-    await wait(1200); // 次の素材が出るまでの間隔
+    
+    // 次の要素が出るまでの「間」
+    await wait(delayBeforeNext);
   };
 
   backdrop.classList.add('active');
-  await wait(1200);
+  await wait(200);
 
-  // 1. アビリティ（1件ずつずらして表示）
+  // 通常のバナー間の間隔（ゆとりを持たせる）
+  const NORMAL_DELAY = 750;
+
+  // 1. アビリティ
   if (abilities.length > 0) {
-    for (let i = 0; i < Math.min(abilities.length, 3); i++) { // 多すぎ防止で最大3つまで
-      await playBannerDynamic(`⚡ ${abilities[i]}`, 'bg-ability');
+    for (let i = 0; i < Math.min(abilities.length, 3); i++) {
+      await playBannerDynamic(`⚡ ${abilities[i]}`, 'bg-ability', NORMAL_DELAY);
     }
   }
 
   // 2. 芝/ダート適性
   for (const s of surfaces) {
-    await playBannerDynamic(s.text, s.bgClass);
+    await playBannerDynamic(s.text, s.bgClass, NORMAL_DELAY);
   }
 
   // 3. 距離適性
-  await playBannerDynamic(`🏁 ${distText}`, 'bg-dist');
+  await playBannerDynamic(`🏁 ${distText}`, 'bg-dist', NORMAL_DELAY);
 
-  // 4. 世代 & 馬名
-  await playBannerDynamic(genText, 'bg-gen', 900);
-  await playBannerDynamic(horse.name || '馬名不明', 'bg-name', 900);
+  // 4. 世代 （★ここで1.5秒のタメを作り、プレイヤーに予想させる）
+  await playBannerDynamic(genText, 'bg-gen', 1500); 
+
+  // 5. 馬名
+  await playBannerDynamic(horse.name || '馬名不明', 'bg-name', 1000);
 
   // バナー群を非表示にしてスッキリさせる
   dynamicBanners.style.opacity = '0';
-  await wait(1300);
+  await wait(300);
 
-  // 5. 中央にカードをバチッと表示
+  // 6. 中央にカードをバチッと表示
   cardBox.classList.add('in');
 
   if (isRare) {
-    await wait(1200); // カードが出て少しタメる
+    await wait(600); // カードが出て少しタメる
     
-    // 6. カード下部にレアバナーをかぶせて表示
+    // 7. カード下部の被らない位置にレアバナーを表示
     const rareBanner = document.createElement('div');
     rareBanner.className = `slot-banner bg-rare`;
-    rareBanner.style.boxShadow = rarityConfig.shadow; // レアリティ専用の発光
+    rareBanner.style.boxShadow = rarityConfig.shadow; 
     rareBanner.innerHTML = `✨ ${rarityConfig.name} ✨`;
     rareSlot.appendChild(rareBanner);
 
     await wait(20);
     rareBanner.classList.add('in');
     
-    await wait(3500); // じっくり結果を見せる
+    await wait(3200); // じっくり結果を見せる
   } else {
     // ノーマルの場合はカードのみをじっくり見せる
-    await wait(4000);
+    await wait(3500);
   }
 
   backdrop.classList.remove('active');
-  await wait(1500);
+  await wait(800);
 }
 
 export function drawBonusCard(renderer = cardRenderer, affiliation, isFever) {
