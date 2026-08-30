@@ -274,7 +274,7 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   cardBox.classList.add('in');
 
   if (isRare) {
-    await wait(800); // カードが出て少しタメる
+    await wait(1200); // カードが出て少しタメる
     
     // 6. カード下部にレアバナーをかぶせて表示
     const rareBanner = document.createElement('div');
@@ -286,14 +286,14 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
     await wait(20);
     rareBanner.classList.add('in');
     
-    await wait(3200); // じっくり結果を見せる
+    await wait(3500); // じっくり結果を見せる
   } else {
     // ノーマルの場合はカードのみをじっくり見せる
-    await wait(3500);
+    await wait(4000);
   }
 
   backdrop.classList.remove('active');
-  await wait(800);
+  await wait(1500);
 }
 
 export function drawBonusCard(renderer = cardRenderer, affiliation, isFever) {
