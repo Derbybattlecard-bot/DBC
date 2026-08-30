@@ -454,8 +454,8 @@ export class CardRenderer {
             ${rarityBadgeHtml}
           </div>
           <div class="crc-deck-details">
-            <span>${surfaceText} ${distanceText}</span>
-            <span>脚:${horse.style || '-'} ${sexText}</span>
+            <span>${surfaceText} ${distanceText} 性別:${sexText}</span>
+            <span>脚:${horse.style || '-'}</span>
             <div class="crc-deck-params">
               <span>ス:${spd}</span>
               <span>タ:${stm}</span>
