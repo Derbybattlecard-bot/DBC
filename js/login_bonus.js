@@ -34,7 +34,7 @@ function injectCutInStyles() {
   opacity: 0; pointer-events: none;
   transition: opacity 0.3s ease;
   box-sizing: border-box;  /* paddingを含めるために追加 */
-}
+
 
     .cutin-stage {
       position: relative; width: 92%; max-width: 400px;
