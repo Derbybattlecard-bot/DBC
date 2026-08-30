@@ -235,17 +235,17 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
     // コンテナに追加することで、1段ずつ自動で下にずれていく
     dynamicBanners.appendChild(row);
 
-    await wait(20);
+    await wait(320);
     banner.classList.add('in');
     await wait(displayMs);
 
     banner.classList.remove('in');
     banner.classList.add('out');
-    await wait(200); // 次の素材が出るまでの間隔
+    await wait(1200); // 次の素材が出るまでの間隔
   };
 
   backdrop.classList.add('active');
-  await wait(200);
+  await wait(1200);
 
   // 1. アビリティ（1件ずつずらして表示）
   if (abilities.length > 0) {
@@ -268,7 +268,7 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
 
   // バナー群を非表示にしてスッキリさせる
   dynamicBanners.style.opacity = '0';
-  await wait(300);
+  await wait(1300);
 
   // 5. 中央にカードをバチッと表示
   cardBox.classList.add('in');
