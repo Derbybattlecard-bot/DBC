@@ -257,10 +257,10 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   };
 
   backdrop.classList.add('active');
-  await wait(200);
+  await wait(600);
 
   // 通常のバナー間の間隔（ゆとりを持たせる）
-  const NORMAL_DELAY = 750;
+  const NORMAL_DELAY = 1250;
 
   // 1. アビリティ
   if (abilities.length > 0) {
@@ -278,7 +278,7 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   await playBannerDynamic(`🏁 ${distText}`, 'bg-dist', NORMAL_DELAY);
 
   // 4. 世代 （★ここで1.5秒のタメを作り、プレイヤーに予想させる）
-  await playBannerDynamic(genText, 'bg-gen', 1500); 
+  await playBannerDynamic(genText, 'bg-gen', 2500); 
 
   // 5. 馬名
   await playBannerDynamic(horse.name || '馬名不明', 'bg-name', 1000);
