@@ -22,19 +22,19 @@ function injectCutInStyles() {
   style.id = 'login-cutin-style';
   style.textContent = `
   
-.cutin-backdrop {
-  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-  background: rgba(0, 0, 0, 0.82);
-  backdrop-filter: blur(4px);
-  z-index: 9999;
-  display: flex; 
-  justify-content: center; 
-  align-items: flex-start; /* 縦方向を「上揃え」に変更 */
-  padding-top: 12vh;       /* 上から12%の位置に下げる（赤枠付近）。好みに合わせて数値(vhやpx)を微調整してください */
-  opacity: 0; pointer-events: none;
-  transition: opacity 0.3s ease;
-  box-sizing: border-box;  /* paddingを含めるために追加 */
-
+    .cutin-backdrop {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.82);
+      backdrop-filter: blur(4px);
+      z-index: 9999;
+      display: flex; 
+      justify-content: center; 
+      align-items: flex-start; /* 縦方向を「上揃え」に変更 */
+      padding-top: 12vh;       /* 上から12%の位置に下げる */
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease;
+      box-sizing: border-box;
+    }
 
     .cutin-stage {
       position: relative; width: 92%; max-width: 400px;
