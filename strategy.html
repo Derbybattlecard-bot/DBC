@@ -344,7 +344,8 @@
       const cpuHorse = HORSES_MASTER[String(cpuEntry.horse_id)] || {};
       const cpuPt = getHorsePt(cpuHorse, race.surface);
 
-      const mobIds = racesMobIds[rIdx] || [];
+      // オブジェクト形式で保存されている場合も考慮
+      const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
       const trackCond = loadedTrackConditions[rIdx] || '良';
 
       const card = document.createElement('div');
@@ -471,9 +472,16 @@
 
   function updateTotalStatus() {
     let totalLvl = 0;
-    playerEntries.forEach(e => {
-      totalLvl += parseInt(e.strategy_level || 3, 10);
-    });
+    
+    // HTML上の現在のセレクトボックスの値を直接計算に使用する
+    for (let rIdx = 0; rIdx < 5; rIdx++) {
+      const selectLvl = document.getElementById(`selectLevel${rIdx}`);
+      if (selectLvl) {
+        totalLvl += parseInt(selectLvl.value, 10) || 3;
+      } else if (playerEntries[rIdx]) {
+        totalLvl += parseInt(playerEntries[rIdx].strategy_level || 3, 10);
+      }
+    }
 
     const lvlEl = document.getElementById('totalLevelDisplay');
     const limitEl = document.getElementById('limitStatus');
@@ -523,7 +531,7 @@
 
       // 各レースごとに枠順（1〜16番）を抽選して割り当て
       const finalPlayerEntries = playerEntries.map((pEntry, rIdx) => {
-        const mobIds = racesMobIds[rIdx] || [];
+        const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
         const gates = generateRandomGates(mobIds.length);
 
         // CPU側の馬番を設定
@@ -534,9 +542,17 @@
         // モブ馬側の馬番配列を保持
         racesMobGates.push(gates.mobGates);
 
-        // 自馬の馬番を設定
+        // 画面のセレクトボックスから直接現在の値を取得（undefined対策）
+        const stratSelect = document.getElementById(`selectStrat${rIdx}`);
+        const levelSelect = document.getElementById(`selectLevel${rIdx}`);
+        const finalStrat = stratSelect ? stratSelect.value : (pEntry.strategy || "先行");
+        const finalLevel = levelSelect ? parseInt(levelSelect.value, 10) : (pEntry.strategy_level || 3);
+
+        // 自馬の情報を設定
         return {
           ...pEntry,
+          strategy: finalStrat,
+          strategy_level: finalLevel,
           gate_number: gates.playerGate
         };
       });
@@ -551,15 +567,19 @@
         }
       };
 
+      // ★重要：オブジェクト内に undefined が混ざっていると保存時にエラーになるため、JSON変換を噛ませて強制的にクリーンアップする
+      const cleanUpdatedStatus = JSON.parse(JSON.stringify(updatedStatus));
+
       await setDoc(doc(db, "users", currentUser.uid), {
-        cpu_battle_status: updatedStatus
+        cpu_battle_status: cleanUpdatedStatus
       }, { merge: true });
 
-      globalUserData.cpu_battle_status = updatedStatus;
+      globalUserData.cpu_battle_status = cleanUpdatedStatus;
       window.location.href = 'race_result.html';
     } catch (err) {
       console.error("作戦・枠順保存エラー:", err);
-      alert("データの保存に失敗しました。もう一度お試しください。");
+      // エラー内容をアラートに出すように変更（次起きた時に原因が特定しやすくなります）
+      alert(`データの保存に失敗しました。もう一度お試しください。\n【詳細】${err.message}`);
       btn.disabled = false;
       btn.textContent = "レースへ進む！";
     }
