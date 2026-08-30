@@ -21,7 +21,6 @@ function injectCutInStyles() {
   const style = document.createElement('style');
   style.id = 'login-cutin-style';
   style.textContent = `
-  
     .cutin-backdrop {
       position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
       background: rgba(0, 0, 0, 0.82);
@@ -29,11 +28,16 @@ function injectCutInStyles() {
       z-index: 9999;
       display: flex; 
       justify-content: center; 
-      align-items: flex-start; /* 縦方向を「上揃え」に変更 */
-      padding-top: 12vh;       /* 上から12%の位置に下げる */
+      align-items: flex-start;
+      padding-top: 12vh;
       opacity: 0; pointer-events: none;
       transition: opacity 0.3s ease;
       box-sizing: border-box;
+    }
+    /* 【追加】背景表示用のスタイル */
+    .cutin-backdrop.active {
+      opacity: 1;
+      pointer-events: auto;
     }
 
     .cutin-stage {
@@ -70,10 +74,7 @@ function injectCutInStyles() {
     .slot-banner.out { transform: translateX(-100%); }
 
     .bg-ability { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #1e5128 20%, #4e9f3d 80%, rgba(0,0,0,0) 100%); color: #d8f3dc; font-size: 1.15rem; }
-    
-    /* 芝適性：緑基調 */
     .bg-surface-turf { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #1e7e34 20%, #28a745 80%, rgba(0,0,0,0) 100%); color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
-    /* ダート適性：茶色基調 */
     .bg-surface-dirt { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #5c2e0b 20%, #8b4513 80%, rgba(0,0,0,0) 100%); color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
 
     .bg-dist { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #2a9d8f 20%, #e9c46a 80%, rgba(0,0,0,0) 100%); color: #112233; }
