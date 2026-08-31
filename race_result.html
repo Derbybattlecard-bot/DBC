@@ -563,18 +563,56 @@ function getPosPointsMap(horses, leadPos, trailPos) {
 }
 
 function determineRacePace(horses) {
+function determineRacePace(horses) {
+  // 馬場状態によるマスターデータの分岐
   const isTough = (trackCondition === "重" || trackCondition === "不良");
-  const table = isTough 
-    ? raceMasterData.pace_decision_master.heavy_or_bad["5_or_more_horses"].probabilities
-    : raceMasterData.pace_decision_master.good_or_slightly_heavy["5_or_more_horses"].probabilities;
+  const master = isTough 
+    ? raceMasterData.pace_decision_master.heavy_or_bad
+    : raceMasterData.pace_decision_master.good_or_slightly_heavy;
+
+  // 1. 逃げ馬の抽出（作戦名・スタイルから「逃げ」判定）
+  const escapeHorses = horses.filter(h => {
+    let isEscape = false;
+    if (h.tactic === "逃げ" || h.style === "逃げ" || h.running_style === "逃げ") {
+      isEscape = true;
+    }
+    if (strategyMasterData && h.strat_name) {
+      const stratObj = Object.values(strategyMasterData).find(s => s.name === h.strat_name);
+      if (stratObj && stratObj.style === "逃げ") isEscape = true;
+    }
+    return isEscape;
+  });
+
+  const escapeCount = escapeHorses.length;
+  let table = null;
+
+  // 2. 逃げ馬の頭数と作戦に応じた確率テーブルの取得
+  if (escapeCount <= 1) {
+    const stratName = escapeCount === 1 ? escapeHorses[0].strat_name : "マイペース逃げ";
+    table = master["1_horse"].by_strategy[stratName] || master["1_horse"].by_strategy["平均ラップ逃げ"];
+  } else if (escapeCount === 2) {
+    // 枠順（配列順）で内枠の逃げ馬の作戦を参照
+    const stratName = escapeHorses[0].strat_name;
+    table = master["2_horses"].by_lead_horse_strategy[stratName] || master["2_horses"].by_lead_horse_strategy["other"];
+  } else if (escapeCount === 3) {
+    table = master["3_horses"].probabilities;
+  } else if (escapeCount === 4) {
+    table = master["4_horses"].probabilities;
+  } else {
+    table = master["5_or_more_horses"].probabilities;
+  }
+
+  // 3. 乱数によるペースの抽選
   let rand = Math.random();
   let cumulative = 0;
   for (const [pace, prob] of Object.entries(table)) {
     cumulative += prob;
     if (rand <= cumulative) return pace;
   }
+  
   return "ミドルペース";
 }
+
 
 function calculateScoresAndSort(horses, pace) {
   currentRacePace = pace;
