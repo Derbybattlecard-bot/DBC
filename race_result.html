@@ -522,12 +522,16 @@ function renderLanes() {
 function calculatePositions(horses) {
   horses.forEach((h, i) => {
     h.index = i;
+
+    // 作戦名(tactic)ではなく、本来の脚質(style / running_style)を取得
+    const style = h.style || h.running_style || "自在";
+
     let basePos = 0;
-    if (h.tactic === "逃げ") basePos = 90;
-    else if (h.tactic === "先行") basePos = 70;
-    else if (h.tactic === "差し") basePos = 40;
-    else if (h.tactic === "追込") basePos = 20;
-    else basePos = 50;
+    if (style === "逃げ") basePos = 90;
+    else if (style === "先行") basePos = 70;
+    else if (style === "差し") basePos = 40;
+    else if (style === "追込") basePos = 20;
+    else basePos = 50; // 自在・不明時
 
     const randomVal = Math.floor(Math.random() * 15);
     h.positionPoint = basePos + h.strat_speed + randomVal;
@@ -539,6 +543,7 @@ function calculatePositions(horses) {
     h.positionScore = 16 - rank;
   });
 }
+
 
 function getPosPointsMap(horses, leadPos, trailPos) {
   const positions = new Array(horses.length);
