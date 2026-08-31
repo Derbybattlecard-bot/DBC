@@ -231,7 +231,7 @@ import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// ★ 追加：モブ馬・CPU馬の外部処理モジュールをインポート
+// モブ馬・CPU馬の外部処理モジュールをインポート
 import { determineStrategy } from "./js/mob.js";
 
 // ---------- メイン変数 ----------
@@ -328,7 +328,7 @@ async function loadMasterData() {
   }
 }
 
-// ★ 修正：Firebaseの保存済み current_match から5レース分の対戦グリッドを正確に構築
+// Firebaseの保存済み current_match から5レース分の対戦グリッドを構築
 function buildRaceGridsFromFirebase() {
   const status = globalUserData?.cpu_battle_status || {};
   const currentMatch = status.current_match || {};
@@ -544,7 +544,6 @@ function calculatePositions(horses) {
   });
 }
 
-
 function getPosPointsMap(horses, leadPos, trailPos) {
   const positions = new Array(horses.length);
   const sorted = [...horses].sort((a, b) => b.positionPoint - a.positionPoint);
@@ -562,7 +561,6 @@ function getPosPointsMap(horses, leadPos, trailPos) {
   return positions;
 }
 
-function determineRacePace(horses) {
 function determineRacePace(horses) {
   // 馬場状態によるマスターデータの分岐
   const isTough = (trackCondition === "重" || trackCondition === "不良");
@@ -612,7 +610,6 @@ function determineRacePace(horses) {
   
   return "ミドルペース";
 }
-
 
 function calculateScoresAndSort(horses, pace) {
   currentRacePace = pace;
@@ -793,7 +790,7 @@ async function startRace() {
           finalPositions[item.index] = posVal;
         });
         
-        // 元の設定通り、10.0秒かけて直線の攻防を描画
+        // 10.0秒かけて直線の攻防を描画
         setPhasePositions(finalPositions, 10.0, "linear"); 
         
         setTimeout(() => {
@@ -860,7 +857,7 @@ function renderResults(scoredList) {
       nameClass = "p2-name";
     }
 
-        // 脚質（逃げ・先行・差し・追込・自在など）を取得
+    // 脚質（逃げ・先行・差し・追込・自在など）を取得
     const horseStyle = item.style || item.running_style || "自在";
 
     tbody.innerHTML += `
@@ -879,7 +876,6 @@ function renderResults(scoredList) {
         <td>${item.strat_guts}</td>
         <td><strong>${Math.floor(item.finalScore)}</strong></td>
       </tr>`;
-
   });
 
   document.getElementById('result-container').style.display = "block";
