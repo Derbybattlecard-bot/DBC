@@ -84,61 +84,62 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
   const branches = raceMasterData.branches_by_pace[pace];
   const selectedBranch = branches[Math.floor(Math.random() * branches.length)];
 
-  // 展開タイプの判定
   const isFrontCollapse = selectedBranch.name.includes("前崩れ");
   const isFrontHold = selectedBranch.name.includes("前残り");
 
   horses.forEach(h => {
-    let paramScore = 0; // パラメータ加算合計
-    let posAddPt = 0;    // 位置取りによる加算Pt（key_statsにposition_x2が含まれる場合）
+    let paramScore = 0;
+    let posAddPt = 0;
+    const detailParts = []; // ステータス内訳記録用
 
     if (selectedBranch.formula === "30 - potential + random_stat_1") {
       const targetPool = selectedBranch.target_pool;
       const randStatKey = targetPool[Math.floor(Math.random() * targetPool.length)];
-      paramScore = (30 - (h.potential || 50)) + (h[randStatKey] || 0);
+      const potVal = h.current_potential || h.potential || 50;
+      const basePotScore = 30 - potVal;
+      const statVal = h[randStatKey] || h[`strat_${randStatKey}`] || 0;
+      
+      paramScore = basePotScore + statVal;
+      detailParts.push(`(30-ポテンシャル:${potVal})`);
+      detailParts.push(`${randStatKey}:${statVal}`);
     } else {
       selectedBranch.key_stats.forEach(key => {
         if (key === "position_x2") {
           let posScore = h.positionScore;
-
-          // 前崩れ：後方ほど加算 (16番手=16pt 〜 1番手=1pt)
-          if (isFrontCollapse) {
-            posScore = 17 - h.positionScore;
-          } 
-          // 前残り / 通常：前方ほど加算 (1番手=16pt 〜 16番手=1pt)
-          else if (isFrontHold) {
-            posScore = h.positionScore;
-          }
+          if (isFrontCollapse) posScore = 17 - h.positionScore;
+          else if (isFrontHold) posScore = h.positionScore;
 
           posAddPt = posScore * 2;
           paramScore += posAddPt;
-        }
-        else if (key === "guts_x2") {
-          paramScore += ((h.guts || 0) * 2);
-        }
-        else {
-          paramScore += (h[key] || 0);
+        } else if (key === "potential" || key === "current_potential") {
+          const val = h.current_potential || h.potential || 0;
+          paramScore += val;
+          detailParts.push(`ポテンシャル:${val}`);
+        } else if (key === "guts_x2") {
+          const val = (h.strat_guts || h.guts || 0) * 2;
+          paramScore += val;
+          detailParts.push(`根性x2:${val}`);
+        } else {
+          // speed, stamina, sharp, jizoku, guts など
+          const val = h[`strat_${key}`] !== undefined ? h[`strat_${key}`] : (h[key] || 0);
+          paramScore += val;
+          detailParts.push(`${key}:${val}`);
         }
       });
     }
 
     const levelScore = (h.level || 1) * 2;
     const randScore = Math.random() * 10;
-    
+
     h.random_diff = randScore;
     h.finalScore = paramScore + randScore + levelScore;
 
-    // 内訳プロパティの割り振り
-    h.posScore = posAddPt;
-    h.branchScore = paramScore - posAddPt;
-    h.levelScore = levelScore;
-    h.randScore = randScore;
-
-    // 内訳表示テキスト（detailText）の構築
+    // 内訳表示テキストの構築
+    const statDetailStr = detailParts.join("+");
     if (posAddPt > 0) {
-      h.detailText = `位置:${posAddPt} + 展開:${h.branchScore} + Lv:${levelScore} + 乱:${randScore.toFixed(1)}`;
+      h.detailText = `位置:${posAddPt} + 展開:${paramScore - posAddPt}[${statDetailStr}] + Lv:${levelScore} + 乱:${randScore.toFixed(1)}`;
     } else {
-      h.detailText = `展開:${paramScore} + Lv:${levelScore} + 乱:${randScore.toFixed(1)}`;
+      h.detailText = `展開:${paramScore}[${statDetailStr}] + Lv:${levelScore} + 乱:${randScore.toFixed(1)}`;
     }
   });
 
