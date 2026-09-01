@@ -1,817 +1,357 @@
-[
-  {
-    "ability_id": "start_01",
-    "name": "ゲートバカラ",
+export const ABILITY_MASTER = {
+  "ゲートバカラ": {
+    "id": "start_01",
     "category": "start_frame",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "gate_number",
-      "value": "odd_or_even"
-    },
+    "phases": ["phase1"],
+    "trigger": { "type": "gate_number" },
     "effects": [
-      {
-        "sub_condition": "odd",
-        "target_stats": ["all"],
-        "modifier": -1
-      },
-      {
-        "sub_condition": "even",
-        "target_stats": ["all"],
-        "modifier": 1
-      }
+      { "sub_condition": "even", "target": "all_stats", "modifier": 1 },
+      { "sub_condition": "odd", "target": "all_stats", "modifier": -1 }
     ],
-    "notes": "気性難・成績不安定馬。「荒ぶる魂」と併発不可。"
+    "notes": "偶数枠で全+1、奇数枠で全-1"
   },
-  {
-    "ability_id": "start_02",
-    "name": "ロケットスタート",
+  "ロケットスタート": {
+    "id": "start_02",
     "category": "start_frame",
-    "calc_phase": ["phase2", "phase4"],
-    "condition": {
-      "type": "race_start"
-    },
+    "phases": ["phase2", "phase4"],
+    "trigger": { "type": "race_start" },
     "effects": [
-      {
-        "phase": "phase2",
-        "target_param": "position_point",
-        "modifier": 20
-      },
-      {
-        "phase": "phase4",
-        "sub_condition": "lead_and_front",
-        "target_stats": ["all"],
-        "modifier": 1
-      }
+      { "phase": "phase2", "target": "position_point", "modifier": 20 },
+      { "phase": "phase4", "sub_condition": "lead_and_front", "target": "all_stats", "modifier": 1 }
     ],
-    "notes": "位置取りの優位性と先頭時強化を兼ね備える。"
+    "notes": "位置取り+20Pt。先頭時さらに強化"
   },
-  {
-    "ability_id": "start_03",
-    "name": "電光石火",
+  "電光石火": {
+    "id": "start_03",
     "category": "start_frame",
-    "calc_phase": ["phase4"],
-    "condition": {
-      "type": "race_development",
-      "value": "mae_nokori"
-    },
+    "phases": ["phase4"],
+    "trigger": { "type": "race_development", "value": "mae_nokori" },
     "effects": [
-      {
-        "target_stats": ["potential"],
-        "modifier": 10
-      }
+      { "target": "potential", "modifier": 10 }
     ],
-    "notes": "前残りによる後方位置取りの不利を超越する鬼脚。"
+    "notes": "前残り展開時にポテンシャル+10"
   },
-  {
-    "ability_id": "start_04",
-    "name": "大外大歓迎",
+  "大外大歓迎": {
+    "id": "start_04",
     "category": "start_frame",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "frame_number",
-      "value": 8
-    },
+    "phases": ["phase1"],
+    "trigger": { "type": "frame_number", "value": 8 },
     "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 2
-      }
+      { "target": "all_stats", "modifier": 2 }
     ],
-    "notes": "8枠配置時に強力なバフを獲得。"
+    "notes": "8枠配置時に全+2"
   },
-  {
-    "ability_id": "start_05",
-    "name": "最内一閃",
+  "最内一閃": {
+    "id": "start_05",
     "category": "start_frame",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "frame_number",
-      "value": 1
-    },
+    "phases": ["phase1"],
+    "trigger": { "type": "frame_number", "value": 1 },
     "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 2
-      }
+      { "target": "all_stats", "modifier": 2 }
     ],
-    "notes": "1枠配置時に強力なバフを獲得。"
+    "notes": "1枠配置時に全+2"
   },
-  {
-    "ability_id": "field_01",
-    "name": "中山マイスター",
+  "中山マイスター": {
+    "id": "field_01",
     "category": "course_environment",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "racetrack",
-      "value": "nakayama"
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 1
-      }
-    ],
-    "notes": "中山競馬場戦で全パラメータ +1"
+    "phases": ["phase1"],
+    "trigger": { "type": "racetrack", "value": "中山" },
+    "effects": [{ "target": "all_stats", "modifier": 1 }]
   },
-  {
-    "ability_id": "field_02",
-    "name": "府中の鬼",
+  "府中の鬼": {
+    "id": "field_02",
     "category": "course_environment",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "racetrack",
-      "value": "tokyo"
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 1
-      }
-    ],
-    "notes": "東京競馬場戦で全パラメータ +1"
+    "phases": ["phase1"],
+    "trigger": { "type": "racetrack", "value": "東京" },
+    "effects": [{ "target": "all_stats", "modifier": 1 }]
   },
-  {
-    "ability_id": "field_03",
-    "name": "淀の千両役者",
+  "淀の千両役者": {
+    "id": "field_03",
     "category": "course_environment",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "racetrack",
-      "value": "kyoto"
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 1
-      }
-    ],
-    "notes": "京都競馬場戦で全パラメータ +1"
+    "phases": ["phase1"],
+    "trigger": { "type": "racetrack", "value": "京都" },
+    "effects": [{ "target": "all_stats", "modifier": 1 }]
   },
-  {
-    "ability_id": "field_04",
-    "name": "仁川の猛者",
+  "仁川の猛者": {
+    "id": "field_04",
     "category": "course_environment",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "racetrack",
-      "value": "hanshin"
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 1
-      }
-    ],
-    "notes": "阪神競馬場戦で全パラメータ +1"
+    "phases": ["phase1"],
+    "trigger": { "type": "racetrack", "value": "阪神" },
+    "effects": [{ "target": "all_stats", "modifier": 1 }]
   },
-  {
-    "ability_id": "field_05",
-    "name": "地方無双",
+  "地方無双": {
+    "id": "field_05",
     "category": "course_environment",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "racetrack_type",
-      "value": "local"
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 1
-      }
-    ],
-    "notes": "地方競馬場戦で全パラメータ +1"
+    "phases": ["phase1"],
+    "trigger": { "type": "racetrack_type", "value": "local" },
+    "effects": [{ "target": "all_stats", "modifier": 1 }]
   },
-  {
-    "ability_id": "field_06",
-    "name": "道悪帝王",
+  "道悪帝王": {
+    "id": "field_06",
     "category": "course_environment",
-    "calc_phase": ["phase3"],
-    "condition": {
-      "type": "track_condition",
-      "value": ["slightly_heavy", "heavy", "bad"]
-    },
+    "phases": ["phase3"],
+    "trigger": { "type": "track_condition" },
     "effects": [
-      {
-        "sub_condition": "slightly_heavy",
-        "target_stats": ["all"],
-        "modifier": 1
-      },
-      {
-        "sub_condition": ["heavy", "bad"],
-        "target_stats": ["all"],
-        "modifier": 2
-      }
+      { "sub_condition": "slightly_heavy", "target": "all_stats", "modifier": 1 },
+      { "sub_condition": ["heavy", "bad"], "target": "all_stats", "modifier": 2 }
     ],
-    "notes": "馬場状態が重・不良方向で発動"
+    "notes": "稍重で+1、重・不良で+2"
   },
-  {
-    "ability_id": "field_07",
-    "name": "本領の香港",
+  "本領の香港": {
+    "id": "field_07",
     "category": "course_environment",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "racetrack",
-      "value": "hong_kong"
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 2
-      }
-    ],
-    "notes": "香港遠征で全パラメータ +2"
+    "phases": ["phase1"],
+    "trigger": { "type": "racetrack", "value": "香港" },
+    "effects": [{ "target": "all_stats", "modifier": 2 }]
   },
-  {
-    "ability_id": "field_08",
-    "name": "メイダンの名誉",
+  "メイダンの名誉": {
+    "id": "field_08",
     "category": "course_environment",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "racetrack",
-      "value": "meydan"
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 2
-      }
-    ],
-    "notes": "ドバイ遠征で全パラメータ +2"
+    "phases": ["phase1"],
+    "trigger": { "type": "racetrack", "value": "メイダン" },
+    "effects": [{ "target": "all_stats", "modifier": 2 }]
   },
-  {
-    "ability_id": "field_09",
-    "name": "凱旋へのプレリュード",
+  "凱旋へのプレリュード": {
+    "id": "field_09",
     "category": "course_environment",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "racetrack_region",
-      "value": "europe"
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 2
-      }
-    ],
-    "notes": "欧州（ロンシャン等）遠征で全パラメータ +2"
+    "phases": ["phase1"],
+    "trigger": { "type": "racetrack_region", "value": "europe" },
+    "effects": [{ "target": "all_stats", "modifier": 2 }]
   },
-  {
-    "ability_id": "field_10",
-    "name": "アメリカンドリーム",
+  "アメリカンドリーム": {
+    "id": "field_10",
     "category": "course_environment",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "racetrack_region",
-      "value": "usa"
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 2
-      }
-    ],
-    "notes": "アメリカ遠征で全パラメータ +2"
+    "phases": ["phase1"],
+    "trigger": { "type": "racetrack_region", "value": "usa" },
+    "effects": [{ "target": "all_stats", "modifier": 2 }]
   },
-  {
-    "ability_id": "field_11",
-    "name": "国境突破",
+  "国境突破": {
+    "id": "field_11",
     "category": "course_environment",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "racetrack_region",
-      "value": "other_overseas",
-      "probability": 0.33
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 1
-      }
-    ],
-    "notes": "指定以外の海外遠征時、約33%の確率で全パラメータ +1"
+    "phases": ["phase1"],
+    "trigger": { "type": "racetrack_region", "value": "other_overseas" },
+    "effects": [{ "probability": 0.33, "target": "all_stats", "modifier": 1 }]
   },
-  {
-    "ability_id": "field_local_01",
-    "name": "みちのく一人旅",
+  "みちのく一人旅": {
+    "id": "field_local_01",
     "category": "course_environment",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "racetrack_and_style",
-      "racetrack": "fukushima",
-      "style": "nige"
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 1
-      }
-    ],
-    "notes": "福島競馬場 ＋ 【逃げ】で全パラメータ +1"
+    "phases": ["phase1"],
+    "trigger": { "type": "racetrack_and_style", "racetrack": "福島", "style": "逃げ" },
+    "effects": [{ "target": "all_stats", "modifier": 1 }]
   },
-  {
-    "ability_id": "field_local_02",
-    "name": "みちのく職人技",
+  "みちのく職人技": {
+    "id": "field_local_02",
     "category": "course_environment",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "racetrack_and_style",
-      "racetrack": "fukushima",
-      "style_not": "nige"
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 1
-      }
-    ],
-    "notes": "福島競馬場 ＋ 【逃げ以外】で全パラメータ +1"
+    "phases": ["phase1"],
+    "trigger": { "type": "racetrack_and_style", "racetrack": "福島", "style_not": "逃げ" },
+    "effects": [{ "target": "all_stats", "modifier": 1 }]
   },
-  {
-    "ability_id": "field_local_03",
-    "name": "越後の大吟醸",
+  "越後の大吟醸": {
+    "id": "field_local_03",
     "category": "course_environment",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "racetrack",
-      "value": "niigata"
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 1
-      }
-    ],
-    "notes": "新潟競馬場で全パラメータ +1"
+    "phases": ["phase1"],
+    "trigger": { "type": "racetrack", "value": "新潟" },
+    "effects": [{ "target": "all_stats", "modifier": 1 }]
   },
-  {
-    "ability_id": "field_local_04",
-    "name": "尾張の芸達者",
+  "尾張の芸達者": {
+    "id": "field_local_04",
     "category": "course_environment",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "racetrack",
-      "value": "chukyo"
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 1
-      }
-    ],
-    "notes": "中京競馬場で全パラメータ +1"
+    "phases": ["phase1"],
+    "trigger": { "type": "racetrack", "value": "中京" },
+    "effects": [{ "target": "all_stats", "modifier": 1 }]
   },
-  {
-    "ability_id": "field_local_05",
-    "name": "小倉の舞台荒らし",
+  "小倉の舞台荒らし": {
+    "id": "field_local_05",
     "category": "course_environment",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "racetrack",
-      "value": "kokura"
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 1
-      }
-    ],
-    "notes": "小倉競馬場で全パラメータ +1（「小倉百戦錬磨」と同効果）"
+    "phases": ["phase1"],
+    "trigger": { "type": "racetrack", "value": "小倉" },
+    "effects": [{ "target": "all_stats", "modifier": 1 }]
   },
-  {
-    "ability_id": "field_local_06",
-    "name": "札幌の看板役者",
+  "札幌の看板役者": {
+    "id": "field_local_06",
     "category": "course_environment",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "racetrack",
-      "value": "sapporo"
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 1
-      }
-    ],
-    "notes": "札幌競馬場で全パラメータ +1"
+    "phases": ["phase1"],
+    "trigger": { "type": "racetrack", "value": "札幌" },
+    "effects": [{ "target": "all_stats", "modifier": 1 }]
   },
-  {
-    "ability_id": "field_local_07",
-    "name": "函館ひと芝居",
+  "函館ひと芝居": {
+    "id": "field_local_07",
     "category": "course_environment",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "racetrack",
-      "value": "hakodate"
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 1
-      }
-    ],
-    "notes": "函館競馬場で全パラメータ +1"
+    "phases": ["phase1"],
+    "trigger": { "type": "racetrack", "value": "函館" },
+    "effects": [{ "target": "all_stats", "modifier": 1 }]
   },
-  {
-    "ability_id": "type_01",
-    "name": "二刀流",
+  "二刀流": {
+    "id": "type_01",
     "category": "surface_special",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "dual_aptitude",
-      "value": ["turf", "dirt"]
-    },
-    "effects": [
-      {
-        "target_stats": [],
-        "modifier": 0,
-        "special_effect": "allow_both_surfaces"
-      }
-    ],
-    "notes": "数値補正なし（出走可能範囲の広さ自体を優位性とする）"
+    "phases": ["phase1"],
+    "trigger": { "type": "dual_aptitude" },
+    "effects": [{ "special_effect": "allow_both_surfaces" }]
   },
-  {
-    "ability_id": "type_03",
-    "name": "地方からの勇者",
+  "地方からの勇者": {
+    "id": "type_03",
     "category": "surface_special",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "series_type",
-      "value": "local_exchange"
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 1
-      }
-    ],
-    "notes": "地方交流シリーズ出走時に全パラメータ +1"
+    "phases": ["phase1"],
+    "trigger": { "type": "series_type", "value": "local_exchange" },
+    "effects": [{ "target": "all_stats", "modifier": 1 }]
   },
-  {
-    "ability_id": "type_04",
-    "name": "鉄女",
+  "鉄女": {
+    "id": "type_04",
     "category": "surface_special",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "race_entry"
-    },
-    "effects": [
-      {
-        "special_effect": "prevent_consumed_status"
-      }
-    ],
-    "notes": "レースで使用しても「使用済（消費状態）」にならない（連闘可能）"
+    "phases": ["phase1"],
+    "trigger": { "type": "race_entry" },
+    "effects": [{ "special_effect": "prevent_consumed_status" }]
   },
-  {
-    "ability_id": "type_05",
-    "name": "連闘",
+  "連闘": {
+    "id": "type_05",
     "category": "surface_special",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "race_entry"
-    },
-    "effects": [
-      {
-        "special_effect": "prevent_consumed_status"
-      }
-    ],
-    "notes": "レースで使用しても「使用済（消費状態）」にならない（連闘可能）"
+    "phases": ["phase1"],
+    "trigger": { "type": "race_entry" },
+    "effects": [{ "special_effect": "prevent_consumed_status" }]
   },
-  {
-    "ability_id": "style_01",
-    "name": "スピードスター",
+  "スピードスター": {
+    "id": "style_01",
     "category": "style_distance",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "distance",
-      "value": 1200
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 1
-      }
-    ],
-    "notes": "1200m（スプリント戦）で全パラメータ +1"
+    "phases": ["phase1"],
+    "trigger": { "type": "distance", "value": 1200 },
+    "effects": [{ "target": "all_stats", "modifier": 1 }]
   },
-  {
-    "ability_id": "style_02",
-    "name": "オイラはマイラー",
+  "オイラはマイラー": {
+    "id": "style_02",
     "category": "style_distance",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "distance",
-      "value": 1600
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 1
-      }
-    ],
-    "notes": "1600m（マイル戦）で全パラメータ +1"
+    "phases": ["phase1"],
+    "trigger": { "type": "distance", "value": 1600 },
+    "effects": [{ "target": "all_stats", "modifier": 1 }]
   },
-  {
-    "ability_id": "style_03",
-    "name": "体力オバケ",
+  "体力オバケ": {
+    "id": "style_03",
     "category": "style_distance",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "distance",
-      "value": 3200
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 1
-      }
-    ],
-    "notes": "3200m（長距離戦）で全パラメータ +1"
+    "phases": ["phase1"],
+    "trigger": { "type": "distance", "value": 3200 },
+    "effects": [{ "target": "all_stats", "modifier": 1 }]
   },
-  {
-    "ability_id": "style_04",
-    "name": "大逃亡",
+  "大逃亡": {
+    "id": "style_04",
     "category": "style_distance",
-    "calc_phase": ["phase2", "phase4"],
-    "condition": {
-      "type": "large_lead_and_front",
-      "position_diff_min": 20,
-      "development": "mae_kuzure"
-    },
+    "phases": ["phase2", "phase4"],
+    "trigger": { "type": "large_lead_and_front", "position_diff_min": 20 },
     "effects": [
-      {
-        "target_stats": ["potential"],
-        "modifier": 10
-      }
-    ],
-    "notes": "先頭で2番手に20Pt差以上 ＋ 展開が「前崩れ」の時、ポテンシャル +10"
+      { "phase": "phase4", "sub_condition": "mae_kuzure", "target": "potential", "modifier": 10 }
+    ]
   },
-  {
-    "ability_id": "style_05",
-    "name": "一人旅",
+  "一人旅": {
+    "id": "style_05",
     "category": "style_distance",
-    "calc_phase": ["phase2"],
-    "condition": {
-      "type": "solo_escape"
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 2
-      }
-    ],
-    "notes": "単騎逃げ成立時に全パラメータ +2"
+    "phases": ["phase2"],
+    "trigger": { "type": "solo_escape" },
+    "effects": [{ "target": "all_stats", "modifier": 2 }]
   },
-  {
-    "ability_id": "style_06",
-    "name": "衝撃の捲り",
+  "衝撃の捲り": {
+    "id": "style_06",
     "category": "style_distance",
-    "calc_phase": ["phase4"],
-    "condition": {
-      "type": "race_development",
-      "value": "mae_nokori"
-    },
-    "effects": [
-      {
-        "target_stats": ["potential"],
-        "modifier": 10
-      }
-    ],
-    "notes": "展開が「前残り」の時、ポテンシャル +10"
+    "phases": ["phase4"],
+    "trigger": { "type": "race_development", "value": "mae_nokori" },
+    "effects": [{ "target": "potential", "modifier": 10 }]
   },
-  {
-    "ability_id": "style_07",
-    "name": "怒涛の捲り",
+  "怒涛の捲り": {
+    "id": "style_07",
     "category": "style_distance",
-    "calc_phase": ["phase4"],
-    "condition": {
-      "type": "race_development",
-      "value": "mae_nokori"
-    },
-    "effects": [
-      {
-        "target_stats": ["potential"],
-        "modifier": 10
-      }
-    ],
-    "notes": "展開が「前残り」の時、ポテンシャル +10（属性使い分け用）"
+    "phases": ["phase4"],
+    "trigger": { "type": "race_development", "value": "mae_nokori" },
+    "effects": [{ "target": "potential", "modifier": 10 }]
   },
-  {
-    "ability_id": "mental_01",
-    "name": "王道",
+  "王道": {
+    "id": "mental_01",
     "category": "mental_achievement",
-    "calc_phase": ["phase1", "phase4"],
-    "condition": {
-      "type": "highest_potential_in_race"
-    },
+    "phases": ["phase1", "phase4"],
+    "trigger": { "type": "highest_potential_in_race" },
     "effects": [
-      {
-        "phase": "phase1",
-        "target_stats": ["all"],
-        "modifier": 1
-      },
-      {
-        "phase": "phase4",
-        "sub_condition": "ran_pace",
-        "target_param": "final_score",
-        "modifier": 10
-      }
-    ],
-    "notes": "基本全パラメータ +1。展開が「乱ペース」の時は最終スコアに +10 加算。"
+      { "phase": "phase1", "target": "all_stats", "modifier": 1 },
+      { "phase": "phase4", "sub_condition": "ran_pace", "target": "final_score", "modifier": 10 }
+    ]
   },
-  {
-    "ability_id": "mental_02",
-    "name": "連勝街道",
+  "連勝街道": {
+    "id": "mental_02",
     "category": "mental_achievement",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "match_number",
-      "value": [4, 5]
-    },
+    "phases": ["phase1"],
+    "trigger": { "type": "match_number" },
     "effects": [
-      {
-        "sub_condition": "match_4_and_3_wins",
-        "target_stats": ["all"],
-        "modifier": 1
-      },
-      {
-        "sub_condition": "match_5_and_4_wins",
-        "target_stats": ["all"],
-        "modifier": 2
-      }
-    ],
-    "notes": "シリーズ4〜5戦目出走時の連勝数に応じて全パラメータ増加"
+      { "sub_condition": "match_4_win_3", "target": "all_stats", "modifier": 1 },
+      { "sub_condition": "match_5_win_4", "target": "all_stats", "modifier": 2 }
+    ]
   },
-  {
-    "ability_id": "mental_03",
-    "name": "名脇役",
+  "名脇役": {
+    "id": "mental_03",
     "category": "mental_achievement",
-    "calc_phase": ["phase4"],
-    "condition": {
-      "type": "provisional_rank",
-      "value": ["4-6", "7-10"]
-    },
+    "phases": ["phase4"],
+    "trigger": { "type": "provisional_rank" },
     "effects": [
-      {
-        "sub_condition": "rank_4_to_6",
-        "special_effect": "swap_rank_with_3rd"
-      },
-      {
-        "sub_condition": "rank_7_to_10",
-        "special_effect": "swap_rank_with_4th"
-      }
-    ],
-    "notes": "確定着順に応じて上位馬と着順を入れ替える"
+      { "sub_condition": "rank_4_to_6", "special_effect": "swap_rank_with_3rd" },
+      { "sub_condition": "rank_7_to_10", "special_effect": "swap_rank_with_4th" }
+    ]
   },
-  {
-    "ability_id": "mental_04",
-    "name": "ジェントルマン",
+  "ジェントルマン": {
+    "id": "mental_04",
     "category": "mental_achievement",
-    "calc_phase": ["phase4"],
-    "condition": {
-      "type": "gender_and_provisional_rank",
-      "gender": "male",
-      "provisional_rank": ["4-6", "7-10"]
-    },
+    "phases": ["phase4"],
+    "trigger": { "type": "gender_and_provisional_rank", "gender": "牡" },
     "effects": [
-      {
-        "sub_condition": "rank_4_to_6",
-        "special_effect": "swap_rank_with_3rd"
-      },
-      {
-        "sub_condition": "rank_7_to_10",
-        "special_effect": "swap_rank_with_4th"
-      }
-    ],
-    "notes": "【牡馬限定】確定着順に応じて上位馬と着順を入れ替える"
+      { "sub_condition": "rank_4_to_6", "special_effect": "swap_rank_with_3rd" },
+      { "sub_condition": "rank_7_to_10", "special_effect": "swap_rank_with_4th" }
+    ]
   },
-  {
-    "ability_id": "mental_05",
-    "name": "雑草魂",
+  "雑草魂": {
+    "id": "mental_05",
     "category": "mental_achievement",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "compare_rival_potential"
-    },
+    "phases": ["phase1"],
+    "trigger": { "type": "compare_rival_potential" },
     "effects": [
-      {
-        "sub_condition": "lower_than_rival",
-        "target_stats": ["all"],
-        "modifier": 1
-      },
-      {
-        "sub_condition": "higher_than_rival",
-        "target_stats": ["all"],
-        "modifier": -1
-      }
-    ],
-    "notes": "ライバルCPU馬よりポテンシャルが低ければ+1、高ければ-1"
+      { "sub_condition": "lower_than_rival", "target": "all_stats", "modifier": 1 },
+      { "sub_condition": "higher_than_rival", "target": "all_stats", "modifier": -1 }
+    ]
   },
-  {
-    "ability_id": "mental_06",
-    "name": "荒ぶる魂",
+  "荒ぶる魂": {
+    "id": "mental_06",
     "category": "mental_achievement",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "probability_roll"
-    },
+    "phases": ["phase1"],
+    "trigger": { "type": "probability_roll" },
     "effects": [
-      {
-        "sub_condition": "probability_0.25",
-        "target_stats": ["all"],
-        "modifier": 2
-      },
-      {
-        "sub_condition": "probability_0.75",
-        "target_stats": ["all"],
-        "modifier": -1
-      }
-    ],
-    "notes": "25%の確率で全パラメータ +2、75%の確率で全パラメータ -1"
+      { "probability": 0.25, "target": "all_stats", "modifier": 2 },
+      { "probability": 0.75, "target": "all_stats", "modifier": -1 }
+    ]
   },
-  {
-    "ability_id": "mental_07",
-    "name": "男勝り",
+  "男勝り": {
+    "id": "mental_07",
     "category": "mental_achievement",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "female_in_mixed_g1",
-      "gender": "female",
-      "race_grade": "G1",
-      "mixed": true
-    },
-    "effects": [
-      {
-        "target_stats": ["all"],
-        "modifier": 1
-      }
-    ],
-    "notes": "【牝馬限定】牡馬混合G1出走時に全パラメータ +1"
+    "phases": ["phase1"],
+    "trigger": { "type": "female_in_mixed_g1", "gender": "牝", "grade": "G1", "mixed": true },
+    "effects": [{ "target": "all_stats", "modifier": 1 }]
   },
-  {
-    "ability_id": "mental_08",
-    "name": "マーク屋",
+  "マーク屋": {
+    "id": "mental_08",
     "category": "mental_achievement",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "tactic_level",
-      "value": 5
-    },
-    "effects": [
-      {
-        "special_effect": "copy_rival_tactic"
-      }
-    ],
-    "notes": "作戦レベル5選択時、ライバルと全く同じ作戦を選択可能になる"
+    "phases": ["phase1"],
+    "trigger": { "type": "tactic_level", "value": 5 },
+    "effects": [{ "special_effect": "copy_rival_tactic" }]
   },
-  {
-    "ability_id": "mental_09",
-    "name": "レコードホルダー",
+  "レコードホルダー": {
+    "id": "mental_09",
     "category": "mental_achievement",
-    "calc_phase": ["phase1", "phase4"],
-    "condition": {
-      "type": "record_condition"
-    },
+    "phases": ["phase1", "phase4"],
+    "trigger": { "type": "record_condition" },
     "effects": [
-      {
-        "phase": "phase1",
-        "sub_condition": "always",
-        "target_stats": ["speed"],
-        "modifier": 2
-      },
-      {
-        "phase": "phase4",
-        "sub_condition": "record_finish",
-        "target_param": "final_score",
-        "modifier": 5
-      }
-    ],
-    "notes": "常時スピード +2、レコード決着時は最終計算式へ +5 加算"
+      { "phase": "phase1", "target": "speed", "modifier": 2 },
+      { "phase": "phase4", "sub_condition": "record_finish", "target": "final_score", "modifier": 5 }
+    ]
   },
-  {
-    "ability_id": "mental_10",
-    "name": "青天の霹靂",
+  "青天の霹靂": {
+    "id": "mental_10",
     "category": "mental_achievement",
-    "calc_phase": ["phase1"],
-    "condition": {
-      "type": "previous_race_rank"
-    },
+    "phases": ["phase1"],
+    "trigger": { "type": "previous_race_rank" },
     "effects": [
-      {
-        "sub_condition": "rank_top_2",
-        "target_stats": ["all"],
-        "modifier": -1
-      },
-      {
-        "sub_condition": "rank_10_or_lower",
-        "target_stats": ["all"],
-        "modifier": 1
-      },
-      {
-        "sub_condition": "rank_3_to_9",
-        "target_stats": ["all"],
-        "modifier": 0
-      }
-    ],
-    "notes": "前戦の着順結果（2着以内/10着以下/その他）に応じてパラメータが変化"
+      { "sub_condition": "top_2", "target": "all_stats", "modifier": -1 },
+      { "sub_condition": "rank_10_or_lower", "target": "all_stats", "modifier": 1 }
+    ]
   }
-]
+};
