@@ -89,11 +89,13 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
   const isFrontHold = selectedBranch.name.includes("前残り");
 
   horses.forEach(h => {
-    let score = 0;
+    let paramScore = 0; // パラメータ加算合計
+    let posAddPt = 0;    // 位置取りによる加算Pt（key_statsにposition_x2が含まれる場合）
+
     if (selectedBranch.formula === "30 - potential + random_stat_1") {
       const targetPool = selectedBranch.target_pool;
       const randStatKey = targetPool[Math.floor(Math.random() * targetPool.length)];
-      score = (30 - h.potential) + h[randStatKey];
+      paramScore = (30 - (h.potential || 50)) + (h[randStatKey] || 0);
     } else {
       selectedBranch.key_stats.forEach(key => {
         if (key === "position_x2") {
@@ -108,14 +110,36 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
             posScore = h.positionScore;
           }
 
-          score += (posScore * 2);
+          posAddPt = posScore * 2;
+          paramScore += posAddPt;
         }
-        else if (key === "guts_x2") score += (h.guts * 2);
-        else score += (h[key] || 0);
+        else if (key === "guts_x2") {
+          paramScore += ((h.guts || 0) * 2);
+        }
+        else {
+          paramScore += (h[key] || 0);
+        }
       });
     }
-    h.random_diff = Math.random() * 10;
-    h.finalScore = score + h.random_diff + (h.level * 2);
+
+    const levelScore = (h.level || 1) * 2;
+    const randScore = Math.random() * 10;
+    
+    h.random_diff = randScore;
+    h.finalScore = paramScore + randScore + levelScore;
+
+    // 内訳プロパティの割り振り
+    h.posScore = posAddPt;
+    h.branchScore = paramScore - posAddPt;
+    h.levelScore = levelScore;
+    h.randScore = randScore;
+
+    // 内訳表示テキスト（detailText）の構築
+    if (posAddPt > 0) {
+      h.detailText = `位置:${posAddPt} + 展開:${h.branchScore} + Lv:${levelScore} + 乱:${randScore.toFixed(1)}`;
+    } else {
+      h.detailText = `展開:${paramScore} + Lv:${levelScore} + 乱:${randScore.toFixed(1)}`;
+    }
   });
 
   const tieKeys = raceMasterData.tie_breakers || ['speed', 'stamina', 'guts'];
