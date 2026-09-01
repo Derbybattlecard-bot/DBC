@@ -108,11 +108,11 @@
 
   .select-horse-dropdown {
     width: 100%;
-    padding: 8px;
+    padding: 6px 8px;
     border-radius: 6px;
     border: 1px solid var(--border-color);
     background: #ffffff;
-    font-size: 12px;
+    font-size: 11px; /* フォントサイズを少し小さく変更 */
     font-weight: bold;
     color: var(--text-main);
   }
@@ -282,23 +282,28 @@
 
   // ─── データ取得・判定関数 ───
 
-  // 馬場ラベル（例：芝 または ダ）を取得
   function getSurfaceLabel(surface) {
-    if (surface === 'ダート' || surface === 'ダ') return 'ダ';
+    if (!surface) return '芝';
+    if (surface.includes('ダート') || surface.includes('ダ')) return 'ダ';
     return '芝';
   }
 
-  // 対象馬場でのポテンシャル値を取得
+  // 対象馬場でのポテンシャル値を取得（誤フォールバックを修正）
   function getHorsePotential(horse, surface) {
     if (!horse) return 0;
-    if (surface === '芝') {
-      if (horse.turf_potential !== undefined) return Number(horse.turf_potential) || 0;
-      if (horse.aptitude && horse.aptitude.turf_potential !== undefined) return Number(horse.aptitude.turf_potential) || 0;
-    } else if (surface === 'ダート' || surface === 'ダ') {
-      if (horse.dirt_potential !== undefined) return Number(horse.dirt_potential) || 0;
-      if (horse.aptitude && horse.aptitude.dirt_potential !== undefined) return Number(horse.aptitude.dirt_potential) || 0;
+    const isTurf = !surface || surface.includes('芝');
+    const isDirt = surface && (surface.includes('ダート') || surface.includes('ダ'));
+
+    if (isTurf) {
+      if (horse.turf_potential !== undefined && horse.turf_potential !== null) return Number(horse.turf_potential);
+      if (horse.aptitude && horse.aptitude.turf_potential !== undefined) return Number(horse.aptitude.turf_potential);
+      return 0; // 芝適性が未設定の場合は0
+    } else if (isDirt) {
+      if (horse.dirt_potential !== undefined && horse.dirt_potential !== null) return Number(horse.dirt_potential);
+      if (horse.aptitude && horse.aptitude.dirt_potential !== undefined) return Number(horse.aptitude.dirt_potential);
+      return 0; // ダート適性が未設定の場合は0
     }
-    return parseInt(horse.potential || horse.pt || 0, 10);
+    return 0;
   }
 
   // 馬場適性の出走可否 (ポテンシャル > 0)
@@ -307,7 +312,6 @@
     return getHorsePotential(horse, surface) > 0;
   }
 
-  // 芝・ダート適性表示文字列 (例: 芝20/ダ18)
   function getHorseSurfaceText(horse) {
     if (!horse) return '-';
     const t = Number(horse.turf_potential ?? horse.aptitude?.turf_potential ?? 0);
@@ -320,24 +324,26 @@
     return '-';
   }
 
-  // 脚質文字列を取得
   function getHorseLegStyle(horse) {
     if (!horse) return '-';
     return horse.style || horse.running_style || horse.leg_style || horse.strategy || '-';
   }
 
-  // 性別制限判定
+  // 性別制限判定の強化
   function isValidSex(horseSex, sexLimit) {
-    if (!sexLimit || sexLimit === "制限なし") return true;
-    const isMare = horseSex === "牝" || horseSex === "牝馬";
-    const isStallion = horseSex === "牡" || horseSex === "牡馬";
+    if (!sexLimit || sexLimit === "制限なし" || sexLimit === "なし") return true;
+    const sex = horseSex || "牡馬";
+    const isMare = sex.includes("牝");
+    const isStallion = sex.includes("牡");
 
-    if (sexLimit === "牝馬限定") return isMare;
-    if (sexLimit === "牡牝限定") return isMare || isStallion;
+    if (sexLimit.includes("牝")) {
+      if (sexLimit.includes("牡")) return isMare || isStallion; // 牡牝限定
+      return isMare; // 牝馬限定
+    }
+    if (sexLimit.includes("牡")) return isStallion;
     return true;
   }
 
-  // 距離適性範囲文字列の取得 (例: 1600-2400m)
   function getHorseDistanceString(horse) {
     if (!horse) return '';
     const minD = horse.min_distance ?? horse.aptitude?.min_distance;
@@ -350,7 +356,6 @@
     return '';
   }
 
-  // レース距離が馬の適性距離内にあるか判定
   function isValidDistance(horse, raceDistance) {
     if (!horse) return false;
     const target = parseInt(raceDistance, 10);
@@ -384,7 +389,7 @@
       const card = document.createElement('div');
       card.className = 'entry-card';
 
-      const surfaceClass = race.surface === '芝' ? 'surface-turf' : 'surface-dirt';
+      const surfaceClass = (race.surface && race.surface.includes('芝')) ? 'surface-turf' : 'surface-dirt';
       const sexLabel = race.sex ? ` (${race.sex})` : '';
 
       card.innerHTML = `
@@ -396,7 +401,7 @@
           <option value="">-- 出走馬を選択してください --</option>
         </select>
         <div class="horse-detail-preview" id="previewRace${rIdx}">
-          <span>性別: - | ポテンシャル: - | 脚質: -</span>
+          <span>ポテンシャル: - | 脚質: - | 性別: -</span>
           <span>適性: -</span>
         </div>
       `;
@@ -439,23 +444,26 @@
           const opt = document.createElement('option');
           opt.value = horse.horse_id;
           
+          // 表示フォーマット：馬名を先頭、ポテンシャルをその直後、性別を末尾に配置
+          const horseInfoText = `${horse.name} (${surfaceLabel}${horsePt} / ${distLabel} / ${legStyle} / ${horseSex})`;
+
           if (isUsedPrevious) {
-            opt.textContent = `[使用済] ${horse.name}`;
+            opt.textContent = `[使用済] ${horseInfoText}`;
             opt.disabled = true;
           } else if (!matchesSexLimit) {
-            opt.textContent = `[性別不一致:${horseSex}] ${horse.name} (${raceSexLimit})`;
+            opt.textContent = `[性別不一致:${raceSexLimit}] ${horseInfoText}`;
             opt.disabled = true;
           } else if (!matchesSurface) {
-            opt.textContent = `[馬場適性不可:${surfaceLabel}なし] ${horse.name}`;
+            opt.textContent = `[適性不可:${surfaceLabel}なし] ${horseInfoText}`;
             opt.disabled = true;
           } else if (!meetsMinPt) {
-            opt.textContent = `[${surfaceLabel}不足:${horsePt}] ${horse.name} (下限${minPtRequired}以上)`;
+            opt.textContent = `[下限${minPtRequired}未満] ${horseInfoText}`;
             opt.disabled = true;
           } else if (!matchesDist) {
-            opt.textContent = `[距離適性外:${distLabel}] ${horse.name}`;
+            opt.textContent = `[距離適性外] ${horseInfoText}`;
             opt.disabled = true;
           } else {
-            opt.textContent = `[${horseSex}] ${horse.name} (${surfaceLabel}${horsePt} / ${distLabel} / ${legStyle})`;
+            opt.textContent = horseInfoText;
           }
           
           if (horse.horse_id === currentVal) opt.selected = true;
@@ -480,11 +488,11 @@
       const legStyle = getHorseLegStyle(horse);
 
       preview.innerHTML = `
-        <span>[<strong>${sex}</strong>] <strong>${surfaceLabel}${pt}</strong> | 脚質: <strong>${legStyle}</strong></span>
+        <span><strong>${surfaceLabel}${pt}</strong> | 脚質: <strong>${legStyle}</strong> | 性別: <strong>${sex}</strong></span>
         <span>適性: <strong>${surfaceText}</strong> | 距離: <strong>${distStr ? distStr + 'm' : '-'}</strong></span>
       `;
     } else {
-      preview.innerHTML = `<span>性別: - | ポテンシャル: - | 脚質: -</span><span>適性: -</span>`;
+      preview.innerHTML = `<span>ポテンシャル: - | 脚質: - | 性別: -</span><span>適性: -</span>`;
     }
 
     populateDropdowns();
