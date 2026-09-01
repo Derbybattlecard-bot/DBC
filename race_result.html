@@ -335,7 +335,7 @@ function buildRaceGridsFromFirebase() {
   const playerEntries = currentMatch.player_entries || [];
   const cpuEntries = currentMatch.cpu_entries || [];
   const racesMobIds = currentMatch.races_mob_ids || {};
-  const racesMobGates = currentMatch.races_mob_gates || []; // 枠番対応
+  const racesMobGates = currentMatch.races_mob_gates || [];
 
   if (playerEntries.length < 5) {
     alert("対戦エントリーデータが見つかりません。お題画面へ戻ります。");
@@ -361,13 +361,12 @@ function buildRaceGridsFromFirebase() {
     };
     grid.push(playerHorse);
 
-    // 2. CPU馬 (mob.js の determineStrategy を使用)
+    // 2. CPU馬
     const cEntry = cpuEntries[rIdx] || {};
     const cMaster = HORSES_MASTER[cEntry.horse_id] || { name: "CPU馬", horse_id: cEntry.horse_id };
     const cpuStyle = cMaster.style || cMaster.running_style || "先行";
     const cpuGate = cEntry.gate_number || 2;
     
-    // 外部関数呼び出し (isCpuRival = true)
     const cpuStrat = determineStrategy(cEntry.horse_id, cpuStyle, cpuGate, strategyMasterData, true);
 
     const cpuHorse = {
@@ -380,7 +379,7 @@ function buildRaceGridsFromFirebase() {
     };
     grid.push(cpuHorse);
 
-    // 3. モブ馬 14頭 (mob.js の determineStrategy を使用)
+    // 3. モブ馬 14頭
     const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
     const mobGates = racesMobGates[rIdx] || [];
 
@@ -389,7 +388,6 @@ function buildRaceGridsFromFirebase() {
       const mobStyle = mobMaster.style || mobMaster.running_style || "自在";
       const mobGate = mobGates[mIdx] || (mIdx + 3); 
       
-      // 外部関数呼び出し (isCpuRival = false)
       const mobStrat = determineStrategy(mobId, mobStyle, mobGate, strategyMasterData, false);
 
       grid.push({
@@ -523,7 +521,6 @@ function calculatePositions(horses) {
   horses.forEach((h, i) => {
     h.index = i;
 
-    // 作戦名(tactic)ではなく、本来の脚質(style / running_style)を取得
     const style = h.style || h.running_style || "自在";
 
     let basePos = 0;
@@ -531,7 +528,7 @@ function calculatePositions(horses) {
     else if (style === "先行") basePos = 70;
     else if (style === "差し") basePos = 40;
     else if (style === "追込") basePos = 20;
-    else basePos = 50; // 自在・不明時
+    else basePos = 50;
 
     const randomVal = Math.floor(Math.random() * 15);
     h.positionPoint = basePos + h.strat_speed + randomVal;
@@ -539,8 +536,8 @@ function calculatePositions(horses) {
 
   const sorted = [...horses].sort((a, b) => b.positionPoint - a.positionPoint);
   sorted.forEach((h, rank) => {
-    h.positionRank = rank + 1;
-    h.positionScore = 16 - rank;
+    h.positionRank = rank + 1; // 1番手〜16番手
+    h.positionScore = 16 - rank; // 先頭=16pt 〜 最後方=1pt
   });
 }
 
@@ -562,13 +559,11 @@ function getPosPointsMap(horses, leadPos, trailPos) {
 }
 
 function determineRacePace(horses) {
-  // 馬場状態によるマスターデータの分岐
   const isTough = (trackCondition === "重" || trackCondition === "不良");
   const master = isTough 
     ? raceMasterData.pace_decision_master.heavy_or_bad
     : raceMasterData.pace_decision_master.good_or_slightly_heavy;
 
-  // 1. 逃げ馬の抽出（作戦名・スタイルから「逃げ」判定）
   const escapeHorses = horses.filter(h => {
     let isEscape = false;
     if (h.tactic === "逃げ" || h.style === "逃げ" || h.running_style === "逃げ") {
@@ -584,12 +579,10 @@ function determineRacePace(horses) {
   const escapeCount = escapeHorses.length;
   let table = null;
 
-  // 2. 逃げ馬の頭数と作戦に応じた確率テーブルの取得
   if (escapeCount <= 1) {
     const stratName = escapeCount === 1 ? escapeHorses[0].strat_name : "マイペース逃げ";
     table = master["1_horse"].by_strategy[stratName] || master["1_horse"].by_strategy["平均ラップ逃げ"];
   } else if (escapeCount === 2) {
-    // 枠順（配列順）で内枠の逃げ馬の作戦を参照
     const stratName = escapeHorses[0].strat_name;
     table = master["2_horses"].by_lead_horse_strategy[stratName] || master["2_horses"].by_lead_horse_strategy["other"];
   } else if (escapeCount === 3) {
@@ -600,7 +593,6 @@ function determineRacePace(horses) {
     table = master["5_or_more_horses"].probabilities;
   }
 
-  // 3. 乱数によるペースの抽選
   let rand = Math.random();
   let cumulative = 0;
   for (const [pace, prob] of Object.entries(table)) {
@@ -635,6 +627,10 @@ function calculateScoresAndSort(horses, pace) {
     currentRaceFormulaStr = "標準評価算定";
   }
 
+  // 展開タイプ判定（前崩れ vs 前残り / 通常）
+  const isFrontCollapse = selectedBranch.name.includes("前崩れ");
+  const isFrontHold = selectedBranch.name.includes("前残り");
+
   horses.forEach(h => {
     let score = 0;
     if (selectedBranch.formula === "30 - potential + random_stat_1") {
@@ -643,7 +639,19 @@ function calculateScoresAndSort(horses, pace) {
       score = (30 - h.potential) + h[randStatKey];
     } else {
       selectedBranch.key_stats.forEach(key => {
-        if (key === "position_x2") score += (h.positionScore * 2);
+        if (key === "position_x2") {
+          let posScore = h.positionScore;
+          
+          if (isFrontCollapse) {
+            // 前崩れ：後方（16番手=16pt, 1番手=1pt）に反転して差し切り有利にする
+            posScore = 17 - h.positionScore;
+          } else if (isFrontHold) {
+            // 前残り：前方（1番手=16pt, 16番手=1pt）のまま前残り有利にする
+            posScore = h.positionScore;
+          }
+          
+          score += (posScore * 2);
+        }
         else if (key === "guts_x2") score += (h.guts * 2);
         else score += (h[key] || 0);
       });
@@ -651,7 +659,8 @@ function calculateScoresAndSort(horses, pace) {
     h.random_diff = Math.random() * 10;
     h.finalScore = score + h.random_diff + (h.level * 2);
   });
-  const tieKeys = raceMasterData.tie_breakers;
+
+  const tieKeys = raceMasterData.tie_breakers || ['speed', 'stamina', 'guts'];
   horses.sort((a, b) => {
     if (Math.abs(b.finalScore - a.finalScore) > 0.1) return b.finalScore - a.finalScore;
     for (let key of tieKeys) {
@@ -690,7 +699,7 @@ async function startRace() {
   const currentPace = determineRacePace(activeHorses);
   calculatedResults = calculateScoresAndSort(activeHorses, currentPace);
 
-  // 2. 結果レコードの即時生成と進捗のFirebase即時保存（リロード不正対策）
+  // 2. 結果レコードの即時生成と進捗のFirebase即時保存
   recordHistory(calculatedResults);
   const nextRaceIdx = currentRaceIndex + 1;
 
@@ -751,21 +760,17 @@ async function startRace() {
       gl.style.display = "block";
       gf.style.display = "block";
       if (isLeftHanded) {
-        // 左回り（東京・中京・新潟など）：ゴールは右側(100%付近)
         gl.style.left = "calc(100% - 60px)";
         gf.style.left = "calc(100% - 40px)";
         activeHorses.forEach((_, i) => document.getElementById(`emoji-${i}`).classList.add("flipped"));
       } else {
-        // 右回り（中山・阪神・京都など）：ゴールは左側(0%付近)
         gl.style.left = "40px";
         gf.style.left = "20px";
         activeHorses.forEach((_, i) => document.getElementById(`emoji-${i}`).classList.remove("flipped"));
       }
       
-      // 直線突入時のスタート位置（4角手前）
       let p4StartPos = new Array(activeHorses.length);
       activeHorses.forEach((h) => {
-        // 右回りは右(75〜90%)からスタート、左回りは左(10〜25%)からスタート
         p4StartPos[h.index] = isLeftHanded ? (10 + Math.random() * 15) : (75 + Math.random() * 15);
       });
       setPhasePositions(p4StartPos, 0, "linear");
@@ -777,20 +782,16 @@ async function startRace() {
         let winner = calculatedResults[0];
         let finalPositions = new Array(activeHorses.length);
         
-        // 1着馬(rank=0)が進行方向の最先端（右回り＝0側、左回り＝100側）へ到達するよう計算
         calculatedResults.forEach((item, rank) => {
           let posVal = 0;
           if (isLeftHanded) {
-            // 左回り：1着が画面右（95%）へ
             posVal = 95 - (rank * 4.5);
           } else {
-            // 右回り：1着が画面左（5%）へ
             posVal = 5 + (rank * 4.5);
           }
           finalPositions[item.index] = posVal;
         });
         
-        // 10.0秒かけて直線の攻防を描画
         setPhasePositions(finalPositions, 10.0, "linear"); 
         
         setTimeout(() => {
@@ -857,7 +858,6 @@ function renderResults(scoredList) {
       nameClass = "p2-name";
     }
 
-    // 脚質（逃げ・先行・差し・追込・自在など）を取得
     const horseStyle = item.style || item.running_style || "自在";
 
     tbody.innerHTML += `
@@ -969,6 +969,5 @@ window.goToNextSeries = async function() {
   }
 };
 </script>
-
 </body>
 </html>
