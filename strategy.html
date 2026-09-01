@@ -232,9 +232,7 @@
       try {
         const res = await fetch(path);
         if (res.ok) return await res.json();
-      } catch (e) {
-        // 次のパスを試行
-      }
+      } catch (e) {}
     }
     throw new Error(`${filename} の読み込みに失敗しました`);
   }
@@ -306,6 +304,28 @@
     return horse.running_style || horse.leg_style || horse.style || horse.strategy || '先行';
   }
 
+  // 馬の得意脚質に一致するカテゴリの「最上部にある作戦名」を取得するヘルパー関数
+  function getDefaultStrategyForStyle(style) {
+    if (!style) return null;
+    const s = String(style);
+    let catName = '先行';
+    let prefix = 'SENKO_';
+
+    if (s.includes('逃')) { catName = '逃げ'; prefix = 'NIGE_'; }
+    else if (s.includes('差')) { catName = '差し'; prefix = 'SASHI_'; }
+    else if (s.includes('追')) { catName = '追込'; prefix = 'OIKOMI_'; }
+    else if (s.includes('先')) { catName = '先行'; prefix = 'SENKO_'; }
+
+    const match = STRATEGY_MASTER.find(item => {
+      if (!item) return false;
+      if (item.strategy_id && item.strategy_id.startsWith(prefix)) return true;
+      if (item.category === catName) return true;
+      return false;
+    });
+
+    return match ? (match.name || match.strategy_name || match.strategy) : null;
+  }
+
   function initStrategyPage() {
     const status = globalUserData?.cpu_battle_status || {};
     const currentMatch = status.current_match || {};
@@ -340,6 +360,12 @@
       const pPt = getHorsePt(pHorse, race.surface);
       const pStyle = getHorseStyle(pHorse);
 
+      // 脚質に応じた初期作戦を取得・設定（手動変更前の場合）
+      const defaultStrat = getDefaultStrategyForStyle(pStyle);
+      if (!pEntry.isCustomized) {
+        pEntry.strategy = defaultStrat || pEntry.strategy || "好位";
+      }
+
       const cpuEntry = cpuEntries[rIdx] || {};
       const cpuHorse = HORSES_MASTER[String(cpuEntry.horse_id)] || {};
       const cpuPt = getHorsePt(cpuHorse, race.surface);
@@ -371,8 +397,7 @@
         
         categoryStrats.forEach(s => {
           const sName = s.name || s.strategy_name || s.strategy || cat.title;
-          const pStyleStr = typeof pStyle === 'string' ? pStyle : "";
-          const isSelected = pEntry.strategy === sName || (!pEntry.strategy && typeof sName === 'string' && sName.includes(pStyleStr));
+          const isSelected = pEntry.strategy === sName;
           stratOptionsHtml += `<option value="${sName}" ${isSelected ? 'selected' : ''}>${sName}</option>`;
         });
         stratOptionsHtml += `</optgroup>`;
@@ -465,6 +490,7 @@
 
     playerEntries[rIdx].strategy = stratVal;
     playerEntries[rIdx].strategy_level = levelVal;
+    playerEntries[rIdx].isCustomized = true; // 手動変更フラグを立てる
 
     updateTotalStatus();
   };
@@ -524,7 +550,6 @@
       const currentStatus = globalUserData.cpu_battle_status || {};
       const currentMatch = currentStatus.current_match || {};
 
-      // 【修正箇所】配列の配列にならないようにオブジェクト（{}）に変更
       const racesMobGates = {};
 
       const finalPlayerEntries = playerEntries.map((pEntry, rIdx) => {
@@ -535,7 +560,6 @@
           cpuEntries[rIdx].gate_number = gates.cpuGate;
         }
 
-        // 【修正箇所】連想配列のキーとして保存する
         racesMobGates[String(rIdx)] = gates.mobGates;
 
         const stratSelect = document.getElementById(`selectStrat${rIdx}`);
@@ -557,7 +581,7 @@
           ...currentMatch,
           player_entries: finalPlayerEntries,
           cpu_entries: cpuEntries,
-          races_mob_gates: racesMobGates // エラーの原因だったデータを安全な形式で格納
+          races_mob_gates: racesMobGates
         }
       };
 
