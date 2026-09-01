@@ -140,16 +140,17 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
     }
 
     const levelScore = (h.level || 1) * 2;
-    const randScore = Math.random() * 10;
+    
+    // 乱数補正を撤廃（0に設定）
+    h.random_diff = 0;
+    h.finalScore = paramScore + levelScore;
 
-    h.random_diff = randScore;
-    h.finalScore = paramScore + randScore + levelScore;
-
+    // 内訳表示からも「+ 乱:X.X」を削除
     const statDetailStr = detailParts.join("+");
     if (posAddPt > 0) {
-      h.detailText = `位置:${posAddPt} + 展開:${paramScore - posAddPt}[${statDetailStr}] + Lv:${levelScore} + 乱:${randScore.toFixed(1)}`;
+      h.detailText = `位置:${posAddPt} + 展開:${paramScore - posAddPt}[${statDetailStr}] + Lv:${levelScore}`;
     } else {
-      h.detailText = `展開:${paramScore}[${statDetailStr}] + Lv:${levelScore} + 乱:${randScore.toFixed(1)}`;
+      h.detailText = `展開:${paramScore}[${statDetailStr}] + Lv:${levelScore}`;
     }
   });
 
