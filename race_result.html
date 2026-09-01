@@ -459,7 +459,8 @@ function setupRace(rIdx) {
   }
   currentTrackConfig = TRACK_DIRECTION_MASTER[turnDir] || TRACK_DIRECTION_MASTER["右回り"];
   
-  activeHorses.forEach(h => {
+  activeHorses.forEach((h, i) => {
+    h.index = i; // アニメーション座標用インデックスを確実に保持
     h.tactic_level = h.level || 3;
     let matchedStrat = h.stratObj;
     if (!matchedStrat && strategyMasterData) {
@@ -548,16 +549,18 @@ function setHorseDirection(direction) {
 // 演出アニメーション用位置マップ計算 (0: 最後方, 100: 先頭)
 function getPosPointsMap(horses, leadPos, trailPos) {
   const positions = new Array(horses.length);
-  const sorted = [...horses].sort((a, b) => b.positionPoint - a.positionPoint);
-  const maxPt = sorted[0].positionPoint;
-  const minPt = sorted[sorted.length - 1].positionPoint;
+  const sorted = [...horses].sort((a, b) => (b.positionPoint || 0) - (a.positionPoint || 0));
+  const maxPt = sorted[0]?.positionPoint ?? 1;
+  const minPt = sorted[sorted.length - 1]?.positionPoint ?? 0;
   let range = maxPt - minPt;
   if (range <= 0) range = 1;
 
-  sorted.forEach((h) => {
-    const ratio = (h.positionPoint - minPt) / range;
+  sorted.forEach((h, idx) => {
+    const pt = h.positionPoint ?? 0;
+    const ratio = (pt - minPt) / range;
     const calculatedX = trailPos + ratio * (leadPos - trailPos);
-    positions[h.index] = calculatedX;
+    const horseIdx = (typeof h.index === 'number') ? h.index : idx;
+    positions[horseIdx] = calculatedX;
   });
 
   return positions;
@@ -631,12 +634,12 @@ async function startRace() {
   }
 
   // 3. レース実況アニメーション演出
-  let leaders = activeHorses.filter(h => h.positionRank <= 3).sort((a, b) => a.positionRank - b.positionRank);
+  let leaders = calculatedResults.filter(h => h.positionRank <= 3).sort((a, b) => a.positionRank - b.positionRank);
   let leaderNames = leaders.map(h => h.name).join("、");
   updateLog(`<strong>【スタート】</strong> ゲートが開いた！ ${leaderNames} あたりがハナを主張、先頭争いだ！`);
   
   // フェーズ1：スタート後の位置取り
-  let p1Pos = getPosPointsMap(activeHorses, 35, 8);
+  let p1Pos = getPosPointsMap(calculatedResults, 35, 8);
   setPhasePositions(p1Pos, 4.0, "linear", currentTrackConfig.phase1_3_dir); 
 
   setTimeout(() => {
@@ -644,7 +647,7 @@ async function startRace() {
     updateLog(`<strong>【向正面】</strong> ${msg} 各馬ポジションが決まりました。`);
     
     // フェーズ2：向正面での位置取り
-    let p2Pos = getPosPointsMap(activeHorses, 65, 20);
+    let p2Pos = getPosPointsMap(calculatedResults, 65, 20);
     setPhasePositions(p2Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
   }, 4000); 
 
@@ -653,7 +656,7 @@ async function startRace() {
     showTelop(`【ペース】 ${currentRacePace}`, 3000);
     
     // フェーズ3：最終コーナー位置取り
-    let p3Pos = getPosPointsMap(activeHorses, 88, 35);
+    let p3Pos = getPosPointsMap(calculatedResults, 88, 35);
     setPhasePositions(p3Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
   }, 8300); 
 
@@ -682,8 +685,9 @@ async function startRace() {
 
       // 直線スタート位置配置（スタート地点側へ配置）
       let p4StartPos = new Array(activeHorses.length);
-      activeHorses.forEach((h) => {
-        p4StartPos[h.index] = 10 + Math.random() * 15;
+      calculatedResults.forEach((h) => {
+        let horseIdx = (typeof h.index === 'number') ? h.index : 0;
+        p4StartPos[horseIdx] = 10 + Math.random() * 15;
       });
       setPhasePositions(p4StartPos, 0, "linear", currentTrackConfig.phase4_dir);
     }, 800);
@@ -697,7 +701,8 @@ async function startRace() {
         // 直線スパート：着順に基づいてゴールラインに向かって前進
         calculatedResults.forEach((item, rank) => {
           let posVal = 90 - (rank * 4.5);
-          finalPositions[item.index] = posVal;
+          let horseIdx = (typeof item.index === 'number') ? item.index : rank;
+          finalPositions[horseIdx] = posVal;
         });
         
         setPhasePositions(finalPositions, 10.0, "linear", currentTrackConfig.phase4_dir); 
@@ -733,9 +738,10 @@ function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear",
   positionsArray.forEach((pos, i) => {
     const el = document.getElementById(`horse-icon-${i}`);
     if (el) {
+      let validPos = (typeof pos === 'number' && !isNaN(pos)) ? pos : 0;
       el.style.transition = `left ${durationSec}s ${timing}`;
-      // right_to_left（右から左）の場合は反転(100 - pos)
-      let actualPos = (moveDir === "right_to_left") ? (100 - pos) : pos;
+      // right_to_left（右から左）の場合は反転(100 - validPos)
+      let actualPos = (moveDir === "right_to_left") ? (100 - validPos) : validPos;
       el.style.left = (10 + (trackWidth * (actualPos / 100))) + "px";
     }
   });
