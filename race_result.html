@@ -194,7 +194,7 @@
       <div><span class="summary-label">着順計算式:</span> <span id="summary-formula">---</span></div>
     </div>
 
-    <table class="data-table" style="min-width: 650px;">
+    <table class="data-table" style="min-width: 800px;">
       <thead>
         <tr>
           <th>着順</th>
@@ -203,12 +203,12 @@
           <th>区分</th>
           <th>馬名</th>
           <th>脚質: 作戦名 (Lv)</th>
-          <th>Pt</th>
           <th>作SPD</th>
           <th>作STM</th>
           <th>作瞬発</th>
           <th>作持続</th>
           <th>作根性</th>
+          <th>加算詳細 (内訳)</th>
           <th>評価Pt</th>
         </tr>
       </thead>
@@ -460,7 +460,7 @@ function setupRace(rIdx) {
   currentTrackConfig = TRACK_DIRECTION_MASTER[turnDir] || TRACK_DIRECTION_MASTER["右回り"];
   
   activeHorses.forEach((h, i) => {
-    h.index = i; // アニメーション座標用インデックスを確実に保持
+    h.index = i; // アニメーション座標用インデックスを保持
     h.tactic_level = h.level || 3;
     let matchedStrat = h.stratObj;
     if (!matchedStrat && strategyMasterData) {
@@ -505,7 +505,7 @@ function setupRace(rIdx) {
   document.getElementById('goal-flag').style.display = "none";
   renderLanes();
 
-  // 初期配置（フェーズ1〜3の向きと初期位置を設定）
+  // 初期配置
   setHorseDirection(currentTrackConfig.phase1_3_dir);
   let initialPositions = activeHorses.map(() => 0);
   setPhasePositions(initialPositions, 0, "linear", currentTrackConfig.phase1_3_dir); 
@@ -532,7 +532,6 @@ function renderLanes() {
   });
 }
 
-// 馬の画像向き設定 (left_to_right = 右向き(flipped), right_to_left = 左向き)
 function setHorseDirection(direction) {
   activeHorses.forEach((_, i) => {
     let el = document.getElementById(`emoji-${i}`);
@@ -546,7 +545,6 @@ function setHorseDirection(direction) {
   });
 }
 
-// 演出アニメーション用位置マップ計算 (0: 最後方, 100: 先頭)
 function getPosPointsMap(horses, leadPos, trailPos) {
   const positions = new Array(horses.length);
   const sorted = [...horses].sort((a, b) => (b.positionPoint || 0) - (a.positionPoint || 0));
@@ -566,7 +564,6 @@ function getPosPointsMap(horses, leadPos, trailPos) {
   return positions;
 }
 
-// ボタン進行分岐
 window.handleButtonClick = function() {
   if (raceState === 'ready') startRace();
   else if (raceState === 'finished') {
@@ -638,7 +635,6 @@ async function startRace() {
   let leaderNames = leaders.map(h => h.name).join("、");
   updateLog(`<strong>【スタート】</strong> ゲートが開いた！ ${leaderNames} あたりがハナを主張、先頭争いだ！`);
   
-  // フェーズ1：スタート後の位置取り
   let p1Pos = getPosPointsMap(calculatedResults, 35, 8);
   setPhasePositions(p1Pos, 4.0, "linear", currentTrackConfig.phase1_3_dir); 
 
@@ -646,7 +642,6 @@ async function startRace() {
     let msg = (currentRacePace.includes("ハイ")) ? "縦長の隊列になりました。" : "淡々とレースは流れていきます。";
     updateLog(`<strong>【向正面】</strong> ${msg} 各馬ポジションが決まりました。`);
     
-    // フェーズ2：向正面での位置取り
     let p2Pos = getPosPointsMap(calculatedResults, 65, 20);
     setPhasePositions(p2Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
   }, 4000); 
@@ -655,7 +650,6 @@ async function startRace() {
     updateLog(`<strong>【3コーナーを回して直線へ】</strong> ペースは『${currentRacePace}』！ 勝負どころの最終コーナーへ！`);
     showTelop(`【ペース】 ${currentRacePace}`, 3000);
     
-    // フェーズ3：最終コーナー位置取り
     let p3Pos = getPosPointsMap(calculatedResults, 88, 35);
     setPhasePositions(p3Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
   }, 8300); 
@@ -671,7 +665,6 @@ async function startRace() {
       gl.style.display = "block";
       gf.style.display = "block";
       
-      // フェーズ4（直線）の設定切り替え
       if (currentTrackConfig.goal_position === "right") {
         gl.style.left = "calc(100% - 60px)";
         gf.style.left = "calc(100% - 40px)";
@@ -680,10 +673,8 @@ async function startRace() {
         gf.style.left = "20px";
       }
       
-      // 直線での進行方向と馬の向きを設定
       setHorseDirection(currentTrackConfig.phase4_dir);
 
-      // 直線スタート位置配置（スタート地点側へ配置）
       let p4StartPos = new Array(activeHorses.length);
       calculatedResults.forEach((h) => {
         let horseIdx = (typeof h.index === 'number') ? h.index : 0;
@@ -698,7 +689,6 @@ async function startRace() {
         let winner = calculatedResults[0];
         let finalPositions = new Array(activeHorses.length);
         
-        // 直線スパート：着順に基づいてゴールラインに向かって前進
         calculatedResults.forEach((item, rank) => {
           let posVal = 90 - (rank * 4.5);
           let horseIdx = (typeof item.index === 'number') ? item.index : rank;
@@ -740,7 +730,6 @@ function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear",
     if (el) {
       let validPos = (typeof pos === 'number' && !isNaN(pos)) ? pos : 0;
       el.style.transition = `left ${durationSec}s ${timing}`;
-      // right_to_left（右から左）の場合は反転(100 - validPos)
       let actualPos = (moveDir === "right_to_left") ? (100 - validPos) : validPos;
       el.style.left = (10 + (trackWidth * (actualPos / 100))) + "px";
     }
@@ -755,7 +744,7 @@ function showTelop(text, durationMs = 1500) {
 }
 function hideTelop() { document.getElementById('race-telop').classList.remove('show'); }
 
-// リザルト表の描画
+// リザルト表の描画（加算詳細内訳の表示対応）
 function renderResults(scoredList) {
   document.getElementById('summary-pace-branch').textContent = `${currentRacePace} 【${currentRaceBranch}】`;
   document.getElementById('summary-formula').textContent = `${currentRaceFormulaStr} (+ Lv補正 & ランダム差)`;
@@ -776,6 +765,20 @@ function renderResults(scoredList) {
 
     const horseStyle = item.style || item.running_style || "自在";
 
+    // 加算内訳詳細の生成
+    let detailText = "";
+    if (item.detailText) {
+      detailText = item.detailText;
+    } else {
+      // race_calculator 側から個別の内訳データが届いている場合のフォールバック
+      const posPt = item.posScore !== undefined ? item.posScore : (item.positionPoint || 0);
+      const branchPt = item.branchScore !== undefined ? item.branchScore : 0;
+      const lvPt = item.levelScore !== undefined ? item.levelScore : (item.level || 0);
+      const randPt = item.randScore !== undefined ? Number(item.randScore).toFixed(1) : "0.0";
+      
+      detailText = `位置:${posPt} + 展開:${branchPt} + Lv:${lvPt} + 乱:${randPt}`;
+    }
+
     tbody.innerHTML += `
       <tr>
         <td><strong>${r + 1}着</strong></td>
@@ -784,12 +787,12 @@ function renderResults(scoredList) {
         <td>${typeLabel}</td>
         <td style="text-align:left;"><span class="${nameClass}">${item.name}</span></td>
         <td style="text-align:left;">${horseStyle}: ${item.tactic} (Lv.${item.level})</td>
-        <td>${item.strat_potential}</td>
         <td>${item.strat_speed}</td>
         <td>${item.strat_stamina}</td>
         <td>${item.strat_sharp}</td>
         <td>${item.strat_jizoku}</td>
         <td>${item.strat_guts}</td>
+        <td style="text-align:left; font-family: monospace; font-size: 0.85em; color: #ffcc00; white-space: nowrap;">${detailText}</td>
         <td><strong>${Math.floor(item.finalScore)}</strong></td>
       </tr>`;
   });
