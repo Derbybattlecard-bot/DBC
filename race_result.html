@@ -240,6 +240,24 @@ import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/f
 import { determineStrategy } from "./js/mob.js";
 import { runRaceLogic } from "./js/race_calculator.js";
 
+// ---------- コース向き管理マスターデータ ----------
+const VENUE_DIRECTION_MASTER = {
+  "中京": "左回り", "福島": "右回り", "新潟": "左回り", "小倉": "右回り",
+  "札幌": "右回り", "京都": "右回り", "東京": "左回り", "中山": "右回り",
+  "阪神": "右回り", "高知": "右回り", "川崎": "左回り", "船橋": "左回り",
+  "大井": "右回り", "盛岡": "右回り", "浦和": "左回り", "園田": "右回り",
+  "笠松": "右回り", "門別": "右回り", "サンクルー": "左回り", "ロンシャン": "右回り",
+  "クランジ": "左回り", "沙田": "右回り", "メイダン": "左回り", "レパーズタウン": "左回り",
+  "ニューマーケット": "右回り", "エプソム": "左回り", "アスコット": "右回り",
+  "米": "左回り", "サンタアニタ": "左回り", "チャーチルダウンズ": "左回り", "ベルモントパーク": "左回り"
+};
+
+const TRACK_DIRECTION_MASTER = {
+  "右回り": { phase1_3_dir: "left_to_right", phase4_dir: "right_to_left", goal_position: "left" },
+  "左回り": { phase1_3_dir: "right_to_left", phase4_dir: "left_to_right", goal_position: "right" },
+  "直線":   { phase1_3_dir: "none",          phase4_dir: "left_to_right", goal_position: "right" }
+};
+
 // ---------- メイン変数 ----------
 let currentUser = null;
 let globalUserData = null;
@@ -262,7 +280,7 @@ let HORSES_ARRAY = [];
 let currentRacePace = "";
 let currentRaceBranch = ""; 
 let currentRaceFormulaStr = "";
-let isLeftHanded = false;
+let currentTrackConfig = TRACK_DIRECTION_MASTER["右回り"];
 let currentRaceInfo = null;
 
 // 起動時の初期化処理
@@ -433,7 +451,13 @@ function setupRace(rIdx) {
     ? roundInfo.races[rIdx] 
     : { race_name: "一般レース", track: "中山", surface: "芝", distance: 2000 };
     
-  isLeftHanded = (currentRaceInfo.track === "東京" || currentRaceInfo.track === "中京" || currentRaceInfo.track === "新潟");
+  // 競馬場からコース進行方向を設定
+  let trackName = currentRaceInfo.track || "中山";
+  let turnDir = VENUE_DIRECTION_MASTER[trackName] || "右回り";
+  if (currentRaceInfo.distance === 1000 && trackName === "新潟") {
+    turnDir = "直線"; 
+  }
+  currentTrackConfig = TRACK_DIRECTION_MASTER[turnDir] || TRACK_DIRECTION_MASTER["右回り"];
   
   activeHorses.forEach(h => {
     h.tactic_level = h.level || 3;
@@ -480,18 +504,10 @@ function setupRace(rIdx) {
   document.getElementById('goal-flag').style.display = "none";
   renderLanes();
 
+  // 初期配置（フェーズ1〜3の向きと初期位置を設定）
+  setHorseDirection(currentTrackConfig.phase1_3_dir);
   let initialPositions = activeHorses.map(() => 0);
-  setPhasePositions(initialPositions, 0, "linear"); 
-
-  setTimeout(() => {
-    activeHorses.forEach((_, i) => {
-      let el = document.getElementById(`emoji-${i}`);
-      if(el) {
-        if (isLeftHanded) el.classList.remove("flipped");
-        else el.classList.add("flipped");
-      }
-    });
-  }, 100);
+  setPhasePositions(initialPositions, 0, "linear", currentTrackConfig.phase1_3_dir); 
 }
 
 function getKana3(name) {
@@ -515,7 +531,21 @@ function renderLanes() {
   });
 }
 
-  // 演出アニメーション用位置マップ計算
+// 馬の画像向き設定 (left_to_right = 右向き(flipped), right_to_left = 左向き)
+function setHorseDirection(direction) {
+  activeHorses.forEach((_, i) => {
+    let el = document.getElementById(`emoji-${i}`);
+    if (el) {
+      if (direction === "left_to_right") {
+        el.classList.add("flipped");
+      } else {
+        el.classList.remove("flipped");
+      }
+    }
+  });
+}
+
+// 演出アニメーション用位置マップ計算 (0: 最後方, 100: 先頭)
 function getPosPointsMap(horses, leadPos, trailPos) {
   const positions = new Array(horses.length);
   const sorted = [...horses].sort((a, b) => b.positionPoint - a.positionPoint);
@@ -607,7 +637,7 @@ async function startRace() {
   
   // フェーズ1：スタート後の位置取り
   let p1Pos = getPosPointsMap(activeHorses, 35, 8);
-  setPhasePositions(p1Pos, 4.0, "linear"); 
+  setPhasePositions(p1Pos, 4.0, "linear", currentTrackConfig.phase1_3_dir); 
 
   setTimeout(() => {
     let msg = (currentRacePace.includes("ハイ")) ? "縦長の隊列になりました。" : "淡々とレースは流れていきます。";
@@ -615,7 +645,7 @@ async function startRace() {
     
     // フェーズ2：向正面での位置取り
     let p2Pos = getPosPointsMap(activeHorses, 65, 20);
-    setPhasePositions(p2Pos, 4.3, "linear"); 
+    setPhasePositions(p2Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
   }, 4000); 
 
   setTimeout(() => {
@@ -624,33 +654,38 @@ async function startRace() {
     
     // フェーズ3：最終コーナー位置取り
     let p3Pos = getPosPointsMap(activeHorses, 88, 35);
-    setPhasePositions(p3Pos, 4.3, "linear"); 
+    setPhasePositions(p3Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
   }, 8300); 
 
   setTimeout(() => {
     const wipe = document.getElementById('wipe-overlay');
     wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
     wipe.style.left = "0";
+    
     setTimeout(() => {
       const gl = document.getElementById('goal-line');
       const gf = document.getElementById('goal-flag');
       gl.style.display = "block";
       gf.style.display = "block";
-      if (isLeftHanded) {
+      
+      // フェーズ4（直線）の設定切り替え
+      if (currentTrackConfig.goal_position === "right") {
         gl.style.left = "calc(100% - 60px)";
         gf.style.left = "calc(100% - 40px)";
-        activeHorses.forEach((_, i) => document.getElementById(`emoji-${i}`).classList.add("flipped"));
       } else {
         gl.style.left = "40px";
         gf.style.left = "20px";
-        activeHorses.forEach((_, i) => document.getElementById(`emoji-${i}`).classList.remove("flipped"));
       }
       
+      // 直線での進行方向と馬の向きを設定
+      setHorseDirection(currentTrackConfig.phase4_dir);
+
+      // 直線スタート位置配置（スタート地点側へ配置）
       let p4StartPos = new Array(activeHorses.length);
       activeHorses.forEach((h) => {
-        p4StartPos[h.index] = isLeftHanded ? (10 + Math.random() * 15) : (75 + Math.random() * 15);
+        p4StartPos[h.index] = 10 + Math.random() * 15;
       });
-      setPhasePositions(p4StartPos, 0, "linear");
+      setPhasePositions(p4StartPos, 0, "linear", currentTrackConfig.phase4_dir);
     }, 800);
 
     setTimeout(() => {
@@ -659,12 +694,13 @@ async function startRace() {
         let winner = calculatedResults[0];
         let finalPositions = new Array(activeHorses.length);
         
+        // 直線スパート：着順に基づいてゴールラインに向かって前進
         calculatedResults.forEach((item, rank) => {
-          let posVal = isLeftHanded ? (95 - (rank * 4.5)) : (5 + (rank * 4.5));
+          let posVal = 90 - (rank * 4.5);
           finalPositions[item.index] = posVal;
         });
         
-        setPhasePositions(finalPositions, 10.0, "linear"); 
+        setPhasePositions(finalPositions, 10.0, "linear", currentTrackConfig.phase4_dir); 
         
         setTimeout(() => {
           updateLog(`<strong>【最後の直線】</strong> このレースは『${currentRaceBranch}』！ 激しい叩き合いだ！`);
@@ -689,7 +725,7 @@ async function startRace() {
   }, 12600); 
 }
 
-function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear") {
+function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear", moveDir = "left_to_right") {
   const trackContainer = document.getElementById('track-container');
   if (!trackContainer) return;
   const trackWidth = trackContainer.clientWidth - 70;
@@ -698,7 +734,8 @@ function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear")
     const el = document.getElementById(`horse-icon-${i}`);
     if (el) {
       el.style.transition = `left ${durationSec}s ${timing}`;
-      let actualPos = isLeftHanded ? (100 - pos) : pos;
+      // right_to_left（右から左）の場合は反転(100 - pos)
+      let actualPos = (moveDir === "right_to_left") ? (100 - pos) : pos;
       el.style.left = (10 + (trackWidth * (actualPos / 100))) + "px";
     }
   });
