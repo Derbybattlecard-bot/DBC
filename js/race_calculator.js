@@ -9,6 +9,7 @@ function createRaceHorseInstance(horse, raceInfo) {
   const levelVal = horse.level || 1;
   const matchedStrat = horse.stratObj;
   
+  // 作戦によるステータス加算値（作SPD, 作STM など）
   instance.strat_speed = (matchedStrat ? matchedStrat.speed : 3) + levelVal;
   instance.strat_stamina = (matchedStrat ? matchedStrat.stamina : 3) + levelVal;
   instance.strat_sharp = (matchedStrat ? matchedStrat.sharp : 3) + levelVal;
@@ -90,18 +91,21 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
   horses.forEach(h => {
     let paramScore = 0;
     let posAddPt = 0;
-    const detailParts = []; // ステータス内訳記録用
+    const detailParts = [];
 
     if (selectedBranch.formula === "30 - potential + random_stat_1") {
       const targetPool = selectedBranch.target_pool;
       const randStatKey = targetPool[Math.floor(Math.random() * targetPool.length)];
       const potVal = h.current_potential || h.potential || 50;
       const basePotScore = 30 - potVal;
-      const statVal = h[randStatKey] || h[`strat_${randStatKey}`] || 0;
-      
-      paramScore = basePotScore + statVal;
+
+      const horseStat = h[randStatKey] || 0;
+      const stratStat = h[`strat_${randStatKey}`] || 0;
+      const totalStat = horseStat + stratStat;
+
+      paramScore = basePotScore + totalStat;
       detailParts.push(`(30-ポテンシャル:${potVal})`);
-      detailParts.push(`${randStatKey}:${statVal}`);
+      detailParts.push(`${randStatKey}:${totalStat}`);
     } else {
       selectedBranch.key_stats.forEach(key => {
         if (key === "position_x2") {
@@ -116,14 +120,21 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
           paramScore += val;
           detailParts.push(`ポテンシャル:${val}`);
         } else if (key === "guts_x2") {
-          const val = (h.strat_guts || h.guts || 0) * 2;
-          paramScore += val;
-          detailParts.push(`根性x2:${val}`);
+          // 馬本体の根性 + (作戦根性 × 2)
+          const horseGuts = h.guts || 0;
+          const stratGuts = h.strat_guts || 0;
+          const gutsTotal = horseGuts + (stratGuts * 2);
+
+          paramScore += gutsTotal;
+          detailParts.push(`根性(馬:${horseGuts}+作x2:${stratGuts * 2})`);
         } else {
-          // speed, stamina, sharp, jizoku, guts など
-          const val = h[`strat_${key}`] !== undefined ? h[`strat_${key}`] : (h[key] || 0);
-          paramScore += val;
-          detailParts.push(`${key}:${val}`);
+          // 馬本体のステータス + 作戦ステータス
+          const horseStat = h[key] || 0;
+          const stratStat = h[`strat_${key}`] || 0;
+          const totalStat = horseStat + stratStat;
+
+          paramScore += totalStat;
+          detailParts.push(`${key}(馬:${horseStat}+作:${stratStat})`);
         }
       });
     }
@@ -134,7 +145,6 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
     h.random_diff = randScore;
     h.finalScore = paramScore + randScore + levelScore;
 
-    // 内訳表示テキストの構築
     const statDetailStr = detailParts.join("+");
     if (posAddPt > 0) {
       h.detailText = `位置:${posAddPt} + 展開:${paramScore - posAddPt}[${statDetailStr}] + Lv:${levelScore} + 乱:${randScore.toFixed(1)}`;
