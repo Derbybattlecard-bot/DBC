@@ -1,7 +1,7 @@
 {
   "system_info": {
     "title": "Derby Battle Card - レース展開・ペース決定マスターデータ",
-    "version": "1.0",
+    "version": "1.1",
     "field_size": 16,
     "parameter_keys": {
       "potential": "ポテンシャル (14〜21)",
@@ -177,35 +177,119 @@
   },
   "branches_by_pace": {
     "超ハイペース": [
-      { "name": "消耗戦の展開", "key_stats": ["stamina", "jizoku", "potential"] },
-      { "name": "前崩れの展開", "key_stats": ["potential", "position"] },
-      { "name": "時計勝負の流れ", "key_stats": ["speed", "potential"] }
+      {
+        "name": "前崩れの展開",
+        "key_stats": ["potential", "jizoku"],
+        "position_bonus_type": "direct_asc",
+        "position_bonus_note": "位置順位ダイレクト（先頭=1pt, 5番手=5pt, 10番手=10pt）"
+      },
+      {
+        "name": "なし崩しの展開",
+        "key_stats": ["potential", "stamina"],
+        "style_bonus": { "差し": 3, "追込": 5 }
+      },
+      {
+        "name": "持久戦の展開",
+        "key_stats": ["potential", "speed", "jizoku"]
+      },
+      {
+        "name": "スピード勝負の展開",
+        "key_stats": ["potential", "speed", "stamina"],
+        "style_bonus": { "逃げ": 2, "先行": 2 }
+      }
     ],
     "ハイペース": [
-      { "name": "消耗戦の展開", "key_stats": ["stamina", "jizoku", "potential"] },
-      { "name": "時計勝負だ", "key_stats": ["speed", "potential"] },
-      { "name": "直線強襲の展開", "key_stats": ["potential", "sharp", "jizoku"] }
+      {
+        "name": "直線強襲の展開",
+        "key_stats": ["potential", "sharp", "guts"],
+        "style_bonus": { "差し": 3, "追込": 4 }
+      },
+      {
+        "name": "末脚勝負の展開",
+        "key_stats": ["potential", "sharp", "jizoku"],
+        "style_bonus": { "差し": 3, "追込": 4 }
+      },
+      {
+        "name": "我慢比べの展開",
+        "key_stats": ["potential", "speed", "guts"],
+        "style_bonus": { "先行": 2, "差し": 2 }
+      },
+      {
+        "name": "時計勝負だ",
+        "key_stats": ["potential", "speed", "jizoku"]
+      }
     ],
     "ミドルペース": [
-      { "name": "力比べの展開", "key_stats": ["potential"] },
-      { "name": "叩き合いの展開", "key_stats": ["potential", "guts_x2", "sharp"] },
-      { "name": "スパート勝負", "key_stats": ["potential", "jizoku", "sharp"] },
-      { "name": "持久戦の展開", "key_stats": ["potential", "stamina", "guts"] },
-      { "name": "スタミナ勝負", "key_stats": ["potential", "stamina", "jizoku"] }
+      {
+        "name": "縦長の展開",
+        "key_stats": ["potential", "speed", "stamina"],
+        "style_bonus": { "逃げ": 2, "先行": 4, "差し": 3 }
+      },
+      {
+        "name": "力比べの展開",
+        "key_stats": ["potential"],
+        "note": "地力勝負"
+      },
+      {
+        "name": "叩き合いの展開",
+        "key_stats": ["potential", "sharp", "guts"],
+        "style_bonus": { "先行": 2, "差し": 4 }
+      },
+      {
+        "name": "スパート勝負",
+        "key_stats": ["potential", "stamina", "sharp"],
+        "style_bonus": { "先行": 2, "差し": 4 }
+      },
+      {
+        "name": "先行抜け出しの展開",
+        "key_stats": ["potential", "speed", "sharp", "jizoku"],
+        "style_bonus": { "逃げ": 2, "先行": 4 }
+      },
+      {
+        "name": "先行有利の展開",
+        "key_stats": ["potential", "stamina", "guts"],
+        "style_bonus": { "逃げ": 2, "先行": 4 }
+      }
     ],
     "スローペース": [
-      { "name": "スパート勝負", "key_stats": ["potential", "jizoku", "sharp"] },
-      { "name": "叩き合いの展開", "key_stats": ["potential", "guts_x2", "sharp"] },
-      { "name": "前残りの展開", "key_stats": ["position", "potential"] }
+      {
+        "name": "粘り込みの展開",
+        "key_stats": ["potential", "stamina", "jizoku", "guts"],
+        "style_bonus": { "逃げ": 4, "先行": 4 }
+      },
+      {
+        "name": "上がり勝負の展開",
+        "key_stats": ["potential", "speed", "sharp"],
+        "style_bonus": { "先行": 2, "差し": 2 }
+      },
+      {
+        "name": "前残りの展開",
+        "key_stats": ["potential", "stamina", "guts"],
+        "position_bonus_type": "direct_desc",
+        "position_bonus_note": "位置順位ダイレクト（先頭=16pt, 5番手=12pt, 10番手=7pt）"
+      },
+      {
+        "name": "叩き合いの展開",
+        "key_stats": ["potential", "sharp", "jizoku", "guts"]
+      }
     ],
     "乱ペース": [
-      { 
-        "name": "波乱の展開", 
+      {
+        "name": "ごちゃつきの展開",
+        "key_stats": ["potential", "speed", "sharp", "guts"],
+        "note": "乱数要素あり"
+      },
+      {
+        "name": "波乱の展開",
         "formula": "30 - potential + random_stat_1",
         "target_pool": ["speed", "stamina", "sharp", "jizoku", "guts"],
-        "note": "30からポテンシャルを引いた値と、5つの能力値からランダムで選ばれた1つの合計" 
+        "note": "30からポテンシャルを引いた値と、5つの能力値からランダムで選ばれた1つの合計"
       },
-      { "name": "持久戦の展開", "key_stats": ["potential", "jizoku", "stamina"] }
+      {
+        "name": "消耗戦の展開",
+        "key_stats": ["potential", "stamina", "jizoku"],
+        "style_bonus": { "差し": 2 }
+      }
     ]
   },
   "tie_breakers": [
