@@ -107,11 +107,20 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
       detailParts.push(`(30-ポテンシャル:${potVal})`);
       detailParts.push(`${randStatKey}:${totalStat}`);
     } else {
-      selectedBranch.key_stats.forEach(key => {
-        if (key === "position_x2") {
-          let posScore = h.positionScore;
-          if (isFrontCollapse) posScore = 17 - h.positionScore;
-          else if (isFrontHold) posScore = h.positionScore;
+  selectedBranch.key_stats.forEach(key => {
+    // "position" と "position_x2" の両方に対応
+    if (key === "position" || key === "position_x2") {
+      let posScore = h.positionScore; // 先頭=16pt 〜 最後方=1pt
+      if (isFrontCollapse) posScore = 17 - h.positionScore;
+      else if (isFrontHold) posScore = h.positionScore;
+
+      // position_x2 なら2倍、position なら1倍（仕様に合わせて調整可）
+      const multiplier = (key === "position_x2") ? 2 : 1;
+      posAddPt = posScore * multiplier;
+
+      paramScore += posAddPt;
+      detailParts.push(`位置:${posAddPt}`);
+    } else if (key === "potential" || key === "current_potential") {
 
           posAddPt = posScore * 2;
           paramScore += posAddPt;
