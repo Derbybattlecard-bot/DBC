@@ -1,156 +1,332 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DERBY BATTLE CARD - CPU対戦 お題発表</title>
-<style>
-  :root {
-    --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%);
-    --panel-bg: rgba(255, 255, 255, 0.94);
-    --accent-color: #2d6a37;
-    --accent-hover: #1b4d23;
-    --text-main: #1a2e1d;
-    --text-sub: #4e6b52;
-    --border-color: #b2d4b6;
-    --turf-color: #4CAF50;
-    --dirt-color: #8D6E63;
-    --limit-bg: #fff8e1;
-    --limit-border: #ffe082;
-    --limit-text: #8d6e63;
-  }
-  body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--bg-gradient); color: var(--text-main); margin: 0; padding: 15px; font-size: 13px; display: flex; justify-content: center; }
-  .container { display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 650px; }
-  
-  .header-panel { background-color: var(--panel-bg); padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
-  .btn-back { background: #ffffff; color: var(--accent-color); border: 1px solid var(--accent-color); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; text-decoration: none; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>対戦シリーズ抽選 - 競馬カードゲーム</title>
+  <style>
+    :root {
+      --bg-color: #f4f6f9;
+      --card-bg: #ffffff;
+      --text-main: #333333;
+      --text-sub: #666666;
+      --accent-color: #2e7d32;
+      --accent-hover: #1b5e20;
+    }
 
-  .status-header { background-color: var(--panel-bg); border: 2px solid #d4af37; border-radius: 8px; padding: 10px; text-align: center; font-weight: bold; font-size: 15px; color: #b8860b; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-  .win-loss-text { color: #d32f2f; font-size: 18px; margin: 0 5px; }
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      margin: 0;
+      padding: 15px;
+    }
 
-  .challenge-panel { background-color: var(--panel-bg); border: 2px solid var(--accent-color); border-radius: 8px; padding: 15px 20px; text-align: center; }
-  .challenge-label { font-size: 13px; font-weight: bold; color: #d9534f; margin-bottom: 4px; }
-  .series-title { font-size: 18px; font-weight: bold; color: var(--accent-color); margin-bottom: 10px; }
-  
-  .limit-info-box { background: var(--limit-bg); border: 1px solid var(--limit-border); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; display: flex; justify-content: center; gap: 15px; font-weight: bold; color: var(--limit-text); }
-  .race-list { display: flex; flex-direction: column; gap: 6px; background: #ffffff; border: 1px solid var(--border-color); border-radius: 6px; padding: 10px 12px; text-align: left; }
-  .race-item { display: flex; align-items: center; font-size: 12px; border-bottom: 1px dashed #e2efe3; padding-bottom: 5px; }
-  .race-item:last-child { border-bottom: none; padding-bottom: 0; }
-  .race-num { font-weight: bold; color: var(--text-sub); width: 50px; }
-  .race-name { flex: 1; font-weight: bold; color: var(--text-main); }
-  .race-cond { font-size: 11px; color: #555; }
-  .surface-badge { padding: 2px 5px; border-radius: 3px; color: #fff; font-size: 10px; font-weight: bold; margin-right: 4px; }
-  .surface-turf { background-color: var(--turf-color); }
-  .surface-dirt { background-color: var(--dirt-color); }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
 
-  .deck-select-panel { background-color: var(--panel-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; }
-  .deck-options { display: flex; gap: 10px; }
-  .deck-card { flex: 1; background: #fff; border: 2px solid var(--border-color); border-radius: 6px; padding: 10px; cursor: pointer; text-align: center; }
-  .deck-card.selected { border-color: var(--accent-color); background-color: #f2f8f3; box-shadow: 0 0 0 2px var(--accent-color); }
-  .deck-title { font-weight: bold; font-size: 13px; color: var(--accent-color); margin-bottom: 2px; }
+    .header-panel {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      background: var(--card-bg);
+      padding: 12px 16px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
 
-  .deck-table-container { background: #ffffff; border: 1px solid var(--border-color); border-radius: 6px; max-height: 340px; overflow-y: auto; }
-  .deck-table { width: 100%; border-collapse: collapse; font-size: 10.5px; text-align: center; }
-  .deck-table th { background-color: #2d6a37; color: #ffffff; padding: 6px 2px; position: sticky; top: 0; white-space: nowrap; }
-  .deck-table td { padding: 5px 2px; border-bottom: 1px solid #ebf4ec; white-space: nowrap; }
-  .horse-name-cell { text-align: left; font-weight: bold; padding-left: 4px !important; overflow: hidden; text-overflow: ellipsis; }
-  .used-row { background-color: #f5f5f5; color: #999; }
+    .btn-back {
+      text-decoration: none;
+      color: var(--text-sub);
+      font-size: 14px;
+      font-weight: bold;
+    }
 
-  .btn-start { background: var(--accent-color); color: white; border: none; padding: 15px; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; box-shadow: 0 4px 0 var(--accent-hover); }
+    .stats-badge {
+      background: #e8f5e9;
+      color: var(--accent-color);
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+    }
 
-  .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; }
-  .modal-content { background: #fff; border-radius: 12px; padding: 25px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-  .modal-title { font-size: 22px; font-weight: 900; margin-bottom: 10px; }
-  .title-clear { color: #d4af37; }
-  .title-over { color: #d9534f; }
-  .modal-desc { font-size: 14px; color: #444; margin-bottom: 15px; line-height: 1.5; }
-  .reward-box { background: #fff8e1; border: 2px solid #ffe082; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-  .reward-horse { font-size: 18px; font-weight: bold; color: #d32f2f; margin: 8px 0; }
-  .modal-btn { background: var(--accent-color); color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-weight: bold; font-size: 14px; cursor: pointer; }
+    .challenge-panel {
+      background: var(--card-bg);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
 
-  .debug-panel { background: rgba(0,0,0,0.8); color: #fff; padding: 15px; border-radius: 8px; text-align: center; margin-top: 10px; }
-  .debug-panel button { margin: 0 5px; padding: 8px 12px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; }
-</style>
+    .challenge-label {
+      font-size: 12px;
+      color: var(--text-sub);
+      text-align: center;
+      margin-bottom: 4px;
+    }
+
+    .series-title {
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+      color: #111;
+      margin-bottom: 10px;
+    }
+
+    .match-type-tag {
+      display: inline-block;
+      background: #1976d2;
+      color: #fff;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
+    .limit-info-box {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      background: #fff8e1;
+      padding: 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      margin-bottom: 15px;
+    }
+
+    .race-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+      font-size: 13px;
+    }
+
+    .race-item:last-child {
+      border-bottom: none;
+    }
+
+    .race-num {
+      font-weight: bold;
+      color: var(--accent-color);
+      width: 55px;
+    }
+
+    .race-name {
+      flex-grow: 1;
+      font-weight: bold;
+    }
+
+    .surface-badge {
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: #fff;
+      font-size: 11px;
+      margin-right: 4px;
+    }
+    .surface-turf { background-color: #2e7d32; }
+    .surface-dirt { background-color: #c67100; }
+
+    .deck-select-panel {
+      background: var(--card-bg);
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+
+    .deck-options {
+      display: flex;
+      gap: 10px;
+      margin: 10px 0;
+    }
+
+    .deck-card {
+      flex: 1;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .deck-card.selected {
+      border-color: var(--accent-color);
+      background-color: #f1f8e9;
+    }
+
+    .btn-start {
+      width: 100%;
+      background: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 15px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 16px;
+      cursor: pointer;
+      box-shadow: 0 4px 0 var(--accent-hover);
+    }
+
+    /* 解放演出モーダル */
+    .unlock-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.88);
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      text-align: center;
+      padding: 20px;
+      box-sizing: border-box;
+      animation: unlockFadeIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes unlockFadeIn {
+      from { opacity: 0; transform: scale(0.8); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .unlock-icon {
+      font-size: 64px;
+      margin-bottom: 10px;
+      animation: lockBounce 1s infinite alternate;
+    }
+
+    @keyframes lockBounce {
+      from { transform: translateY(0); }
+      to { transform: translateY(-10px); }
+    }
+
+    .unlock-title {
+      font-size: 24px;
+      font-weight: bold;
+      color: #ffd700;
+      margin-bottom: 8px;
+      text-shadow: 0 0 10px rgba(255,215,0,0.5);
+    }
+
+    .unlock-desc {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #e0e0e0;
+      margin-bottom: 20px;
+      max-width: 400px;
+    }
+
+    .unlock-categories {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 25px;
+    }
+
+    .cat-badge {
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid #ffd700;
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .btn-unlock-close {
+      background: linear-gradient(135deg, #ffd700, #ffa000);
+      color: #000;
+      border: none;
+      padding: 12px 36px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 25px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(255,215,0,0.4);
+    }
+  </style>
 </head>
 <body>
 
 <div class="container">
   <div class="header-panel">
-    <a href="index.html" class="btn-back">← 戻る</a>
-    <h2 style="margin:0; font-size: 16px; color: var(--accent-color);">対戦シリーズ抽選</h2>
-    <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中...</div>
+    <a href="index.html" class="btn-back">← マイページ</a>
+    <div id="syncStatus" style="font-size: 11px; color: var(--text-sub); font-weight: bold;">☁️ 読込中...</div>
+    <div class="stats-badge" id="userWinsBadge">通算 0 勝</div>
   </div>
 
-  <div class="status-header" id="winLossHeader" style="display: none;">
-    現在の成績： <span class="win-loss-text" id="winCount">0</span>勝 <span class="win-loss-text" id="lossCount">0</span>敗
-  </div>
-
+  <!-- ランダム対戦シリーズ表示 -->
   <div class="challenge-panel" id="challengePanel" style="display: none;">
-    <div class="challenge-label">＼ 今回の対戦シリーズはこちら！ ／</div>
-    <div class="series-title" id="seriesTitle"></div>
-    <div class="limit-info-box">
-      <span>上限Pt: <strong id="maxTotalPotentialVal">-</strong></span>｜<span>下限Pt: <strong id="minPotentialVal">-</strong></span>
+    <div class="challenge-label">＼ 今回挑戦する対戦シリーズ ／</div>
+    <div class="series-title" id="seriesTitle">
+      <span id="seriesNameText"></span>
+      <span class="match-type-tag" id="matchTypeTag">3回戦</span>
     </div>
+
+    <div class="limit-info-box">
+      <span>ポテンシャル上限: <strong style="color:#c67100;" id="maxTotalPotentialVal">95</strong></span>
+      <span>｜</span>
+      <span>下限: <strong style="color:#c67100;" id="minPotentialVal">15以上</strong></span>
+    </div>
+
     <div class="race-list" id="raceList"></div>
   </div>
 
+  <!-- デック選択 -->
   <div class="deck-select-panel" id="deckPanel" style="display: none;">
-    <h3 style="margin:0; text-align: center;">挑戦するデッキを選択 (最大18頭)</h3>
+    <h3 style="margin:0; font-size: 13px; color: var(--text-main); text-align: center;">出走デックの選択</h3>
     <div class="deck-options">
-      <div class="deck-card selected" id="deckCard0" onclick="selectDeck(0)"><div class="deck-title" id="deckName0">メインデッキ 1</div></div>
-      <div class="deck-card" id="deckCard1" onclick="selectDeck(1)"><div class="deck-title" id="deckName1">メインデッキ 2</div></div>
-    </div>
-    <div class="deck-table-container">
-      <table class="deck-table">
-        <thead>
-          <tr>
-            <th style="width:20px;">枠</th>
-            <th style="text-align:left;">馬名</th>
-            <th style="width:30px;">性</th>
-            <th style="width:80px;">馬場</th>
-            <th style="width:80px;">距離</th>
-            <th style="width:35px;">脚質</th>
-            <th style="width:35px;">状態</th>
-          </tr>
-        </thead>
-        <tbody id="deckHorseList"></tbody>
-      </table>
+      <div class="deck-card selected" id="deckCard0" onclick="selectDeck(0)">
+        <div style="font-weight:bold; font-size:14px;" id="deckName0">メインデッキ 1</div>
+        <div style="font-size:12px; color:#666;">編成: <span id="deckCount0">0</span>/18</div>
+      </div>
+      <div class="deck-card" id="deckCard1" onclick="selectDeck(1)">
+        <div style="font-weight:bold; font-size:14px;" id="deckName1">メインデッキ 2</div>
+        <div style="font-size:12px; color:#666;">編成: <span id="deckCount1">0</span>/18</div>
+      </div>
     </div>
   </div>
+
   <button class="btn-start" id="btnStart" style="display: none;" onclick="goToMatchup()">出走登録へ進む</button>
-
-  <div class="debug-panel">
-    <div style="font-size: 11px; margin-bottom: 8px; color: #aaa;">🔧 テスト用（勝敗を進める）</div>
-    <button style="background: #4CAF50; color: white;" onclick="debugWin()">🏆 1勝追加</button>
-    <button style="background: #F44336; color: white;" onclick="debugLose()">❌ 1敗追加</button>
-  </div>
 </div>
 
-<div class="modal-overlay" id="resultModal">
-  <div class="modal-content">
-    <div class="modal-title" id="modalTitle">RESULT</div>
-    <div class="modal-desc" id="modalDesc"></div>
-    <div class="reward-box" id="rewardBox" style="display: none;">
-      <div style="font-size:12px; color:#c67100; font-weight:bold;">🎁 報酬カード獲得！</div>
-      <div class="reward-horse" id="rewardHorseName">-</div>
-      <div style="font-size:12px;" id="rewardRarity"></div>
-    </div>
-    <button class="modal-btn" onclick="closeModalAndReset()">ステータス画面へ戻る</button>
+<!-- ロック解除演出用オーバーレイ -->
+<div class="unlock-overlay" id="unlockOverlay" style="display: none;">
+  <div class="unlock-icon">🔓</div>
+  <div class="unlock-title">SERIES UNLOCKED!</div>
+  <div class="unlock-desc" id="unlockDesc">
+    通算勝利数が目標に到達しました！<br>
+    各カテゴリの新たな対戦シリーズが開放されました！
   </div>
+  <div class="unlock-categories">
+    <div class="cat-badge">🏛️ 古馬東西</div>
+    <div class="cat-badge">🗾 地方交流</div>
+    <div class="cat-badge">👑 クラシック</div>
+  </div>
+  <button class="btn-unlock-close" onclick="closeUnlockModal()">挑戦をはじめる</button>
 </div>
 
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   let currentUser = null;
   let globalUserData = {};
   let SERIES_MASTER = [];
   let HORSES_MASTER = {};
-  let HORSES_ARRAY = [];
   let selectedSeries = null;
   let selectedDeckIndex = 0;
+
+  // 回戦カテゴリの定義順
+  const CATEGORY_ORDER = ["古馬東西", "地方交流", "クラシック", "古馬東西", "地方交流"];
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = 'auth.html'; return; }
@@ -161,567 +337,163 @@
         globalUserData = userDoc.data();
       }
 
-      const [resSeries, resHorses] = await Promise.all([ fetch('./data/series_master.json'), fetch('./data/horses_master.json') ]);
+      const [resSeries, resHorses] = await Promise.all([
+        fetch('./data/series_master.json'),
+        fetch('./data/horses_master.json')
+      ]);
+
       if (resSeries.ok) SERIES_MASTER = await resSeries.json();
       if (resHorses.ok) {
-        HORSES_ARRAY = await resHorses.json();
-        HORSES_ARRAY.forEach(h => HORSES_MASTER[h.horse_id] = h);
+        const list = await resHorses.json();
+        list.forEach(h => HORSES_MASTER[h.horse_id] = h);
       }
-      
+
       document.getElementById('syncStatus').textContent = "✅";
-      checkBattleStatus();
+      
+      const totalWins = globalUserData.total_wins || 0;
+      document.getElementById('userWinsBadge').textContent = `通算 ${totalWins} 勝`;
+
+      await checkAndInitBattle();
     } catch (err) {
       console.error("初期化エラー:", err);
-      document.getElementById('syncStatus').textContent = "❌ 接続失敗";
+      document.getElementById('syncStatus').textContent = "❌ エラー";
     }
   });
 
-  async function checkBattleStatus() {
-    let status = globalUserData.cpu_battle_status;
+  // ロック解除判定＆対戦初期化
+  async function checkAndInitBattle() {
+    const totalWins = globalUserData.total_wins || 0;
+    const currentUnlockedLevel = Math.floor(totalWins / 5); // 0: 0-4勝, 1: 5-9勝...
+    const lastNotifiedLevel = globalUserData.last_unlocked_level ?? 0;
 
-    if (status && status.is_active) {
-      if (status.series_wins >= 3) {
-        await handleGameEnd(status, true);
-        return;
-      } else if (status.series_losses >= 3 || status.current_round > 5) {
-        await handleGameEnd(status, false);
-        return;
-      }
-    }
-
-    await initBattle(status);
-  }
-
-  async function handleGameEnd(status, isClear) {
-    const modal = document.getElementById('resultModal');
-    const title = document.getElementById('modalTitle');
-    const desc = document.getElementById('modalDesc');
-    const rewardBox = document.getElementById('rewardBox');
-    
-    if (isClear) {
-      title.textContent = "🎉 CHALLENGE CLEAR!";
-      title.className = "modal-title title-clear";
-      desc.innerHTML = `おめでとうございます！3勝を達成しました！<br>（累計1着回数: ${status.total_1st_places || 0}回）`;
-      
-      let pool = HORSES_ARRAY;
-      const rewardHorse = pool[Math.floor(Math.random() * pool.length)];
-
-      document.getElementById('rewardHorseName').textContent = rewardHorse.name;
-      document.getElementById('rewardRarity').textContent = `ポテンシャル: ${rewardHorse.potential || rewardHorse.pt || '-'}`;
-      rewardBox.style.display = "block";
-
-      try {
-        const invRef = doc(db, `users/${currentUser.uid}/inventory/${rewardHorse.horse_id}`);
-        await setDoc(invRef, {
-          count: increment(1),
-          obtained_at: new Date().toISOString()
-        }, { merge: true });
-      } catch (err) { console.error("報酬保存エラー:", err); }
-    } else {
-      title.textContent = "💥 GAME OVER";
-      title.className = "modal-title title-over";
-      desc.textContent = "チャレンジ終了となりました。";
-      rewardBox.style.display = "none";
-    }
-
-    try {
-      const updatedStatus = { ...status, is_active: false, current_match: null };
-      await setDoc(doc(db, "users", currentUser.uid), { 
-        cpu_battle_status: updatedStatus 
+    // 5勝単位で新しいロックが解除された場合に演出を表示
+    if (totalWins >= 5 && currentUnlockedLevel > lastNotifiedLevel) {
+      showUnlockAnimation(totalWins, currentUnlockedLevel);
+      // フラグ更新
+      await setDoc(doc(db, "users", currentUser.uid), {
+        last_unlocked_level: currentUnlockedLevel
       }, { merge: true });
-      globalUserData.cpu_battle_status = updatedStatus;
-    } catch (err) {
-      console.error("ゲーム終了ステータス保存エラー:", err);
+      globalUserData.last_unlocked_level = currentUnlockedLevel;
     }
-    
-    modal.style.display = "flex";
-  }
 
-  window.closeModalAndReset = function() {
-    window.location.href = 'index.html'; 
-  };
+    let status = globalUserData.cpu_battle_status;
+    const maxRounds = totalWins < 30 ? 3 : 5;
 
-  async function initBattle(status) {
     if (!status || !status.is_active) {
-      const shuffledSeries = [...SERIES_MASTER].sort(() => 0.5 - Math.random());
-      const lineup = shuffledSeries.slice(0, 5).map(s => s.series_id);
-      
-      status = { 
-        is_active: true, 
-        current_round: 1, 
-        series_lineup: lineup, 
+      // ロック状況に合わせてシリーズラインナップを自動生成
+      const lineup = generateSeriesLineup(totalWins, maxRounds);
+
+      status = {
+        is_active: true,
+        current_round: 1,
+        max_rounds: maxRounds,
+        series_lineup: lineup,
         selected_series_id: lineup[0] || "",
         selected_deck_index: 0,
-        series_wins: 0, 
-        series_losses: 0, 
-        total_1st_places: 0, 
+        series_wins: 0,
+        series_losses: 0,
         used_cards_history: [],
         current_match: null
       };
 
-      try {
-        await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status }, { merge: true });
-        globalUserData.cpu_battle_status = status;
-      } catch (err) {
-        console.error("初期データ保存エラー:", err);
-        alert("初期データの作成に失敗しました。再読み込みしてください。");
-        return;
-      }
+      await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status }, { merge: true });
+      globalUserData.cpu_battle_status = status;
     }
 
-    if (typeof status.selected_deck_index === 'number') {
-      selectedDeckIndex = status.selected_deck_index;
-      selectDeck(selectedDeckIndex);
-    }
-
-    document.getElementById('winCount').textContent = status.series_wins || 0;
-    document.getElementById('lossCount').textContent = status.series_losses || 0;
-    document.getElementById('winLossHeader').style.display = 'block';
-
-    const currentSeriesId = status.series_lineup[status.current_round - 1];
-    selectedSeries = SERIES_MASTER.find(s => s.series_id === currentSeriesId) || SERIES_MASTER[0];
-
-    document.getElementById('seriesTitle').textContent = `【第${status.current_round}回戦】${selectedSeries.series_name}`;
-    document.getElementById('maxTotalPotentialVal').textContent = selectedSeries.potential_limit.max_total_potential;
-    document.getElementById('minPotentialVal').textContent = `${selectedSeries.potential_limit.min_potential_per_race}以上`;
-
-    const races = selectedSeries.rounds[0].races;
-    const raceListEl = document.getElementById('raceList');
-    raceListEl.innerHTML = races.map(r => {
-      const surfaceClass = r.surface === '芝' ? 'surface-turf' : 'surface-dirt';
-      return `
-        <div class="race-item">
-          <span class="race-num">第${r.race_num}戦</span>
-          <span class="race-name">${r.race_name}</span>
-          <span class="race-cond">
-            <span class="surface-badge ${surfaceClass}">${r.surface}</span>
-            ${r.track} ${r.distance}m
-          </span>
-        </div>
-      `;
-    }).join('');
-
-    document.getElementById('challengePanel').style.display = 'block';
-    document.getElementById('deckPanel').style.display = 'flex';
-    document.getElementById('btnStart').style.display = 'block';
-    
-    renderDeckTable();
+    renderBattleUI(status);
   }
 
-  window.selectDeck = function(idx) {
-    selectedDeckIndex = idx;
-    document.getElementById('deckCard0').classList.toggle('selected', idx === 0);
-    document.getElementById('deckCard1').classList.toggle('selected', idx === 1);
-    renderDeckTable();
-  };
+  // カテゴリ＆勝利数に応じたシリーズラインナップ選出関数
+  function generateSeriesLineup(totalWins, maxRounds) {
+    // 0〜4勝: 1（各1番若いナンバー）
+    // 5〜9勝: 2（各NO.1〜NO.2から抽選）
+    const unlockedCount = Math.floor(totalWins / 5) + 1;
+    const lineup = [];
 
-  // ─── 馬データ解析解析用ヘルパー ───
-  function getTurfVal(horse) {
-    if (!horse) return 0;
-    if (horse.turf_potential !== undefined && horse.turf_potential !== null) return Number(horse.turf_potential) || 0;
-    if (typeof horse.turf === 'number') return horse.turf;
-    if (typeof horse.turf === 'boolean') return horse.turf ? 1 : 0;
-    return 0;
-  }
+    for (let r = 0; r < maxRounds; r++) {
+      const targetCategory = CATEGORY_ORDER[r % CATEGORY_ORDER.length];
 
-  function getDirtVal(horse) {
-    if (!horse) return 0;
-    if (horse.dirt_potential !== undefined && horse.dirt_potential !== null) return Number(horse.dirt_potential) || 0;
-    if (typeof horse.dirt === 'number') return horse.dirt;
-    if (typeof horse.dirt === 'boolean') return horse.dirt ? 1 : 0;
-    return 0;
-  }
+      // マスターから指定カテゴリのシリーズを抽出してID順（若いナンバー順）にソート
+      const categorySeriesList = SERIES_MASTER.filter(s => 
+        s.category === targetCategory || s.category_name === targetCategory
+      ).sort((a, b) => (a.series_id || "").localeCompare(b.series_id || ""));
 
-  // Pt（ポテンシャル値）算出
-  function getPotentialVal(horse) {
-    if (!horse) return 0;
-    if (horse.total_potential !== undefined && horse.total_potential !== null) return horse.total_potential;
-    if (horse.potential !== undefined && horse.potential !== null) return horse.potential;
-    if (horse.pt !== undefined && horse.pt !== null) return horse.pt;
-    
-    // データ直下にpt系がない場合、芝/ダートの大きい方の値をPtとして扱う
-    const t = getTurfVal(horse);
-    const d = getDirtVal(horse);
-    return Math.max(t, d);
-  }
+      // 解放対象枠（1番若いものから unlockedCount 個分）
+      const availableSeries = categorySeriesList.slice(0, unlockedCount);
 
-  // 芝ダート適性テキスト取得 (例: 芝18, ダ16, 芝21/ダ16)
-  function getSurfaceText(horse) {
-    if (!horse) return '-';
-    
-    const t = getTurfVal(horse);
-    const d = getDirtVal(horse);
-    
-    if (t > 0 && d > 0) return `芝${t}/ダ${d}`;
-    if (t > 0) return `芝${t}`;
-    if (d > 0) return `ダ${d}`;
-    
-    if (horse.surface) return horse.surface;
-    return '-';
-  }
-
-  // 距離適性テキスト取得 (例: 2000-2400m)
-  function getDistanceText(horse) {
-    if (!horse) return '-';
-
-    // 1. min_distance / max_distance 直接指定
-    let minD = horse.min_distance ?? horse.min_dist ?? horse.aptitude?.min_distance;
-    let maxD = horse.max_distance ?? horse.max_dist ?? horse.aptitude?.max_distance;
-
-    if (minD !== undefined && maxD !== undefined && minD !== null && maxD !== null && minD !== '' && maxD !== '') {
-      minD = Number(minD);
-      maxD = Number(maxD);
-      if (!isNaN(minD) && !isNaN(maxD)) {
-        return minD === maxD ? `${minD}m` : `${minD}-${maxD}m`;
-      }
-    }
-
-    // 2. distance プロパティ判定 (配列/文字列/数値)
-    const distVal = horse.distance ?? horse.dist;
-    if (distVal !== undefined && distVal !== null && distVal !== '') {
-      if (Array.isArray(distVal)) {
-        if (distVal.length === 0) return '-';
-        const min = Math.min(...distVal);
-        const max = Math.max(...distVal);
-        return min === max ? `${min}m` : `${min}-${max}m`;
-      }
-      const distStr = String(distVal).trim();
-      if (distStr.endsWith('m')) return distStr;
-      return `${distStr}m`;
-    }
-
-    return '-';
-  }
-
-  // 脚質取得
-  function getHorseLegStyle(horse) {
-    if (!horse) return '-';
-    return horse.style || horse.running_style || horse.leg_style || horse.strategy || '-';
-  }
-
-  // 出走表レンダリング関数
-  function renderDeckTable() {
-    const tbody = document.getElementById('deckHorseList');
-    tbody.innerHTML = '';
-    const usedCards = globalUserData.cpu_battle_status?.used_cards_history || [];
-    const deck = (globalUserData.decks || [])[selectedDeckIndex] || { horse_ids: [] };
-
-    for (let i = 0; i < 18; i++) {
-      const horse = HORSES_MASTER[deck.horse_ids[i]];
-      const tr = document.createElement('tr');
-      const frameNum = i + 1;
-
-      if (horse) {
-        const isUsed = usedCards.includes(horse.horse_id) || usedCards.includes(horse.name);
-        if (isUsed) {
-          tr.className = 'used-row';
-          tr.style.opacity = '0.4';
-<script type="module">
-  import { auth, db } from './firebase-config.js';
-  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-  // ▼ カットイン演出用モジュールとカードレンダラーをインポート
-  import { playFourthCornerCutIn } from './login_bonus.js';
-  import { cardRenderer } from './card_renderer.js';
-
-  let currentUser = null;
-  let globalUserData = {};
-  let SERIES_MASTER = [];
-  let HORSES_MASTER = {};
-  let HORSES_ARRAY = [];
-  let selectedSeries = null;
-  let selectedDeckIndex = 0;
-
-  onAuthStateChanged(auth, async (user) => {
-    if (!user) { window.location.href = 'auth.html'; return; }
-    currentUser = user;
-    try {
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) {
-        globalUserData = userDoc.data();
-      }
-
-      // レンダラーの初期化
-      await cardRenderer.init().catch(e => console.warn("Renderer init error:", e));
-
-      const [resSeries, resHorses] = await Promise.all([ fetch('./data/series_master.json'), fetch('./data/horses_master.json') ]);
-      if (resSeries.ok) SERIES_MASTER = await resSeries.json();
-      if (resHorses.ok) {
-        HORSES_ARRAY = await resHorses.json();
-        HORSES_ARRAY.forEach(h => HORSES_MASTER[h.horse_id] = h);
-      }
-      
-      document.getElementById('syncStatus').textContent = "✅";
-      checkBattleStatus();
-    } catch (err) {
-      console.error("初期化エラー:", err);
-      document.getElementById('syncStatus').textContent = "❌ 接続失敗";
-    }
-  });
-
-  async function checkBattleStatus() {
-    let status = globalUserData.cpu_battle_status;
-
-    if (status && status.is_active) {
-      if (status.series_wins >= 3) {
-        await handleGameEnd(status, true);
-        return;
-      } else if (status.series_losses >= 3 || status.current_round > 5) {
-        await handleGameEnd(status, false);
-        return;
-      }
-    }
-
-    await initBattle(status);
-  }
-
-  async function handleGameEnd(status, isClear) {
-    const modal = document.getElementById('resultModal');
-    const title = document.getElementById('modalTitle');
-    const desc = document.getElementById('modalDesc');
-    const rewardBox = document.getElementById('rewardBox');
-    
-    if (isClear) {
-      title.textContent = "🎉 CHALLENGE CLEAR!";
-      title.className = "modal-title title-clear";
-      desc.innerHTML = `おめでとうございます！3勝を達成しました！<br>（累計1着回数: ${status.total_1st_places || 0}回）`;
-      
-      let pool = HORSES_ARRAY;
-      const rewardHorse = pool[Math.floor(Math.random() * pool.length)];
-
-      document.getElementById('rewardHorseName').textContent = rewardHorse.name;
-      document.getElementById('rewardRarity').textContent = `ポテンシャル: ${rewardHorse.potential || rewardHorse.pt || '-'}`;
-      rewardBox.style.display = "block";
-
-      // 1. インベントリへ報酬保存
-      try {
-        const invRef = doc(db, `users/${currentUser.uid}/inventory/${rewardHorse.horse_id}`);
-        await setDoc(invRef, {
-          count: increment(1),
-          obtained_at: new Date().toISOString()
-        }, { merge: true });
-      } catch (err) { console.error("報酬保存エラー:", err); }
-
-      // 2. 🎁 ボーナスカードカットイン演出を再生（画面全面に表示）
-      try {
-        await playFourthCornerCutIn(rewardHorse, cardRenderer);
-      } catch (err) {
-        console.error("カットイン再生エラー:", err);
-      }
-
-    } else {
-      title.textContent = "💥 GAME OVER";
-      title.className = "modal-title title-over";
-      desc.textContent = "チャレンジ終了となりました。";
-      rewardBox.style.display = "none";
-    }
-
-    try {
-      const updatedStatus = { ...status, is_active: false, current_match: null };
-      await setDoc(doc(db, "users", currentUser.uid), { 
-        cpu_battle_status: updatedStatus 
-      }, { merge: true });
-      globalUserData.cpu_battle_status = updatedStatus;
-    } catch (err) {
-      console.error("ゲーム終了ステータス保存エラー:", err);
-    }
-    
-    // 演出終了後にモーダルを表示
-    modal.style.display = "flex";
-  }
-
-  window.closeModalAndReset = function() {
-    window.location.href = 'index.html'; 
-  };
-
-  async function initBattle(status) {
-    if (!status || !status.is_active) {
-      const shuffledSeries = [...SERIES_MASTER].sort(() => 0.5 - Math.random());
-      const lineup = shuffledSeries.slice(0, 5).map(s => s.series_id);
-      
-      status = { 
-        is_active: true, 
-        current_round: 1, 
-        series_lineup: lineup, 
-        selected_series_id: lineup[0] || "",
-        selected_deck_index: 0,
-        series_wins: 0, 
-        series_losses: 0, 
-        total_1st_places: 0, 
-        used_cards_history: [],
-        current_match: null
-      };
-
-      try {
-        await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status }, { merge: true });
-        globalUserData.cpu_battle_status = status;
-      } catch (err) {
-        console.error("初期データ保存エラー:", err);
-        alert("初期データの作成に失敗しました。再読み込みしてください。");
-        return;
-      }
-    }
-
-    if (typeof status.selected_deck_index === 'number') {
-      selectedDeckIndex = status.selected_deck_index;
-      selectDeck(selectedDeckIndex);
-    }
-
-    document.getElementById('winCount').textContent = status.series_wins || 0;
-    document.getElementById('lossCount').textContent = status.series_losses || 0;
-    document.getElementById('winLossHeader').style.display = 'block';
-
-    const currentSeriesId = status.series_lineup[status.current_round - 1];
-    selectedSeries = SERIES_MASTER.find(s => s.series_id === currentSeriesId) || SERIES_MASTER[0];
-
-    document.getElementById('seriesTitle').textContent = `【第${status.current_round}回戦】${selectedSeries.series_name}`;
-    document.getElementById('maxTotalPotentialVal').textContent = selectedSeries.potential_limit.max_total_potential;
-    document.getElementById('minPotentialVal').textContent = `${selectedSeries.potential_limit.min_potential_per_race}以上`;
-
-    const races = selectedSeries.rounds[0].races;
-    const raceListEl = document.getElementById('raceList');
-    raceListEl.innerHTML = races.map(r => {
-      const surfaceClass = r.surface === '芝' ? 'surface-turf' : 'surface-dirt';
-      return `
-        <div class="race-item">
-          <span class="race-num">第${r.race_num}戦</span>
-          <span class="race-name">${r.race_name}</span>
-          <span class="race-cond">
-            <span class="surface-badge ${surfaceClass}">${r.surface}</span>
-            ${r.track} ${r.distance}m
-          </span>
-        </div>
-      `;
-    }).join('');
-
-    document.getElementById('challengePanel').style.display = 'block';
-    document.getElementById('deckPanel').style.display = 'flex';
-    document.getElementById('btnStart').style.display = 'block';
-    
-    renderDeckTable();
-  }
-
-  window.selectDeck = function(idx) {
-    selectedDeckIndex = idx;
-    document.getElementById('deckCard0').classList.toggle('selected', idx === 0);
-    document.getElementById('deckCard1').classList.toggle('selected', idx === 1);
-    renderDeckTable();
-  };
-
-  // ─── 馬データ解析用ヘルパー ───
-  function getTurfVal(horse) {
-    if (!horse) return 0;
-    if (horse.turf_potential !== undefined && horse.turf_potential !== null) return Number(horse.turf_potential) || 0;
-    if (typeof horse.turf === 'number') return horse.turf;
-    if (typeof horse.turf === 'boolean') return horse.turf ? 1 : 0;
-    return 0;
-  }
-
-  function getDirtVal(horse) {
-    if (!horse) return 0;
-    if (horse.dirt_potential !== undefined && horse.dirt_potential !== null) return Number(horse.dirt_potential) || 0;
-    if (typeof horse.dirt === 'number') return horse.dirt;
-    if (typeof horse.dirt === 'boolean') return horse.dirt ? 1 : 0;
-    return 0;
-  }
-
-  function getPotentialVal(horse) {
-    if (!horse) return 0;
-    if (horse.total_potential !== undefined && horse.total_potential !== null) return horse.total_potential;
-    if (horse.potential !== undefined && horse.potential !== null) return horse.potential;
-    if (horse.pt !== undefined && horse.pt !== null) return horse.pt;
-    
-    const t = getTurfVal(horse);
-    const d = getDirtVal(horse);
-    return Math.max(t, d);
-  }
-
-  function getSurfaceText(horse) {
-    if (!horse) return '-';
-    const t = getTurfVal(horse);
-    const d = getDirtVal(horse);
-    
-    if (t > 0 && d > 0) return `芝${t}/ダ${d}`;
-    if (t > 0) return `芝${t}`;
-    if (d > 0) return `ダ${d}`;
-    
-    if (horse.surface) return horse.surface;
-    return '-';
-  }
-
-  function getDistanceText(horse) {
-    if (!horse) return '-';
-
-    let minD = horse.min_distance ?? horse.min_dist ?? horse.aptitude?.min_distance;
-    let maxD = horse.max_distance ?? horse.max_dist ?? horse.aptitude?.max_distance;
-
-    if (minD !== undefined && maxD !== undefined && minD !== null && maxD !== null && minD !== '' && maxD !== '') {
-      minD = Number(minD);
-      maxD = Number(maxD);
-      if (!isNaN(minD) && !isNaN(maxD)) {
-        return minD === maxD ? `${minD}m` : `${minD}-${maxD}m`;
-      }
-    }
-
-    const distVal = horse.distance ?? horse.dist;
-    if (distVal !== undefined && distVal !== null && distVal !== '') {
-      if (Array.isArray(distVal)) {
-        if (distVal.length === 0) return '-';
-        const min = Math.min(...distVal);
-        const max = Math.max(...distVal);
-        return min === max ? `${min}m` : `${min}-${max}m`;
-      }
-      const distStr = String(distVal).trim();
-      if (distStr.endsWith('m')) return distStr;
-      return `${distStr}m`;
-    }
-
-    return '-';
-  }
-
-  function getHorseLegStyle(horse) {
-    if (!horse) return '-';
-    return horse.style || horse.running_style || horse.leg_style || horse.strategy || '-';
-  }
-
-  function renderDeckTable() {
-    const tbody = document.getElementById('deckHorseList');
-    tbody.innerHTML = '';
-    const usedCards = globalUserData.cpu_battle_status?.used_cards_history || [];
-    const deck = (globalUserData.decks || [])[selectedDeckIndex] || { horse_ids: [] };
-
-    for (let i = 0; i < 18; i++) {
-      const horse = HORSES_MASTER[deck.horse_ids[i]];
-      const tr = document.createElement('tr');
-      const frameNum = i + 1;
-
-      if (horse) {
-        const isUsed = usedCards.includes(horse.horse_id) || usedCards.includes(horse.name);
-        if (isUsed) {
-          tr.className = 'used-row';
-          tr.style.opacity = '0.4';
-        }
-
-        const sex = horse.sex || '牡馬';
-        const surface = getSurfaceText(horse);
-        const dist = getDistanceText(horse);
-        const leg = getHorseLegStyle(horse);
-
-        tr.innerHTML = `
-          <td>${frameNum}</td>
-          <td class="horse-name-cell">${horse.name}</td>
-          <td>${sex}</td>
-          <td>${surface}</td>
-          <td>${dist}</td>
-          <td>${leg}</td>
-          <td>${isUsed ? '出走済' : '可'}</td>
-        `;
+      if (availableSeries.length > 0) {
+        // 解放枠からランダムで決定（unlockedCountが1の場合は確定で最も若いナンバー）
+        const selected = availableSeries[Math.floor(Math.random() * availableSeries.length)];
+        lineup.push(selected.series_id);
       } else {
-        tr.innerHTML = `<td>${frameNum}</td><td colspan="7" style="color:#aaa;">(未設定)</td>`;
+        // フォールバック
+        const fallback = SERIES_MASTER[r % SERIES_MASTER.length];
+        lineup.push(fallback ? fallback.series_id : "");
       }
-      tbody.appendChild(tr);
     }
+
+    return lineup;
   }
+
+  function renderBattleUI(status) {
+    const currentSeriesId = status.series_lineup[status.current_round - 1];
+    selectedSeries = SERIES_MASTER.find(s => s.series_id === currentSeriesId) || SERIES_MASTER[0];
+
+    document.getElementById('seriesNameText').textContent = `【第${status.current_round}回戦】${selectedSeries.series_name}`;
+    document.getElementById('matchTypeTag').textContent = `${status.max_rounds || (globalUserData.total_wins >= 30 ? 5 : 3)}回戦マッチ`;
+
+    const limits = selectedSeries.potential_limit || { min_potential_per_race: 15, max_total_potential: 95 };
+    document.getElementById('minPotentialVal').textContent = `${limits.min_potential_per_race}以上`;
+    document.getElementById('maxTotalPotentialVal').textContent = limits.max_total_potential;
+
+    const races = selectedSeries.rounds[0].races;
+    document.getElementById('raceList').innerHTML = races.map(r => {
+      const surfaceClass = r.surface === '芝' ? 'surface-turf' : 'surface-dirt';
+      return `
+        <div class="race-item">
+          <span class="race-num">第${r.race_num}戦</span>
+          <span class="race-name">${r.race_name}</span>
+          <span>
+            <span class="surface-badge ${surfaceClass}">${r.surface}</span>
+            ${r.track} ${r.distance}m
+          </span>
+        </div>
+      `;
+    }).join('');
+
+    const decks = globalUserData.decks || [];
+    [0, 1].forEach(idx => {
+      const deck = decks[idx] || { deck_name: `メインデッキ ${idx + 1}`, horse_ids: [] };
+      const validCount = (deck.horse_ids || []).filter(id => id !== null && id !== undefined).length;
+      document.getElementById(`deckName${idx}`).textContent = deck.deck_name || `メインデッキ ${idx + 1}`;
+      document.getElementById(`deckCount${idx}`).textContent = validCount;
+    });
+
+    document.getElementById('challengePanel').style.display = 'block';
+    document.getElementById('deckPanel').style.display = 'block';
+    document.getElementById('btnStart').style.display = 'block';
+  }
+
+  // ロック解除演出の表示
+  function showUnlockAnimation(totalWins, level) {
+    const nextNo = level + 1;
+    document.getElementById('unlockDesc').innerHTML = `
+      通算 <strong>${totalWins} 勝</strong> 達成！<br>
+      各カテゴリの <strong>NO.${nextNo} シリーズ</strong> が解放されました！<br>
+      これより解放済みシリーズからランダムで選出されます！
+    `;
+    document.getElementById('unlockOverlay').style.display = 'flex';
+  }
+
+  window.closeUnlockModal = function() {
+    document.getElementById('unlockOverlay').style.display = 'none';
+  };
+
+  window.selectDeck = function(idx) {
+    selectedDeckIndex = idx;
+    document.getElementById('deckCard0').classList.toggle('selected', idx === 0);
+    document.getElementById('deckCard1').classList.toggle('selected', idx === 1);
+  };
 
   window.goToMatchup = async function() {
     if (!selectedSeries || !currentUser) return;
@@ -742,36 +514,9 @@
       window.location.href = 'matchup.html';
     } catch (err) {
       console.error("ステータス保存エラー:", err);
-      alert("通信エラーが発生しました。再度お試しください。");
-    }
-  };
-
-  window.debugWin = async function() {
-    if (!currentUser || !globalUserData.cpu_battle_status) return;
-    try {
-      let status = { ...globalUserData.cpu_battle_status };
-      status.series_wins = (status.series_wins || 0) + 1;
-      status.current_round = (status.current_round || 1) + 1;
-      await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status }, { merge: true });
-      window.location.reload();
-    } catch (err) {
-      console.error("デバッグ処理エラー:", err);
-    }
-  };
-
-  window.debugLose = async function() {
-    if (!currentUser || !globalUserData.cpu_battle_status) return;
-    try {
-      let status = { ...globalUserData.cpu_battle_status };
-      status.series_losses = (status.series_losses || 0) + 1;
-      status.current_round = (status.current_round || 1) + 1;
-      await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status }, { merge: true });
-      window.location.reload();
-    } catch (err) {
-      console.error("デバッグ処理エラー:", err);
+      alert("通信エラーが発生しました。");
     }
   };
 </script>
-
 </body>
 </html>
