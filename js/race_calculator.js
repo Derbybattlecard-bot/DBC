@@ -1,3 +1,5 @@
+// js/race_calculator.js
+
 // 1. ステータス箱の生成（計算専用コピー）
 function createRaceHorseInstance(horse, raceInfo) {
   const instance = JSON.parse(JSON.stringify(horse));
@@ -85,14 +87,13 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
   const branches = raceMasterData.branches_by_pace[pace];
   const selectedBranch = branches[Math.floor(Math.random() * branches.length)];
 
-  const isFrontCollapse = selectedBranch.name.includes("前崩れ");
-  const isFrontHold = selectedBranch.name.includes("前残り");
-
   horses.forEach(h => {
     let paramScore = 0;
     let posAddPt = 0;
+    let styleBonusPt = 0;
     const detailParts = [];
 
+    // --- A. 特殊計算式（波乱の展開など） ---
     if (selectedBranch.formula === "30 - potential + random_stat_1") {
       const targetPool = selectedBranch.target_pool;
       const randStatKey = targetPool[Math.floor(Math.random() * targetPool.length)];
@@ -106,33 +107,47 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
       paramScore = basePotScore + totalStat;
       detailParts.push(`(30-ポテンシャル:${potVal})`);
       detailParts.push(`${randStatKey}:${totalStat}`);
-    } else {
+    } 
+    // --- B. 標準・キー能力算定 ---
+    else if (selectedBranch.key_stats) {
       selectedBranch.key_stats.forEach(key => {
-        // "position" と "position_x2" の両方に対応
+        // 位置ポイント判定
         if (key === "position" || key === "position_x2") {
-          let posScore = h.positionScore; // 先頭=16pt 〜 最後方=1pt
-          if (isFrontCollapse) posScore = 17 - h.positionScore;
-          else if (isFrontHold) posScore = h.positionScore;
+          let posScore = h.positionScore; // 基本: 先頭=16pt 〜 最後方=1pt
+
+          // 位置補正タイプの処理
+          if (selectedBranch.position_bonus_type === "direct_asc") {
+            // ダイレクト昇順（先頭=1pt, 5番手=5pt, 16番手=16pt）
+            posScore = h.positionRank;
+          } else if (selectedBranch.position_bonus_type === "direct_desc") {
+            // ダイレクト降順（先頭=16pt ...）
+            posScore = 17 - h.positionRank;
+          } else {
+            // 従来互換
+            if (selectedBranch.name.includes("前崩れ")) posScore = 17 - h.positionScore;
+            else if (selectedBranch.name.includes("前残り")) posScore = h.positionScore;
+          }
 
           const multiplier = (key === "position_x2") ? 2 : 1;
           posAddPt = posScore * multiplier;
 
           paramScore += posAddPt;
           detailParts.push(`位置:${posAddPt}`);
-        } else if (key === "potential" || key === "current_potential") {
+        } 
+        else if (key === "potential" || key === "current_potential") {
           const val = h.current_potential || h.potential || 0;
           paramScore += val;
           detailParts.push(`ポテンシャル:${val}`);
-        } else if (key === "guts_x2") {
-          // 馬本体の根性 + (作戦根性 × 2)
+        } 
+        else if (key === "guts_x2") {
           const horseGuts = h.guts || 0;
           const stratGuts = h.strat_guts || 0;
           const gutsTotal = horseGuts + (stratGuts * 2);
 
           paramScore += gutsTotal;
           detailParts.push(`根性(馬:${horseGuts}+作x2:${stratGuts * 2})`);
-        } else {
-          // 馬本体のステータス + 作戦ステータス
+        } 
+        else {
           const horseStat = h[key] || 0;
           const stratStat = h[`strat_${key}`] || 0;
           const totalStat = horseStat + stratStat;
@@ -141,6 +156,16 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
           detailParts.push(`${key}(馬:${horseStat}+作:${stratStat})`);
         }
       });
+    }
+
+    // --- C. 脚質ボーナス (style_bonus) 加算 ---
+    if (selectedBranch.style_bonus) {
+      const currentStyle = h.style || h.running_style || h.tactic || "";
+      if (selectedBranch.style_bonus[currentStyle]) {
+        styleBonusPt = selectedBranch.style_bonus[currentStyle];
+        paramScore += styleBonusPt;
+        detailParts.push(`脚質[${currentStyle}]:+${styleBonusPt}`);
+      }
     }
 
     const levelScore = (h.level || 1) * 2;
@@ -157,11 +182,22 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
     }
   });
 
+  // タイブレーク処理
   const tieKeys = raceMasterData.tie_breakers || ['speed', 'stamina', 'guts'];
   horses.sort((a, b) => {
     if (Math.abs(b.finalScore - a.finalScore) > 0.1) return b.finalScore - a.finalScore;
-    for (let key of tieKeys) {
-      if (a[key] !== b[key]) {
+    
+    for (let tieKey of tieKeys) {
+      let key = tieKey.replace(/^[0-9]+\.\s*/, '').replace(/\s*\([a-z_]+\)/, '').trim();
+      if (tieKey.includes('(guts)')) key = 'guts';
+      else if (tieKey.includes('(potential)')) key = 'potential';
+      else if (tieKey.includes('(tactic_level)')) key = 'level';
+      else if (tieKey.includes('(sharp)')) key = 'sharp';
+      else if (tieKey.includes('(jizoku)')) key = 'jizoku';
+      else if (tieKey.includes('(speed)')) key = 'speed';
+      else if (tieKey.includes('(stamina)')) key = 'stamina';
+
+      if (a[key] !== undefined && b[key] !== undefined && a[key] !== b[key]) {
         return typeof a[key] === "number" ? b[key] - a[key] : String(b[key]).localeCompare(String(a[key]));
       }
     }
@@ -174,7 +210,7 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
   };
 }
 
-// 5. HTMLから呼び出すメイン関数
+// 5. メイン実行関数
 export function runRaceLogic(activeHorses, raceMasterData, trackCondition, raceInfo) {
   const raceHorses = activeHorses.map(h => createRaceHorseInstance(h, raceInfo));
 
