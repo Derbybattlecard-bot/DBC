@@ -105,66 +105,61 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
       const totalStat = horseStat + stratStat;
 
       paramScore = basePotScore + totalStat;
-      detailParts.push(`(30-ポテンシャル:${potVal})`);
-      detailParts.push(`${randStatKey}:${totalStat}`);
+      detailParts.push(`(30-ポテ:${potVal})`);
+      
+      let statNameJa = randStatKey;
+      if (randStatKey === 'speed') statNameJa = 'SPD';
+      else if (randStatKey === 'stamina') statNameJa = 'STM';
+      else if (randStatKey === 'sharp') statNameJa = '瞬発';
+      else if (randStatKey === 'jizoku') statNameJa = '持続';
+      else if (randStatKey === 'guts') statNameJa = '根性';
+      
+      detailParts.push(`${statNameJa}:${totalStat}`);
     } 
     // --- B. 標準・キー能力算定 ---
     else if (selectedBranch.key_stats) {
       selectedBranch.key_stats.forEach(key => {
-        // 位置ポイント判定
-        if (key === "position" || key === "position_x2") {
-          let posScore = h.positionScore; // 基本: 先頭=16pt 〜 最後方=1pt
-
-          // 位置補正タイプの処理
-          if (selectedBranch.position_bonus_type === "direct_asc") {
-            // ダイレクト昇順（先頭=1pt, 5番手=5pt, 16番手=16pt）
-            posScore = h.positionRank;
-          } else if (selectedBranch.position_bonus_type === "direct_desc") {
-            // ダイレクト降順（先頭=16pt ...）
-            posScore = 17 - h.positionRank;
-          } else {
-            // 従来互換
-            if (selectedBranch.name.includes("前崩れ")) posScore = 17 - h.positionScore;
-            else if (selectedBranch.name.includes("前残り")) posScore = h.positionScore;
-          }
-
-          const multiplier = (key === "position_x2") ? 2 : 1;
-          posAddPt = posScore * multiplier;
-
-          paramScore += posAddPt;
-          detailParts.push(`位置:${posAddPt}`);
-        } 
-        else if (key === "potential" || key === "current_potential") {
+        if (key === "potential" || key === "current_potential") {
           const val = h.current_potential || h.potential || 0;
           paramScore += val;
-          detailParts.push(`ポテンシャル:${val}`);
-        } 
-        else if (key === "guts_x2") {
-          const horseGuts = h.guts || 0;
-          const stratGuts = h.strat_guts || 0;
-          const gutsTotal = horseGuts + (stratGuts * 2);
-
-          paramScore += gutsTotal;
-          detailParts.push(`根性(馬:${horseGuts}+作x2:${stratGuts * 2})`);
-        } 
-        else {
+          detailParts.push(`ポテ:${val}`);
+        } else {
           const horseStat = h[key] || 0;
           const stratStat = h[`strat_${key}`] || 0;
           const totalStat = horseStat + stratStat;
 
           paramScore += totalStat;
-          detailParts.push(`${key}(馬:${horseStat}+作:${stratStat})`);
+          
+          let statNameJa = key;
+          if (key === 'speed') statNameJa = 'SPD';
+          else if (key === 'stamina') statNameJa = 'STM';
+          else if (key === 'sharp') statNameJa = '瞬発';
+          else if (key === 'jizoku') statNameJa = '持続';
+          else if (key === 'guts') statNameJa = '根性';
+          
+          detailParts.push(`${statNameJa}:${totalStat}`);
         }
       });
     }
 
-    // --- C. 脚質ボーナス (style_bonus) 加算 ---
+    // --- C. 位置ボーナス処理（マスター仕様変更に対応） ---
+    if (selectedBranch.position_bonus_type) {
+      if (selectedBranch.position_bonus_type === "direct_asc") {
+        // ダイレクト昇順（先頭=1pt, 16番手=16pt -> 差し・追込有利）
+        posAddPt = h.positionRank; 
+      } else if (selectedBranch.position_bonus_type === "direct_desc") {
+        // ダイレクト降順（先頭=16pt, 16番手=1pt -> 逃げ・先行有利）
+        posAddPt = 17 - h.positionRank; 
+      }
+      paramScore += posAddPt;
+    }
+
+    // --- D. 脚質ボーナス (style_bonus) 加算 ---
     if (selectedBranch.style_bonus) {
       const currentStyle = h.style || h.running_style || h.tactic || "";
       if (selectedBranch.style_bonus[currentStyle]) {
         styleBonusPt = selectedBranch.style_bonus[currentStyle];
         paramScore += styleBonusPt;
-        detailParts.push(`脚質[${currentStyle}]:+${styleBonusPt}`);
       }
     }
 
@@ -174,31 +169,41 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
     h.random_diff = randScore;
     h.finalScore = paramScore + randScore + levelScore;
 
+    // --- 詳細テキストの見やすいフォーマット化 ---
     const statDetailStr = detailParts.join("+");
-    if (posAddPt > 0) {
-      h.detailText = `位置:${posAddPt} + 展開:${paramScore - posAddPt}[${statDetailStr}] + Lv:${levelScore} + 乱:${randScore.toFixed(1)}`;
-    } else {
-      h.detailText = `展開:${paramScore}[${statDetailStr}] + Lv:${levelScore} + 乱:${randScore.toFixed(1)}`;
-    }
+    let scoreBreakdown = `展開:${paramScore - posAddPt - styleBonusPt}[${statDetailStr}]`;
+    if (posAddPt > 0) scoreBreakdown = `位置:+${posAddPt} | ${scoreBreakdown}`;
+    if (styleBonusPt > 0) scoreBreakdown = `${scoreBreakdown} | 脚質:+${styleBonusPt}`;
+    
+    h.detailText = `${scoreBreakdown} | Lv:+${levelScore} | 乱:+${randScore.toFixed(1)}`;
   });
 
-  // タイブレーク処理
-  const tieKeys = raceMasterData.tie_breakers || ['speed', 'stamina', 'guts'];
+  // タイブレーク処理（新規マスター項目の完全対応）
+  const tieKeys = raceMasterData.tie_breakers || [];
   horses.sort((a, b) => {
-    if (Math.abs(b.finalScore - a.finalScore) > 0.1) return b.finalScore - a.finalScore;
+    if (Math.abs(b.finalScore - a.finalScore) > 0.0001) return b.finalScore - a.finalScore;
     
     for (let tieKey of tieKeys) {
-      let key = tieKey.replace(/^[0-9]+\.\s*/, '').replace(/\s*\([a-z_]+\)/, '').trim();
-      if (tieKey.includes('(guts)')) key = 'guts';
-      else if (tieKey.includes('(potential)')) key = 'potential';
-      else if (tieKey.includes('(tactic_level)')) key = 'level';
-      else if (tieKey.includes('(sharp)')) key = 'sharp';
-      else if (tieKey.includes('(jizoku)')) key = 'jizoku';
-      else if (tieKey.includes('(speed)')) key = 'speed';
-      else if (tieKey.includes('(stamina)')) key = 'stamina';
+      let key = null;
+      if (tieKey.includes('guts')) key = 'guts';
+      else if (tieKey.includes('potential')) key = 'potential';
+      else if (tieKey.includes('tactic_level')) key = 'level';
+      else if (tieKey.includes('sharp')) key = 'sharp';
+      else if (tieKey.includes('jizoku')) key = 'jizoku';
+      else if (tieKey.includes('speed')) key = 'speed';
+      else if (tieKey.includes('stamina')) key = 'stamina';
+      else if (tieKey.includes('パワー')) key = 'power';
+      else if (tieKey.includes('乱数差')) key = 'random_diff';
+      else if (tieKey.includes('ID')) key = 'horse_id';
+      else if (tieKey.includes('五十音')) key = 'name';
 
-      if (a[key] !== undefined && b[key] !== undefined && a[key] !== b[key]) {
-        return typeof a[key] === "number" ? b[key] - a[key] : String(b[key]).localeCompare(String(a[key]));
+      if (key && a[key] !== undefined && b[key] !== undefined && a[key] !== b[key]) {
+         if (typeof a[key] === "number") {
+             return b[key] - a[key]; // 数値は降順（大きい方が勝ち）
+         } else {
+             // 文字列（ID, 五十音）は昇順（若い・あ行が勝ち）
+             return String(a[key]).localeCompare(String(b[key]));
+         }
       }
     }
     return 0;
