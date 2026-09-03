@@ -416,10 +416,293 @@
         if (isUsed) {
           tr.className = 'used-row';
           tr.style.opacity = '0.4';
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { doc, getDoc, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  // ▼ カットイン演出用モジュールとカードレンダラーをインポート
+  import { playFourthCornerCutIn } from './login_bonus.js';
+  import { cardRenderer } from './card_renderer.js';
+
+  let currentUser = null;
+  let globalUserData = {};
+  let SERIES_MASTER = [];
+  let HORSES_MASTER = {};
+  let HORSES_ARRAY = [];
+  let selectedSeries = null;
+  let selectedDeckIndex = 0;
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { window.location.href = 'auth.html'; return; }
+    currentUser = user;
+    try {
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) {
+        globalUserData = userDoc.data();
+      }
+
+      // レンダラーの初期化
+      await cardRenderer.init().catch(e => console.warn("Renderer init error:", e));
+
+      const [resSeries, resHorses] = await Promise.all([ fetch('./data/series_master.json'), fetch('./data/horses_master.json') ]);
+      if (resSeries.ok) SERIES_MASTER = await resSeries.json();
+      if (resHorses.ok) {
+        HORSES_ARRAY = await resHorses.json();
+        HORSES_ARRAY.forEach(h => HORSES_MASTER[h.horse_id] = h);
+      }
+      
+      document.getElementById('syncStatus').textContent = "✅";
+      checkBattleStatus();
+    } catch (err) {
+      console.error("初期化エラー:", err);
+      document.getElementById('syncStatus').textContent = "❌ 接続失敗";
+    }
+  });
+
+  async function checkBattleStatus() {
+    let status = globalUserData.cpu_battle_status;
+
+    if (status && status.is_active) {
+      if (status.series_wins >= 3) {
+        await handleGameEnd(status, true);
+        return;
+      } else if (status.series_losses >= 3 || status.current_round > 5) {
+        await handleGameEnd(status, false);
+        return;
+      }
+    }
+
+    await initBattle(status);
+  }
+
+  async function handleGameEnd(status, isClear) {
+    const modal = document.getElementById('resultModal');
+    const title = document.getElementById('modalTitle');
+    const desc = document.getElementById('modalDesc');
+    const rewardBox = document.getElementById('rewardBox');
+    
+    if (isClear) {
+      title.textContent = "🎉 CHALLENGE CLEAR!";
+      title.className = "modal-title title-clear";
+      desc.innerHTML = `おめでとうございます！3勝を達成しました！<br>（累計1着回数: ${status.total_1st_places || 0}回）`;
+      
+      let pool = HORSES_ARRAY;
+      const rewardHorse = pool[Math.floor(Math.random() * pool.length)];
+
+      document.getElementById('rewardHorseName').textContent = rewardHorse.name;
+      document.getElementById('rewardRarity').textContent = `ポテンシャル: ${rewardHorse.potential || rewardHorse.pt || '-'}`;
+      rewardBox.style.display = "block";
+
+      // 1. インベントリへ報酬保存
+      try {
+        const invRef = doc(db, `users/${currentUser.uid}/inventory/${rewardHorse.horse_id}`);
+        await setDoc(invRef, {
+          count: increment(1),
+          obtained_at: new Date().toISOString()
+        }, { merge: true });
+      } catch (err) { console.error("報酬保存エラー:", err); }
+
+      // 2. 🎁 ボーナスカードカットイン演出を再生（画面全面に表示）
+      try {
+        await playFourthCornerCutIn(rewardHorse, cardRenderer);
+      } catch (err) {
+        console.error("カットイン再生エラー:", err);
+      }
+
+    } else {
+      title.textContent = "💥 GAME OVER";
+      title.className = "modal-title title-over";
+      desc.textContent = "チャレンジ終了となりました。";
+      rewardBox.style.display = "none";
+    }
+
+    try {
+      const updatedStatus = { ...status, is_active: false, current_match: null };
+      await setDoc(doc(db, "users", currentUser.uid), { 
+        cpu_battle_status: updatedStatus 
+      }, { merge: true });
+      globalUserData.cpu_battle_status = updatedStatus;
+    } catch (err) {
+      console.error("ゲーム終了ステータス保存エラー:", err);
+    }
+    
+    // 演出終了後にモーダルを表示
+    modal.style.display = "flex";
+  }
+
+  window.closeModalAndReset = function() {
+    window.location.href = 'index.html'; 
+  };
+
+  async function initBattle(status) {
+    if (!status || !status.is_active) {
+      const shuffledSeries = [...SERIES_MASTER].sort(() => 0.5 - Math.random());
+      const lineup = shuffledSeries.slice(0, 5).map(s => s.series_id);
+      
+      status = { 
+        is_active: true, 
+        current_round: 1, 
+        series_lineup: lineup, 
+        selected_series_id: lineup[0] || "",
+        selected_deck_index: 0,
+        series_wins: 0, 
+        series_losses: 0, 
+        total_1st_places: 0, 
+        used_cards_history: [],
+        current_match: null
+      };
+
+      try {
+        await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status }, { merge: true });
+        globalUserData.cpu_battle_status = status;
+      } catch (err) {
+        console.error("初期データ保存エラー:", err);
+        alert("初期データの作成に失敗しました。再読み込みしてください。");
+        return;
+      }
+    }
+
+    if (typeof status.selected_deck_index === 'number') {
+      selectedDeckIndex = status.selected_deck_index;
+      selectDeck(selectedDeckIndex);
+    }
+
+    document.getElementById('winCount').textContent = status.series_wins || 0;
+    document.getElementById('lossCount').textContent = status.series_losses || 0;
+    document.getElementById('winLossHeader').style.display = 'block';
+
+    const currentSeriesId = status.series_lineup[status.current_round - 1];
+    selectedSeries = SERIES_MASTER.find(s => s.series_id === currentSeriesId) || SERIES_MASTER[0];
+
+    document.getElementById('seriesTitle').textContent = `【第${status.current_round}回戦】${selectedSeries.series_name}`;
+    document.getElementById('maxTotalPotentialVal').textContent = selectedSeries.potential_limit.max_total_potential;
+    document.getElementById('minPotentialVal').textContent = `${selectedSeries.potential_limit.min_potential_per_race}以上`;
+
+    const races = selectedSeries.rounds[0].races;
+    const raceListEl = document.getElementById('raceList');
+    raceListEl.innerHTML = races.map(r => {
+      const surfaceClass = r.surface === '芝' ? 'surface-turf' : 'surface-dirt';
+      return `
+        <div class="race-item">
+          <span class="race-num">第${r.race_num}戦</span>
+          <span class="race-name">${r.race_name}</span>
+          <span class="race-cond">
+            <span class="surface-badge ${surfaceClass}">${r.surface}</span>
+            ${r.track} ${r.distance}m
+          </span>
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('challengePanel').style.display = 'block';
+    document.getElementById('deckPanel').style.display = 'flex';
+    document.getElementById('btnStart').style.display = 'block';
+    
+    renderDeckTable();
+  }
+
+  window.selectDeck = function(idx) {
+    selectedDeckIndex = idx;
+    document.getElementById('deckCard0').classList.toggle('selected', idx === 0);
+    document.getElementById('deckCard1').classList.toggle('selected', idx === 1);
+    renderDeckTable();
+  };
+
+  // ─── 馬データ解析用ヘルパー ───
+  function getTurfVal(horse) {
+    if (!horse) return 0;
+    if (horse.turf_potential !== undefined && horse.turf_potential !== null) return Number(horse.turf_potential) || 0;
+    if (typeof horse.turf === 'number') return horse.turf;
+    if (typeof horse.turf === 'boolean') return horse.turf ? 1 : 0;
+    return 0;
+  }
+
+  function getDirtVal(horse) {
+    if (!horse) return 0;
+    if (horse.dirt_potential !== undefined && horse.dirt_potential !== null) return Number(horse.dirt_potential) || 0;
+    if (typeof horse.dirt === 'number') return horse.dirt;
+    if (typeof horse.dirt === 'boolean') return horse.dirt ? 1 : 0;
+    return 0;
+  }
+
+  function getPotentialVal(horse) {
+    if (!horse) return 0;
+    if (horse.total_potential !== undefined && horse.total_potential !== null) return horse.total_potential;
+    if (horse.potential !== undefined && horse.potential !== null) return horse.potential;
+    if (horse.pt !== undefined && horse.pt !== null) return horse.pt;
+    
+    const t = getTurfVal(horse);
+    const d = getDirtVal(horse);
+    return Math.max(t, d);
+  }
+
+  function getSurfaceText(horse) {
+    if (!horse) return '-';
+    const t = getTurfVal(horse);
+    const d = getDirtVal(horse);
+    
+    if (t > 0 && d > 0) return `芝${t}/ダ${d}`;
+    if (t > 0) return `芝${t}`;
+    if (d > 0) return `ダ${d}`;
+    
+    if (horse.surface) return horse.surface;
+    return '-';
+  }
+
+  function getDistanceText(horse) {
+    if (!horse) return '-';
+
+    let minD = horse.min_distance ?? horse.min_dist ?? horse.aptitude?.min_distance;
+    let maxD = horse.max_distance ?? horse.max_dist ?? horse.aptitude?.max_distance;
+
+    if (minD !== undefined && maxD !== undefined && minD !== null && maxD !== null && minD !== '' && maxD !== '') {
+      minD = Number(minD);
+      maxD = Number(maxD);
+      if (!isNaN(minD) && !isNaN(maxD)) {
+        return minD === maxD ? `${minD}m` : `${minD}-${maxD}m`;
+      }
+    }
+
+    const distVal = horse.distance ?? horse.dist;
+    if (distVal !== undefined && distVal !== null && distVal !== '') {
+      if (Array.isArray(distVal)) {
+        if (distVal.length === 0) return '-';
+        const min = Math.min(...distVal);
+        const max = Math.max(...distVal);
+        return min === max ? `${min}m` : `${min}-${max}m`;
+      }
+      const distStr = String(distVal).trim();
+      if (distStr.endsWith('m')) return distStr;
+      return `${distStr}m`;
+    }
+
+    return '-';
+  }
+
+  function getHorseLegStyle(horse) {
+    if (!horse) return '-';
+    return horse.style || horse.running_style || horse.leg_style || horse.strategy || '-';
+  }
+
+  function renderDeckTable() {
+    const tbody = document.getElementById('deckHorseList');
+    tbody.innerHTML = '';
+    const usedCards = globalUserData.cpu_battle_status?.used_cards_history || [];
+    const deck = (globalUserData.decks || [])[selectedDeckIndex] || { horse_ids: [] };
+
+    for (let i = 0; i < 18; i++) {
+      const horse = HORSES_MASTER[deck.horse_ids[i]];
+      const tr = document.createElement('tr');
+      const frameNum = i + 1;
+
+      if (horse) {
+        const isUsed = usedCards.includes(horse.horse_id) || usedCards.includes(horse.name);
+        if (isUsed) {
+          tr.className = 'used-row';
+          tr.style.opacity = '0.4';
         }
 
         const sex = horse.sex || '牡馬';
-        const potential = getPotentialVal(horse);
         const surface = getSurfaceText(horse);
         const dist = getDistanceText(horse);
         const leg = getHorseLegStyle(horse);
@@ -489,5 +772,6 @@
     }
   };
 </script>
+
 </body>
 </html>
