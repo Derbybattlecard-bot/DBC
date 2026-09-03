@@ -510,7 +510,6 @@ function setupRace(rIdx) {
   let initialPositions = activeHorses.map(() => 0);
   setPhasePositions(initialPositions, 0, "linear", currentTrackConfig.phase1_3_dir); 
 }
-
 function getKana3(name) {
   if (!name) return 'ダミ';
   const kanaOnly = name.replace(/[^\u30A0-\u30FF]/g, '');
@@ -588,12 +587,12 @@ async function startRace() {
   currentRacePace = raceResultData.pace;
   currentRaceBranch = raceResultData.branch.name;
 
+  // 計算式UIの表示修正 (マスター仕様変更に伴うポテンシャル・ボーナス表記の追加)
   if (raceResultData.branch.formula) {
     currentRaceFormulaStr = raceResultData.branch.formula;
   } else if (raceResultData.branch.key_stats) {
     currentRaceFormulaStr = raceResultData.branch.key_stats.map(k => {
-      if (k === "position_x2") return "位置スコア×2";
-      if (k === "guts_x2") return "根性×2";
+      if (k === "potential") return "ポテンシャル";
       if (k === "speed") return "スピード";
       if (k === "stamina") return "スタミナ";
       if (k === "sharp") return "瞬発";
@@ -601,9 +600,19 @@ async function startRace() {
       if (k === "guts") return "根性";
       if (k === "power") return "パワー";
       return k;
-    }).join(" + ");
+    }).join(" ＋ ");
   } else {
     currentRaceFormulaStr = "標準評価算定";
+  }
+
+  // 位置や脚質のボーナスがある場合は式テキストに追記してわかりやすく
+  if (raceResultData.branch.position_bonus_type === "direct_asc") {
+    currentRaceFormulaStr += " ＋ 位置ボーナス(後方有利)";
+  } else if (raceResultData.branch.position_bonus_type === "direct_desc") {
+    currentRaceFormulaStr += " ＋ 位置ボーナス(前方有利)";
+  }
+  if (raceResultData.branch.style_bonus) {
+    currentRaceFormulaStr += " ＋ 脚質ボーナス";
   }
 
   // 2. 結果レコードの生成とFirebase進捗保存
@@ -767,14 +776,14 @@ function renderResults(scoredList) {
 
     let detailText = "";
     if (item.detailText) {
-      detailText = item.detailText;
+      detailText = item.detailText; // 計算器からのフォーマット済み文字列を利用
     } else {
       const posPt = item.posScore !== undefined ? item.posScore : (item.positionPoint || 0);
       const branchPt = item.branchScore !== undefined ? item.branchScore : 0;
       const lvPt = item.levelScore !== undefined ? item.levelScore : (item.level || 0);
       const randPt = item.randScore !== undefined ? Number(item.randScore).toFixed(1) : "0.0";
       
-      detailText = `位置:${posPt} + 展開:${branchPt} + Lv:${lvPt} + 乱:${randPt}`;
+      detailText = `位置:${posPt} | 展開:${branchPt} | Lv:${lvPt} | 乱:${randPt}`;
     }
 
     tbody.innerHTML += `
