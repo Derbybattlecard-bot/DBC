@@ -879,12 +879,12 @@ window.goToNextSeries = async function() {
   const p1stCount = seriesHistory.filter(h => h.pRank === 1).length;
   const updatedTotal1st = (status.total_1st_places || 0) + p1stCount;
 
-  // 勝敗決着（3勝・3敗・5ラウンド消化）の判定
+  // 勝敗決着の判定
   const isChallengeFinished = (newWins >= 3 || newLosses >= 3 || newRound > 5);
 
   const updatedCpuBattleStatus = {
     ...status,
-    is_active: !isChallengeFinished,
+    is_active: !isChallengeFinished, // 決着時は inactive にする（battle.htmlの判定で使用）
     series_wins: newWins,
     series_losses: newLosses,
     current_round: newRound,
@@ -898,21 +898,19 @@ window.goToNextSeries = async function() {
       cpu_battle_status: updatedCpuBattleStatus
     }, { merge: true });
 
-    // チャレンジ決着時は index.html、ラウンド継続時は battle.html へ遷移
-    if (isChallengeFinished) {
-      window.location.href = 'index.html';
-    } else {
-      window.location.href = 'battle.html';
-    }
+    // 決着がついたかどうかに関わらず、常に battle.html へ移動する
+    window.location.href = 'battle.html';
+
   } catch (err) {
     console.error("結果保存エラー:", err);
     alert("通信エラーが発生しました。");
     if (btn) {
       btn.disabled = false;
-      btn.textContent = isChallengeFinished ? "🏠 ホーム画面へ戻る" : "🔄 次のお題を選択する";
+      btn.textContent = "次へ進む";
     }
   }
 };
+
 </script>
 </body>
 </html>
