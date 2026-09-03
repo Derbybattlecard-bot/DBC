@@ -304,7 +304,6 @@
     return horse.running_style || horse.leg_style || horse.style || horse.strategy || '先行';
   }
 
-  // 馬の得意脚質に一致するカテゴリの「最上部にある作戦名」を取得するヘルパー関数
   function getDefaultStrategyForStyle(style) {
     if (!style) return null;
     const s = String(style);
@@ -360,7 +359,6 @@
       const pPt = getHorsePt(pHorse, race.surface);
       const pStyle = getHorseStyle(pHorse);
 
-      // 脚質に応じた初期作戦を取得・設定（手動変更前の場合）
       const defaultStrat = getDefaultStrategyForStyle(pStyle);
       if (!pEntry.isCustomized) {
         pEntry.strategy = defaultStrat || pEntry.strategy || "好位";
@@ -411,14 +409,14 @@
 
       let gridRowsHtml = `
         <tr class="row-player">
-          <td>1</td>
+          <td>-</td>
           <td style="text-align:left;">${pHorse.name || '未設定'} (自馬)</td>
           <td>${pHorse.sex || '牡'}</td>
           <td>${pPt}</td>
           <td>${pStyle}</td>
         </tr>
         <tr class="row-cpu">
-          <td>2</td>
+          <td>-</td>
           <td style="text-align:left;">${cpuHorse.name || 'CPU'} (ライバル)</td>
           <td>${cpuHorse.sex || '牡'}</td>
           <td>${cpuPt}</td>
@@ -426,11 +424,11 @@
         </tr>
       `;
 
-      mobIds.forEach((mId, mIdx) => {
+      mobIds.forEach((mId) => {
         const mHorse = HORSES_MASTER[String(mId)] || {};
         gridRowsHtml += `
           <tr>
-            <td>${mIdx + 3}</td>
+            <td>-</td>
             <td style="text-align:left;">${mHorse.name || 'モブ馬'}</td>
             <td>${mHorse.sex || '牡'}</td>
             <td>${getHorsePt(mHorse, race.surface)}</td>
@@ -461,11 +459,12 @@
         </div>
 
         <details class="race-grid-toggle">
-          <summary class="race-grid-summary">📋 出走表（全16頭）を確認する</summary>
+          <summary class="race-grid-summary">📋 出走メンバー（全16頭）を確認する</summary>
+          <div style="padding: 4px 6px; font-size: 10px; color: #666;">※馬番（枠順）は「レースへ進む！」押下時にランダム決定されます。</div>
           <table class="race-grid-table">
             <thead>
               <tr>
-                <th>仮番</th>
+                <th>馬番</th>
                 <th>馬名</th>
                 <th>性</th>
                 <th>Pt</th>
@@ -490,7 +489,7 @@
 
     playerEntries[rIdx].strategy = stratVal;
     playerEntries[rIdx].strategy_level = levelVal;
-    playerEntries[rIdx].isCustomized = true; // 手動変更フラグを立てる
+    playerEntries[rIdx].isCustomized = true;
 
     updateTotalStatus();
   };
@@ -526,6 +525,7 @@
     }
   }
 
+  // 1〜16番の馬番（枠順）を重複なくランダム抽出する関数
   function generateRandomGates(mobCount = 14) {
     const numbers = Array.from({ length: 16 }, (_, i) => i + 1);
     for (let i = numbers.length - 1; i > 0; i--) {
@@ -550,37 +550,49 @@
       const currentStatus = globalUserData.cpu_battle_status || {};
       const currentMatch = currentStatus.current_match || {};
 
+      const finalPlayerEntries = [];
+      const finalCpuEntries = [...cpuEntries];
       const racesMobGates = {};
 
-      const finalPlayerEntries = playerEntries.map((pEntry, rIdx) => {
+      // 各レース（全5戦）ごとに馬番を抽選・付与
+      for (let rIdx = 0; rIdx < playerEntries.length; rIdx++) {
+        const pEntry = playerEntries[rIdx] || {};
         const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
         const gates = generateRandomGates(mobIds.length);
 
-        if (cpuEntries[rIdx]) {
-          cpuEntries[rIdx].gate_number = gates.cpuGate;
-        }
-
-        racesMobGates[String(rIdx)] = gates.mobGates;
-
+        // 自馬の入力作戦を取得
         const stratSelect = document.getElementById(`selectStrat${rIdx}`);
         const levelSelect = document.getElementById(`selectLevel${rIdx}`);
         const finalStrat = stratSelect ? stratSelect.value : (pEntry.strategy || "先行");
         const finalLevel = levelSelect ? parseInt(levelSelect.value, 10) : (pEntry.strategy_level || 3);
 
-        return {
+        // 自馬に馬番を付与
+        finalPlayerEntries.push({
           ...pEntry,
           strategy: finalStrat,
           strategy_level: finalLevel,
           gate_number: gates.playerGate
-        };
-      });
+        });
+
+        // CPU馬に馬番を付与
+        if (finalCpuEntries[rIdx]) {
+          finalCpuEntries[rIdx] = {
+            ...finalCpuEntries[rIdx],
+            gate_number: gates.cpuGate
+          };
+        }
+
+        // モブ馬の馬番配列を保存（配列/オブジェクト両キーで安全保持）
+        racesMobGates[rIdx] = gates.mobGates;
+        racesMobGates[String(rIdx)] = gates.mobGates;
+      }
 
       const updatedStatus = {
         ...currentStatus,
         current_match: {
           ...currentMatch,
           player_entries: finalPlayerEntries,
-          cpu_entries: cpuEntries,
+          cpu_entries: finalCpuEntries,
           races_mob_gates: racesMobGates
         }
       };
