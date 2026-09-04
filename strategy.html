@@ -553,7 +553,7 @@
       const finalPlayerEntries = [];
       const finalCpuEntries = [...cpuEntries];
       const racesMobGates = {};
-      const fullRaceGrids = [];
+      const fullRaceGrids = {}; // ★ Firestore制約回避のため、2次元配列ではなくオブジェクト化
 
       // 各レース（全5戦）ごとに馬番を抽選・付与し、枠順順にソートして保存
       for (let rIdx = 0; rIdx < playerEntries.length; rIdx++) {
@@ -609,7 +609,7 @@
           });
         }
 
-       // 3. モブ馬
+         // 3. モブ馬
         mobIds.forEach((mId, mIdx) => {
           raceGrid.push({
             horse_id: mId,
@@ -621,7 +621,9 @@
         // 馬番（gate_number）の昇順（1番枠〜16番枠）にソート
         raceGrid.sort((a, b) => (a.gate_number || 0) - (b.gate_number || 0));
 
-        fullRaceGrids.push(raceGrid);
+        // インデックスをキーとして保存（2次元配列を回避）
+        fullRaceGrids[rIdx] = raceGrid;
+        fullRaceGrids[String(rIdx)] = raceGrid;
       }
 
       const updatedStatus = {
