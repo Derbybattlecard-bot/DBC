@@ -238,20 +238,22 @@
     }
   }
 
-  function getNormalizedCategory(s) {
+    function getNormalizedCategory(s) {
     if (!s) return "";
-    const c = String(s.category || s.category_name || "");
+    const c = String(s.group || s.category || s.category_name || "");
+    
     if (c.includes("東西")) return "古馬東西";
     if (c.includes("地方")) return "地方交流";
     if (c.includes("クラシック")) return "クラシック";
     if (c.includes("王道")) return "古馬王道";
     if (c.includes("ローカル")) return "ローカル";
-    if (c.includes("海外") && (c.includes("チャレ") || c.includes("連携"))) return "海外チャレンジ";
-    if (c.includes("海外") && c.includes("単独")) return "海外単独";
-    if (c.includes("海外")) return "海外チャレンジ";
+    if (c.includes("海外単独")) return "海外単独";
+    if (c.includes("海外チャレンジ")) return "海外チャレンジ";
     if (c.includes("トリビュート") || c.includes("メモリアル")) return "トリビュート";
+    
     return c;
   }
+
 
   function getSeriesNo(s) {
     if (!s) return 1;
@@ -287,9 +289,19 @@
         globalUserData = userDoc.data();
       }
 
-      SERIES_MASTER = await fetchJsonSafely('./data/series_master.json');
+    SERIES_MASTER = await fetchJsonSafely('./data/series_master.json');
       HORSES_ARRAY = await fetchJsonSafely('./data/horses_master.json');
       
+      // ▼▼ ここから追加 ▼▼
+      const catCounters = {};
+      SERIES_MASTER.forEach(s => {
+        const cat = getNormalizedCategory(s);
+        if (!catCounters[cat]) catCounters[cat] = 0;
+        catCounters[cat]++;
+        s.series_no = catCounters[cat];
+      });
+      // ▲▲ ここまで追加 ▲▲
+
       if (Array.isArray(HORSES_ARRAY)) {
         HORSES_ARRAY.forEach(h => HORSES_MASTER[h.horse_id] = h);
       } else {
