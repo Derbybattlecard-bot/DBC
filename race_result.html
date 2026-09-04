@@ -399,7 +399,7 @@ function buildRaceGridsFromFirebase() {
 
     // 3. モブ馬 (14頭)
     const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
-    const mobGates = racesMobGates[rIdx] || [];
+    const mobGates = racesMobGates[rIdx] || racesMobGates[String(rIdx)] || [];
 
     mobIds.forEach((mobId, mIdx) => {
       const mobMaster = HORSES_MASTER[mobId] || { name: "モブ馬", horse_id: mobId };
@@ -416,6 +416,9 @@ function buildRaceGridsFromFirebase() {
         gate_number: mobGate
       });
     });
+
+    // ★ 馬番（gate_number）の昇順（1番枠〜16番枠）に並べ替えて格納
+    grid.sort((a, b) => (a.gate_number || 0) - (b.gate_number || 0));
 
     fullRaceGrids.push(grid);
   }
@@ -505,11 +508,12 @@ function setupRace(rIdx) {
   document.getElementById('goal-flag').style.display = "none";
   renderLanes();
 
-  // 初期配置
+ // 初期配置
   setHorseDirection(currentTrackConfig.phase1_3_dir);
   let initialPositions = activeHorses.map(() => 0);
   setPhasePositions(initialPositions, 0, "linear", currentTrackConfig.phase1_3_dir); 
 }
+
 function getKana3(name) {
   if (!name) return 'ダミ';
   const kanaOnly = name.replace(/[^\u30A0-\u30FF]/g, '');
@@ -522,10 +526,11 @@ function renderLanes() {
   lanes.innerHTML = "";
   activeHorses.forEach((h, i) => {
     let nameClass = h.isPlayer ? "p1-name" : (h.isCpu ? "p2-name" : "");
+    const gateNum = h.gate_number || (i + 1);
     lanes.innerHTML += `
       <div class="horse-lane">
         <div class="horse-icon" id="horse-icon-${i}" style="left: 10px;">
-          <span class="horse-emoji" id="emoji-${i}">🏇</span><span class="${nameClass}">${getKana3(h.name)}</span>
+          <span class="horse-emoji" id="emoji-${i}">🏇</span><span class="${nameClass}">${gateNum}.${getKana3(h.name)}</span>
         </div>
       </div>`;
   });
