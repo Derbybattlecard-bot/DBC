@@ -553,8 +553,9 @@
       const finalPlayerEntries = [];
       const finalCpuEntries = [...cpuEntries];
       const racesMobGates = {};
+      const fullRaceGrids = [];
 
-      // 各レース（全5戦）ごとに馬番を抽選・付与
+      // 各レース（全5戦）ごとに馬番を抽選・付与し、枠順順にソートして保存
       for (let rIdx = 0; rIdx < playerEntries.length; rIdx++) {
         const pEntry = playerEntries[rIdx] || {};
         const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
@@ -566,25 +567,61 @@
         const finalStrat = stratSelect ? stratSelect.value : (pEntry.strategy || "先行");
         const finalLevel = levelSelect ? parseInt(levelSelect.value, 10) : (pEntry.strategy_level || 3);
 
-        // 自馬に馬番を付与
-        finalPlayerEntries.push({
+        // 自馬データ作成
+        const updatedPlayerEntry = {
           ...pEntry,
           strategy: finalStrat,
           strategy_level: finalLevel,
           gate_number: gates.playerGate
-        });
+        };
+        finalPlayerEntries.push(updatedPlayerEntry);
 
-        // CPU馬に馬番を付与
+        // CPU馬データ作成
+        let updatedCpuEntry = null;
         if (finalCpuEntries[rIdx]) {
-          finalCpuEntries[rIdx] = {
+          updatedCpuEntry = {
             ...finalCpuEntries[rIdx],
             gate_number: gates.cpuGate
           };
+          finalCpuEntries[rIdx] = updatedCpuEntry;
         }
 
-        // モブ馬の馬番配列を保存（配列/オブジェクト両キーで安全保持）
+        // モブ馬の馬番配列を保存
         racesMobGates[rIdx] = gates.mobGates;
         racesMobGates[String(rIdx)] = gates.mobGates;
+
+        // 16頭の全馬データを1つの配列にまとめ、馬番順（1〜16）にソートする
+        const raceGrid = [];
+
+        // 1. 自馬
+        raceGrid.push({
+          ...updatedPlayerEntry,
+          isPlayer: true,
+          type: 'player'
+        });
+
+        // 2. CPU馬
+        if (updatedCpuEntry) {
+          raceGrid.push({
+            ...updatedCpuEntry,
+            isCpu: true,
+            type: 'cpu'
+          });
+        }
+
+       // 3. モブ馬
+        mobIds.forEach((mId, mIdx) => {
+          raceGrid.push({
+            horse_id: mId,
+            gate_number: gates.mobGates[mIdx],
+            type: 'mob'
+          });
+        });
+
+        // 馬番（gate_number）の昇順（1番枠〜16番枠）にソート
+        raceGrid.sort((a, b) => (a.gate_number || 0) - (b.gate_number || 0));
+
+        fullRaceGrids.push(raceGrid);
       }
 
       const updatedStatus = {
@@ -593,7 +630,8 @@
           ...currentMatch,
           player_entries: finalPlayerEntries,
           cpu_entries: finalCpuEntries,
-          races_mob_gates: racesMobGates
+          races_mob_gates: racesMobGates,
+          full_race_grids: fullRaceGrids
         }
       };
 
