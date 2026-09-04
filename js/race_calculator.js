@@ -1,4 +1,4 @@
-ほ// js/race_calculator.js
+// js/race_calculator.js
 
 // 1. ステータス箱の生成（計算専用コピー）
 function createRaceHorseInstance(horse, raceInfo) {
@@ -11,7 +11,7 @@ function createRaceHorseInstance(horse, raceInfo) {
 
   instance.current_potential = isTurf ? turfPot : dirtPot;
 
-   // ダート出走時、ダートのポテンシャルが芝より高い場合のみ差分を加算
+  // ダート出走時、ダートのポテンシャルが芝より高い場合のみ差分を加算
   if (!isTurf) {
     const potDiff = dirtPot - turfPot;
     if (potDiff > 0) {
@@ -22,7 +22,6 @@ function createRaceHorseInstance(horse, raceInfo) {
       instance.guts = (instance.guts || 0) + potDiff;
     }
   }
-
 
   const levelVal = horse.level || 1;
   const matchedStrat = horse.stratObj;
@@ -36,7 +35,6 @@ function createRaceHorseInstance(horse, raceInfo) {
 
   return instance;
 }
-
 
 // 2. 位置取り・隊列計算（1番手〜16番手判定）
 function calculatePositions(horses) {
@@ -133,7 +131,7 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
       
       detailParts.push(`${statNameJa}:${totalStat}`);
     } 
-       // --- B. 標準・キー能力算定 ---
+    // --- B. 標準・キー能力算定 ---
     else if (selectedBranch.key_stats) {
       selectedBranch.key_stats.forEach(key => {
         if (key === "potential" || key === "current_potential") {
@@ -159,38 +157,32 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
       });
     }
 
-    // ★【追加】力比べの展開時の全馬ベースアップ補正（+70pt）
+    // 力比べの展開時の全馬ベースアップ補正（+70pt）
     if (selectedBranch.name === "力比べの展開") {
       paramScore += 70;
       detailParts.push("力比べ:70");
     }
 
-    // --- C. 位置ボーナス処理（マスター仕様変更に対応） ---
-
-
-    // --- C. 位置ボーナス処理（マスター仕様変更に対応） ---
+    // --- C. 位置ボーナス処理 ---
     if (selectedBranch.position_bonus_type) {
       if (selectedBranch.position_bonus_type === "direct_asc") {
-        // ダイレクト昇順（先頭=1pt, 16番手=16pt -> 差し・追込有利）
         posAddPt = h.positionRank; 
       } else if (selectedBranch.position_bonus_type === "direct_desc") {
-        // ダイレクト降順（先頭=16pt, 16番手=1pt -> 逃げ・先行有利）
         posAddPt = 17 - h.positionRank; 
       }
       paramScore += posAddPt;
     }
 
-// --- D. 脚質ボーナス (style_bonus) 加算 ---
-if (selectedBranch.style_bonus) {
-  // 作戦オブジェクトの脚質(stratObj.style)、または馬に設定された作戦脚質を参照
-  const currentStyle = h.stratObj?.style || h.running_style || h.style || "";
-  
-  if (selectedBranch.style_bonus[currentStyle]) {
-    styleBonusPt = selectedBranch.style_bonus[currentStyle];
-    paramScore += styleBonusPt;
-  }
-}
-
+    // --- D. 脚質ボーナス (style_bonus) 加算 ---
+    if (selectedBranch.style_bonus) {
+      // 作戦オブジェクトの脚質のみを参照（馬本来の脚質への流出を防ぐ）
+      const currentStyle = h.stratObj?.style || h.stratObj?.running_style || h.tactic_style || "";
+      
+      if (selectedBranch.style_bonus[currentStyle]) {
+        styleBonusPt = selectedBranch.style_bonus[currentStyle];
+        paramScore += styleBonusPt;
+      }
+    }
 
     const levelScore = (h.level || 1) * 2;
     const randScore = Math.random() * 5;
@@ -207,7 +199,7 @@ if (selectedBranch.style_bonus) {
     h.detailText = `${scoreBreakdown} | Lv:+${levelScore} | 乱:+${randScore.toFixed(1)}`;
   });
 
-  // タイブレーク処理（新規マスター項目の完全対応）
+  // タイブレーク処理
   const tieKeys = raceMasterData.tie_breakers || [];
   horses.sort((a, b) => {
     if (Math.abs(b.finalScore - a.finalScore) > 0.0001) return b.finalScore - a.finalScore;
@@ -228,9 +220,8 @@ if (selectedBranch.style_bonus) {
 
       if (key && a[key] !== undefined && b[key] !== undefined && a[key] !== b[key]) {
          if (typeof a[key] === "number") {
-             return b[key] - a[key]; // 数値は降順（大きい方が勝ち）
+             return b[key] - a[key];
          } else {
-             // 文字列（ID, 五十音）は昇順（若い・あ行が勝ち）
              return String(a[key]).localeCompare(String(b[key]));
          }
       }
