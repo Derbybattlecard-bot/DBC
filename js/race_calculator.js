@@ -172,7 +172,9 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
 
 // --- D. 脚質ボーナス (style_bonus) 加算 ---
 if (selectedBranch.style_bonus) {
-  const currentStyle = h.tactic || h.style || h.running_style || ""; // ← 作戦の脚質を最優先に修正
+  // 作戦オブジェクトの脚質(stratObj.style)、または馬に設定された作戦脚質を参照
+  const currentStyle = h.stratObj?.style || h.running_style || h.style || "";
+  
   if (selectedBranch.style_bonus[currentStyle]) {
     styleBonusPt = selectedBranch.style_bonus[currentStyle];
     paramScore += styleBonusPt;
