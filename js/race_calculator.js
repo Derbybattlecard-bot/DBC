@@ -4,9 +4,24 @@
 function createRaceHorseInstance(horse, raceInfo) {
   const instance = JSON.parse(JSON.stringify(horse));
   const isTurf = raceInfo?.surface === '芝';
-  instance.current_potential = isTurf 
-    ? (horse.turf_potential || horse.potential) 
-    : (horse.dirt_potential || horse.potential);
+
+  // 芝・ダートそれぞれのポテンシャル取得
+  const turfPot = horse.turf_potential || horse.potential || 0;
+  const dirtPot = horse.dirt_potential || horse.potential || 0;
+
+  instance.current_potential = isTurf ? turfPot : dirtPot;
+
+  // ダート出走時、芝マスターデータとのポテンシャル差分を5パラメータに反映
+  if (!isTurf) {
+    const potDiff = dirtPot - turfPot;
+    if (potDiff !== 0) {
+      instance.speed = (instance.speed || 0) + potDiff;
+      instance.stamina = (instance.stamina || 0) + potDiff;
+      instance.sharp = (instance.sharp || 0) + potDiff;
+      instance.jizoku = (instance.jizoku || 0) + potDiff;
+      instance.guts = (instance.guts || 0) + potDiff;
+    }
+  }
 
   const levelVal = horse.level || 1;
   const matchedStrat = horse.stratObj;
@@ -20,6 +35,7 @@ function createRaceHorseInstance(horse, raceInfo) {
 
   return instance;
 }
+
 
 // 2. 位置取り・隊列計算（1番手〜16番手判定）
 function calculatePositions(horses) {
