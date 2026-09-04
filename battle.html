@@ -223,23 +223,6 @@
       max-width: 400px;
     }
 
-    .unlock-categories {
-      display: flex;
-      gap: 8px;
-      justify-content: center;
-      margin-bottom: 25px;
-    }
-
-    .cat-badge {
-      background: rgba(255, 255, 255, 0.15);
-      border: 1px solid #ffd700;
-      color: #fff;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 13px;
-      font-weight: bold;
-    }
-
     .btn-unlock-close {
       background: linear-gradient(135deg, #ffd700, #ffa000);
       color: #000;
@@ -297,19 +280,11 @@
   <button class="btn-start" id="btnStart" style="display: none;" onclick="goToMatchup()">出走登録へ進む</button>
 </div>
 
-<!-- ロック解除演出用オーバーレイ -->
+<!-- ロック解除演出用モーダル -->
 <div class="unlock-overlay" id="unlockOverlay" style="display: none;">
   <div class="unlock-icon">🔓</div>
-  <div class="unlock-title">SERIES UNLOCKED!</div>
-  <div class="unlock-desc" id="unlockDesc">
-    通算勝利数が目標に到達しました！<br>
-    各カテゴリの新たな対戦シリーズが開放されました！
-  </div>
-  <div class="unlock-categories">
-    <div class="cat-badge">🏛️ 古馬東西</div>
-    <div class="cat-badge">🗾 地方交流</div>
-    <div class="cat-badge">👑 クラシック</div>
-  </div>
+  <div class="unlock-title" id="unlockTitle">SERIES UNLOCKED!</div>
+  <div class="unlock-desc" id="unlockDesc"></div>
   <button class="btn-unlock-close" onclick="closeUnlockModal()">挑戦をはじめる</button>
 </div>
 
@@ -325,8 +300,85 @@
   let selectedSeries = null;
   let selectedDeckIndex = 0;
 
-  // 回戦カテゴリの定義順
-  const CATEGORY_ORDER = ["古馬東西", "地方交流", "クラシック", "古馬東西", "地方交流"];
+  // ロードマップ準拠：通算勝利数別解放ステージ定義
+  const UNLOCK_STAGES = [
+    { wins: 0, cat: "古馬東西", no: 1, desc: "初期カテゴリ（古馬東西 NO.1）" },
+    { wins: 0, cat: "地方交流", no: 1, desc: "初期カテゴリ（地方交流 NO.1）" },
+    { wins: 0, cat: "クラシック", no: 1, desc: "初期カテゴリ（クラシック NO.1）" },
+    { wins: 5, cat: "古馬東西", no: 2, desc: "古馬東西 NO.2" },
+    { wins: 10, cat: "地方交流", no: 2, desc: "地方交流 NO.2（回戦順ランダム化解禁）" },
+    { wins: 15, cat: "古馬王道", no: 1, desc: "「古馬王道」カテゴリ（NO.1）" },
+    { wins: 20, cat: "ローカル", no: 1, desc: "「ローカル」カテゴリ（NO.1）" },
+    { wins: 25, cat: "クラシック", no: 2, desc: "クラシック NO.2" },
+    { wins: 30, cat: "古馬東西", no: 3, desc: "古馬東西 NO.3（★5回戦マッチへ昇格！）" },
+    { wins: 35, cat: "古馬王道", no: 2, desc: "古馬王道 NO.2" },
+    { wins: 40, cat: "ローカル", no: 2, desc: "ローカル NO.2" },
+    { wins: 45, cat: "古馬東西", no: 4, desc: "古馬東西 NO.4" },
+    { wins: 50, cat: "海外チャレンジ", no: 1, desc: "「海外チャレンジ」カテゴリ（NO.1）" },
+    { wins: 55, cat: "地方交流", no: 3, desc: "地方交流 NO.3" },
+    { wins: 60, cat: "クラシック", no: 3, desc: "クラシック NO.3" },
+    { wins: 65, cat: "海外チャレンジ", no: 2, desc: "海外チャレンジ NO.2" },
+    { wins: 70, cat: "古馬王道", no: 3, desc: "古馬王道 NO.3" },
+    { wins: 75, cat: "ローカル", no: 3, desc: "ローカル NO.3" },
+    { wins: 80, cat: "古馬東西", no: 5, desc: "古馬東西 NO.5" },
+    { wins: 85, cat: "海外チャレンジ", no: 3, desc: "海外チャレンジ NO.3" },
+    { wins: 90, cat: "クラシック", no: 4, desc: "クラシック NO.4" },
+    { wins: 95, cat: "地方交流", no: 4, desc: "地方交流 NO.4（全4種コンプリート）" },
+    { wins: 100, cat: "海外単独", no: 1, desc: "「海外単独」カテゴリ（NO.1）" },
+    { wins: 105, cat: "古馬東西", no: 6, desc: "古馬東西 NO.6（全6種コンプリート）" },
+    { wins: 110, cat: "ローカル", no: 4, desc: "ローカル NO.4" },
+    { wins: 115, cat: "古馬王道", no: 4, desc: "古馬王道 NO.4（全4種コンプリート）" },
+    { wins: 120, cat: "ローカル", no: 5, desc: "ローカル NO.5（全5種コンプリート）" },
+    { wins: 125, cat: "クラシック", no: 5, desc: "クラシック NO.5（全5種コンプリート）" },
+    { wins: 130, cat: "海外単独", no: 2, desc: "海外単独 NO.2" },
+    { wins: 135, cat: "海外チャレンジ", no: 4, desc: "海外チャレンジ NO.4（全4種コンプリート）" },
+    { wins: 140, cat: "海外単独", no: 3, desc: "海外単独 NO.3" },
+    { wins: 145, cat: "海外単独", no: 4, desc: "海外単独 NO.4" },
+    { wins: 150, cat: "トリビュート", no: 1, desc: "「トリビュート」カテゴリ（NO.1）" },
+    { wins: 155, cat: "海外単独", no: 5, desc: "海外単独 NO.5" },
+    { wins: 160, cat: "トリビュート", no: 2, desc: "トリビュート NO.2" },
+    { wins: 165, cat: "海外単独", no: 6, desc: "海外単独 NO.6（全6種コンプリート）" },
+    { wins: 170, cat: "トリビュート", no: 3, desc: "トリビュート NO.3" },
+    { wins: 180, cat: "トリビュート", no: 4, desc: "トリビュート NO.4" },
+    { wins: 190, cat: "トリビュート", no: 5, desc: "トリビュート NO.5" },
+    { wins: 200, cat: "トリビュート", no: 6, desc: "トリビュート NO.6（全40シリーズ達成・グランドスラム！）" }
+  ];
+
+  // カテゴリ名の正規化
+  function getNormalizedCategory(s) {
+    const c = s.category || s.category_name || "";
+    if (c.includes("東西")) return "古馬東西";
+    if (c.includes("地方")) return "地方交流";
+    if (c.includes("クラシック")) return "クラシック";
+    if (c.includes("王道")) return "古馬王道";
+    if (c.includes("ローカル")) return "ローカル";
+    if (c.includes("海外") && c.includes("連携")) return "海外チャレンジ";
+    if (c.includes("海外") && c.includes("単独")) return "海外単独";
+    if (c.includes("トリビュート")) return "トリビュート";
+    return c;
+  }
+
+  // シリーズNO(1〜6)の取得
+  function getSeriesNo(s) {
+    if (s.series_no) return parseInt(s.series_no, 10);
+    if (s.no) return parseInt(s.no, 10);
+    const match = (s.series_id || "").match(/\d+/);
+    return match ? parseInt(match[0], 10) : 1;
+  }
+
+  // 現在の勝利数での各カテゴリ解放上限NOを取得
+  function getUnlockedLimits(totalWins) {
+    const limits = {
+      "古馬東西": 0, "地方交流": 0, "クラシック": 0, "古馬王道": 0,
+      "ローカル": 0, "海外チャレンジ": 0, "海外単独": 0, "トリビュート": 0
+    };
+    UNLOCK_STAGES.forEach(item => {
+      if (totalWins >= item.wins && item.no > limits[item.cat]) {
+        limits[item.cat] = item.no;
+      }
+    });
+    return limits;
+  }
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = 'auth.html'; return; }
@@ -360,27 +412,26 @@
     }
   });
 
-  // ロック解除判定＆対戦初期化
+  // 解放演出・初期化チェック
   async function checkAndInitBattle() {
     const totalWins = globalUserData.total_wins || 0;
-    const currentUnlockedLevel = Math.floor(totalWins / 5); // 0: 0-4勝, 1: 5-9勝...
-    const lastNotifiedLevel = globalUserData.last_unlocked_level ?? 0;
+    const lastNotifiedWins = globalUserData.last_notified_wins ?? -1;
 
-    // 5勝単位で新しいロックが解除された場合に演出を表示
-    if (totalWins >= 5 && currentUnlockedLevel > lastNotifiedLevel) {
-      showUnlockAnimation(totalWins, currentUnlockedLevel);
-      // フラグ更新
+    // 今回新しく解放された内容があるか判定
+    const newlyUnlocked = UNLOCK_STAGES.filter(st => totalWins >= st.wins && st.wins > lastNotifiedWins);
+
+    if (newlyUnlocked.length > 0 && totalWins > 0) {
+      showUnlockAnimation(totalWins, newlyUnlocked);
       await setDoc(doc(db, "users", currentUser.uid), {
-        last_unlocked_level: currentUnlockedLevel
+        last_notified_wins: totalWins
       }, { merge: true });
-      globalUserData.last_unlocked_level = currentUnlockedLevel;
+      globalUserData.last_notified_wins = totalWins;
     }
 
     let status = globalUserData.cpu_battle_status;
-    const maxRounds = totalWins < 30 ? 3 : 5;
+    const maxRounds = totalWins >= 30 ? 5 : 3; // 30勝で5回戦昇格
 
     if (!status || !status.is_active) {
-      // ロック状況に合わせてシリーズラインナップを自動生成
       const lineup = generateSeriesLineup(totalWins, maxRounds);
 
       status = {
@@ -403,32 +454,39 @@
     renderBattleUI(status);
   }
 
-  // カテゴリ＆勝利数に応じたシリーズラインナップ選出関数
+  // 通算勝利数に応じた対戦ラインナップ自動生成
   function generateSeriesLineup(totalWins, maxRounds) {
-    // 0〜4勝: 1（各1番若いナンバー）
-    // 5〜9勝: 2（各NO.1〜NO.2から抽選）
-    const unlockedCount = Math.floor(totalWins / 5) + 1;
+    const limits = getUnlockedLimits(totalWins);
     const lineup = [];
 
-    for (let r = 0; r < maxRounds; r++) {
-      const targetCategory = CATEGORY_ORDER[r % CATEGORY_ORDER.length];
+    // 解放済みの全シリーズプール作成
+    const unlockedPool = SERIES_MASTER.filter(s => {
+      const cat = getNormalizedCategory(s);
+      const no = getSeriesNo(s);
+      return limits[cat] && no <= limits[cat];
+    });
 
-      // マスターから指定カテゴリのシリーズを抽出してID順（若いナンバー順）にソート
-      const categorySeriesList = SERIES_MASTER.filter(s => 
-        s.category === targetCategory || s.category_name === targetCategory
-      ).sort((a, b) => (a.series_id || "").localeCompare(b.series_id || ""));
-
-      // 解放対象枠（1番若いものから unlockedCount 個分）
-      const availableSeries = categorySeriesList.slice(0, unlockedCount);
-
-      if (availableSeries.length > 0) {
-        // 解放枠からランダムで決定（unlockedCountが1の場合は確定で最も若いナンバー）
-        const selected = availableSeries[Math.floor(Math.random() * availableSeries.length)];
+    if (totalWins < 10) {
+      // 0〜9勝: 初期3カテゴリ固定順
+      const initOrder = ["古馬東西", "地方交流", "クラシック"];
+      for (let r = 0; r < maxRounds; r++) {
+        const cat = initOrder[r % initOrder.length];
+        const catPool = unlockedPool.filter(s => getNormalizedCategory(s) === cat);
+        const selected = catPool[Math.floor(Math.random() * catPool.length)] || SERIES_MASTER[0];
         lineup.push(selected.series_id);
-      } else {
-        // フォールバック
-        const fallback = SERIES_MASTER[r % SERIES_MASTER.length];
-        lineup.push(fallback ? fallback.series_id : "");
+      }
+    } else {
+      // 10勝〜: 解放済み全シリーズから重複を避けつつランダム選出（回戦順ランダム化）
+      const poolCopy = [...unlockedPool];
+      for (let r = 0; r < maxRounds; r++) {
+        if (poolCopy.length === 0) {
+          const fallback = unlockedPool[Math.floor(Math.random() * unlockedPool.length)];
+          lineup.push(fallback ? fallback.series_id : SERIES_MASTER[0].series_id);
+        } else {
+          const idx = Math.floor(Math.random() * poolCopy.length);
+          lineup.push(poolCopy[idx].series_id);
+          poolCopy.splice(idx, 1);
+        }
       }
     }
 
@@ -440,7 +498,7 @@
     selectedSeries = SERIES_MASTER.find(s => s.series_id === currentSeriesId) || SERIES_MASTER[0];
 
     document.getElementById('seriesNameText').textContent = `【第${status.current_round}回戦】${selectedSeries.series_name}`;
-    document.getElementById('matchTypeTag').textContent = `${status.max_rounds || (globalUserData.total_wins >= 30 ? 5 : 3)}回戦マッチ`;
+    document.getElementById('matchTypeTag').textContent = `${status.max_rounds}回戦マッチ`;
 
     const limits = selectedSeries.potential_limit || { min_potential_per_race: 15, max_total_potential: 95 };
     document.getElementById('minPotentialVal').textContent = `${limits.min_potential_per_race}以上`;
@@ -474,13 +532,15 @@
     document.getElementById('btnStart').style.display = 'block';
   }
 
-  // ロック解除演出の表示
-  function showUnlockAnimation(totalWins, level) {
-    const nextNo = level + 1;
+  // 解放モーダルの表示
+  function showUnlockAnimation(totalWins, newlyUnlocked) {
+    const unlockListText = newlyUnlocked.map(item => `・<strong>${item.desc}</strong>`).join('<br>');
+    
+    document.getElementById('unlockTitle').textContent = totalWins >= 200 ? "🎉 GRAND SLAM!" : "🔓 SERIES UNLOCKED!";
     document.getElementById('unlockDesc').innerHTML = `
-      通算 <strong>${totalWins} 勝</strong> 達成！<br>
-      各カテゴリの <strong>NO.${nextNo} シリーズ</strong> が解放されました！<br>
-      これより解放済みシリーズからランダムで選出されます！
+      通算 <strong>${totalWins} 勝</strong> 達成！<br><br>
+      ${unlockListText}<br><br>
+      対戦シリーズの抽選対象に追加されました！
     `;
     document.getElementById('unlockOverlay').style.display = 'flex';
   }
