@@ -165,14 +165,10 @@
     <button class="modal-btn" onclick="closeUnlockModal()">確認して進む</button>
   </div>
 </div>
-
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { doc, getDoc, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-  // 演出用モジュールの追加（※環境のファイル名に応じて 'login_bonus.js' / 'card_renderer.js' に変更してください）
-  import { playFourthCornerCutIn } from './login_bonus_2.js';
-  import { cardRenderer } from './card_renderer_2.js';
 
   let currentUser = null;
   let globalUserData = {};
@@ -226,7 +222,6 @@
     { wins: 200, cat: "トリビュート", no: 6, desc: "トリビュート NO.6（全40シリーズ達成・グランドスラム！）" }
   ];
 
-  // 安全なJSONパース関数（エラー防止用）
   async function fetchJsonSafely(url) {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`${url} 取得失敗 (HTTP ${res.status})`);
@@ -239,7 +234,6 @@
     }
   }
 
-  // カテゴリ判定用ヘルパー
   function getNormalizedCategory(s) {
     if (!s) return "";
     const c = String(s.category || s.category_name || "");
@@ -271,7 +265,6 @@
     return limits;
   }
 
-  // 初期化プロセス
   onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = 'auth.html'; return; }
     currentUser = user;
@@ -281,7 +274,6 @@
         globalUserData = userDoc.data();
       }
 
-      // JSONデータの取得
       SERIES_MASTER = await fetchJsonSafely('./data/series_master.json');
       HORSES_ARRAY = await fetchJsonSafely('./data/horses_master.json');
       
@@ -301,19 +293,17 @@
     }
   });
 
-  // 進行状況のチェックとモーダル判定
   async function checkBattleStatus() {
     const totalWins = globalUserData.total_wins || 0;
     const lastNotifiedWins = globalUserData.last_notified_wins ?? -1;
 
-    // アンロック通知の判定
     const newlyUnlocked = UNLOCK_STAGES.filter(st => totalWins >= st.wins && st.wins > lastNotifiedWins && st.wins > 0);
     
     if (newlyUnlocked.length > 0) {
       showUnlockAnimation(totalWins, newlyUnlocked);
       await setDoc(doc(db, "users", currentUser.uid), { last_notified_wins: totalWins }, { merge: true });
       globalUserData.last_notified_wins = totalWins;
-      return; // モーダルを閉じるときに initBattle を呼ぶ
+      return;
     }
 
     await processBattleState(totalWins);
@@ -324,7 +314,7 @@
 
     if (status && status.is_active) {
       const maxRounds = status.max_rounds || 3;
-      const winCondition = Math.ceil(maxRounds / 2); // 3回戦なら2勝、5回戦なら3勝でクリア
+      const winCondition = Math.ceil(maxRounds / 2);
 
       if (status.series_wins >= winCondition) {
         await handleGameEnd(status, true, winCondition);
@@ -338,7 +328,6 @@
     await initBattle(status, totalWins);
   }
 
-  // アンロックモーダル表示
   function showUnlockAnimation(totalWins, newlyUnlocked) {
     const listHtml = newlyUnlocked.map(item => `・<strong>${item.desc}</strong>`).join('<br>');
     document.getElementById('unlockWinsVal').textContent = totalWins;
@@ -361,7 +350,6 @@
     await processBattleState(totalWins);
   };
 
-  // ゲーム終了処理
   async function handleGameEnd(status, isClear, winCondition) {
     const modal = document.getElementById('resultModal');
     const title = document.getElementById('modalTitle');
@@ -388,11 +376,13 @@
         }, { merge: true });
       } catch (err) { console.error("報酬保存エラー:", err); }
 
-      // ★ログインボーナス風の第4コーナーカットイン演出を再生
+      // ★演出モジュールの動的読み込み（ファイル未存在でも画面がフリーズしない安全対策）
       try {
+        const { playFourthCornerCutIn } = await import('./login_bonus.js');
+        const { cardRenderer } = await import('./card_renderer.js');
         await playFourthCornerCutIn(rewardHorse, cardRenderer);
       } catch (err) {
-        console.error("演出呼び出しエラー:", err);
+        console.warn("カットイン演出の実行をスキップしました:", err);
       }
 
     } else {
@@ -403,7 +393,7 @@
     }
 
     try {
-const updatedStatus = { ...status, is_active: false, current_match: null };
+      const updatedStatus = { ...status, is_active: false, current_match: null };
       await setDoc(doc(db, "users", currentUser.uid), { 
         cpu_battle_status: updatedStatus 
       }, { merge: true });
@@ -419,7 +409,6 @@ const updatedStatus = { ...status, is_active: false, current_match: null };
     window.location.href = 'index.html'; 
   };
 
-  // 新規シリーズラインナップ生成ロジック
   function generateSeriesLineup(totalWins, maxRounds) {
     if (!SERIES_MASTER || SERIES_MASTER.length === 0) return [];
     const limits = getUnlockedLimits(totalWins);
@@ -434,7 +423,6 @@ const updatedStatus = { ...status, is_active: false, current_match: null };
     const validPool = unlockedPool.length > 0 ? unlockedPool : SERIES_MASTER;
 
     if (totalWins < 10) {
-      // 序盤は固定カテゴリから
       const initOrder = ["古馬東西", "地方交流", "クラシック"];
       for (let r = 0; r < maxRounds; r++) {
         const cat = initOrder[r % initOrder.length];
@@ -443,7 +431,6 @@ const updatedStatus = { ...status, is_active: false, current_match: null };
         if (selected && selected.series_id) lineup.push(selected.series_id);
       }
     } else {
-      // 重複なしランダム抽出
       const poolCopy = [...validPool];
       for (let r = 0; r < maxRounds; r++) {
         if (poolCopy.length === 0) {
@@ -460,7 +447,6 @@ const updatedStatus = { ...status, is_active: false, current_match: null };
     return lineup;
   }
 
-  // バトル画面の初期化・描画
   async function initBattle(status, totalWins) {
     if (!status || !status.is_active) {
       const maxRounds = totalWins >= 30 ? 5 : 3;
@@ -547,7 +533,6 @@ const updatedStatus = { ...status, is_active: false, current_match: null };
     renderDeckTable();
   };
 
-  // ─── 馬データ解析解析用ヘルパー ───
   function getTurfVal(horse) {
     if (!horse) return 0;
     if (horse.turf_potential !== undefined && horse.turf_potential !== null) return Number(horse.turf_potential) || 0;
@@ -562,16 +547,6 @@ const updatedStatus = { ...status, is_active: false, current_match: null };
     if (typeof horse.dirt === 'number') return horse.dirt;
     if (typeof horse.dirt === 'boolean') return horse.dirt ? 1 : 0;
     return 0;
-  }
-
-  function getPotentialVal(horse) {
-    if (!horse) return 0;
-    if (horse.total_potential !== undefined && horse.total_potential !== null) return horse.total_potential;
-    if (horse.potential !== undefined && horse.potential !== null) return horse.potential;
-    if (horse.pt !== undefined && horse.pt !== null) return horse.pt;
-    const t = getTurfVal(horse);
-    const d = getDirtVal(horse);
-    return Math.max(t, d);
   }
 
   function getSurfaceText(horse) {
@@ -612,7 +587,6 @@ const updatedStatus = { ...status, is_active: false, current_match: null };
     return horse.style || horse.running_style || horse.leg_style || horse.strategy || '-';
   }
 
-  // 出走表レンダリング
   function renderDeckTable() {
     const tbody = document.getElementById('deckHorseList');
     tbody.innerHTML = '';
@@ -675,5 +649,7 @@ const updatedStatus = { ...status, is_active: false, current_match: null };
     }
   };
 </script>
+
+      
 </body>
 </html>
