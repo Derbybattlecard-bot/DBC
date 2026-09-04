@@ -41,13 +41,18 @@
     border: 1px solid var(--accent-green); padding: 1px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold;
   }
 
-  /* 2. レースシーン枠 */
+    /* 2. レースシーン枠 */
   #track-container { 
     background: linear-gradient(90deg, #004400 0%, #006600 50%, #005500 100%); 
     border: 3px solid #fff; border-radius: 6px; padding: 6px 4px; 
     position: relative; height: 380px; overflow: hidden; 
     box-shadow: inset 0 0 20px rgba(0,0,0,0.6); margin-bottom: 10px;
   }
+  /* ★ ダート馬場用グラフィック（ブラウン系グラデーション） */
+  #track-container.dirt-track {
+    background: linear-gradient(90deg, #3d2512 0%, #633e1d 50%, #4a2d14 100%);
+  }
+
   /* ワイプ演出レイヤー */
   #wipe-overlay {
     position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
@@ -450,12 +455,23 @@ function setupRace(rIdx) {
   
   let seriesInfo = seriesMasterData.find(s => s.series_id === seriesIdStr) || seriesMasterData[0];
   let roundInfo = (seriesInfo && seriesInfo.rounds && seriesInfo.rounds[0]) ? seriesInfo.rounds[0] : null;
-  currentRaceInfo = (roundInfo && roundInfo.races && roundInfo.races[rIdx]) 
+    currentRaceInfo = (roundInfo && roundInfo.races && roundInfo.races[rIdx]) 
     ? roundInfo.races[rIdx] 
     : { race_name: "一般レース", track: "中山", surface: "芝", distance: 2000 };
     
+  // ★ トラック背景（芝/ダート）の切り替え
+  const trackContainer = document.getElementById('track-container');
+  if (trackContainer) {
+    if (currentRaceInfo.surface === "ダート") {
+      trackContainer.classList.add('dirt-track');
+    } else {
+      trackContainer.classList.remove('dirt-track');
+    }
+  }
+
   // 競馬場からコース進行方向を設定
   let trackName = currentRaceInfo.track || "中山";
+
   let turnDir = VENUE_DIRECTION_MASTER[trackName] || "右回り";
   if (currentRaceInfo.distance === 1000 && trackName === "新潟") {
     turnDir = "直線"; 
