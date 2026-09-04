@@ -363,6 +363,7 @@
     await processBattleState(totalWins);
   };
 
+
   async function handleGameEnd(status, isClear, winCondition) {
     const modal = document.getElementById('resultModal');
     const title = document.getElementById('modalTitle');
@@ -381,64 +382,72 @@
       document.getElementById('rewardRarity').textContent = `ポテンシャル: ${rewardHorse.potential || rewardHorse.pt || '-'}`;
       rewardBox.style.display = "block";
 
-      // ★通算勝利数の更新（+1）
-      try {
-        await setDoc(doc(db, "users", currentUser.uid), {
-          total_wins: increment(1)
-        }, { merge: true });
+      // 1. 裏側で走らせるデータ保存処理（演出をブロックしないようにPromise.allでまとめる）
+      const updatedStatus = { ...status, is_active: false, current_match: null };
+      globalUserData.total_wins = (globalUserData.total_wins || 0) + 1;
+      globalUserData.cpu_battle_status = updatedStatus;
+      
+      Promise.all([
+        setDoc(doc(db, "users", currentUser.uid), { total_wins: increment(1), cpu_battle_status: updatedStatus }, { merge: true }),
+        setDoc(doc(db, `users/${currentUser.uid}/inventory/${rewardHorse.horse_id}`), { count: increment(1), obtained_at: new Date().toISOString() }, { merge: true })
+      ]).catch(err => console.error("データ保存エラー:", err));
+      
+      updateHeaderBadges();
 
-        globalUserData.total_wins = (globalUserData.total_wins || 0) + 1;
-        updateHeaderBadges();
-      } catch (err) {
-        console.error("通算勝利数保存エラー:", err);
-      }
+      // 2. ★演出が始まる「前」にRESULTモーダルを画面に表示する
+      modal.style.display = "flex";
 
-      // 報酬カード追加
-      try {
-        const invRef = doc(db, `users/${currentUser.uid}/inventory/${rewardHorse.horse_id}`);
-        await setDoc(invRef, {
-          count: increment(1),
-          obtained_at: new Date().toISOString()
-        }, { merge: true });
-      } catch (err) { console.error("報酬保存エラー:", err); }
-
-      // 演出モジュールと CardRenderer の動的読み込み
+      // 3. モーダルの上からカットイン演出を被せる
+      let rendererObj = null;
       try {
         const { cardRenderer } = await import('./card_renderer.js');
+        rendererObj = cardRenderer;
+        
         if (!cardRenderer.isLoaded) {
           await cardRenderer.init();
         }
 
         const { playFourthCornerCutIn } = await import('./login_bonus.js');
+        // z-index:9999 の演出がモーダルの手前で再生される
         await playFourthCornerCutIn(rewardHorse, cardRenderer);
 
+      } catch (err) {
+        console.warn("カットイン演出の実行中にエラーが発生しましたが、処理を継続します:", err);
+      } finally {
+        // 4. ★エラーが起きた場合でも、必ずカード自体はモーダルに描画してフリーズを防ぐ
         const cardContainer = document.getElementById('rewardCardContainer');
         if (cardContainer) {
-          cardContainer.innerHTML = cardRenderer.renderCardUI(rewardHorse, 'large');
+          if (rendererObj && rendererObj.isLoaded) {
+            cardContainer.innerHTML = rendererObj.renderCardUI(rewardHorse, 'large');
+          } else {
+            // rendererがクラッシュした際の最終防衛線
+            cardContainer.innerHTML = `<div style="padding:20px; font-weight:bold;">${rewardHorse.name} を獲得しました！</div>`;
+          }
         }
-      } catch (err) {
-        console.warn("カットイン演出・カード描画の実行中にエラーが発生しました:", err);
       }
 
     } else {
+      // 敗北時の処理
       title.textContent = "💥 GAME OVER";
       title.className = "modal-title title-over";
       desc.textContent = `${winCondition}敗したためチャレンジ終了となりました。`;
       rewardBox.style.display = "none";
-    }
 
-    try {
-      const updatedStatus = { ...status, is_active: false, current_match: null };
-      await setDoc(doc(db, "users", currentUser.uid), { 
-        cpu_battle_status: updatedStatus 
-      }, { merge: true });
-      globalUserData.cpu_battle_status = updatedStatus;
-    } catch (err) {
-      console.error("ゲーム終了ステータス保存エラー:", err);
+      try {
+        const updatedStatus = { ...status, is_active: false, current_match: null };
+        await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: updatedStatus }, { merge: true });
+        globalUserData.cpu_battle_status = updatedStatus;
+      } catch (err) {
+        console.error("ゲーム終了ステータス保存エラー:", err);
+      }
+      
+      modal.style.display = "flex";
     }
-    
-    modal.style.display = "flex";
   }
+
+
+
+ 
 
   // ★各回戦（1試合）の勝敗時に呼び出す連勝保存関数（matchup / raceから参照可能）
   window.recordMatchResult = async function(isWin) {
