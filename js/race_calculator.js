@@ -1,4 +1,4 @@
-// js/race_calculator.js
+ほ// js/race_calculator.js
 
 // 1. ステータス箱の生成（計算専用コピー）
 function createRaceHorseInstance(horse, raceInfo) {
@@ -133,7 +133,7 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
       
       detailParts.push(`${statNameJa}:${totalStat}`);
     } 
-    // --- B. 標準・キー能力算定 ---
+       // --- B. 標準・キー能力算定 ---
     else if (selectedBranch.key_stats) {
       selectedBranch.key_stats.forEach(key => {
         if (key === "potential" || key === "current_potential") {
@@ -158,6 +158,15 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
         }
       });
     }
+
+    // ★【追加】力比べの展開時の全馬ベースアップ補正（+70pt）
+    if (selectedBranch.name === "力比べの展開") {
+      paramScore += 70;
+      detailParts.push("力比べ:70");
+    }
+
+    // --- C. 位置ボーナス処理（マスター仕様変更に対応） ---
+
 
     // --- C. 位置ボーナス処理（マスター仕様変更に対応） ---
     if (selectedBranch.position_bonus_type) {
