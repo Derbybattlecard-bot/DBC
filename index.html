@@ -357,14 +357,32 @@
     }
   }
 
-  function updateRecordDOM(rec, winRate, cardTypesDisplay) {
+  async function renderRecord() {
+    const totalWins = globalUserData.total_wins || 0;
+    const max1st = globalUserData.max_1st_places || 0;
+    const rec = globalUserData.record || { matches: 0, wins: 0 };
+    const winRate = rec.matches > 0 ? ((rec.wins / rec.matches) * 100).toFixed(1) : "0.0";
+    
+    updateRecordDOM(totalWins, max1st, winRate, "取得中...");
+
+    try {
+      const collRef = collection(db, `users/${currentUser.uid}/inventory`);
+      const snapshot = await getCountFromServer(collRef);
+      updateRecordDOM(totalWins, max1st, winRate, `${snapshot.data().count}種`);
+    } catch (error) {
+      updateRecordDOM(totalWins, max1st, winRate, "- 種");
+    }
+  }
+
+  function updateRecordDOM(totalWins, max1st, winRate, cardTypesDisplay) {
     document.getElementById('recordSection').innerHTML = `
-      <div class="record-item"><span class="record-label">通算成績</span><span class="record-value">${rec.matches}戦${rec.wins}勝</span></div>
-      <div class="record-item"><span class="record-label">勝率</span><span class="record-value highlight">${winRate}%</span></div>
-      <div class="record-item"><span class="record-label">最高連勝</span><span class="record-value">${rec.maxStreak}連勝</span></div>
+      <div class="record-item"><span class="record-label">通算勝利</span><span class="record-value highlight">${totalWins}勝</span></div>
+      <div class="record-item"><span class="record-label">1着最多数</span><span class="record-value">${max1st}回</span></div>
+      <div class="record-item"><span class="record-label">対戦勝率</span><span class="record-value">${winRate}%</span></div>
       <div class="record-item"><span class="record-label">所持種類</span><span class="record-value" style="color:#0d4220;">${cardTypesDisplay}</span></div>
     `;
   }
+
 
   async function checkAndRenderLoginBonus() {
     const now = new Date();
