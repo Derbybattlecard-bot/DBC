@@ -146,9 +146,10 @@
     <div class="modal-title" id="modalTitle">RESULT</div>
     <div class="modal-desc" id="modalDesc"></div>
     <div class="reward-box" id="rewardBox" style="display: none;">
-      <div style="font-size:12px; color:#c67100; font-weight:bold;">🎁 報酬カード獲得！</div>
-      <div class="reward-horse" id="rewardHorseName">-</div>
-      <div style="font-size:12px;" id="rewardRarity"></div>
+      <div style="font-size:12px; color:#c67100; font-weight:bold; margin-bottom: 8px;">🎁 報酬カード獲得！</div>
+      <div id="rewardCardContainer" style="display: flex; justify-content: center; margin: 10px 0;"></div>
+      <div class="reward-horse" id="rewardHorseName" style="display:none;">-</div>
+      <div style="font-size:12px; display:none;" id="rewardRarity"></div>
     </div>
     <button class="modal-btn" onclick="closeModalAndReset()">ステータス画面へ戻る</button>
   </div>
@@ -392,7 +393,7 @@
         console.error("通算勝利数保存エラー:", err);
       }
 
-       // 報酬カード追加
+      // 報酬カード追加
       try {
         const invRef = doc(db, `users/${currentUser.uid}/inventory/${rewardHorse.horse_id}`);
         await setDoc(invRef, {
@@ -401,13 +402,22 @@
         }, { merge: true });
       } catch (err) { console.error("報酬保存エラー:", err); }
 
-      // 演出モジュールの動的読み込み
+      // 演出モジュールと CardRenderer の動的読み込み
       try {
-        const { playFourthCornerCutIn } = await import('./login_bonus.js');
         const { cardRenderer } = await import('./card_renderer.js');
+        if (!cardRenderer.isLoaded) {
+          await cardRenderer.init();
+        }
+
+        const { playFourthCornerCutIn } = await import('./login_bonus.js');
         await playFourthCornerCutIn(rewardHorse, cardRenderer);
+
+        const cardContainer = document.getElementById('rewardCardContainer');
+        if (cardContainer) {
+          cardContainer.innerHTML = cardRenderer.renderCardUI(rewardHorse, 'large');
+        }
       } catch (err) {
-        console.warn("カットイン演出の実行をスキップしました:", err);
+        console.warn("カットイン演出・カード描画の実行中にエラーが発生しました:", err);
       }
 
     } else {
