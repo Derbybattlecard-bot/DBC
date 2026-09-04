@@ -24,8 +24,9 @@
   
   .header-panel { background-color: var(--panel-bg); padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
   .btn-back { background: #ffffff; color: var(--accent-color); border: 1px solid var(--accent-color); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; text-decoration: none; }
-  .header-right { display: flex; align-items: center; gap: 10px; }
-  .wins-badge { background: linear-gradient(135deg, #d4af37, #f3e5ab); color: #6b4c0a; padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid #b8860b; }
+  .header-right { display: flex; align-items: center; gap: 8px; }
+  .wins-badge { background: linear-gradient(135deg, #d4af37, #f3e5ab); color: #6b4c0a; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid #b8860b; }
+  .streak-badge { background: linear-gradient(135deg, #ff9800, #ffe0b2); color: #e65100; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid #f57c00; }
 
   .status-header { background-color: var(--panel-bg); border: 2px solid #d4af37; border-radius: 8px; padding: 10px; text-align: center; font-weight: bold; font-size: 15px; color: #b8860b; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
   .win-loss-text { color: #d32f2f; font-size: 18px; margin: 0 5px; }
@@ -87,6 +88,7 @@
     <a href="index.html" class="btn-back">← 戻る</a>
     <div class="header-right">
       <div id="userWinsBadge" class="wins-badge">通算 0 勝</div>
+      <div id="userStreakBadge" class="streak-badge">0連勝 (最高 0)</div>
       <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中</div>
     </div>
   </div>
@@ -165,6 +167,7 @@
     <button class="modal-btn" onclick="closeUnlockModal()">確認して進む</button>
   </div>
 </div>
+
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
@@ -265,6 +268,15 @@
     return limits;
   }
 
+  function updateHeaderBadges() {
+    const totalWins = globalUserData.total_wins || 0;
+    const currentStreak = globalUserData.current_streak || 0;
+    const maxStreak = globalUserData.max_streak || 0;
+
+    document.getElementById('userWinsBadge').textContent = `通算 ${totalWins} 勝`;
+    document.getElementById('userStreakBadge').textContent = `${currentStreak}連勝 (最高 ${maxStreak})`;
+  }
+
   onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = 'auth.html'; return; }
     currentUser = user;
@@ -284,7 +296,7 @@
       }
       
       document.getElementById('syncStatus').textContent = "✅";
-      document.getElementById('userWinsBadge').textContent = `通算 ${globalUserData.total_wins || 0} 勝`;
+      updateHeaderBadges();
       
       await checkBattleStatus();
     } catch (err) {
@@ -368,6 +380,19 @@
       document.getElementById('rewardRarity').textContent = `ポテンシャル: ${rewardHorse.potential || rewardHorse.pt || '-'}`;
       rewardBox.style.display = "block";
 
+      // ★通算勝利数の更新（+1）
+      try {
+        await setDoc(doc(db, "users", currentUser.uid), {
+          total_wins: increment(1)
+        }, { merge: true });
+
+        globalUserData.total_wins = (globalUserData.total_wins || 0) + 1;
+        updateHeaderBadges();
+      } catch (err) {
+        console.error("通算勝利数保存エラー:", err);
+      }
+
+       // 報酬カード追加
       try {
         const invRef = doc(db, `users/${currentUser.uid}/inventory/${rewardHorse.horse_id}`);
         await setDoc(invRef, {
@@ -376,7 +401,7 @@
         }, { merge: true });
       } catch (err) { console.error("報酬保存エラー:", err); }
 
-      // ★演出モジュールの動的読み込み（ファイル未存在でも画面がフリーズしない安全対策）
+      // 演出モジュールの動的読み込み
       try {
         const { playFourthCornerCutIn } = await import('./login_bonus.js');
         const { cardRenderer } = await import('./card_renderer.js');
@@ -404,6 +429,35 @@
     
     modal.style.display = "flex";
   }
+
+  // ★各回戦（1試合）の勝敗時に呼び出す連勝保存関数（matchup / raceから参照可能）
+  window.recordMatchResult = async function(isWin) {
+    if (!currentUser) return;
+    const userRef = doc(db, "users", currentUser.uid);
+
+    let newCurrentStreak = 0;
+    let newMaxStreak = globalUserData.max_streak || 0;
+
+    if (isWin) {
+      newCurrentStreak = (globalUserData.current_streak || 0) + 1;
+      newMaxStreak = Math.max(newCurrentStreak, newMaxStreak);
+    } else {
+      newCurrentStreak = 0;
+    }
+
+    try {
+      await setDoc(userRef, {
+        current_streak: newCurrentStreak,
+        max_streak: newMaxStreak
+      }, { merge: true });
+
+      globalUserData.current_streak = newCurrentStreak;
+      globalUserData.max_streak = newMaxStreak;
+      updateHeaderBadges();
+    } catch (err) {
+      console.error("連勝記録保存エラー:", err);
+    }
+  };
 
   window.closeModalAndReset = function() {
     window.location.href = 'index.html'; 
@@ -650,6 +704,5 @@
   };
 </script>
 
-      
 </body>
 </html>
