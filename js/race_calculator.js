@@ -154,14 +154,15 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
       paramScore += posAddPt;
     }
 
-    // --- D. 脚質ボーナス (style_bonus) 加算 ---
-    if (selectedBranch.style_bonus) {
-      const currentStyle = h.style || h.running_style || h.tactic || "";
-      if (selectedBranch.style_bonus[currentStyle]) {
-        styleBonusPt = selectedBranch.style_bonus[currentStyle];
-        paramScore += styleBonusPt;
-      }
-    }
+// --- D. 脚質ボーナス (style_bonus) 加算 ---
+if (selectedBranch.style_bonus) {
+  const currentStyle = h.tactic || h.style || h.running_style || ""; // ← 作戦の脚質を最優先に修正
+  if (selectedBranch.style_bonus[currentStyle]) {
+    styleBonusPt = selectedBranch.style_bonus[currentStyle];
+    paramScore += styleBonusPt;
+  }
+}
+
 
     const levelScore = (h.level || 1) * 2;
     const randScore = Math.random() * 5;
