@@ -288,7 +288,7 @@
   <button class="btn-unlock-close" onclick="closeUnlockModal()">挑戦をはじめる</button>
 </div>
 
-<script type="module">
+ <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -344,29 +344,31 @@
     { wins: 200, cat: "トリビュート", no: 6, desc: "トリビュート NO.6（全40シリーズ達成・グランドスラム！）" }
   ];
 
-  // カテゴリ名の正規化
+  // カテゴリ判定の寛容化
   function getNormalizedCategory(s) {
-    const c = s.category || s.category_name || "";
+    if (!s) return "";
+    const c = String(s.category || s.category_name || "");
     if (c.includes("東西")) return "古馬東西";
     if (c.includes("地方")) return "地方交流";
     if (c.includes("クラシック")) return "クラシック";
     if (c.includes("王道")) return "古馬王道";
     if (c.includes("ローカル")) return "ローカル";
-    if (c.includes("海外") && c.includes("連携")) return "海外チャレンジ";
+    if (c.includes("海外") && (c.includes("チャレ") || c.includes("連携"))) return "海外チャレンジ";
     if (c.includes("海外") && c.includes("単独")) return "海外単独";
-    if (c.includes("トリビュート")) return "トリビュート";
+    if (c.includes("海外")) return "海外チャレンジ";
+    if (c.includes("トリビュート") || c.includes("メモリアル")) return "トリビュート";
     return c;
   }
 
-  // シリーズNO(1〜6)の取得
+  // ナンバー取得の安全化
   function getSeriesNo(s) {
-    if (s.series_no) return parseInt(s.series_no, 10);
-    if (s.no) return parseInt(s.no, 10);
-    const match = (s.series_id || "").match(/\d+/);
-    return match ? parseInt(match[0], 10) : 1;
+    if (!s) return 1;
+    if (s.series_no) return parseInt(s.series_no, 10) || 1;
+    if (s.no) return parseInt(s.no, 10) || 1;
+    const match = String(s.series_id || "").match(/\d+/);
+    return match ? (parseInt(match[0], 10) || 1) : 1;
   }
 
-  // 現在の勝利数での各カテゴリ解放上限NOを取得
   function getUnlockedLimits(totalWins) {
     const limits = {
       "古馬東西": 0, "地方交流": 0, "クラシック": 0, "古馬王道": 0,
@@ -394,10 +396,16 @@
         fetch('./data/horses_master.json')
       ]);
 
-      if (resSeries.ok) SERIES_MASTER = await resSeries.json();
+      if (resSeries.ok) {
+        SERIES_MASTER = await resSeries.json();
+      }
       if (resHorses.ok) {
         const list = await resHorses.json();
         list.forEach(h => HORSES_MASTER[h.horse_id] = h);
+      }
+
+      if (!SERIES_MASTER || SERIES_MASTER.length === 0) {
+        throw new Error("series_master.json の読み込みに失敗しました");
       }
 
       document.getElementById('syncStatus').textContent = "✅";
@@ -408,16 +416,14 @@
       await checkAndInitBattle();
     } catch (err) {
       console.error("初期化エラー:", err);
-      document.getElementById('syncStatus').textContent = "❌ エラー";
+      document.getElementById('syncStatus').textContent = `❌ ${err.message || 'エラー'}`;
     }
   });
 
-  // 解放演出・初期化チェック
   async function checkAndInitBattle() {
     const totalWins = globalUserData.total_wins || 0;
     const lastNotifiedWins = globalUserData.last_notified_wins ?? -1;
 
-    // 今回新しく解放された内容があるか判定
     const newlyUnlocked = UNLOCK_STAGES.filter(st => totalWins >= st.wins && st.wins > lastNotifiedWins);
 
     if (newlyUnlocked.length > 0 && totalWins > 0) {
@@ -429,9 +435,9 @@
     }
 
     let status = globalUserData.cpu_battle_status;
-    const maxRounds = totalWins >= 30 ? 5 : 3; // 30勝で5回戦昇格
+    const maxRounds = totalWins >= 30 ? 5 : 3;
 
-    if (!status || !status.is_active) {
+    if (!status || !status.is_active || !status.series_lineup || status.series_lineup.length === 0) {
       const lineup = generateSeriesLineup(totalWins, maxRounds);
 
       status = {
@@ -454,57 +460,70 @@
     renderBattleUI(status);
   }
 
-  // 通算勝利数に応じた対戦ラインナップ自動生成
   function generateSeriesLineup(totalWins, maxRounds) {
+    if (!SERIES_MASTER || SERIES_MASTER.length === 0) return [];
     const limits = getUnlockedLimits(totalWins);
     const lineup = [];
 
-    // 解放済みの全シリーズプール作成
     const unlockedPool = SERIES_MASTER.filter(s => {
       const cat = getNormalizedCategory(s);
       const no = getSeriesNo(s);
       return limits[cat] && no <= limits[cat];
     });
 
+    const validPool = unlockedPool.length > 0 ? unlockedPool : SERIES_MASTER;
+
     if (totalWins < 10) {
-      // 0〜9勝: 初期3カテゴリ固定順
       const initOrder = ["古馬東西", "地方交流", "クラシック"];
       for (let r = 0; r < maxRounds; r++) {
         const cat = initOrder[r % initOrder.length];
-        const catPool = unlockedPool.filter(s => getNormalizedCategory(s) === cat);
-        const selected = catPool[Math.floor(Math.random() * catPool.length)] || SERIES_MASTER[0];
-        lineup.push(selected.series_id);
+        const catPool = validPool.filter(s => getNormalizedCategory(s) === cat);
+        const selected = (catPool.length > 0) ? catPool[Math.floor(Math.random() * catPool.length)] : validPool[Math.floor(Math.random() * validPool.length)];
+        if (selected && selected.series_id) {
+          lineup.push(selected.series_id);
+        }
       }
     } else {
-      // 10勝〜: 解放済み全シリーズから重複を避けつつランダム選出（回戦順ランダム化）
-      const poolCopy = [...unlockedPool];
+      const poolCopy = [...validPool];
       for (let r = 0; r < maxRounds; r++) {
         if (poolCopy.length === 0) {
-          const fallback = unlockedPool[Math.floor(Math.random() * unlockedPool.length)];
-          lineup.push(fallback ? fallback.series_id : SERIES_MASTER[0].series_id);
+          const fallback = validPool[Math.floor(Math.random() * validPool.length)];
+          if (fallback && fallback.series_id) lineup.push(fallback.series_id);
         } else {
           const idx = Math.floor(Math.random() * poolCopy.length);
-          lineup.push(poolCopy[idx].series_id);
+          const selected = poolCopy[idx];
+          if (selected && selected.series_id) lineup.push(selected.series_id);
           poolCopy.splice(idx, 1);
         }
       }
+    }
+
+    while (lineup.length < maxRounds && SERIES_MASTER.length > 0) {
+      lineup.push(SERIES_MASTER[0].series_id);
     }
 
     return lineup;
   }
 
   function renderBattleUI(status) {
-    const currentSeriesId = status.series_lineup[status.current_round - 1];
+    const currentSeriesId = status.series_lineup ? status.series_lineup[status.current_round - 1] : null;
     selectedSeries = SERIES_MASTER.find(s => s.series_id === currentSeriesId) || SERIES_MASTER[0];
 
-    document.getElementById('seriesNameText').textContent = `【第${status.current_round}回戦】${selectedSeries.series_name}`;
-    document.getElementById('matchTypeTag').textContent = `${status.max_rounds}回戦マッチ`;
+    if (!selectedSeries) {
+      document.getElementById('syncStatus').textContent = "❌ データ参照エラー";
+      return;
+    }
+
+    document.getElementById('seriesNameText').textContent = `【第${status.current_round}回戦】${selectedSeries.series_name || '対戦シリーズ'}`;
+    document.getElementById('matchTypeTag').textContent = `${status.max_rounds || 3}回戦マッチ`;
 
     const limits = selectedSeries.potential_limit || { min_potential_per_race: 15, max_total_potential: 95 };
     document.getElementById('minPotentialVal').textContent = `${limits.min_potential_per_race}以上`;
     document.getElementById('maxTotalPotentialVal').textContent = limits.max_total_potential;
 
-    const races = selectedSeries.rounds[0].races;
+    const rounds = selectedSeries.rounds || [];
+    const races = (rounds[0] && rounds[0].races) ? rounds[0].races : [];
+
     document.getElementById('raceList').innerHTML = races.map(r => {
       const surfaceClass = r.surface === '芝' ? 'surface-turf' : 'surface-dirt';
       return `
@@ -532,7 +551,6 @@
     document.getElementById('btnStart').style.display = 'block';
   }
 
-  // 解放モーダルの表示
   function showUnlockAnimation(totalWins, newlyUnlocked) {
     const unlockListText = newlyUnlocked.map(item => `・<strong>${item.desc}</strong>`).join('<br>');
     
@@ -578,5 +596,7 @@
     }
   };
 </script>
+         
+
 </body>
 </html>
