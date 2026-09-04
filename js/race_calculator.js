@@ -11,10 +11,10 @@ function createRaceHorseInstance(horse, raceInfo) {
 
   instance.current_potential = isTurf ? turfPot : dirtPot;
 
-  // ダート出走時、芝マスターデータとのポテンシャル差分を5パラメータに反映
+   // ダート出走時、ダートのポテンシャルが芝より高い場合のみ差分を加算
   if (!isTurf) {
     const potDiff = dirtPot - turfPot;
-    if (potDiff !== 0) {
+    if (potDiff > 0) {
       instance.speed = (instance.speed || 0) + potDiff;
       instance.stamina = (instance.stamina || 0) + potDiff;
       instance.sharp = (instance.sharp || 0) + potDiff;
@@ -22,6 +22,7 @@ function createRaceHorseInstance(horse, raceInfo) {
       instance.guts = (instance.guts || 0) + potDiff;
     }
   }
+
 
   const levelVal = horse.level || 1;
   const matchedStrat = horse.stratObj;
