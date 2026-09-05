@@ -315,12 +315,13 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     }
 
     // --- B. 脚質ボーナス判定 ---
-    if (selectedBranch.style_bonus) {
-      const style = h.style || h.running_style || "";
-      const tactic = h.tactic || "";
-      styleBonusPt = selectedBranch.style_bonus[style] || selectedBranch.style_bonus[tactic] || 0;
-      statScore += styleBonusPt;
-    }
+if (selectedBranch.style_bonus) {
+  // 馬の素の脚質ではなく作戦（tactic）に紐づく脚質プロパティを参照
+  const tacticStyle = h.tactic_style || h.target_style || h.tactic || "";
+  styleBonusPt = selectedBranch.style_bonus[tacticStyle] || 0;
+  statScore += styleBonusPt;
+}
+
 
     // --- C. 位置順位ダイレクトボーナス判定 ---
     if (selectedBranch.position_bonus_type === "direct_asc") {
@@ -335,16 +336,16 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     let extraScore = applyPhase4Abilities(h, selectedPace, selectedBranch.name);
 
     let levelBonus = (h.level || 1) * 2;
-    let randomBonus = Math.random() * 10;
+    let randomBonus = Math.random() * 5;
 
     h.posScore = h.positionPoint;
     h.branchScore = extraScore;
     h.levelScore = levelBonus;
     h.randScore = randomBonus;
 
-    // 最終スコア算出
-    h.finalScore = statScore + h.positionPoint + extraScore + levelBonus + randomBonus;
-
+    // 最終スコア算出（隊列決定用である h.positionPoint を除外）
+    h.finalScore = statScore + extraScore + levelBonus + randomBonus;
+    
     // --- E. 内訳テキスト（detailText）構築 ---
     const baseParamScore = statScore - posAddPt - styleBonusPt;
     const statDetailStr = detailParts.join(" + ");
@@ -362,9 +363,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     if (posAddPt > 0) {
       detailPartsList.push(`【展開位置ボーナス】+${posAddPt}pt`);
     }
-    if (h.positionPoint > 0) {
-      detailPartsList.push(`【位置取りPt】+${h.positionPoint}pt`);
-    }
+  
     if (extraScore > 0) {
       detailPartsList.push(`【展開アビリティ】+${extraScore}pt`);
     }
