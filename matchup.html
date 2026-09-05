@@ -424,10 +424,15 @@
 
       select.innerHTML = '<option value="">-- 出走馬を選択してください --</option>';
 
-      deckHorses.forEach(horse => {
+            deckHorses.forEach(horse => {
         const horseSex = horse.sex || "牡馬";
         const isChosenElsewhere = selectedEntries.some((id, idx) => idx !== rIdx && id === horse.horse_id);
-        const isUsedPrevious = usedCardsHistory.includes(horse.horse_id) || usedCardsHistory.includes(horse.name);
+        
+        // アビリティ「鉄女」「連闘」の判定を追加
+        const hasContinuousAbility = Array.isArray(horse.ability) && (horse.ability.includes("鉄女") || horse.ability.includes("連闘"));
+        // アビリティを持つ場合は使用済と判定しない
+        const isUsedPrevious = (usedCardsHistory.includes(horse.horse_id) || usedCardsHistory.includes(horse.name)) && !hasContinuousAbility;
+
         const matchesSexLimit = isValidSex(horseSex, raceSexLimit);
         const matchesSurface = isValidSurface(horse, race.surface);
         
