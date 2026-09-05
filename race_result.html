@@ -722,6 +722,157 @@ async function startRace() {
         calculatedResults.forEach((item, rank) => {
           let posVal = 90 - (rank * 4.5);
           let horseIdx = (typeof item.index === 'number') ? item.index : rank;
+// ---------- レース実行メインロジック ----------
+async function startRace() {
+  if (raceState !== 'ready') return;
+  raceState = 'running';
+
+  const btn = document.getElementById('nextBtn');
+  btn.disabled = true;
+  btn.innerText = "🏃 レース進行中...";
+
+  // 1. レースロジック一括実行 (計算モジュール呼び出し)
+  const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, currentRaceInfo);
+  calculatedResults = raceResultData.results;
+  currentRacePace = raceResultData.pace;
+  currentRaceBranch = raceResultData.branch.name;
+
+  // --- アビリティ発動情報の収集（自分・CPU馬のみ） ---
+  const activeAbilities = [];
+  calculatedResults.forEach(h => {
+    if ((h.isPlayer || h.isCpu) && h.activated_abilities && h.activated_abilities.length > 0) {
+      const label = h.isPlayer ? "【YOU】" : "【CPU】";
+      h.activated_abilities.forEach(ab => {
+        activeAbilities.push(`${label}${h.name}の「${ab}」`);
+      });
+    }
+  });
+
+  // 計算式UIの表示修正
+  if (raceResultData.branch.formula) {
+    currentRaceFormulaStr = raceResultData.branch.formula;
+  } else if (raceResultData.branch.key_stats) {
+    currentRaceFormulaStr = raceResultData.branch.key_stats.map(k => {
+      if (k === "potential") return "ポテンシャル";
+      if (k === "speed") return "スピード";
+      if (k === "stamina") return "スタミナ";
+      if (k === "sharp") return "瞬発";
+      if (k === "jizoku") return "持続";
+      if (k === "guts") return "根性";
+      if (k === "power") return "パワー";
+      return k;
+    }).join(" ＋ ");
+  } else {
+    currentRaceFormulaStr = "標準評価算定";
+  }
+
+  if (raceResultData.branch.position_bonus_type === "direct_asc") {
+    currentRaceFormulaStr += " ＋ 位置ボーナス(後方有利)";
+  } else if (raceResultData.branch.position_bonus_type === "direct_desc") {
+    currentRaceFormulaStr += " ＋ 位置ボーナス(前方有利)";
+  }
+  if (raceResultData.branch.style_bonus) {
+    currentRaceFormulaStr += " ＋ 脚質ボーナス";
+  }
+
+  // 2. 結果レコードの生成とFirebase進捗保存
+  recordHistory(calculatedResults);
+  const nextRaceIdx = currentRaceIndex + 1;
+
+  if (currentUser) {
+    try {
+      const status = globalUserData?.cpu_battle_status || {};
+      const currentMatch = status.current_match || {};
+      const updatedMatch = {
+        ...currentMatch,
+        current_race_index: nextRaceIdx,
+        series_history: seriesHistory
+      };
+      await setDoc(doc(db, "users", currentUser.uid), {
+        cpu_battle_status: {
+          ...status,
+          current_match: updatedMatch
+        }
+      }, { merge: true });
+    } catch (err) {
+      console.error("進捗即時保存エラー:", err);
+    }
+  }
+
+  // 3. レース実況アニメーション演出
+  let leaders = calculatedResults.filter(h => h.positionRank <= 3).sort((a, b) => a.positionRank - b.positionRank);
+  let leaderNames = leaders.map(h => h.name).join("、");
+  
+  // 発動アビリティを実況ログに埋め込む
+  let abilityLogHtml = "";
+  if (activeAbilities.length > 0) {
+    abilityLogHtml = `<br><span style="color: var(--gold-color); font-weight: bold;">⚡ 発動：${activeAbilities.join(" / ")}</span>`;
+  }
+
+  updateLog(`<strong>【スタート】</strong> ゲートが開いた！ ${leaderNames} あたりがハナを主張、先頭争いだ！${abilityLogHtml}`);
+  
+  // ★ アビリティが発動している場合は、スタート直後にポップアップ表示
+  if (activeAbilities.length > 0) {
+    showTelop(`⚡ ${activeAbilities[0]} 発動！`, 2500);
+  }
+
+  let p1Pos = getPosPointsMap(calculatedResults, 35, 8);
+  setPhasePositions(p1Pos, 4.0, "linear", currentTrackConfig.phase1_3_dir); 
+
+  setTimeout(() => {
+    let msg = (currentRacePace.includes("ハイ")) ? "縦長の隊列になりました。" : "淡々とレースは流れていきます。";
+    updateLog(`<strong>【向正面】</strong> ${msg} 各馬ポジションが決まりました。`);
+    
+    let p2Pos = getPosPointsMap(calculatedResults, 65, 20);
+    setPhasePositions(p2Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
+  }, 4000); 
+
+  setTimeout(() => {
+    updateLog(`<strong>【3コーナーを回して直線へ】</strong> ペースは『${currentRacePace}』！ 勝負どころの最終コーナーへ！`);
+    showTelop(`【ペース】 ${currentRacePace}`, 3000);
+    
+    let p3Pos = getPosPointsMap(calculatedResults, 88, 35);
+    setPhasePositions(p3Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
+  }, 8300); 
+
+  setTimeout(() => {
+    const wipe = document.getElementById('wipe-overlay');
+    wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
+    wipe.style.left = "0";
+    
+    setTimeout(() => {
+      const gl = document.getElementById('goal-line');
+      const gf = document.getElementById('goal-flag');
+      gl.style.display = "block";
+      gf.style.display = "block";
+      
+      if (currentTrackConfig.goal_position === "right") {
+        gl.style.left = "calc(100% - 60px)";
+        gf.style.left = "calc(100% - 40px)";
+      } else {
+        gl.style.left = "40px";
+        gf.style.left = "20px";
+      }
+      
+      setHorseDirection(currentTrackConfig.phase4_dir);
+
+      let p4StartPos = new Array(activeHorses.length);
+      calculatedResults.forEach((h) => {
+        let horseIdx = (typeof h.index === 'number') ? h.index : 0;
+        p4StartPos[horseIdx] = 10 + Math.random() * 15;
+      });
+      setPhasePositions(p4StartPos, 0, "linear", currentTrackConfig.phase4_dir);
+    }, 800);
+
+    setTimeout(() => {
+      wipe.style.left = "100%"; 
+      setTimeout(() => {
+        let winner = calculatedResults[0];
+        let finalPositions = new Array(activeHorses.length);
+        
+        calculatedResults.forEach((item, rank) => {
+          let posVal = 90 - (rank * 4.5);
+          let horseIdx = (typeof item.index === 'number') ? item.index : rank;
           finalPositions[horseIdx] = posVal;
         });
         
@@ -749,6 +900,7 @@ async function startRace() {
     }, 1500);
   }, 12600); 
 }
+
 
 function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear", moveDir = "left_to_right") {
   const trackContainer = document.getElementById('track-container');
