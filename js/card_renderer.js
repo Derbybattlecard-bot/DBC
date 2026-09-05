@@ -501,7 +501,7 @@ export class CardRenderer {
           <!-- 拡大表示用の詳細テキスト（適性・距離・脚質・性別） -->
           <div class="crc-deck-details">
             <div>${surfaceText}${distanceText}</div>
-            <div>脚質:${horse.style \vert{}\vert{} '-'} 性別:${sexText}</div>
+            <div>脚質:${horse.style || '-'} 性別:${sexText}</div>
             <div class="crc-deck-params">
               <span>ス:${spd}</span>
               <span>タ:${stm}</span>
