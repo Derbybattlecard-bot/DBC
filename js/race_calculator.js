@@ -107,3 +107,72 @@ function applyPhase4Abilities(horse, pace, branchName) {
   });
   return extraScore;
 }
+
+// --- メイン計算エクスポート関数 ---
+export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInfo = null) {
+  const resultList = horses.map((h, i) => {
+    const copy = { ...h, index: i, activated_abilities: [] };
+    // Phase 1 アビリティ適用
+    applyPhase1Abilities(copy, raceInfo, trackCondition);
+    return copy;
+  });
+
+  // 1. ペース・展開判定
+  const paceOptions = ["ハイペース", "ミドルペース", "スローペース", "超ハイペース"];
+  const selectedPace = paceOptions[Math.floor(Math.random() * paceOptions.length)];
+
+  const branchOptions = [
+    { name: "前残り展開", formula: "スピード ＋ 瞬発", key_stats: ["speed", "sharp"] },
+    { name: "差し・追込決着", formula: "瞬発 ＋ 持続", key_stats: ["sharp", "jizoku"] },
+    { name: "底力勝負", formula: "スタミナ ＋ 根性", key_stats: ["stamina", "guts"] },
+    { name: "総合力勝負", formula: "ポテンシャル ＋ スピード ＋ スタミナ", key_stats: ["potential", "speed", "stamina"] }
+  ];
+  const selectedBranch = branchOptions[Math.floor(Math.random() * branchOptions.length)];
+
+  // 2. スコア計算
+  resultList.forEach((h) => {
+    // 位置取りポイント算定
+    let basePos = Math.floor(Math.random() * 30) + 50;
+    let posPt = applyPhase2Abilities(h, basePos);
+    h.positionPoint = posPt;
+
+    // ステータス加算
+    let statScore = 0;
+    if (selectedBranch.key_stats) {
+      selectedBranch.key_stats.forEach(key => {
+        statScore += (h[key] || 50) + (h[`strat_${key}`] || 0);
+      });
+    } else {
+      statScore = (h.speed || 50) + (h.stamina || 50);
+    }
+
+    // Phase 4 アビリティ適用
+    let extraScore = applyPhase4Abilities(h, selectedPace, selectedBranch.name);
+
+    let levelBonus = (h.level || 1) * 2;
+    let randomBonus = Math.random() * 10;
+
+    h.posScore = posPt;
+    h.branchScore = extraScore;
+    h.levelScore = levelBonus;
+    h.randScore = randomBonus;
+
+    h.finalScore = statScore + posPt + extraScore + levelBonus + randomBonus;
+  });
+
+  // 位置取り順位付け
+  const posSorted = [...resultList].sort((a, b) => b.positionPoint - a.positionPoint);
+  posSorted.forEach((h, rank) => {
+    const target = resultList.find(item => item.index === h.index);
+    if (target) target.positionRank = rank + 1;
+  });
+
+  // 最終スコア順にソート
+  resultList.sort((a, b) => b.finalScore - a.finalScore);
+
+  return {
+    results: resultList,
+    pace: selectedPace,
+    branch: selectedBranch
+  };
+}
