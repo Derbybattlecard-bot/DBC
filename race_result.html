@@ -41,14 +41,13 @@
     border: 1px solid var(--accent-green); padding: 1px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold;
   }
 
-    /* 2. レースシーン枠 */
+  /* 2. レースシーン枠 */
   #track-container { 
     background: linear-gradient(90deg, #004400 0%, #006600 50%, #005500 100%); 
     border: 3px solid #fff; border-radius: 6px; padding: 6px 4px; 
     position: relative; height: 380px; overflow: hidden; 
     box-shadow: inset 0 0 20px rgba(0,0,0,0.6); margin-bottom: 10px;
   }
-  /* ★ ダート馬場用グラフィック（ブラウン系グラデーション） */
   #track-container.dirt-track {
     background: linear-gradient(90deg, #3d2512 0%, #633e1d 50%, #4a2d14 100%);
   }
@@ -422,9 +421,7 @@ function buildRaceGridsFromFirebase() {
       });
     });
 
-    // ★ 馬番（gate_number）の昇順（1番枠〜16番枠）に並べ替えて格納
     grid.sort((a, b) => (a.gate_number || 0) - (b.gate_number || 0));
-
     fullRaceGrids.push(grid);
   }
 }
@@ -455,11 +452,10 @@ function setupRace(rIdx) {
   
   let seriesInfo = seriesMasterData.find(s => s.series_id === seriesIdStr) || seriesMasterData[0];
   let roundInfo = (seriesInfo && seriesInfo.rounds && seriesInfo.rounds[0]) ? seriesInfo.rounds[0] : null;
-    currentRaceInfo = (roundInfo && roundInfo.races && roundInfo.races[rIdx]) 
+  currentRaceInfo = (roundInfo && roundInfo.races && roundInfo.races[rIdx]) 
     ? roundInfo.races[rIdx] 
     : { race_name: "一般レース", track: "中山", surface: "芝", distance: 2000 };
     
-  // ★ トラック背景（芝/ダート）の切り替え
   const trackContainer = document.getElementById('track-container');
   if (trackContainer) {
     if (currentRaceInfo.surface === "ダート") {
@@ -469,9 +465,7 @@ function setupRace(rIdx) {
     }
   }
 
-  // 競馬場からコース進行方向を設定
   let trackName = currentRaceInfo.track || "中山";
-
   let turnDir = VENUE_DIRECTION_MASTER[trackName] || "右回り";
   if (currentRaceInfo.distance === 1000 && trackName === "新潟") {
     turnDir = "直線"; 
@@ -479,7 +473,7 @@ function setupRace(rIdx) {
   currentTrackConfig = TRACK_DIRECTION_MASTER[turnDir] || TRACK_DIRECTION_MASTER["右回り"];
   
   activeHorses.forEach((h, i) => {
-    h.index = i; // アニメーション座標用インデックスを保持
+    h.index = i;
     h.tactic_level = h.level || 3;
     let matchedStrat = h.stratObj;
     if (!matchedStrat && strategyMasterData) {
@@ -524,7 +518,6 @@ function setupRace(rIdx) {
   document.getElementById('goal-flag').style.display = "none";
   renderLanes();
 
- // 初期配置
   setHorseDirection(currentTrackConfig.phase1_3_dir);
   let initialPositions = activeHorses.map(() => 0);
   setPhasePositions(initialPositions, 0, "linear", currentTrackConfig.phase1_3_dir); 
@@ -593,135 +586,6 @@ window.handleButtonClick = function() {
   }
 };
 
-// ---------- レース実行メインロジック ----------
-async function startRace() {
-  if (raceState !== 'ready') return;
-  raceState = 'running';
-
-  const btn = document.getElementById('nextBtn');
-  btn.disabled = true;
-  btn.innerText = "🏃 レース進行中...";
-
-  // 1. レースロジック一括実行 (計算モジュール呼び出し)
-  const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, currentRaceInfo);
-  calculatedResults = raceResultData.results;
-  currentRacePace = raceResultData.pace;
-  currentRaceBranch = raceResultData.branch.name;
-
-  // 計算式UIの表示修正 (マスター仕様変更に伴うポテンシャル・ボーナス表記の追加)
-  if (raceResultData.branch.formula) {
-    currentRaceFormulaStr = raceResultData.branch.formula;
-  } else if (raceResultData.branch.key_stats) {
-    currentRaceFormulaStr = raceResultData.branch.key_stats.map(k => {
-      if (k === "potential") return "ポテンシャル";
-      if (k === "speed") return "スピード";
-      if (k === "stamina") return "スタミナ";
-      if (k === "sharp") return "瞬発";
-      if (k === "jizoku") return "持続";
-      if (k === "guts") return "根性";
-      if (k === "power") return "パワー";
-      return k;
-    }).join(" ＋ ");
-  } else {
-    currentRaceFormulaStr = "標準評価算定";
-  }
-
-  // 位置や脚質のボーナスがある場合は式テキストに追記してわかりやすく
-  if (raceResultData.branch.position_bonus_type === "direct_asc") {
-    currentRaceFormulaStr += " ＋ 位置ボーナス(後方有利)";
-  } else if (raceResultData.branch.position_bonus_type === "direct_desc") {
-    currentRaceFormulaStr += " ＋ 位置ボーナス(前方有利)";
-  }
-  if (raceResultData.branch.style_bonus) {
-    currentRaceFormulaStr += " ＋ 脚質ボーナス";
-  }
-
-  // 2. 結果レコードの生成とFirebase進捗保存
-  recordHistory(calculatedResults);
-  const nextRaceIdx = currentRaceIndex + 1;
-
-  if (currentUser) {
-    try {
-      const status = globalUserData?.cpu_battle_status || {};
-      const currentMatch = status.current_match || {};
-      const updatedMatch = {
-        ...currentMatch,
-        current_race_index: nextRaceIdx,
-        series_history: seriesHistory
-      };
-      await setDoc(doc(db, "users", currentUser.uid), {
-        cpu_battle_status: {
-          ...status,
-          current_match: updatedMatch
-        }
-      }, { merge: true });
-    } catch (err) {
-      console.error("進捗即時保存エラー:", err);
-    }
-  }
-
-  // 3. レース実況アニメーション演出
-  let leaders = calculatedResults.filter(h => h.positionRank <= 3).sort((a, b) => a.positionRank - b.positionRank);
-  let leaderNames = leaders.map(h => h.name).join("、");
-  updateLog(`<strong>【スタート】</strong> ゲートが開いた！ ${leaderNames} あたりがハナを主張、先頭争いだ！`);
-  
-  let p1Pos = getPosPointsMap(calculatedResults, 35, 8);
-  setPhasePositions(p1Pos, 4.0, "linear", currentTrackConfig.phase1_3_dir); 
-
-  setTimeout(() => {
-    let msg = (currentRacePace.includes("ハイ")) ? "縦長の隊列になりました。" : "淡々とレースは流れていきます。";
-    updateLog(`<strong>【向正面】</strong> ${msg} 各馬ポジションが決まりました。`);
-    
-    let p2Pos = getPosPointsMap(calculatedResults, 65, 20);
-    setPhasePositions(p2Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
-  }, 4000); 
-
-  setTimeout(() => {
-    updateLog(`<strong>【3コーナーを回して直線へ】</strong> ペースは『${currentRacePace}』！ 勝負どころの最終コーナーへ！`);
-    showTelop(`【ペース】 ${currentRacePace}`, 3000);
-    
-    let p3Pos = getPosPointsMap(calculatedResults, 88, 35);
-    setPhasePositions(p3Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
-  }, 8300); 
-
-  setTimeout(() => {
-    const wipe = document.getElementById('wipe-overlay');
-    wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
-    wipe.style.left = "0";
-    
-    setTimeout(() => {
-      const gl = document.getElementById('goal-line');
-      const gf = document.getElementById('goal-flag');
-      gl.style.display = "block";
-      gf.style.display = "block";
-      
-      if (currentTrackConfig.goal_position === "right") {
-        gl.style.left = "calc(100% - 60px)";
-        gf.style.left = "calc(100% - 40px)";
-      } else {
-        gl.style.left = "40px";
-        gf.style.left = "20px";
-      }
-      
-      setHorseDirection(currentTrackConfig.phase4_dir);
-
-      let p4StartPos = new Array(activeHorses.length);
-      calculatedResults.forEach((h) => {
-        let horseIdx = (typeof h.index === 'number') ? h.index : 0;
-        p4StartPos[horseIdx] = 10 + Math.random() * 15;
-      });
-      setPhasePositions(p4StartPos, 0, "linear", currentTrackConfig.phase4_dir);
-    }, 800);
-
-    setTimeout(() => {
-      wipe.style.left = "100%"; 
-      setTimeout(() => {
-        let winner = calculatedResults[0];
-        let finalPositions = new Array(activeHorses.length);
-        
-        calculatedResults.forEach((item, rank) => {
-          let posVal = 90 - (rank * 4.5);
-          let horseIdx = (typeof item.index === 'number') ? item.index : rank;
 // ---------- レース実行メインロジック ----------
 async function startRace() {
   if (raceState !== 'ready') return;
@@ -811,7 +675,7 @@ async function startRace() {
 
   updateLog(`<strong>【スタート】</strong> ゲートが開いた！ ${leaderNames} あたりがハナを主張、先頭争いだ！${abilityLogHtml}`);
   
-  // ★ アビリティが発動している場合は、スタート直後にポップアップ表示
+  // アビリティが発動している場合はスタート直後にテロップ表示
   if (activeAbilities.length > 0) {
     showTelop(`⚡ ${activeAbilities[0]} 発動！`, 2500);
   }
@@ -901,7 +765,6 @@ async function startRace() {
   }, 12600); 
 }
 
-
 function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear", moveDir = "left_to_right") {
   const trackContainer = document.getElementById('track-container');
   if (!trackContainer) return;
@@ -949,7 +812,7 @@ function renderResults(scoredList) {
 
     let detailText = "";
     if (item.detailText) {
-      detailText = item.detailText; // 計算器からのフォーマット済み文字列を利用
+      detailText = item.detailText;
     } else {
       const posPt = item.posScore !== undefined ? item.posScore : (item.positionPoint || 0);
       const branchPt = item.branchScore !== undefined ? item.branchScore : 0;
@@ -1012,7 +875,6 @@ function showFinalSeriesResult() {
       </tr>`;
   });
 
-  // 勝敗決定状況に応じてモーダルボタンのテキストを動的変更
   const status = globalUserData?.cpu_battle_status || {};
   const isPlayerRoundWin = playerWins >= 3;
   const isFinished = ((status.series_wins || 0) + (isPlayerRoundWin ? 1 : 0) >= 3) || 
@@ -1052,12 +914,11 @@ window.goToNextSeries = async function() {
   const p1stCount = seriesHistory.filter(h => h.pRank === 1).length;
   const updatedTotal1st = (status.total_1st_places || 0) + p1stCount;
 
-  // 勝敗決着の判定
   const isChallengeFinished = (newWins >= 3 || newLosses >= 3 || newRound > 5);
 
   const updatedCpuBattleStatus = {
     ...status,
-    is_active: !isChallengeFinished, // 決着時は inactive にする（battle.htmlの判定で使用）
+    is_active: !isChallengeFinished,
     series_wins: newWins,
     series_losses: newLosses,
     current_round: newRound,
@@ -1071,7 +932,6 @@ window.goToNextSeries = async function() {
       cpu_battle_status: updatedCpuBattleStatus
     }, { merge: true });
 
-    // 決着がついたかどうかに関わらず、常に battle.html へ移動する
     window.location.href = 'battle.html';
 
   } catch (err) {
@@ -1083,7 +943,6 @@ window.goToNextSeries = async function() {
     }
   }
 };
-
 </script>
 </body>
 </html>
