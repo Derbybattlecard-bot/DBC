@@ -302,8 +302,10 @@
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { doc, getDoc, setDoc, collection, getCountFromServer, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-  import { cardRenderer } from './js/card_renderer.js';
-  import { drawBonusCard, getGenYearLastDigit, playFourthCornerCutIn } from './js/login_bonus.js';
+  
+  // ★ ルート直下のファイルからインポート（./js/ ではなく ./ に修正）
+  import { cardRenderer } from './card_renderer.js';
+  import { drawBonusCard, getGenYearLastDigit, playFourthCornerCutIn } from './login_bonus_2.js';
 
   let globalUserData = null;
   let currentUser = null;
@@ -316,9 +318,12 @@
     }
     currentUser = user;
     try {
+      // データの並行読み込み
       const [userDoc] = await Promise.all([
         getDoc(doc(db, "users", user.uid)),
-        cardRenderer.init()
+        cardRenderer.init().catch(err => {
+          console.error("cardRendererの初期化エラー（単独リカバリ）:", err);
+        })
       ]);
 
       if (!userDoc.exists()) {
@@ -333,6 +338,7 @@
       await checkAndRenderLoginBonus();
     } catch (err) {
       console.error("初期化エラー:", err);
+      document.getElementById('userProfileDisplay').textContent = "⚠️ 初期化エラーが発生しました";
       alert("初期化に失敗しました。マスターデータおよびネットワーク環境をご確認ください。");
     }
   });
@@ -408,24 +414,24 @@
     for (let i = 0; i < 3; i++) {
       if (i < cards.length) {
         const item = cards[i];
-        const horse = cardRenderer.getHorse(item.horse_id);
-        const genYear = cardRenderer.getGenerationYear(horse || item.horse_id);
+        const horse = cardRenderer.getHorse ? cardRenderer.getHorse(item.horse_id) : null;
+        const genYear = cardRenderer.getGenerationYear ? cardRenderer.getGenerationYear(horse || item.horse_id) : '-';
         const lastDigit = getGenYearLastDigit(item.horse_id);
         const horseName = horse ? horse.name : item.horse_id;
 
         let surfaceText = "-", distanceText = "-", paramsHtml = "", abilitiesHtml = "";
 
         if (horse) {
-          surfaceText = cardRenderer.formatAptitude(horse.turf_potential ?? horse.turf, horse.dirt_potential ?? horse.dirt);
-          distanceText = cardRenderer.getDistanceText(horse);
+          surfaceText = cardRenderer.formatAptitude ? cardRenderer.formatAptitude(horse.turf_potential ?? horse.turf, horse.dirt_potential ?? horse.dirt) : '-';
+          distanceText = cardRenderer.getDistanceText ? cardRenderer.getDistanceText(horse) : '-';
           
           paramsHtml = `
             <div class="bonus-card-params">
-              <span>ス${cardRenderer.getParamRank(horse.speed)}</span>
-              <span>タ${cardRenderer.getParamRank(horse.stamina)}</span>
-              <span>瞬${cardRenderer.getParamRank(horse.sharp ?? horse.sharpness)}</span>
-              <span>持${cardRenderer.getParamRank(horse.jizoku)}</span>
-              <span>根${cardRenderer.getParamRank(horse.guts)}</span>
+              <span>ス${cardRenderer.getParamRank ? cardRenderer.getParamRank(horse.speed) : '-'}</span>
+              <span>タ${cardRenderer.getParamRank ? cardRenderer.getParamRank(horse.stamina) : '-'}</span>
+              <span>瞬${cardRenderer.getParamRank ? cardRenderer.getParamRank(horse.sharp ?? horse.sharpness) : '-'}</span>
+              <span>持${cardRenderer.getParamRank ? cardRenderer.getParamRank(horse.jizoku) : '-'}</span>
+              <span>根${cardRenderer.getParamRank ? cardRenderer.getParamRank(horse.guts) : '-'}</span>
             </div>`;
 
           const abilities = Array.isArray(horse.ability) ? horse.ability : (horse.ability ? [horse.ability] : []);
@@ -487,8 +493,10 @@
       return;
     }
 
-    // 🎬 第4コーナーカットイン演出を動的に呼び出し
-    await playFourthCornerCutIn(chosenHorse);
+    // 🎬 第4コーナーカットイン演出の呼出
+    if (typeof playFourthCornerCutIn === 'function') {
+      await playFourthCornerCutIn(chosenHorse, cardRenderer);
+    }
 
     const nowMs = Date.now();
     state.today_cards = [...cards, { horse_id: chosenHorse.horse_id, rarity: chosenHorse.rarity, timestamp: nowMs }];
@@ -511,7 +519,6 @@
       globalUserData.login_bonus_state = state;
       renderBonusUI(state);
       renderRecord();
-      alert(`🎁 「${chosenHorse.name} (${chosenHorse.rarity})」を獲得しました！`);
     } catch (err) {
       console.error("ログインボーナス処理失敗:", err);
       alert("保存時にエラーが発生しました。");
@@ -535,7 +542,11 @@
       tbody.innerHTML = '<tr><td colspan="5" style="color:#888; padding:12px;">デッキが設定されていません（EDIT DECKから編成してください）</td></tr>';
       return;
     }
-    tbody.innerHTML = deck.horse_ids.map((hId, index) => cardRenderer.renderRaceTableRow(hId, index)).join('');
+    if (cardRenderer.renderRaceTableRow) {
+      tbody.innerHTML = deck.horse_ids.map((hId, index) => cardRenderer.renderRaceTableRow(hId, index)).join('');
+    } else {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:#888; padding:12px;">データ描画準備中...</td></tr>';
+    }
   }
 
   document.getElementById('tabMain1').onclick = () => switchTab(0);
