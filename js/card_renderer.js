@@ -1,7 +1,30 @@
+// レアリティごとのカード外枠カラー（card_design.jsonより移植・集約）
+const RARITY_BORDER_COLORS = {
+  ULR: '#d4af37', // ULTRA LEGEND
+  INF: '#e0a800', // INFINITE
+  SER: '#a855f7', // SECRET RARE
+  URR: '#ef4444', // ULTIMATE RARE
+  SPR: '#3b82f6', // SUPER RARE
+  PRR: '#10b981', // PREMIUM RARE
+  VIR: '#f59e0b', // VICTORY RARE
+  NOR: '#9ca3af', // NORMAL
+  LGR: '#b8860b', // LEGENDARY RARE
+  CLR: '#d2691e', // CLASSICAL RARE
+  TRR: '#4b0082', // TRADITIONAL RARE
+  RER: '#708090', // RETRO RARE
+  ANR: '#2e8b57', // ANTIQUE RARE
+  // 共通レアリティ表記用
+  UR:  '#d4af37',
+  SSR: '#e63956',
+  SR:  '#1e90ff',
+  R:   '#2ed573',
+  N:   '#9ca3af'
+};
+const DEFAULT_BORDER_COLOR = '#9ca3af';
+
 export class CardRenderer {
   constructor() {
     this.horsesMap = new Map();
-    this.designConfig = null;
     this.isLoaded = false;
   }
 
@@ -10,22 +33,12 @@ export class CardRenderer {
 
     try {
       const horsesPath = './data/horses_master.json';
-      const designPath = './data/card_design.json';
-
-      const [horsesRes, designRes] = await Promise.all([
-        fetch(horsesPath).catch(e => { throw new Error(`[通信エラー] ${horsesPath} にアクセスできません`); }),
-        fetch(designPath).catch(e => { throw new Error(`[通信エラー] ${designPath} にアクセスできません`); })
-      ]);
+      const horsesRes = await fetch(horsesPath).catch(e => {
+        throw new Error(`[通信エラー] ${horsesPath} にアクセスできません`);
+      });
 
       if (!horsesRes.ok) throw new Error(`馬データが見つかりません (ステータス: ${horsesRes.status}) パス: ${horsesPath}`);
       const horsesArray = await horsesRes.json();
-      
-      if (designRes.ok) {
-        this.designConfig = await designRes.json();
-      } else {
-        console.warn(`[警告] ${designPath} が読み込めませんでしたが、デフォルトデザインで続行します。`);
-        this.designConfig = { rarity_styles: {} };
-      }
 
       this.horsesMap.clear();
       horsesArray.forEach(horse => {
@@ -425,8 +438,8 @@ export class CardRenderer {
 
     if (!horse) return `<div class="card-error" style="color:#888; font-size:11px; text-align:center; padding:10px;">(未設定: ID ${horseId})</div>`;
 
-    const rarityInfo = (this.designConfig && this.designConfig.rarity_styles && this.designConfig.rarity_styles[horse.rarity]) 
-      || { border_color: '#a0ca33', bg_color: '#ffffff' };
+    const rarityKey = (horse.rarity || 'NOR').toUpperCase();
+    const borderColor = RARITY_BORDER_COLORS[rarityKey] || DEFAULT_BORDER_COLOR;
 
     const surfaceText = this.formatAptitude(
       this.getHorseParam(horse, ['turf_potential', 'turf']),
@@ -447,11 +460,10 @@ export class CardRenderer {
     // 1. デック用（コンパクト表示）
     if (mode === 'deck') {
       return `
-        <div class="crc-card crc-card-deck" style="border: 1px solid ${rarityInfo.border_color}; border-left: 4px solid ${rarityInfo.border_color};">
+        <div class="crc-card crc-card-deck" style="border: 1px solid ${borderColor}; border-left: 4px solid${borderColor};">
           <div class="crc-card-header">
             <div class="crc-deck-name">${horse.name}</div>
-            ${genBadgeHtml}
-            ${rarityBadgeHtml}
+            ${genBadgeHtml}${rarityBadgeHtml}
           </div>
           <div class="crc-deck-details">
             <span>${surfaceText} ${distanceText} 性別:${sexText}</span>
@@ -472,7 +484,7 @@ export class CardRenderer {
     if (mode === 'large') {
       const imgPath = horse.image_url || horse.image || `./images/horses/${horse.horse_id || horse.id}.png`;
       return `
-        <div class="crc-card crc-card-large" style="border: 2px solid ${rarityInfo.border_color}; border-left: 6px solid ${rarityInfo.border_color};">
+        <div class="crc-card crc-card-large" style="border: 2px solid ${borderColor}; border-left: 6px solid${borderColor};">
           <!-- 1行独立表示の馬名 -->
           <div class="crc-deck-name" title="${horse.name}">${horse.name}</div>
 
@@ -483,14 +495,13 @@ export class CardRenderer {
 
           <!-- 画像の下に配置したバッジ類 -->
           <div class="crc-large-badges-row">
-            ${genBadgeHtml}
-            ${rarityBadgeHtml}
+            ${genBadgeHtml}${rarityBadgeHtml}
           </div>
 
           <!-- 拡大表示用の詳細テキスト（適性・距離・脚質・性別） -->
           <div class="crc-deck-details">
-            <div>${surfaceText} ${distanceText}</div>
-            <div>脚質:${horse.style || '-'} 性別:${sexText}</div>
+            <div>${surfaceText}${distanceText}</div>
+            <div>脚質:${horse.style \vert{}\vert{} '-'} 性別:${sexText}</div>
             <div class="crc-deck-params">
               <span>ス:${spd}</span>
               <span>タ:${stm}</span>
@@ -505,15 +516,14 @@ export class CardRenderer {
 
     // 3. プール/一覧用（標準表示）
     return `
-      <div class="crc-card crc-card-pool" style="border: 1px solid ${rarityInfo.border_color};">
+      <div class="crc-card crc-card-pool" style="border: 1px solid ${borderColor};">
         <div class="crc-card-header">
           <div class="crc-pool-name">${horse.name}</div>
           <div style="display:flex; gap:3px;">
-            ${genBadgeHtml}
-            ${rarityBadgeHtml}
+            ${genBadgeHtml}${rarityBadgeHtml}
           </div>
         </div>
-        <div class="crc-pool-sub">${surfaceText} ${distanceText} ${sexText}</div>
+        <div class="crc-pool-sub">${surfaceText} ${distanceText}${sexText}</div>
         <div class="crc-pool-stats-grid">
           <div class="crc-stat-item"><span class="crc-stat-label">脚質</span><span class="crc-stat-val">${horse.style || '-'}</span></div>
           <div class="crc-stat-item"><span class="crc-stat-label">スピ</span><span class="crc-stat-val">${spd}</span></div>
