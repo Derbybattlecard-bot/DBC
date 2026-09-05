@@ -9,8 +9,8 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition) {
     let buff = 0;
 
     // 【競馬場・コース系】
-    if (abilityName === "中山マイスター" && raceInfo?.track === "中山") buff = 1;
-    if (abilityName === "府中の鬼" && raceInfo?.track === "東京") buff = 1;
+    if (abilityName === "中山マイスター" && raceInfo?.track === "中山") buff = 100;
+    if (abilityName === "府中の鬼" && raceInfo?.track === "東京") buff = 51;
     if (abilityName === "淀の千両役者" && raceInfo?.track === "京都") buff = 1;
     if (abilityName === "仁川の猛者" && raceInfo?.track === "阪神") buff = 1;
     if (abilityName === "越後の大吟醸" && raceInfo?.track === "新潟") buff = 1;
