@@ -1,7 +1,90 @@
 // js/race_calculator.js
 
+// --- 新規追加: アビリティ処理関数 ---
+// Phase 1: 競馬場・馬場・距離などの条件に基づく基礎パラメータ増減
+function applyPhase1Abilities(horse, raceInfo, trackCondition) {
+  if (!horse.ability || !Array.isArray(horse.ability)) return;
+
+  horse.ability.forEach(abilityName => {
+    let buff = 0;
+
+    // 【競馬場・コース系】
+    if (abilityName === "中山マイスター" && raceInfo?.track === "中山") buff = 1;
+    if (abilityName === "府中の鬼" && raceInfo?.track === "東京") buff = 1;
+    if (abilityName === "淀の千両役者" && raceInfo?.track === "京都") buff = 1;
+    if (abilityName === "仁川の猛者" && raceInfo?.track === "阪神") buff = 1;
+    if (abilityName === "越後の大吟醸" && raceInfo?.track === "新潟") buff = 1;
+    if (abilityName === "尾張の芸達者" && raceInfo?.track === "中京") buff = 1;
+    if (abilityName === "小倉の舞台荒らし" && raceInfo?.track === "小倉") buff = 1;
+    if (abilityName === "小倉百戦錬磨" && raceInfo?.track === "小倉") buff = 1;
+    if (abilityName === "札幌の看板役者" && raceInfo?.track === "札幌") buff = 1;
+    if (abilityName === "函館ひと芝居" && raceInfo?.track === "函館") buff = 1;
+    if (abilityName === "地方無双" && ["大井","川崎","船橋","浦和","盛岡","園田","高知","笠松","門別"].includes(raceInfo?.track)) buff = 1;
+
+    // 【距離系】
+    if (abilityName === "スピードスター" && raceInfo?.distance === 1200) buff = 1;
+    if (abilityName === "オイラはマイラー" && raceInfo?.distance === 1600) buff = 1;
+    if (abilityName === "体力オバケ" && raceInfo?.distance === 3200) buff = 1;
+
+    // 【馬場状態系】
+    if (abilityName === "道悪帝王") {
+      if (trackCondition === "稍重") buff = 1;
+      else if (trackCondition === "重" || trackCondition === "不良") buff = 2;
+    }
+
+    // 【枠・馬番系】（gate_number を使用。データが無ければスルー）
+    if (abilityName === "最内一閃" && horse.gate_number === 1) buff = 2;
+    if (abilityName === "大外大歓迎" && horse.gate_number === 8) buff = 2; 
+
+    // バフ適用（既存の基本5ステータス＋ポテンシャルにのみ加算。新規パラメータは絶対に追加しない！）
+    if (buff !== 0) {
+      horse.speed = (horse.speed || 0) + buff;
+      horse.stamina = (horse.stamina || 0) + buff;
+      horse.sharp = (horse.sharp || 0) + buff;
+      horse.jizoku = (horse.jizoku || 0) + buff;
+      horse.guts = (horse.guts || 0) + buff;
+      horse.current_potential = (horse.current_potential || 0) + buff;
+      
+      // ログ・表示用のバフ記録（純粋なスコア確認用）
+      horse.ability_buff = (horse.ability_buff || 0) + buff;
+    }
+  });
+}
+
+// Phase 2: 位置取りスコア等へのボーナス
+function applyPhase2Abilities(horse, positionPoint) {
+  if (!horse.ability || !Array.isArray(horse.ability)) return positionPoint;
+  
+  let newPoint = positionPoint;
+  horse.ability.forEach(abilityName => {
+    if (abilityName === "ロケットスタート") {
+      newPoint += 20; // 大きく前に行く
+    }
+  });
+  return newPoint;
+}
+
+// Phase 4: 最終スコアへの展開依存ボーナス
+function applyPhase4Abilities(horse, pace, branchName) {
+  if (!horse.ability || !Array.isArray(horse.ability)) return 0;
+
+  let extraScore = 0;
+  horse.ability.forEach(abilityName => {
+    // 展開「前残り」の場合のバフ（スコア加算で表現）
+    if ((abilityName === "電光石火" || abilityName === "衝撃の捲り" || abilityName === "異次元の捲り" || abilityName === "怒涛の捲り") && branchName.includes("前残り")) {
+      extraScore += 10;
+    }
+    // 乱ペース時に最終スコア加算
+    if ((abilityName === "王道" || abilityName === "絶対王者") && pace.includes("乱ペース")) {
+      extraScore += 10;
+    }
+  });
+  return extraScore;
+}
+// ----------------------------------------
+
 // 1. ステータス箱の生成（計算専用コピー）
-function createRaceHorseInstance(horse, raceInfo) {
+function createRaceHorseInstance(horse, raceInfo, trackCondition) {
   const instance = JSON.parse(JSON.stringify(horse));
   const isTurf = raceInfo?.surface === '芝';
 
@@ -22,6 +105,9 @@ function createRaceHorseInstance(horse, raceInfo) {
       instance.guts = (instance.guts || 0) + potDiff;
     }
   }
+
+  // --- 新規追加: アビリティ適用 (Phase 1) ---
+  applyPhase1Abilities(instance, raceInfo, trackCondition);
 
   const levelVal = horse.level || 1;
   const matchedStrat = horse.stratObj;
@@ -50,7 +136,10 @@ function calculatePositions(horses) {
     else basePos = 50;
 
     const randomVal = Math.floor(Math.random() * 15);
-    h.positionPoint = basePos + (h.strat_speed || 0) + randomVal;
+    let positionPoint = basePos + (h.strat_speed || 0) + randomVal;
+
+    // --- 新規追加: アビリティ適用 (Phase 2) ---
+    h.positionPoint = applyPhase2Abilities(h, positionPoint);
   });
 
   const sorted = [...horses].sort((a, b) => b.positionPoint - a.positionPoint);
@@ -184,6 +273,13 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
       }
     }
 
+    // --- 新規追加: アビリティ適用 (Phase 4 展開依存のスコア加算) ---
+    const abilityBonusPt = applyPhase4Abilities(h, pace, selectedBranch.name);
+    paramScore += abilityBonusPt;
+    if (abilityBonusPt > 0) {
+      detailParts.push(`アビリティ:+${abilityBonusPt}`);
+    }
+
     const levelScore = (h.level || 1) * 2;
     const randScore = Math.random() * 5;
 
@@ -192,9 +288,10 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
 
     // --- 詳細テキストの見やすいフォーマット化 ---
     const statDetailStr = detailParts.join("+");
-    let scoreBreakdown = `展開:${paramScore - posAddPt - styleBonusPt}[${statDetailStr}]`;
+    let scoreBreakdown = `展開:${paramScore - posAddPt - styleBonusPt - abilityBonusPt}[${statDetailStr}]`;
     if (posAddPt > 0) scoreBreakdown = `位置:+${posAddPt} | ${scoreBreakdown}`;
     if (styleBonusPt > 0) scoreBreakdown = `${scoreBreakdown} | 脚質:+${styleBonusPt}`;
+    if (h.ability_buff > 0) scoreBreakdown = `${scoreBreakdown} | 基礎バフ:+${h.ability_buff}`; // Phase 1のバフ量も表示
     
     h.detailText = `${scoreBreakdown} | Lv:+${levelScore} | 乱:+${randScore.toFixed(1)}`;
   });
@@ -213,7 +310,7 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
       else if (tieKey.includes('jizoku')) key = 'jizoku';
       else if (tieKey.includes('speed')) key = 'speed';
       else if (tieKey.includes('stamina')) key = 'stamina';
-      else if (tieKey.includes('パワー')) key = 'power';
+      // 意図しない「パワー」などの架空パラメータは削除しました
       else if (tieKey.includes('乱数差')) key = 'random_diff';
       else if (tieKey.includes('ID')) key = 'horse_id';
       else if (tieKey.includes('五十音')) key = 'name';
@@ -237,7 +334,8 @@ function calculateScoresAndSort(horses, pace, raceMasterData) {
 
 // 5. メイン実行関数
 export function runRaceLogic(activeHorses, raceMasterData, trackCondition, raceInfo) {
-  const raceHorses = activeHorses.map(h => createRaceHorseInstance(h, raceInfo));
+  // アビリティ処理のために trackCondition と raceInfo の両方を渡すよう変更
+  const raceHorses = activeHorses.map(h => createRaceHorseInstance(h, raceInfo, trackCondition));
 
   calculatePositions(raceHorses);
   const currentPace = determineRacePace(raceHorses, raceMasterData, trackCondition);
