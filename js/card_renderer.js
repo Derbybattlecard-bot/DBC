@@ -13,12 +13,6 @@ const RARITY_BORDER_COLORS = {
   TRR: '#4b0082', // TRADITIONAL RARE
   RER: '#708090', // RETRO RARE
   ANR: '#2e8b57', // ANTIQUE RARE
-  // 共通レアリティ表記用
-  UR:  '#d4af37',
-  SSR: '#e63956',
-  SR:  '#1e90ff',
-  R:   '#2ed573',
-  N:   '#9ca3af'
 };
 const DEFAULT_BORDER_COLOR = '#9ca3af';
 
