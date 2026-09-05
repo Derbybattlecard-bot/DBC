@@ -73,7 +73,6 @@
   .modal-desc { font-size: 14px; color: #444; margin-bottom: 15px; line-height: 1.5; }
   
   .reward-box { background: #fff8e1; border: 2px solid #ffe082; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-  .reward-horse { font-size: 18px; font-weight: bold; color: #d32f2f; margin: 8px 0; }
   .modal-btn { background: var(--accent-color); color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-weight: bold; font-size: 14px; cursor: pointer; }
 
   /* アンロック専用スタイル */
@@ -148,8 +147,6 @@
     <div class="reward-box" id="rewardBox" style="display: none;">
       <div style="font-size:12px; color:#c67100; font-weight:bold; margin-bottom: 8px;">🎁 報酬カード獲得！</div>
       <div id="rewardCardContainer" style="display: flex; justify-content: center; margin: 10px 0;"></div>
-      <div class="reward-horse" id="rewardHorseName" style="display:none;">-</div>
-      <div style="font-size:12px; display:none;" id="rewardRarity"></div>
     </div>
     <button class="modal-btn" onclick="closeModalAndReset()">ステータス画面へ戻る</button>
   </div>
@@ -238,7 +235,7 @@
     }
   }
 
-    function getNormalizedCategory(s) {
+  function getNormalizedCategory(s) {
     if (!s) return "";
     const c = String(s.group || s.category || s.category_name || "");
     
@@ -253,7 +250,6 @@
     
     return c;
   }
-
 
   function getSeriesNo(s) {
     if (!s) return 1;
@@ -272,13 +268,12 @@
   }
 
   function updateHeaderBadges() {
-  const totalWins = globalUserData.total_wins || 0;
-  const max1st = globalUserData.max_1st_places || 0;
+    const totalWins = globalUserData.total_wins || 0;
+    const max1st = globalUserData.max_1st_places || 0;
 
-  document.getElementById('userWinsBadge').textContent = `通算 ${totalWins} 勝`;
-  document.getElementById('userMax1stBadge').textContent = `最多1着: ${max1st}回`;
-}
-
+    document.getElementById('userWinsBadge').textContent = `通算 ${totalWins} 勝`;
+    document.getElementById('userMax1stBadge').textContent = `最多1着: ${max1st}回`;
+  }
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = 'auth.html'; return; }
@@ -289,10 +284,9 @@
         globalUserData = userDoc.data();
       }
 
-    SERIES_MASTER = await fetchJsonSafely('./data/series_master.json');
+      SERIES_MASTER = await fetchJsonSafely('./data/series_master.json');
       HORSES_ARRAY = await fetchJsonSafely('./data/horses_master.json');
       
-      // ▼▼ ここから追加 ▼▼
       const catCounters = {};
       SERIES_MASTER.forEach(s => {
         const cat = getNormalizedCategory(s);
@@ -300,7 +294,6 @@
         catCounters[cat]++;
         s.series_no = catCounters[cat];
       });
-      // ▲▲ ここまで追加 ▲▲
 
       if (Array.isArray(HORSES_ARRAY)) {
         HORSES_ARRAY.forEach(h => HORSES_MASTER[h.horse_id] = h);
@@ -375,12 +368,13 @@
     await processBattleState(totalWins);
   };
 
-
+  /* ─── ゲーム終了 & 報酬獲得演出 ─── */
   async function handleGameEnd(status, isClear, winCondition) {
     const modal = document.getElementById('resultModal');
     const title = document.getElementById('modalTitle');
     const desc = document.getElementById('modalDesc');
     const rewardBox = document.getElementById('rewardBox');
+    const cardContainer = document.getElementById('rewardCardContainer');
     
     if (isClear) {
       title.textContent = "🎉 CHALLENGE CLEAR!";
@@ -390,11 +384,9 @@
       let pool = HORSES_ARRAY;
       const rewardHorse = pool[Math.floor(Math.random() * pool.length)];
 
-      document.getElementById('rewardHorseName').textContent = rewardHorse.name;
-      document.getElementById('rewardRarity').textContent = `ポテンシャル: ${rewardHorse.potential || rewardHorse.pt || '-'}`;
       rewardBox.style.display = "block";
 
-      // 1. 裏側で走らせるデータ保存処理（演出をブロックしないようにPromise.allでまとめる）
+    // 1. 裏側でデータ保存処理を実行
       const updatedStatus = { ...status, is_active: false, current_match: null };
       globalUserData.total_wins = (globalUserData.total_wins || 0) + 1;
       globalUserData.cpu_battle_status = updatedStatus;
@@ -406,10 +398,7 @@
       
       updateHeaderBadges();
 
-      // 2. ★演出が始まる「前」にRESULTモーダルを画面に表示する
-      modal.style.display = "flex";
-
-      // 3. モーダルの上からカットイン演出を被せる
+      // 2. ログインボーナス演出（第4コーナーカットイン）を実行
       let rendererObj = null;
       try {
         const { cardRenderer } = await import('./card_renderer.js');
@@ -419,23 +408,23 @@
           await cardRenderer.init();
         }
 
-        const { playFourthCornerCutIn } = await import('./login_bonus.js');
-        // z-index:9999 の演出がモーダルの手前で再生される
+        const { playFourthCornerCutIn } = await import('./login_bonus_2.js');
+        
+        // 全画面演出を再生
         await playFourthCornerCutIn(rewardHorse, cardRenderer);
 
       } catch (err) {
         console.warn("カットイン演出の実行中にエラーが発生しましたが、処理を継続します:", err);
       } finally {
-        // 4. ★エラーが起きた場合でも、必ずカード自体はモーダルに描画してフリーズを防ぐ
-        const cardContainer = document.getElementById('rewardCardContainer');
+        // 3. 演出終了後にモーダルへカードを描画し、モーダルを表示
         if (cardContainer) {
           if (rendererObj && rendererObj.isLoaded) {
             cardContainer.innerHTML = rendererObj.renderCardUI(rewardHorse, 'large');
           } else {
-            // rendererがクラッシュした際の最終防衛線
             cardContainer.innerHTML = `<div style="padding:20px; font-weight:bold;">${rewardHorse.name} を獲得しました！</div>`;
           }
         }
+        modal.style.display = "flex";
       }
 
     } else {
@@ -457,11 +446,7 @@
     }
   }
 
-
-
- 
-
-  // ★各回戦（1試合）の勝敗時に呼び出す連勝保存関数（matchup / raceから参照可能）
+  // ★各回戦（1試合）の勝敗時に呼び出す連勝保存関数
   window.recordMatchResult = async function(isWin) {
     if (!currentUser) return;
     const userRef = doc(db, "users", currentUser.uid);
@@ -577,7 +562,7 @@
     
     const limits = selectedSeries.potential_limit || { max_total_potential: 95, min_potential_per_race: 15 };
     document.getElementById('maxTotalPotentialVal').textContent = limits.max_total_potential;
-        if (limits.min_potential_per_race === null || limits.min_potential_per_race === undefined) {
+    if (limits.min_potential_per_race === null || limits.min_potential_per_race === undefined) {
       document.getElementById('minPotentialVal').textContent = "出走制限なし";
     } else {
       document.getElementById('minPotentialVal').textContent = `${limits.min_potential_per_race}以上`;
@@ -651,8 +636,8 @@
 
   function getDistanceText(horse) {
     if (!horse) return '-';
-    let minD = horse.min_distance ?? horse.min_dist ?? horse.aptitude?.min_distance;
-    let maxD = horse.max_distance ?? horse.max_dist ?? horse.aptitude?.max_distance;
+    let minD = horse.min_distance ?? horse.distance_min ?? horse.aptitude?.min_distance;
+    let maxD = horse.max_distance ?? horse.distance_max ?? horse.aptitude?.max_distance;
     if (minD !== undefined && maxD !== undefined && minD !== null && maxD !== null && minD !== '' && maxD !== '') {
       minD = Number(minD); maxD = Number(maxD);
       if (!isNaN(minD) && !isNaN(maxD)) return minD === maxD ? `${minD}m` : `${minD}-${maxD}m`;
@@ -682,22 +667,19 @@
     const usedCards = globalUserData.cpu_battle_status?.used_cards_history || [];
     const deck = (globalUserData.decks || [])[selectedDeckIndex] || { horse_ids: [] };
 
-        for (let i = 0; i < 18; i++) {
+    for (let i = 0; i < 18; i++) {
       const horse = HORSES_MASTER[deck.horse_ids[i]];
       const tr = document.createElement('tr');
       const frameNum = i + 1;
 
       if (horse) {
-        // アビリティ「鉄女」「連闘」の判定を追加
         const hasContinuousAbility = Array.isArray(horse.ability) && (horse.ability.includes("鉄女") || horse.ability.includes("連闘"));
-        // アビリティを持つ場合は使用済と判定しない
         const isUsed = (usedCards.includes(horse.horse_id) || usedCards.includes(horse.name)) && !hasContinuousAbility;
         
         if (isUsed) {
           tr.className = 'used-row';
           tr.style.opacity = '0.4';
         }
-
 
         const sex = horse.sex || '牡馬';
         const surface = getSurfaceText(horse);
