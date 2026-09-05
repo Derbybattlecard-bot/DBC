@@ -1,79 +1,15 @@
 // js/race_calculator.js
 
-// --- 対象馬のチェック用ヘルパー関数 ---
-function isEligibleForAbility(horse) {
-  return !!(horse.isPlayer || horse.isCpu);
-}
-
-// 確率オブジェクトに基づく重み付け抽選
-function weightedRandomSelect(probObj) {
-  if (!probObj) return "ミドルペース";
-  const keys = Object.keys(probObj);
-  const rand = Math.random();
-  let cumulative = 0;
-  for (const key of keys) {
-    cumulative += probObj[key];
-    if (rand <= cumulative) {
-      return key;
-    }
-  }
-  return keys[keys.length - 1] || "ミドルペース";
-}
-
-// race_master.json の pace_decision_master に基づいてペースを判定
-function determinePace(horses, raceMaster, trackCondition) {
-  const paceMaster = raceMaster?.pace_decision_master;
-  if (!paceMaster) return "ミドルペース";
-
-  // 馬場判定（重・不良 / 良・稍重）
-  const isHeavy = (trackCondition === "重" || trackCondition === "不良");
-  const condMaster = isHeavy ? paceMaster.heavy_or_bad : paceMaster.good_or_slightly_heavy;
-  if (!condMaster) return "ミドルペース";
-
-  // 逃げ馬（脚質または作戦が逃げ系）の頭数をカウント
-  const leadHorses = horses.filter(h => {
-    const style = h.style || h.running_style || "";
-    const tactic = h.tactic || "";
-    return style === "逃げ" || tactic.includes("逃げ") || tactic === "ハナにこだわる";
-  });
-
-  const leadCount = leadHorses.length;
-  let probObj = null;
-
-  if (leadCount === 0) {
-    probObj = { "スローペース": 0.5, "ミドルペース": 0.5 };
-  } else if (leadCount === 1) {
-    const leadStrat = leadHorses[0].tactic || "平均ラップ逃げ";
-    const map = condMaster["1_horse"]?.by_strategy;
-    probObj = map ? (map[leadStrat] || map["平均ラップ逃げ"]) : null;
-  } else if (leadCount === 2) {
-    const leadStrat = leadHorses[0].tactic || "平均ラップ逃げ";
-    const map = condMaster["2_horses"]?.by_lead_horse_strategy;
-    probObj = map ? (map[leadStrat] || map["other"]) : null;
-  } else if (leadCount === 3) {
-    probObj = condMaster["3_horses"]?.probabilities;
-  } else if (leadCount === 4) {
-    probObj = condMaster["4_horses"]?.probabilities;
-  } else {
-    probObj = condMaster["5_or_more_horses"]?.probabilities;
-  }
-
-  return weightedRandomSelect(probObj);
-}
-
-// Phase 1: 競馬場・馬場・距離などの条件に基づく基礎パラメータ増減
+// --- アビリティ処理関数 ---
 function applyPhase1Abilities(horse, raceInfo, trackCondition) {
-  if (!isEligibleForAbility(horse)) return;
   if (!horse.ability || !Array.isArray(horse.ability)) return;
-
-  horse.activated_abilities = horse.activated_abilities || [];
 
   horse.ability.forEach(abilityName => {
     let buff = 0;
 
     // 【競馬場・コース系】
-    if (abilityName === "中山マイスター" && raceInfo?.track === "中山") buff = 1;
-    if (abilityName === "府中の鬼" && raceInfo?.track === "東京") buff = 1;
+    if (abilityName === "中山マイスター" && raceInfo?.track === "中山") buff = 100;
+    if (abilityName === "府中の鬼" && raceInfo?.track === "東京") buff = 51;
     if (abilityName === "淀の千両役者" && raceInfo?.track === "京都") buff = 1;
     if (abilityName === "仁川の猛者" && raceInfo?.track === "阪神") buff = 1;
     if (abilityName === "越後の大吟醸" && raceInfo?.track === "新潟") buff = 1;
@@ -97,7 +33,7 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition) {
 
     // 【枠・馬番系】
     if (abilityName === "最内一閃" && horse.gate_number === 1) buff = 2;
-    if (abilityName === "大外大歓迎" && horse.gate_number === 8) buff = 2;
+    if (abilityName === "大外大歓迎" && horse.gate_number === 8) buff = 2; 
 
     // バフ適用
     if (buff !== 0) {
@@ -108,151 +44,300 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition) {
       horse.guts = (horse.guts || 0) + buff;
       horse.current_potential = (horse.current_potential || 0) + buff;
       horse.ability_buff = (horse.ability_buff || 0) + buff;
-
-      if (!horse.activated_abilities.includes(abilityName)) {
-        horse.activated_abilities.push(abilityName);
-      }
     }
   });
 }
 
-// Phase 2: 位置取りスコア等へのボーナス
 function applyPhase2Abilities(horse, positionPoint) {
-  if (!isEligibleForAbility(horse)) return positionPoint;
   if (!horse.ability || !Array.isArray(horse.ability)) return positionPoint;
   
-  horse.activated_abilities = horse.activated_abilities || [];
   let newPoint = positionPoint;
-
   horse.ability.forEach(abilityName => {
     if (abilityName === "ロケットスタート") {
       newPoint += 20;
-      if (!horse.activated_abilities.includes(abilityName)) {
-        horse.activated_abilities.push(abilityName);
-      }
     }
   });
   return newPoint;
 }
 
-// Phase 4: 最終スコアへの展開依存ボーナス
 function applyPhase4Abilities(horse, pace, branchName) {
-  if (!isEligibleForAbility(horse)) return 0;
   if (!horse.ability || !Array.isArray(horse.ability)) return 0;
 
-  horse.activated_abilities = horse.activated_abilities || [];
   let extraScore = 0;
-
   horse.ability.forEach(abilityName => {
-    let triggered = false;
     if ((abilityName === "電光石火" || abilityName === "衝撃の捲り" || abilityName === "異次元の捲り" || abilityName === "怒涛の捲り") && branchName.includes("前残り")) {
       extraScore += 10;
-      triggered = true;
     }
     if ((abilityName === "王道" || abilityName === "絶対王者") && pace.includes("乱ペース")) {
       extraScore += 10;
-      triggered = true;
-    }
-
-    if (triggered && !horse.activated_abilities.includes(abilityName)) {
-      horse.activated_abilities.push(abilityName);
     }
   });
   return extraScore;
 }
 
-// --- メイン計算エクスポート関数 ---
-export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInfo = null) {
-  const resultList = horses.map((h, i) => {
-    const copy = { ...h, index: i, activated_abilities: [] };
-    applyPhase1Abilities(copy, raceInfo, trackCondition);
-    return copy;
-  });
+// ----------------------------------------
+// 1. ステータス箱の生成（ここでプロパティの摺合せ・正規化を一括処理）
+function createRaceHorseInstance(horse, raceInfo, trackCondition) {
+  const instance = JSON.parse(JSON.stringify(horse));
+  const isTurf = raceInfo?.surface === '芝';
 
-  // 1. 位置取りポイント算定 ＆ 位置順位確定
-  resultList.forEach((h) => {
-    let basePos = Math.floor(Math.random() * 30) + 50;
-    h.positionPoint = applyPhase2Abilities(h, basePos);
-  });
+  // ★【データモデルの統一化】脚質プロパティをここで完全に一本化する★
+  instance.style = horse.stratObj?.style 
+                || horse.stratObj?.running_style 
+                || horse.tactic_style 
+                || horse.tactic 
+                || horse.style 
+                || horse.running_style 
+                || "自在";
 
-  const posSorted = [...resultList].sort((a, b) => b.positionPoint - a.positionPoint);
-  posSorted.forEach((h, rank) => {
-    const target = resultList.find(item => item.index === h.index);
-    if (target) target.positionRank = rank + 1;
-  });
+  // 芝・ダートそれぞれのポテンシャル取得
+  const turfPot = horse.turf_potential || horse.potential || 0;
+  const dirtPot = horse.dirt_potential || horse.potential || 0;
 
-  // 2. レースマスター（pace_decision_master）からペースを抽選
-  const selectedPace = determinePace(resultList, raceMaster, trackCondition);
+  instance.current_potential = isTurf ? turfPot : dirtPot;
 
-  // 3. レースマスター（branches_by_pace）から対応する展開を抽選
-  let availableBranches = raceMaster?.branches_by_pace?.[selectedPace];
-  if (!availableBranches || availableBranches.length === 0) {
-    availableBranches = [{
-      name: "総合力勝負",
-      key_stats: ["potential", "speed", "stamina"]
-    }];
+  // ダート出走時、ダートのポテンシャルが芝より高い場合のみ差分を加算
+  if (!isTurf) {
+    const potDiff = dirtPot - turfPot;
+    if (potDiff > 0) {
+      instance.speed = (instance.speed || 0) + potDiff;
+      instance.stamina = (instance.stamina || 0) + potDiff;
+      instance.sharp = (instance.sharp || 0) + potDiff;
+      instance.jizoku = (instance.jizoku || 0) + potDiff;
+      instance.guts = (instance.guts || 0) + potDiff;
+    }
   }
-  const selectedBranch = availableBranches[Math.floor(Math.random() * availableBranches.length)];
 
-  // 4. スコア計算
-  const fieldSize = resultList.length || 16;
-  resultList.forEach((h) => {
-    let statScore = 0;
+  // アビリティ適用 (Phase 1)
+  applyPhase1Abilities(instance, raceInfo, trackCondition);
 
-    // 特殊計算（「波乱の展開」などの formula 指定がある場合）
-    if (selectedBranch.formula) {
-      const pot = h.potential || 50;
-      let targetVal = 50;
-      if (selectedBranch.target_pool && selectedBranch.target_pool.length > 0) {
-        const randomKey = selectedBranch.target_pool[Math.floor(Math.random() * selectedBranch.target_pool.length)];
-        targetVal = (h[randomKey] || 50) + (h[`strat_${randomKey}`] || 0);
-      }
-      statScore = 30 - pot + targetVal;
-    } 
-    // key_stats に基づく基本能力加算
-    else if (selectedBranch.key_stats && selectedBranch.key_stats.length > 0) {
-      selectedBranch.key_stats.forEach(key => {
-        statScore += (h[key] || 50) + (h[`strat_${key}`] || 0);
-      });
-    } else {
-      statScore = (h.speed || 50) + (h.stamina || 50);
-    }
+  const levelVal = horse.level || 1;
+  const matchedStrat = horse.stratObj;
+  
+  // 作戦によるステータス加算値
+  instance.strat_speed = (matchedStrat ? matchedStrat.speed : 3) + levelVal;
+  instance.strat_stamina = (matchedStrat ? matchedStrat.stamina : 3) + levelVal;
+  instance.strat_sharp = (matchedStrat ? matchedStrat.sharp : 3) + levelVal;
+  instance.strat_jizoku = (matchedStrat ? matchedStrat.jizoku : 3) + levelVal;
+  instance.strat_guts = (matchedStrat ? matchedStrat.guts : 3) + levelVal;
 
-    // 脚質ボーナス判定
-    if (selectedBranch.style_bonus) {
-      const style = h.style || h.running_style || "";
-      const tactic = h.tactic || "";
-      const bonus = selectedBranch.style_bonus[style] || selectedBranch.style_bonus[tactic] || 0;
-      statScore += bonus;
-    }
+  return instance;
+}
 
-    // 位置順位ダイレクトボーナス判定
-    if (selectedBranch.position_bonus_type === "direct_asc") {
-      statScore += h.positionRank;
-    } else if (selectedBranch.position_bonus_type === "direct_desc") {
-      statScore += (fieldSize + 1 - h.positionRank);
-    }
+// 2. 位置取り・隊列計算
+function calculatePositions(horses) {
+  horses.forEach((h, i) => {
+    h.index = i;
+    
+    // 一本化された h.style のみを参照
+    let basePos = 50;
+    if (h.style === "大逃") basePos = 95;
+    else if (h.style === "逃げ") basePos = 90;
+    else if (h.style === "先行" || h.style === "好位") basePos = 70;
+    else if (h.style === "差し") basePos = 40;
+    else if (h.style === "追込") basePos = 20;
 
-    // Phase 4 アビリティ適用
-    let extraScore = applyPhase4Abilities(h, selectedPace, selectedBranch.name);
+    const randomVal = Math.floor(Math.random() * 15);
+    let positionPoint = basePos + (h.strat_speed || 0) + randomVal;
 
-    let levelBonus = (h.level || 1) * 2;
-    let randomBonus = Math.random() * 10;
-
-    h.posScore = h.positionPoint;
-    h.branchScore = extraScore;
-    h.levelScore = levelBonus;
-    h.randScore = randomBonus;
-
-    h.finalScore = statScore + h.positionPoint + extraScore + levelBonus + randomBonus;
+    h.positionPoint = applyPhase2Abilities(h, positionPoint);
   });
 
-  // 5. 最終スコア順にソート
-  resultList.sort((a, b) => b.finalScore - a.finalScore);
+  const sorted = [...horses].sort((a, b) => b.positionPoint - a.positionPoint);
+  sorted.forEach((h, rank) => {
+    h.positionRank = rank + 1; // 1番手〜16番手
+    h.positionScore = 16 - rank; // 先頭=16pt 〜 最後方=1pt
+  });
+}
+
+// 3. ペース判定
+function determineRacePace(horses, raceMasterData, trackCondition) {
+  const isTough = (trackCondition === "重" || trackCondition === "不良");
+  const master = isTough 
+    ? raceMasterData.pace_decision_master.heavy_or_bad
+    : raceMasterData.pace_decision_master.good_or_slightly_heavy;
+
+  // 一本化された h.style のみを参照
+  const escapeHorses = horses.filter(h => h.style === "逃げ" || h.style === "大逃");
+
+  const escapeCount = escapeHorses.length;
+  let table = null;
+
+  if (escapeCount <= 1) {
+    const stratName = escapeCount === 1 ? escapeHorses[0].strat_name : "マイペース逃げ";
+    table = master["1_horse"].by_strategy[stratName] || master["1_horse"].by_strategy["平均ラップ逃げ"];
+  } else if (escapeCount === 2) {
+    const stratName = escapeHorses[0].strat_name;
+    table = master["2_horses"].by_lead_horse_strategy[stratName] || master["2_horses"].by_lead_horse_strategy["other"];
+  } else if (escapeCount === 3) {
+    table = master["3_horses"].probabilities;
+  } else if (escapeCount === 4) {
+    table = master["4_horses"].probabilities;
+  } else {
+    table = master["5_or_more_horses"].probabilities;
+  }
+
+  let rand = Math.random();
+  let cumulative = 0;
+  for (const [pace, prob] of Object.entries(table)) {
+    cumulative += prob;
+    if (rand <= cumulative) return pace;
+  }
+  return "ミドルペース";
+}
+
+// 4. スコア計算および着順確定
+function calculateScoresAndSort(horses, pace, raceMasterData) {
+  const branches = raceMasterData.branches_by_pace[pace];
+  const selectedBranch = branches[Math.floor(Math.random() * branches.length)];
+
+  horses.forEach(h => {
+    let paramScore = 0;
+    let posAddPt = 0;
+    let styleBonusPt = 0;
+    const detailParts = [];
+
+    // --- A. 特殊計算式（波乱の展開など） ---
+    if (selectedBranch.formula === "30 - potential + random_stat_1") {
+      const targetPool = selectedBranch.target_pool;
+      const randStatKey = targetPool[Math.floor(Math.random() * targetPool.length)];
+      const potVal = h.current_potential || h.potential || 50;
+      const basePotScore = 30 - potVal;
+
+      const horseStat = h[randStatKey] || 0;
+      const stratStat = h[`strat_${randStatKey}`] || 0;
+      const totalStat = horseStat + stratStat;
+
+      paramScore = basePotScore + totalStat;
+      detailParts.push(`(30-ポテ:${potVal})`);
+      
+      let statNameJa = randStatKey;
+      if (randStatKey === 'speed') statNameJa = 'SPD';
+      else if (randStatKey === 'stamina') statNameJa = 'STM';
+      else if (randStatKey === 'sharp') statNameJa = '瞬発';
+      else if (randStatKey === 'jizoku') statNameJa = '持続';
+      else if (randStatKey === 'guts') statNameJa = '根性';
+      
+      detailParts.push(`${statNameJa}:${totalStat}`);
+    } 
+    // --- B. 標準・キー能力算定 ---
+    else if (selectedBranch.key_stats) {
+      selectedBranch.key_stats.forEach(key => {
+        if (key === "potential" || key === "current_potential") {
+          const val = h.current_potential || h.potential || 0;
+          paramScore += val;
+          detailParts.push(`ポテ:${val}`);
+        } else {
+          const horseStat = h[key] || 0;
+          const stratStat = h[`strat_${key}`] || 0;
+          const totalStat = horseStat + stratStat;
+
+          paramScore += totalStat;
+          
+          let statNameJa = key;
+          if (key === 'speed') statNameJa = 'SPD';
+          else if (key === 'stamina') statNameJa = 'STM';
+          else if (key === 'sharp') statNameJa = '瞬発';
+          else if (key === 'jizoku') statNameJa = '持続';
+          else if (key === 'guts') statNameJa = '根性';
+          
+          detailParts.push(`${statNameJa}:${totalStat}`);
+        }
+      });
+    }
+
+    // 力比べの展開時の全馬ベースアップ補正（+70pt）
+    if (selectedBranch.name === "力比べの展開") {
+      paramScore += 70;
+      detailParts.push("力比べ:70");
+    }
+
+    // --- C. 位置ボーナス処理 ---
+    if (selectedBranch.position_bonus_type) {
+      if (selectedBranch.position_bonus_type === "direct_asc") {
+        posAddPt = h.positionRank; 
+      } else if (selectedBranch.position_bonus_type === "direct_desc") {
+        posAddPt = 17 - h.positionRank; 
+      }
+      paramScore += posAddPt;
+    }
+
+    // --- D. 脚質ボーナス (style_bonus) 加算 ---
+    // 一本化された h.style のみを参照
+    if (selectedBranch.style_bonus && selectedBranch.style_bonus[h.style]) {
+      styleBonusPt = selectedBranch.style_bonus[h.style];
+      paramScore += styleBonusPt;
+    }
+
+    // アビリティ適用 (Phase 4)
+    const abilityBonusPt = applyPhase4Abilities(h, pace, selectedBranch.name);
+    paramScore += abilityBonusPt;
+    if (abilityBonusPt > 0) {
+      detailParts.push(`アビリティ:+${abilityBonusPt}`);
+    }
+
+    const levelScore = (h.level || 1) * 2;
+    const randScore = Math.random() * 5;
+
+    h.random_diff = randScore;
+    h.finalScore = paramScore + randScore + levelScore;
+
+    // フォーマット化
+    const statDetailStr = detailParts.join("+");
+    let scoreBreakdown = `展開:${paramScore - posAddPt - styleBonusPt - abilityBonusPt}[${statDetailStr}]`;
+    if (posAddPt > 0) scoreBreakdown = `位置:+${posAddPt} | ${scoreBreakdown}`;
+    if (styleBonusPt > 0) scoreBreakdown = `${scoreBreakdown} | 脚質:+${styleBonusPt}`;
+    if (h.ability_buff > 0) scoreBreakdown = `${scoreBreakdown} | 基礎バフ:+${h.ability_buff}`;
+    
+    h.detailText = `${scoreBreakdown} | Lv:+${levelScore} | 乱:+${randScore.toFixed(1)}`;
+  });
+
+  // タイブレーク処理
+  const tieKeys = raceMasterData.tie_breakers || [];
+  horses.sort((a, b) => {
+    if (Math.abs(b.finalScore - a.finalScore) > 0.0001) return b.finalScore - a.finalScore;
+    
+    for (let tieKey of tieKeys) {
+      let key = null;
+      if (tieKey.includes('guts')) key = 'guts';
+      else if (tieKey.includes('potential')) key = 'potential';
+      else if (tieKey.includes('tactic_level')) key = 'level';
+      else if (tieKey.includes('sharp')) key = 'sharp';
+      else if (tieKey.includes('jizoku')) key = 'jizoku';
+      else if (tieKey.includes('speed')) key = 'speed';
+      else if (tieKey.includes('stamina')) key = 'stamina';
+      else if (tieKey.includes('乱数差')) key = 'random_diff';
+      else if (tieKey.includes('ID')) key = 'horse_id';
+      else if (tieKey.includes('五十音')) key = 'name';
+
+      if (key && a[key] !== undefined && b[key] !== undefined && a[key] !== b[key]) {
+         if (typeof a[key] === "number") {
+             return b[key] - a[key];
+         } else {
+             return String(a[key]).localeCompare(String(b[key]));
+         }
+      }
+    }
+    return 0;
+  });
 
   return {
-    results: resultList,
-    pace: selectedPace,
+    results: horses,
     branch: selectedBranch
+  };
+}
+
+// 5. メイン実行関数
+export function runRaceLogic(activeHorses, raceMasterData, trackCondition, raceInfo) {
+  const raceHorses = activeHorses.map(h => createRaceHorseInstance(h, raceInfo, trackCondition));
+
+  calculatePositions(raceHorses);
+  const currentPace = determineRacePace(raceHorses, raceMasterData, trackCondition);
+  const calculationData = calculateScoresAndSort(raceHorses, currentPace, raceMasterData);
+
+  return {
+    results: calculationData.results,
+    pace: currentPace,
+    branch: calculationData.branch
   };
 }
