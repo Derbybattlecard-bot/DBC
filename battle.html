@@ -682,17 +682,22 @@
     const usedCards = globalUserData.cpu_battle_status?.used_cards_history || [];
     const deck = (globalUserData.decks || [])[selectedDeckIndex] || { horse_ids: [] };
 
-    for (let i = 0; i < 18; i++) {
+        for (let i = 0; i < 18; i++) {
       const horse = HORSES_MASTER[deck.horse_ids[i]];
       const tr = document.createElement('tr');
       const frameNum = i + 1;
 
       if (horse) {
-        const isUsed = usedCards.includes(horse.horse_id) || usedCards.includes(horse.name);
+        // アビリティ「鉄女」「連闘」の判定を追加
+        const hasContinuousAbility = Array.isArray(horse.ability) && (horse.ability.includes("鉄女") || horse.ability.includes("連闘"));
+        // アビリティを持つ場合は使用済と判定しない
+        const isUsed = (usedCards.includes(horse.horse_id) || usedCards.includes(horse.name)) && !hasContinuousAbility;
+        
         if (isUsed) {
           tr.className = 'used-row';
           tr.style.opacity = '0.4';
         }
+
 
         const sex = horse.sex || '牡馬';
         const surface = getSurfaceText(horse);
