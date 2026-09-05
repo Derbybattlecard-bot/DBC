@@ -198,7 +198,7 @@
       <div><span class="summary-label">着順計算式:</span> <span id="summary-formula">---</span></div>
     </div>
 
-    <table class="data-table" style="min-width: 800px;">
+    <table class="data-table" style="min-width: 600px;">
       <thead>
         <tr>
           <th>着順</th>
@@ -207,11 +207,6 @@
           <th>区分</th>
           <th>馬名</th>
           <th>脚質: 作戦名 (Lv)</th>
-          <th>作SPD</th>
-          <th>作STM</th>
-          <th>作瞬発</th>
-          <th>作持続</th>
-          <th>作根性</th>
           <th>加算詳細 (内訳)</th>
           <th>評価Pt</th>
         </tr>
@@ -240,7 +235,6 @@ import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// モブ馬・CPU馬および計算モジュールのインポート
 import { determineStrategy } from "./js/mob.js";
 import { runRaceLogic } from "./js/race_calculator.js";
 
@@ -321,7 +315,6 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// JSONデータのフォールバック読み込み
 async function fetchJsonWithFallback(filename) {
   const paths = [`data/${filename}`, `./data/${filename}`, `../data/${filename}`];
   for (const path of paths) {
@@ -353,7 +346,6 @@ async function loadMasterData() {
   }
 }
 
-// 5レース分の対戦グリッド構築
 function buildRaceGridsFromFirebase() {
   const status = globalUserData?.cpu_battle_status || {};
   const currentMatch = status.current_match || {};
@@ -373,7 +365,6 @@ function buildRaceGridsFromFirebase() {
   for (let rIdx = 0; rIdx < 5; rIdx++) {
     const grid = [];
 
-    // 1. プレイヤー馬
     const pEntry = playerEntries[rIdx];
     const pMaster = HORSES_MASTER[pEntry.horse_id] || { name: "自馬", horse_id: pEntry.horse_id };
     grid.push({
@@ -385,7 +376,6 @@ function buildRaceGridsFromFirebase() {
       gate_number: pEntry.gate_number || 1
     });
 
-    // 2. CPU馬
     const cEntry = cpuEntries[rIdx] || {};
     const cMaster = HORSES_MASTER[cEntry.horse_id] || { name: "CPU馬", horse_id: cEntry.horse_id };
     const cpuStyle = cMaster.style || cMaster.running_style || "先行";
@@ -401,7 +391,6 @@ function buildRaceGridsFromFirebase() {
       gate_number: cpuGate
     });
 
-    // 3. モブ馬 (14頭)
     const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
     const mobGates = racesMobGates[rIdx] || racesMobGates[String(rIdx)] || [];
 
@@ -422,11 +411,11 @@ function buildRaceGridsFromFirebase() {
     });
 
     grid.sort((a, b) => (a.gate_number || 0) - (b.gate_number || 0));
+
     fullRaceGrids.push(grid);
   }
 }
 
-// 各馬のステータス基本補完
 function ensureStats(h) {
   h.potential = h.potential || 50;
   h.speed = h.speed || 50;
@@ -438,7 +427,6 @@ function ensureStats(h) {
   h.style = h.style || h.running_style || "自在";
 }
 
-// レースのセットアップ
 function setupRace(rIdx) {
   if (!raceMasterData || !seriesMasterData) return;
   raceState = 'ready';
@@ -586,7 +574,6 @@ window.handleButtonClick = function() {
   }
 };
 
-// ---------- レース実行メインロジック ----------
 async function startRace() {
   if (raceState !== 'ready') return;
   raceState = 'running';
@@ -595,13 +582,11 @@ async function startRace() {
   btn.disabled = true;
   btn.innerText = "🏃 レース進行中...";
 
-  // 1. レースロジック一括実行 (計算モジュール呼び出し)
   const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, currentRaceInfo);
   calculatedResults = raceResultData.results;
   currentRacePace = raceResultData.pace;
   currentRaceBranch = raceResultData.branch.name;
 
-  // --- アビリティ発動情報の収集（自分・CPU馬のみ） ---
   const activeAbilities = [];
   calculatedResults.forEach(h => {
     if ((h.isPlayer || h.isCpu) && h.activated_abilities && h.activated_abilities.length > 0) {
@@ -612,7 +597,6 @@ async function startRace() {
     }
   });
 
-  // 計算式UIの表示修正
   if (raceResultData.branch.formula) {
     currentRaceFormulaStr = raceResultData.branch.formula;
   } else if (raceResultData.branch.key_stats) {
@@ -639,7 +623,6 @@ async function startRace() {
     currentRaceFormulaStr += " ＋ 脚質ボーナス";
   }
 
-  // 2. 結果レコードの生成とFirebase進捗保存
   recordHistory(calculatedResults);
   const nextRaceIdx = currentRaceIndex + 1;
 
@@ -663,11 +646,9 @@ async function startRace() {
     }
   }
 
-  // 3. レース実況アニメーション演出
   let leaders = calculatedResults.filter(h => h.positionRank <= 3).sort((a, b) => a.positionRank - b.positionRank);
   let leaderNames = leaders.map(h => h.name).join("、");
   
-  // 発動アビリティを実況ログに埋め込む
   let abilityLogHtml = "";
   if (activeAbilities.length > 0) {
     abilityLogHtml = `<br><span style="color: var(--gold-color); font-weight: bold;">⚡ 発動：${activeAbilities.join(" / ")}</span>`;
@@ -675,7 +656,6 @@ async function startRace() {
 
   updateLog(`<strong>【スタート】</strong> ゲートが開いた！ ${leaderNames} あたりがハナを主張、先頭争いだ！${abilityLogHtml}`);
   
-  // アビリティが発動している場合はスタート直後にテロップ表示
   if (activeAbilities.length > 0) {
     showTelop(`⚡ ${activeAbilities[0]} 発動！`, 2500);
   }
@@ -810,17 +790,26 @@ function renderResults(scoredList) {
 
     const horseStyle = item.style || item.running_style || "自在";
 
-    let detailText = "";
-    if (item.detailText) {
-      detailText = item.detailText;
+    // --- 展開で計算されたパラメータ内訳の構築 ---
+    let branchStr = "";
+    if (item.stat_details) {
+      const parts = Object.entries(item.stat_details).map(([k, v]) => `${k}:${v}`).join("+");
+      const totalBranch = item.branchScore !== undefined ? item.branchScore : Object.values(item.stat_details).reduce((a, b) => a + b, 0);
+      branchStr = `展開:${totalBranch}[${parts}]`;
     } else {
-      const posPt = item.posScore !== undefined ? item.posScore : (item.positionPoint || 0);
       const branchPt = item.branchScore !== undefined ? item.branchScore : 0;
-      const lvPt = item.levelScore !== undefined ? item.levelScore : (item.level || 0);
-      const randPt = item.randScore !== undefined ? Number(item.randScore).toFixed(1) : "0.0";
-      
-      detailText = `位置:${posPt} | 展開:${branchPt} | Lv:${lvPt} | 乱:${randPt}`;
+      branchStr = `展開:${branchPt}`;
     }
+
+    const styleBonusStr = item.styleScore ? ` | 脚質:+${item.styleScore}` : (item.styleBonus ? ` | 脚質:+${item.styleBonus}` : "");
+    const lvPt = item.levelScore !== undefined ? item.levelScore : (item.level || 0);
+
+    // ★ 乱数（ランダム差）の上限ガード修正（最大5.0に強制的・厳格に制限） ★
+    let rawRand = (typeof item.randScore === 'number') ? item.randScore : 0;
+    let validRand = Math.min(5.0, Math.max(0, rawRand)); // 0.0 〜 5.0 の範囲に収める
+    const randPt = (validRand >= 0 ? `+${validRand.toFixed(1)}` : validRand.toFixed(1));
+
+    let detailText = `${branchStr}${styleBonusStr} | Lv:+${lvPt} | 乱:${randPt}`;
 
     tbody.innerHTML += `
       <tr>
@@ -830,11 +819,6 @@ function renderResults(scoredList) {
         <td>${typeLabel}</td>
         <td style="text-align:left;"><span class="${nameClass}">${item.name}</span></td>
         <td style="text-align:left;">${horseStyle}: ${item.tactic} (Lv.${item.level})</td>
-        <td>${item.strat_speed}</td>
-        <td>${item.strat_stamina}</td>
-        <td>${item.strat_sharp}</td>
-        <td>${item.strat_jizoku}</td>
-        <td>${item.strat_guts}</td>
         <td style="text-align:left; font-family: monospace; font-size: 0.85em; color: #ffcc00; white-space: nowrap;">${detailText}</td>
         <td><strong>${Math.floor(item.finalScore)}</strong></td>
       </tr>`;
