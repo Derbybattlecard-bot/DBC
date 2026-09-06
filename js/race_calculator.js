@@ -417,34 +417,39 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     h.finalScore = statScore + totalDevelopmentAdd + randomBonus;
     
     // --- D. 内訳表示テキストの作成 ---
+       // --- D. 内訳表示テキストの作成 ---
     let detailPartsList = [];
 
-    // 1. 能力算定
+    // 1. 能力算定（該当パラメータをすべて展開表示）
     if (selectedBranch.formula) {
-      detailPartsList.push(`【能力算定】特殊算定:${statScore}pt (${formulaFormulaDetail})`);
-    } else {
+      detailPartsList.push(`【能力算定】${formulaFormulaDetail} = ${statScore}pt`);
+    } else if (selectedBranch.key_stats && selectedBranch.key_stats.length > 0) {
       detailPartsList.push(`【能力算定】${detailParts.join(" + ")} = ${statScore}pt`);
+    } else {
+      detailPartsList.push(`【能力算定】SPD:${h.calc_speed || 0} + STM:${h.calc_stamina || 0} = ${statScore}pt`);
     }
 
-    // 2. 展開による加算合計（詳細内訳付き）
+    // 2. 展開による加算（脚質・位置・展開アビリティの明細）
     let devDetails = [];
     if (styleBonusPt > 0) devDetails.push(`脚質+${styleBonusPt}`);
     if (posAddPt > 0) devDetails.push(`位置+${posAddPt}`);
-    if (extraScore > 0) devDetails.push(`アビリティ+${extraScore}`);
+    if (extraScore > 0) devDetails.push(`展開アビ+${extraScore}`);
 
     const devDetailStr = devDetails.length > 0 ? ` (${devDetails.join(", ")})` : "";
     detailPartsList.push(`【展開加算】+${totalDevelopmentAdd}pt${devDetailStr}`);
 
-    // 3. 基礎バフ（コース等環境適性）
+    // 3. 環境・コースバフの内訳（発動したアビリティ名を併記）
     if (h.ability_buff && h.ability_buff > 0) {
-      detailPartsList.push(`【環境バフ】+${h.ability_buff}pt`);
+      const activeList = (h.activated_abilities && h.activated_abilities.length > 0) 
+        ? ` (${h.activated_abilities.join(", ")})` 
+        : "";
+      detailPartsList.push(`【環境バフ】+${h.ability_buff}pt${activeList}`);
     }
 
     // 4. 乱数
     detailPartsList.push(`【乱数】+${randomBonus.toFixed(1)}`);
 
     h.detailText = detailPartsList.join(" ｜ ");
-  });
 
   // --------------------------------------------------------------------------
   // STEP 4: 着順ソートして返却
