@@ -41,17 +41,39 @@
     border: 1px solid var(--accent-green); padding: 1px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold;
   }
 
-    /* 2. レースシーン枠 */
+  /* 2. レースシーン枠 */
   #track-container { 
     background: linear-gradient(90deg, #004400 0%, #006600 50%, #005500 100%); 
     border: 3px solid #fff; border-radius: 6px; padding: 6px 4px; 
     position: relative; height: 380px; overflow: hidden; 
     box-shadow: inset 0 0 20px rgba(0,0,0,0.6); margin-bottom: 10px;
   }
-  /* ★ ダート馬場用グラフィック（ブラウン系グラデーション） */
   #track-container.dirt-track {
     background: linear-gradient(90deg, #3d2512 0%, #633e1d 50%, #4a2d14 100%);
   }
+
+  /* アビリティ発動ポップアップ（カットイン演出） */
+  #ability-popup-container {
+    position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%) scale(0.7);
+    z-index: 60; pointer-events: none; opacity: 0;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    width: 85%; max-width: 420px;
+  }
+  #ability-popup-container.show {
+    opacity: 1; transform: translate(-50%, -50%) scale(1);
+  }
+  .ability-popup-box {
+    background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(20,20,35,0.95));
+    border: 2px solid var(--gold-color);
+    box-shadow: 0 0 20px rgba(255, 204, 0, 0.6), inset 0 0 10px rgba(255, 204, 0, 0.3);
+    border-radius: 10px; padding: 12px; text-align: center;
+  }
+  .ability-popup-box.p1-ability { border-color: var(--player-color); box-shadow: 0 0 20px rgba(51,153,255,0.7); }
+  .ability-popup-box.p2-ability { border-color: var(--cpu-color); box-shadow: 0 0 20px rgba(255,68,68,0.7); }
+  
+  .ability-pop-header { font-size: 0.85em; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; }
+  .ability-pop-horse { font-size: 1.1em; font-weight: bold; color: #fff; margin: 3px 0; }
+  .ability-pop-name { font-size: 1.4em; font-weight: bold; color: var(--gold-color); text-shadow: 0 0 8px #000; }
 
   /* ワイプ演出レイヤー */
   #wipe-overlay {
@@ -105,10 +127,7 @@
   .mini-card.p2 { border-color: var(--cpu-color); background: rgba(255, 68, 68, 0.1); }
   
   .card-horse-img {
-    width: 48px;
-    height: auto;
-    margin: 5px 0;
-    image-rendering: pixelated; 
+    width: 48px; height: auto; margin: 5px 0; image-rendering: pixelated; 
   }
   .card-label { font-size: 11px; font-weight: bold; border-bottom: 1px dashed #555; padding-bottom: 4px; margin-bottom: 4px; }
   .card-label.p1 { color: var(--player-color); }
@@ -128,19 +147,12 @@
   .data-table th, .data-table td { border: 1px solid #222; padding: 4px 5px; text-align: center; }
   .data-table th { background: #1a1a24; color: var(--accent-green); }
   
-  /* レース展開・計算式用サマリーパネル */
   .result-summary-panel {
-    background: #121620;
-    border: 1px solid #334455;
-    border-radius: 6px;
-    padding: 8px 12px;
-    margin-top: 8px;
-    font-size: 0.8em;
-    line-height: 1.5;
+    background: #121620; border: 1px solid #334455; border-radius: 6px;
+    padding: 8px 12px; margin-top: 8px; font-size: 0.8em; line-height: 1.5;
   }
   .summary-label { color: var(--gold-color); font-weight: bold; }
 
-  /* 総合結果（リザルト）オーバーレイモーダル */
   #final-series-modal {
     display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.92); z-index: 100; padding: 20px 10px; box-sizing: border-box; overflow-y: auto;
@@ -161,6 +173,15 @@
     <span class="race-condition-badge" id="display-race-cond">馬場: ---</span>
   </div>
   <div id="track-container">
+    <!-- アビリティ発動ポップアップ演出用要素 -->
+    <div id="ability-popup-container">
+      <div class="ability-popup-box" id="ability-popup-box">
+        <div class="ability-pop-header" id="ability-pop-header">ABILITY ACTIVATED!</div>
+        <div class="ability-pop-horse" id="ability-pop-horse">馬名</div>
+        <div class="ability-pop-name" id="ability-pop-name">【アビリティ名】</div>
+      </div>
+    </div>
+
     <div id="race-telop">【ペース】 ---</div>
     <div id="wipe-overlay">
       <div class="wipe-text">第4コーナーをカーブして<br>いよいよ最後の直線！！</div>
@@ -190,7 +211,6 @@
   </div>
   <button class="btn-next" id="nextBtn" onclick="handleButtonClick()">🏁 レーススタート！</button>
   
-  <!-- リザルトエリア -->
   <div id="result-container" style="display: none; margin-top: 10px; overflow-x: auto;">
     <div style="color: var(--accent-green); font-weight: bold; font-size: 0.9em;">📊 レース着順結果 & パラメータ検証</div>
     
@@ -208,14 +228,12 @@
           <th>区分</th>
           <th>馬名</th>
           <th>脚質: 作戦名 (Lv)</th>
-          <!-- 作戦パラメータ6列を削除 -->
           <th>加算詳細 (内訳)</th>
           <th>評価Pt</th>
         </tr>
       </thead>
       <tbody id="result-body"></tbody>
     </table>
-
   </div>
 </div>
 
@@ -238,11 +256,9 @@ import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// モブ馬・CPU馬および計算モジュールのインポート
 import { determineStrategy } from "./js/mob.js";
 import { runRaceLogic } from "./js/race_calculator.js";
 
-// ---------- コース向き管理マスターデータ ----------
 const VENUE_DIRECTION_MASTER = {
   "中京": "左回り", "福島": "右回り", "新潟": "左回り", "小倉": "右回り",
   "札幌": "右回り", "京都": "右回り", "東京": "左回り", "中山": "右回り",
@@ -260,7 +276,6 @@ const TRACK_DIRECTION_MASTER = {
   "直線":   { phase1_3_dir: "none",          phase4_dir: "left_to_right", goal_position: "right" }
 };
 
-// ---------- メイン変数 ----------
 let currentUser = null;
 let globalUserData = null;
 
@@ -278,14 +293,12 @@ let strategyMasterData = null;
 let HORSES_MASTER = {};
 let HORSES_ARRAY = [];
 
-// 表示・演出用変数
 let currentRacePace = "";
 let currentRaceBranch = ""; 
 let currentRaceFormulaStr = "";
 let currentTrackConfig = TRACK_DIRECTION_MASTER["右回り"];
 let currentRaceInfo = null;
 
-// 起動時の初期化処理
 onAuthStateChanged(auth, async (user) => {
   if (!user) { window.location.href = 'auth.html'; return; }
   currentUser = user;
@@ -319,7 +332,6 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// JSONデータのフォールバック読み込み
 async function fetchJsonWithFallback(filename) {
   const paths = [`data/${filename}`, `./data/${filename}`, `../data/${filename}`];
   for (const path of paths) {
@@ -351,7 +363,6 @@ async function loadMasterData() {
   }
 }
 
-// 5レース分の対戦グリッド構築
 function buildRaceGridsFromFirebase() {
   const status = globalUserData?.cpu_battle_status || {};
   const currentMatch = status.current_match || {};
@@ -371,7 +382,6 @@ function buildRaceGridsFromFirebase() {
   for (let rIdx = 0; rIdx < 5; rIdx++) {
     const grid = [];
 
-    // 1. プレイヤー馬
     const pEntry = playerEntries[rIdx];
     const pMaster = HORSES_MASTER[pEntry.horse_id] || { name: "自馬", horse_id: pEntry.horse_id };
     grid.push({
@@ -383,7 +393,6 @@ function buildRaceGridsFromFirebase() {
       gate_number: pEntry.gate_number || 1
     });
 
-    // 2. CPU馬
     const cEntry = cpuEntries[rIdx] || {};
     const cMaster = HORSES_MASTER[cEntry.horse_id] || { name: "CPU馬", horse_id: cEntry.horse_id };
     const cpuStyle = cMaster.style || cMaster.running_style || "先行";
@@ -399,7 +408,6 @@ function buildRaceGridsFromFirebase() {
       gate_number: cpuGate
     });
 
-    // 3. モブ馬 (14頭)
     const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
     const mobGates = racesMobGates[rIdx] || racesMobGates[String(rIdx)] || [];
 
@@ -419,14 +427,12 @@ function buildRaceGridsFromFirebase() {
       });
     });
 
-    // ★ 馬番（gate_number）の昇順（1番枠〜16番枠）に並べ替えて格納
     grid.sort((a, b) => (a.gate_number || 0) - (b.gate_number || 0));
 
     fullRaceGrids.push(grid);
   }
 }
 
-// 各馬のステータス基本補完
 function ensureStats(h) {
   h.potential = h.potential || 50;
   h.speed = h.speed || 50;
@@ -438,7 +444,6 @@ function ensureStats(h) {
   h.style = h.style || h.running_style || "自在";
 }
 
-// レースのセットアップ
 function setupRace(rIdx) {
   if (!raceMasterData || !seriesMasterData) return;
   raceState = 'ready';
@@ -456,7 +461,6 @@ function setupRace(rIdx) {
     ? roundInfo.races[rIdx] 
     : { race_name: "一般レース", track: "中山", surface: "芝", distance: 2000 };
     
-  // ★ トラック背景（芝/ダート）の切り替え
   const trackContainer = document.getElementById('track-container');
   if (trackContainer) {
     if (currentRaceInfo.surface === "ダート") {
@@ -466,7 +470,6 @@ function setupRace(rIdx) {
     }
   }
 
-  // 競馬場からコース進行方向を設定
   let trackName = currentRaceInfo.track || "中山";
 
   let turnDir = VENUE_DIRECTION_MASTER[trackName] || "右回り";
@@ -476,7 +479,7 @@ function setupRace(rIdx) {
   currentTrackConfig = TRACK_DIRECTION_MASTER[turnDir] || TRACK_DIRECTION_MASTER["右回り"];
   
   activeHorses.forEach((h, i) => {
-    h.index = i; // アニメーション座標用インデックスを保持
+    h.index = i;
     h.tactic_level = h.level || 3;
     let matchedStrat = h.stratObj;
     if (!matchedStrat && strategyMasterData) {
@@ -487,7 +490,6 @@ function setupRace(rIdx) {
     const levelVal = h.level || 1;
     h.strat_potential = levelVal;
     
-    // マスター側のパラメータをそのまま代入
     if (matchedStrat) {
       Object.keys(matchedStrat).forEach(key => {
         if (typeof matchedStrat[key] === 'number') {
@@ -526,7 +528,6 @@ function setupRace(rIdx) {
   document.getElementById('goal-flag').style.display = "none";
   renderLanes();
 
- // 初期配置
   setHorseDirection(currentTrackConfig.phase1_3_dir);
   let initialPositions = activeHorses.map(() => 0);
   setPhasePositions(initialPositions, 0, "linear", currentTrackConfig.phase1_3_dir); 
@@ -595,6 +596,33 @@ window.handleButtonClick = function() {
   }
 };
 
+/**
+ * アビリティ発動時のポップアップ（カットイン）表示関数
+ */
+function showAbilityPopup(horse, abilityNames) {
+  const popup = document.getElementById('ability-popup-container');
+  const box = document.getElementById('ability-popup-box');
+  const horseEl = document.getElementById('ability-pop-horse');
+  const nameEl = document.getElementById('ability-pop-name');
+  if (!popup || !box || !horseEl || !nameEl) return;
+
+  box.classList.remove('p1-ability', 'p2-ability');
+  if (horse.isPlayer) {
+    box.classList.add('p1-ability');
+  } else if (horse.isCpu) {
+    box.classList.add('p2-ability');
+  }
+
+  const abText = Array.isArray(abilityNames) ? abilityNames.map(a => `【${a}】`).join(" ") : `【${abilityNames}】`;
+  horseEl.textContent = `${horse.gate_number}番 ${horse.name}`;
+  nameEl.textContent = abText;
+
+  popup.classList.add('show');
+  setTimeout(() => {
+    popup.classList.remove('show');
+  }, 2500);
+}
+
 // ---------- レース実行メインロジック ----------
 async function startRace() {
   if (raceState !== 'ready') return;
@@ -604,13 +632,12 @@ async function startRace() {
   btn.disabled = true;
   btn.innerText = "🏃 レース進行中...";
 
-  // 1. レースロジック一括実行 (計算モジュール呼び出し)
+  // 1. レースロジック一括実行
   const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, currentRaceInfo);
   calculatedResults = raceResultData.results;
   currentRacePace = raceResultData.pace;
   currentRaceBranch = raceResultData.branch.name;
 
-  // 計算式UIの表示修正 (マスター仕様変更に伴うあらゆるパラメータ表記に対応)
   if (raceResultData.branch.formula) {
     currentRaceFormulaStr = raceResultData.branch.formula;
   } else if (raceResultData.branch.key_stats) {
@@ -619,13 +646,12 @@ async function startRace() {
         potential: "ポテンシャル", current_potential: "ポテンシャル",
         speed: "スピード", stamina: "スタミナ", sharp: "瞬発", jizoku: "持続", guts: "根性", power: "パワー"
       };
-      return nameMap[k] || k; // 定義されていなければキー名をそのままテロップ表示
+      return nameMap[k] || k;
     }).join(" ＋ ");
   } else {
     currentRaceFormulaStr = "標準評価算定";
   }
 
-  // 位置や脚質のボーナスがある場合は式テキストに追記してわかりやすく
   if (raceResultData.branch.position_bonus_type === "direct_asc") {
     currentRaceFormulaStr += " ＋ 位置ボーナス(後方有利)";
   } else if (raceResultData.branch.position_bonus_type === "direct_desc") {
@@ -667,9 +693,30 @@ async function startRace() {
   let p1Pos = getPosPointsMap(calculatedResults, 35, 8);
   setPhasePositions(p1Pos, 4.0, "linear", currentTrackConfig.phase1_3_dir); 
 
+  // Phase 2〜Phase 3の間（約4秒後：向正面）
   setTimeout(() => {
     let msg = (currentRacePace.includes("ハイ")) ? "縦長の隊列になりました。" : "淡々とレースは流れていきます。";
-    updateLog(`<strong>【向正面】</strong> ${msg} 各馬ポジションが決まりました。`);
+    
+    // 対戦馬（YOUおよびCPU）のアビリティ発動状況の判定
+    const targetHorses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.activated_abilities && h.activated_abilities.length > 0);
+    
+    if (targetHorses.length > 0) {
+      let abilityLogs = [];
+      targetHorses.forEach(h => {
+        const abs = h.activated_abilities.map(a => `【${a}】`).join("");
+        const label = h.isPlayer ? '<span style="color:var(--player-color); font-weight:bold;">[YOUR]</span>' : '<span style="color:var(--cpu-color); font-weight:bold;">[CPU]</span>';
+        abilityLogs.push(`${label} ${h.name}の限定能力 ${abs} が発動！`);
+      });
+
+      updateLog(`<strong>【向正面】</strong> ${msg}<br><span style="color:var(--gold-color);">${abilityLogs.join("<br>")}</span>`);
+      
+      // 最初のアビリティ発動馬（優先度: YOUR -> CPU）に対してポップアップ表示
+      const priorityHorse = targetHorses.find(h => h.isPlayer) || targetHorses[0];
+      showAbilityPopup(priorityHorse, priorityHorse.activated_abilities);
+
+    } else {
+      updateLog(`<strong>【向正面】</strong> ${msg} 各馬ポジションが決まりました。`);
+    }
     
     let p2Pos = getPosPointsMap(calculatedResults, 65, 20);
     setPhasePositions(p2Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
@@ -773,7 +820,6 @@ function showTelop(text, durationMs = 1500) {
 }
 function hideTelop() { document.getElementById('race-telop').classList.remove('show'); }
 
-// リザルト表の描画
 function renderResults(scoredList) {
   document.getElementById('summary-pace-branch').textContent = `${currentRacePace} 【${currentRaceBranch}】`;
   document.getElementById('summary-formula').textContent = `${currentRaceFormulaStr} (+ Lv補正 & ランダム差)`;
@@ -809,7 +855,6 @@ function renderResults(scoredList) {
         <td style="text-align:left; white-space: nowrap;">
           <strong>[${horseStyle}]</strong> ${tacticName} <span style="color: #aaa; font-size: 0.9em;">(${tacticStyle} / Lv.${tacticLevel})</span>
         </td>
-        <!-- 作戦パラメータ列を出力していた箇所を取り除き、直接「加算詳細」を表示 -->
         <td style="text-align:left; font-family: monospace; font-size: 0.85em; color: #ffcc00; white-space: nowrap;">${detailText}</td>
         <td><strong>${Math.floor(item.finalScore)}</strong></td>
       </tr>`;
@@ -817,7 +862,6 @@ function renderResults(scoredList) {
 
   document.getElementById('result-container').style.display = "block";
 }
-
 
 function recordHistory(scoredList) {
   const pRank = scoredList.findIndex(item => item.isPlayer) + 1;
@@ -919,7 +963,6 @@ window.goToNextSeries = async function() {
     }
   }
 };
-
 </script>
 </body>
 </html>
