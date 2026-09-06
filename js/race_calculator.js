@@ -72,33 +72,38 @@ function determinePace(horses, raceMaster, trackCondition) {
   return weightedRandomSelect(probObj);
 }
 
-  // Phase 1: 競馬場・馬場・距離・枠順などの条件に基づく基礎パラメータ増減および芝ダート初期化
+// Phase 1: 競馬場・馬場・距離・枠順などの条件に基づく基礎パラメータ増減および芝ダート初期化
 function applyPhase1Abilities(horse, raceInfo, trackCondition) {
-  // 1. 芝・ダートポテンシャル判定（全頭共通で実行）
   const isTurf = raceInfo?.surface !== "ダート";
   const turfPot = horse.turf_potential ?? horse.potential ?? 0;
   const dirtPot = horse.dirt_potential ?? horse.potential ?? 0;
-  horse.current_potential = isTurf ? turfPot : dirtPot;
 
-  // アビリティ対象外（モブ馬）はバフ適用処理のみスキップ
+  // 1. ポテンシャル判定およびダート補正（全頭共通処理：モブ馬含む）
+  if (isTurf) {
+    horse.current_potential = turfPot;
+  } else {
+    if (dirtPot > turfPot) {
+      const potDiff = dirtPot - turfPot;
+      
+      // ポテンシャルはダートポテンシャルの数値をそのまま使用
+      horse.current_potential = dirtPot;
+      
+      // 5大パラメータ（スピード〜根性）にのみ差分を加算（※ability_buffには影響させない）
+      horse.speed = (horse.speed || 0) + potDiff;
+      horse.stamina = (horse.stamina || 0) + potDiff;
+      horse.sharp = (horse.sharp || 0) + potDiff;
+      horse.jizoku = (horse.jizoku || 0) + potDiff;
+      horse.guts = (horse.guts || 0) + potDiff;
+    } else {
+      // 芝ポテンシャル >= ダートポテンシャルの場合は芝ポテンシャルを使用
+      horse.current_potential = turfPot;
+    }
+  }
+
+  // 2. アビリティ対象判定（モブ馬はここで処理終了）
   if (!isEligibleForAbility(horse)) return;
-
-  if (!isTurf && dirtPot > turfPot) {
-    const potDiff = dirtPot - turfPot;
-    applyAllStatsBuff(horse, potDiff);
-  }
-
   if (!horse.ability || !Array.isArray(horse.ability)) return;
-  horse.activated_abilities = horse.activated_abilities || [];
 
-  // （以降のアビリティ判定処理はそのまま）
-
-  if (!isTurf && dirtPot > turfPot) {
-    const potDiff = dirtPot - turfPot;
-    applyAllStatsBuff(horse, potDiff);
-  }
-
-  if (!horse.ability || !Array.isArray(horse.ability)) return;
   horse.activated_abilities = horse.activated_abilities || [];
 
   horse.ability.forEach(abilityName => {
@@ -320,11 +325,11 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
 
     // --- A. 能力値計算 ---
     if (selectedBranch.formula) {
-      const pot = h.current_potential || h.potential || 50;
+      const pot = h.current_potential ?? h.potential ?? 0;
       let targetVal = 50;
       if (selectedBranch.target_pool && selectedBranch.target_pool.length > 0) {
         const randomKey = selectedBranch.target_pool[Math.floor(Math.random() * selectedBranch.target_pool.length)];
-        targetVal = (h[randomKey] || 50) + (h[`strat_${randomKey}`] || 0);
+        targetVal = (h[randomKey] || 0) + (h[`strat_${randomKey}`] || 0);
       }
       statScore = 30 - pot + targetVal;
       detailParts.push(`特殊算定:${statScore}`);
@@ -332,8 +337,8 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     else if (selectedBranch.key_stats && selectedBranch.key_stats.length > 0) {
       selectedBranch.key_stats.forEach(key => {
         const horseStat = (key === "potential" || key === "current_potential") 
-          ? (h.current_potential || h.potential || 50) 
-          : (h[key] || 50);
+          ? (h.current_potential ?? h.potential ?? 0) 
+          : (h[key] ?? 0);
         const stratStat = h[`strat_${key}`] || 0;
         const totalStat = horseStat + stratStat;
         
@@ -350,8 +355,8 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
         detailParts.push(`${statNameJa}:${totalStat}(馬${horseStat}+作${stratStat})`);
       });
     } else {
-      const spd = h.speed || 50;
-      const stm = h.stamina || 50;
+      const spd = h.speed || 0;
+      const stm = h.stamina || 0;
       statScore = spd + stm;
       detailParts.push(`SPD+STM:${statScore}`);
     }
