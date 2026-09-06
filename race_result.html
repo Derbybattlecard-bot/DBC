@@ -605,31 +605,54 @@ window.handleButtonClick = function() {
   }
 };
 
-/**
- * アビリティ発動時のポップアップ（カットイン）表示関数
- */
-function showAbilityPopup(horse, abilityNames) {
+// アビリティポップアップ再生キュー
+let abilityQueue = [];
+let isShowingAbility = false;
+
+function processAbilityQueue() {
+  if (isShowingAbility || abilityQueue.length === 0) return;
+
+  isShowingAbility = true;
+  const item = abilityQueue.shift();
   const popup = document.getElementById('ability-popup-container');
   const box = document.getElementById('ability-popup-box');
   const horseEl = document.getElementById('ability-pop-horse');
   const nameEl = document.getElementById('ability-pop-name');
-  if (!popup || !box || !horseEl || !nameEl) return;
 
   box.classList.remove('p1-ability', 'p2-ability');
-  if (horse.isPlayer) {
+  popup.classList.remove('p1-pos', 'p2-pos');
+
+  if (item.horse.isPlayer) {
     box.classList.add('p1-ability');
-  } else if (horse.isCpu) {
+    popup.classList.add('p1-pos'); // 自馬は上部
+  } else {
     box.classList.add('p2-ability');
+    popup.classList.add('p2-pos'); // 対戦馬は下部
   }
 
-  const abText = Array.isArray(abilityNames) ? abilityNames.map(a => `【${a}】`).join(" ") : `【${abilityNames}】`;
-  horseEl.textContent = `${horse.gate_number}番 ${horse.name}`;
-  nameEl.textContent = abText;
+  horseEl.textContent = `${item.horse.gate_number}番 ${item.horse.name}`;
+  nameEl.textContent = `【${item.abilityName}】`;
 
   popup.classList.add('show');
+
   setTimeout(() => {
     popup.classList.remove('show');
-  }, 2500);
+    setTimeout(() => {
+      isShowingAbility = false;
+      processAbilityQueue(); // 次のアビリティを再生
+    }, 400);
+  }, 2000);
+}
+
+function queueAbilities(targetHorses) {
+  targetHorses.forEach(h => {
+    if (h.activated_abilities && h.activated_abilities.length > 0) {
+      h.activated_abilities.forEach(abName => {
+        abilityQueue.push({ horse: h, abilityName: abName });
+      });
+    }
+  });
+  processAbilityQueue();
 }
 
 // ---------- レース実行メインロジック ----------
