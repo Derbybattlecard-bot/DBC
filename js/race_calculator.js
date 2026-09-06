@@ -417,7 +417,6 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     h.finalScore = statScore + totalDevelopmentAdd + randomBonus;
     
     // --- D. 内訳表示テキストの作成 ---
-       // --- D. 内訳表示テキストの作成 ---
     let detailPartsList = [];
 
     // 1. 能力算定（該当パラメータをすべて展開表示）
@@ -450,6 +449,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     detailPartsList.push(`【乱数】+${randomBonus.toFixed(1)}`);
 
     h.detailText = detailPartsList.join(" ｜ ");
+  });
 
   // --------------------------------------------------------------------------
   // STEP 4: 着順ソートして返却
