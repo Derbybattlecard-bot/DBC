@@ -72,15 +72,26 @@ function determinePace(horses, raceMaster, trackCondition) {
   return weightedRandomSelect(probObj);
 }
 
-// Phase 1: 競馬場・馬場・距離・枠順などの条件に基づく基礎パラメータ増減および芝ダート初期化
+  // Phase 1: 競馬場・馬場・距離・枠順などの条件に基づく基礎パラメータ増減および芝ダート初期化
 function applyPhase1Abilities(horse, raceInfo, trackCondition) {
-  if (!isEligibleForAbility(horse)) return;
-
-  // 1. 芝・ダートポテンシャル判定と補正
+  // 1. 芝・ダートポテンシャル判定（全頭共通で実行）
   const isTurf = raceInfo?.surface !== "ダート";
   const turfPot = horse.turf_potential ?? horse.potential ?? 0;
   const dirtPot = horse.dirt_potential ?? horse.potential ?? 0;
   horse.current_potential = isTurf ? turfPot : dirtPot;
+
+  // アビリティ対象外（モブ馬）はバフ適用処理のみスキップ
+  if (!isEligibleForAbility(horse)) return;
+
+  if (!isTurf && dirtPot > turfPot) {
+    const potDiff = dirtPot - turfPot;
+    applyAllStatsBuff(horse, potDiff);
+  }
+
+  if (!horse.ability || !Array.isArray(horse.ability)) return;
+  horse.activated_abilities = horse.activated_abilities || [];
+
+  // （以降のアビリティ判定処理はそのまま）
 
   if (!isTurf && dirtPot > turfPot) {
     const potDiff = dirtPot - turfPot;
