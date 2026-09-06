@@ -1,11 +1,22 @@
+// ============================================================================
 // js/race_calculator.js
+// 競馬シミュレーション・計算エンジンモジュール
+// ============================================================================
 
-// --- 対象馬のチェック用ヘルパー関数 ---
+/**
+ * アビリティ発動対象馬かどうか判定するヘルパー
+ * @param {Object} horse - 対象の馬データ
+ * @returns {boolean} プレイヤー馬またはCPU馬（モブ含む対象馬）であればtrue
+ */
 function isEligibleForAbility(horse) {
   return !!(horse.isPlayer || horse.isCpu);
 }
 
-// 全ステータス増減用の箱にバフを適用する共通関数
+/**
+ * 全パラメータ増減用の箱（calc_〜）へ一括でバフ（加算/減算）を適用する
+ * @param {Object} horse - 馬データ
+ * @param {number} buffValue - 適用するバフ数値
+ */
 function applyAllStatsBuff(horse, buffValue) {
   horse.calc_speed += buffValue;
   horse.calc_stamina += buffValue;
@@ -13,10 +24,14 @@ function applyAllStatsBuff(horse, buffValue) {
   horse.calc_jizoku += buffValue;
   horse.calc_guts += buffValue;
   horse.calc_potential += buffValue;
-  horse.ability_buff += buffValue;
+  horse.ability_buff += buffValue; // 内訳表示用の累積バフ値
 }
 
-// 確率オブジェクトに基づく重み付け抽選
+/**
+ * 確率設定オブジェクトに基づく重み付けランダム抽選
+ * @param {Object} probObj - { "ペース名": 確率(0.0〜1.0) } の形式
+ * @returns {string} 抽選されたペース名
+ */
 function weightedRandomSelect(probObj) {
   if (!probObj) return "ミドルペース";
   const keys = Object.keys(probObj);
@@ -31,7 +46,13 @@ function weightedRandomSelect(probObj) {
   return keys[keys.length - 1] || "ミドルペース";
 }
 
-// race_master.json の pace_decision_master に基づいてペースを判定
+/**
+ * 出走馬の「逃げ」頭数と馬場状態からレースペースを判定する
+ * @param {Array} horses - 出走馬リスト
+ * @param {Object} raceMaster - レースマスターデータ
+ * @param {string} trackCondition - 馬場状態 ("良", "稍重", "重", "不良")
+ * @returns {string} 決定されたレースペース
+ */
 function determinePace(horses, raceMaster, trackCondition) {
   const paceMaster = raceMaster?.pace_decision_master;
   if (!paceMaster) return "ミドルペース";
@@ -40,6 +61,7 @@ function determinePace(horses, raceMaster, trackCondition) {
   const condMaster = isHeavy ? paceMaster.heavy_or_bad : paceMaster.good_or_slightly_heavy;
   if (!condMaster) return "ミドルペース";
 
+  // 逃げ脚質またはハナを狙う作戦の馬をカウント
   const leadHorses = horses.filter(h => {
     const style = h.style || h.running_style || "";
     const tactic = h.tactic || "";
@@ -70,9 +92,12 @@ function determinePace(horses, raceMaster, trackCondition) {
   return weightedRandomSelect(probObj);
 }
 
-// Phase 1: 馬マスターデータから増減用の箱（calc_〜）へ展開し、条件補正＆アビリティを適用
+/**
+ * 【Phase 1】基礎能力値の展開 ＆ コース・馬場・枠順等による環境補正とアビリティ適用
+ * 原本データを変更せず、増減用の箱（calc_〜）を生成して加減算を行います。
+ */
 function applyPhase1Abilities(horse, raceInfo, trackCondition) {
-  // 1. マスターデータの能力値（素のパラメータ）から増減用の箱（calc_〜）を初期化
+  // --- 1. マスターデータの能力値（素の能力）から計算用の箱（calc_〜）を初期化 ---
   horse.calc_speed = horse.speed || 0;
   horse.calc_stamina = horse.stamina || 0;
   horse.calc_sharp = horse.sharp || 0;
@@ -84,7 +109,7 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition) {
   const turfPot = horse.turf_potential ?? horse.potential ?? 0;
   const dirtPot = horse.dirt_potential ?? horse.potential ?? 0;
 
-  // 2. 芝・ダートおよびポテンシャルの増減判定（増減用の箱に対して適用）
+  // --- 2. 芝・ダート適性に応じたポテンシャルとステータス補正 ---
   if (isTurf) {
     horse.calc_potential = turfPot;
   } else {
@@ -92,7 +117,7 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition) {
       const potDiff = dirtPot - turfPot;
       horse.calc_potential = dirtPot;
       
-      // ダート適性差分を増減用の箱に加算
+      // ダート適性の差分値を計算用領域に加算
       horse.calc_speed += potDiff;
       horse.calc_stamina += potDiff;
       horse.calc_sharp += potDiff;
@@ -103,7 +128,7 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition) {
     }
   }
 
-  // 3. アビリティ適用判定
+  // --- 3. 発動条件を満たすアビリティの判定と適用 ---
   if (!isEligibleForAbility(horse)) return;
   if (!horse.ability || !Array.isArray(horse.ability)) return;
 
@@ -112,7 +137,7 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition) {
   horse.ability.forEach(abilityName => {
     let buff = 0;
 
-    // 【競馬場・コース系】
+    // 【競馬場・コース制限系】
     if (abilityName === "中山マイスター" && raceInfo?.track === "中山") buff = 1;
     if (abilityName === "府中の鬼" && raceInfo?.track === "東京") buff = 1;
     if (abilityName === "淀の千両役者" && raceInfo?.track === "京都") buff = 1;
@@ -126,18 +151,18 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition) {
     if (abilityName === "地方無双" && ["大井","川崎","船橋","浦和","盛岡","園田","高知","笠松","門別"].includes(raceInfo?.track)) buff = 1;
     if (abilityName === "アメリカンドリーム") buff = 1;
 
-    // 【距離系】
+    // 【距離制限系】
     if (abilityName === "スピードスター" && raceInfo?.distance === 1200) buff = 1;
     if (abilityName === "オイラはマイラー" && raceInfo?.distance === 1600) buff = 1;
     if (abilityName === "体力オバケ" && raceInfo?.distance === 3200) buff = 1;
 
-    // 【馬場状態系】
+    // 【馬場状態制限系】
     if (abilityName === "道悪帝王") {
       if (trackCondition === "稍重") buff = 1;
       else if (trackCondition === "重" || trackCondition === "不良") buff = 2;
     }
 
-    // 【枠・馬番系】
+    // 【枠順・馬番制限系】
     if (abilityName === "最内一閃" && horse.gate_number === 1) buff = 2;
     if (abilityName === "大外大歓迎" && (horse.gate_number === 8 || horse.gate_number === 16)) buff = 2;
     if (abilityName === "ゲートパカ") {
@@ -154,7 +179,9 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition) {
   });
 }
 
-// Phase 2: 位置取りスコア等へのボーナス
+/**
+ * 【Phase 2】位置取り計算時のスタートダッシュ等アビリティ適用
+ */
 function applyPhase2Abilities(horse, positionPoint) {
   if (!isEligibleForAbility(horse)) return positionPoint;
   if (!horse.ability || !Array.isArray(horse.ability)) return positionPoint;
@@ -173,7 +200,9 @@ function applyPhase2Abilities(horse, positionPoint) {
   return newPoint;
 }
 
-// Phase 3: 位置順位確定後の位置判定・単騎/大逃げ等条件アビリティの適用
+/**
+ * 【Phase 3】位置順位確定後の展開条件アビリティ（大逃げ・単騎等）の適用
+ */
 function applyPhase3Abilities(resultList, leadCount) {
   if (resultList.length === 0) return;
 
@@ -211,7 +240,9 @@ function applyPhase3Abilities(resultList, leadCount) {
   });
 }
 
-// Phase 4: 最終スコアへの展開依存ボーナス
+/**
+ * 【Phase 4】レース展開依存（前残り・乱ペース等）の追加スコア判定
+ */
 function applyPhase4Abilities(horse, pace, branchName) {
   if (!isEligibleForAbility(horse)) return 0;
   if (!horse.ability || !Array.isArray(horse.ability)) return 0;
@@ -237,15 +268,18 @@ function applyPhase4Abilities(horse, pace, branchName) {
   return extraScore;
 }
 
-// --- メイン計算エクスポート関数 ---
+// ============================================================================
+// メイン処理エクスポート関数: runRaceLogic
+// ============================================================================
 export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInfo = null) {
+  // 逃げ馬の頭数を集計
   const leadCount = horses.filter(h => {
     const style = h.style || h.running_style || "";
     const tactic = h.tactic || "";
     return style === "逃げ" || tactic.includes("逃げ") || tactic === "ハナにこだわる";
   }).length;
 
-  // マスターデータの参照を完全に切るためディープコピーを作成し、増減用の箱をセットアップ
+  // マスター/エントリー元のデータを破壊しないよう完全コピー（参照切り）を作成して初期化
   const resultList = horses.map((h, i) => {
     const copy = JSON.parse(JSON.stringify(h));
     copy.index = i;
@@ -254,7 +288,9 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     return copy;
   });
 
-  // 1. 位置取りポイント算定 ＆ 位置順位確定
+  // --------------------------------------------------------------------------
+  // STEP 1: 位置取りポイント計算と隊列順位（1番手〜）の判定
+  // --------------------------------------------------------------------------
   resultList.forEach((h) => {
     const tacticStyle = h.tactic_style || h.target_style || h.tactic || "";
     let tacticStylePt = 40;
@@ -282,7 +318,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       styleCalcPt = tacticStylePt + 20;
     }
 
-    // 増減後のパラメータ（calc_speed）を使用して位置取りを計算
+    // 計算用増減領域（calc_speed）から位置取り数値を算出
     const horseSpeed = h.calc_speed || 0;
     const stratSpeed = h.strat_speed || 0;
     const randomVal = Math.floor(Math.random() * 6);
@@ -291,27 +327,32 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     h.positionPoint = applyPhase2Abilities(h, basePos);
   });
 
-  // 位置取りポイント順にソート（同点の場合は内枠/馬番優先）
+  // 位置取りポイント降順（高い順＝先頭側）でソート
+  // 【内枠優先仕様】位置取りポイントが同点の場合は馬番（枠順）の若い方を先頭（上位）に判定
   const posSorted = [...resultList].sort((a, b) => {
     if (b.positionPoint !== a.positionPoint) {
       return b.positionPoint - a.positionPoint;
     }
+    // 同点時の判定：馬番・ゲート順が若い方を優位とする
     const gateA = a.gate_number || a.horse_number || 99;
     const gateB = b.gate_number || b.horse_number || 99;
-    return gateA - gateB;
+    return gateA - gateB; // 昇順（1番順）
   });
 
+  // 隊列順位（1番手〜）を割り当て
   posSorted.forEach((h, rank) => {
     const target = resultList.find(item => item.index === h.index);
     if (target) target.positionRank = rank + 1;
   });
 
+  // 位置関係に応じたアビリティ適用（大逃げ等）
   applyPhase3Abilities(resultList, leadCount);
 
-  // 2. レースマスターからペースを抽選
+  // --------------------------------------------------------------------------
+  // STEP 2: ペース判定および展開分岐（レース展開）の決定
+  // --------------------------------------------------------------------------
   const selectedPace = determinePace(resultList, raceMaster, trackCondition);
 
-  // 3. レースマスターから対応する展開を抽選
   let availableBranches = raceMaster?.branches_by_pace?.[selectedPace];
   if (!availableBranches || availableBranches.length === 0) {
     availableBranches = [{
@@ -321,7 +362,9 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
   }
   const selectedBranch = availableBranches[Math.floor(Math.random() * availableBranches.length)];
 
-  // 4. スコア計算＆内訳テキスト生成
+  // --------------------------------------------------------------------------
+  // STEP 3: 各馬の最終着順スコアおよび計算詳細テキスト生成
+  // --------------------------------------------------------------------------
   const fieldSize = resultList.length || 16;
   resultList.forEach((h) => {
     let statScore = 0;
@@ -329,7 +372,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     let styleBonusPt = 0;
     let posAddPt = 0;
 
-    // --- A. 能力値計算（すべて増減用の箱 calc_ から参照） ---
+    // --- A. 対象パラメータに基づく基礎能力算定 ---
     if (selectedBranch.formula) {
       const pot = h.calc_potential ?? 0;
       let targetVal = 50;
@@ -344,8 +387,8 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     else if (selectedBranch.key_stats && selectedBranch.key_stats.length > 0) {
       selectedBranch.key_stats.forEach(key => {
         const calcKey = (key === "potential" || key === "current_potential") ? "calc_potential" : `calc_${key}`;
-        const horseStat = h[calcKey] ?? h[key] ?? 0;
-        const stratStat = h[`strat_${key}`] || 0;
+        const horseStat = h[calcKey] ?? h[key] ?? 0; // 馬本体パラメータ
+        const stratStat = h[`strat_${key}`] || 0;   // 作戦による補正パラメータ
         const totalStat = horseStat + stratStat;
         
         statScore += totalStat;
@@ -367,12 +410,14 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       detailParts.push(`SPD+STM:${statScore}`);
     }
 
+    // --- B. 脚質適合ボーナス ---
     if (selectedBranch.style_bonus) {
       const tacticStyle = h.tactic_style || h.target_style || h.tactic || "";
       styleBonusPt = selectedBranch.style_bonus[tacticStyle] || 0;
       statScore += styleBonusPt;
     }
 
+    // --- C. 展開位置（位置取り順位）ボーナス ---
     if (selectedBranch.position_bonus_type === "direct_asc") {
       posAddPt = h.positionRank;
       statScore += posAddPt;
@@ -381,18 +426,20 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       statScore += posAddPt;
     }
 
+    // --- D. 展開アビリティ・乱数の加算 ---
     let extraScore = applyPhase4Abilities(h, selectedPace, selectedBranch.name);
-    let levelBonus = (h.level || 1) * 2;
     let randomBonus = Math.random() * 5;
 
+    // 【修正】作戦レベル（Lv補正）の二重加算を防止。
+    // 作戦補正値（strat_〜）ですでに反映されているため、末尾での h.level * 2 加算は廃止。
     h.posScore = h.positionPoint;
     h.branchScore = extraScore;
-    h.levelScore = levelBonus;
     h.randScore = randomBonus;
 
-    h.finalScore = statScore + extraScore + levelBonus + randomBonus;
+    // 最終スコア算出（能力算定 + 展開ボーナス + アビリティ + 乱数）
+    h.finalScore = statScore + extraScore + randomBonus;
     
-    // 内訳表示の構築
+    // --- E. 内訳表示テキストの構築 ---
     const baseParamScore = statScore - posAddPt - styleBonusPt;
     const statDetailStr = detailParts.join(" + ");
 
@@ -416,13 +463,14 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       detailPartsList.push(`【基礎バフ】+${h.ability_buff}pt`);
     }
 
-    detailPartsList.push(`【Lv補正】+${levelBonus}pt`);
     detailPartsList.push(`【乱数】+${randomBonus.toFixed(1)}`);
 
     h.detailText = detailPartsList.join(" ｜ ");
   });
 
-  // 5. 最終スコア順にソート
+  // --------------------------------------------------------------------------
+  // STEP 4: 最終スコア順に着順ソートして返却
+  // --------------------------------------------------------------------------
   resultList.sort((a, b) => b.finalScore - a.finalScore);
 
   return {
