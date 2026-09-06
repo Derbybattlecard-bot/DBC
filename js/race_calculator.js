@@ -297,10 +297,10 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     }
 
     const horseSpeed = h.calc_speed || 0;
-    const stratSpeed = h.strat_speed || 0;
     const randomVal = Math.floor(Math.random() * 6);
 
-    let basePos = styleCalcPt + horseSpeed + stratSpeed + randomVal;
+    // 位置取り計算において作戦パラメータ加算を完全除外
+    let basePos = styleCalcPt + horseSpeed + randomVal;
     h.positionPoint = applyPhase2Abilities(h, basePos);
   });
 
@@ -347,7 +347,6 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
 
     // --- A. 基礎能力算定（純粋な馬本体ステータスのみ） ---
     if (selectedBranch.formula) {
-      // ポテンシャルは作戦補正等を混ぜず純粋な馬単体値（calc_potential）を取得
       const pot = h.calc_potential ?? h.potential ?? 0;
       let targetVal = 50;
       let targetStatName = "標準値";
@@ -357,7 +356,6 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
         const keyName = `calc_${randomKey}`;
         targetVal = h[keyName] ?? h[randomKey] ?? 0;
         
-        // パラメータ和名変換
         if (randomKey === 'speed') targetStatName = 'SPD';
         else if (randomKey === 'stamina') targetStatName = 'STM';
         else if (randomKey === 'sharp') targetStatName = '瞬発';
@@ -371,7 +369,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     else if (selectedBranch.key_stats && selectedBranch.key_stats.length > 0) {
       selectedBranch.key_stats.forEach(key => {
         const calcKey = (key === "potential" || key === "current_potential") ? "calc_potential" : `calc_${key}`;
-        const horseStat = h[calcKey] ?? h[key] ?? 0; // 純粋な馬本体の数値
+        const horseStat = h[calcKey] ?? h[key] ?? 0;
         
         statScore += horseStat;
 
@@ -429,15 +427,13 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     }
 
     // 2. 展開による加算合計（詳細内訳付き）
-    if (totalDevelopmentAdd > 0) {
-      let devDetails = [];
-      if (styleBonusPt > 0) devDetails.push(`脚質+${styleBonusPt}`);
-      if (posAddPt > 0) devDetails.push(`位置+${posAddPt}`);
-      if (extraScore > 0) devDetails.push(`アビリティ+${extraScore}`);
+    let devDetails = [];
+    if (styleBonusPt > 0) devDetails.push(`脚質+${styleBonusPt}`);
+    if (posAddPt > 0) devDetails.push(`位置+${posAddPt}`);
+    if (extraScore > 0) devDetails.push(`アビリティ+${extraScore}`);
 
-      const devDetailStr = devDetails.length > 0 ? ` (${devDetails.join(", ")})` : "";
-      detailPartsList.push(`【展開加算】+${totalDevelopmentAdd}pt${devDetailStr}`);
-    }
+    const devDetailStr = devDetails.length > 0 ? ` (${devDetails.join(", ")})` : "";
+    detailPartsList.push(`【展開加算】+${totalDevelopmentAdd}pt${devDetailStr}`);
 
     // 3. 基礎バフ（コース等環境適性）
     if (h.ability_buff && h.ability_buff > 0) {
