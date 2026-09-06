@@ -449,15 +449,17 @@ function buildRaceGridsFromFirebase() {
   }
 }
 
+// 修正後: マスターデータの値を優先し、存在しない場合のみ 0 や適切なデフォルトを設定
 function ensureStats(h) {
-  h.potential = h.potential || 50;
-  h.speed = h.speed || 50;
-  h.stamina = h.stamina || 50;
-  h.sharp = h.sharp || 50;
-  h.jizoku = h.jizoku || 50;
-  h.guts = h.guts || 50;
-  h.power = h.power || 50;
-  h.style = h.style || h.running_style || "自在";
+  const master = HORSES_MASTER[h.horse_id] || {};
+  h.potential = h.potential ?? master.potential ?? 20;
+  h.speed = h.speed ?? master.speed ?? 20;
+  h.stamina = h.stamina ?? master.stamina ?? 20;
+  h.sharp = h.sharp ?? master.sharp ?? 20;
+  h.jizoku = h.jizoku ?? master.jizoku ?? 20;
+  h.guts = h.guts ?? master.guts ?? 20;
+  h.power = h.power ?? master.power ?? 20;
+  h.style = h.style || master.style || master.running_style || "自在";
 }
 
 function setupRace(rIdx) {
