@@ -390,98 +390,162 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       detailParts.push(`SPD:${spd} + STM:${stm}`);
     }
 
-    // --- B. 展開による加算値（脚質・展開位置ボーナス） ---
-    if (selectedBranch.style_bonus) {
-      const tacticStyle = h.tactic_style || h.target_style || h.tactic || "";
-      styleBonusPt = selectedBranch.style_bonus[tacticStyle] || 0;
+// --------------------------------------------------------------------------
+// STEP 3: 各馬のスコア算出および詳細テキスト生成
+// --------------------------------------------------------------------------
+const fieldSize = resultList.length || 16;
+resultList.forEach((h) => {
+  let statScore = 0;
+  let detailParts = [];
+  let styleBonusPt = 0;
+  let posAddPt = 0;
+  let formulaFormulaDetail = "";
+
+  // --- 作戦ポテンシャルの算出 (作戦レベル × 2) ---
+  const stratPot = (h.level || 1) * 2;
+  const horseBasePot = h.potential || 0;
+  // 総合ポテンシャル = 馬本体ポテンシャル + 作戦ポテンシャル
+  const totalPot = (h.calc_potential ?? horseBasePot) + stratPot;
+
+  // --- A. 基礎能力算定 ---
+  if (selectedBranch.formula) {
+    let targetVal = 50;
+    let targetStatName = "標準値";
+
+    if (selectedBranch.target_pool && selectedBranch.target_pool.length > 0) {
+      const randomKey = selectedBranch.target_pool[Math.floor(Math.random() * selectedBranch.target_pool.length)];
+      const keyName = `calc_${randomKey}`;
+      targetVal = h[keyName] ?? h[randomKey] ?? 0;
+      
+      if (randomKey === 'speed') targetStatName = 'SPD';
+      else if (randomKey === 'stamina') targetStatName = 'STM';
+      else if (randomKey === 'sharp') targetStatName = '瞬発';
+      else if (randomKey === 'jizoku') targetStatName = '持続';
+      else if (randomKey === 'guts') targetStatName = '根性';
     }
 
-    if (selectedBranch.position_bonus_type === "direct_asc") {
-      posAddPt = h.positionRank;
-    } else if (selectedBranch.position_bonus_type === "direct_desc") {
-      posAddPt = fieldSize + 1 - h.positionRank;
-    }
+    // 計算式に総合ポテンシャルを適用
+    statScore = 30 - totalPot + targetVal;
+    formulaFormulaDetail = `30 - ポテ:${totalPot}(${horseBasePot}+${stratPot}) + ${targetStatName}:${targetVal}`;
+  } 
+  else if (selectedBranch.key_stats && selectedBranch.key_stats.length > 0) {
+    selectedBranch.key_stats.forEach(key => {
+      let statNameJa = key;
+      if (key === 'speed') statNameJa = 'SPD';
+      else if (key === 'stamina') statNameJa = 'STM';
+      else if (key === 'sharp') statNameJa = '瞬発';
+      else if (key === 'jizoku') statNameJa = '持続';
+      else if (key === 'guts') statNameJa = '根性';
+      else if (key === 'potential' || key === 'current_potential') statNameJa = 'ポテ';
 
-    // --- C. 展開アビリティ・乱数 ---
-    let extraScore = applyPhase4Abilities(h, selectedPace, selectedBranch.name);
-    let randomBonus = Math.random() * 5;
+      if (key === 'potential' || key === 'current_potential') {
+        // ポテンシャルの計算と加算
+        statScore += totalPot;
+      } else {
+        const calcKey = `calc_${key}`;
+        const horseBase = h[calcKey] ?? h[key] ?? 0;
+        const stratVal = h[`strat_${key}`] ?? 0;
+        statScore += (horseBase + stratVal);
+      }
+    });
+  } else {
+    const spdBase = h.calc_speed || 0;
+    const spdStrat = h.strat_speed || 0;
+    const stmBase = h.calc_stamina || 0;
+    const stmStrat = h.strat_stamina || 0;
+    statScore = (spdBase + spdStrat) + (stmBase + stmStrat);
+  }
 
-    // 展開による加算合計（脚質ボーナス + 位置ボーナス + 展開アビリティ）
-    const totalDevelopmentAdd = styleBonusPt + posAddPt + extraScore;
+  // --- B. 展開による加算値（作戦の脚質による判定） ---
+  // 作戦側の脚質カテゴリを取得（例: "差し", "逃げ" 等）
+  const tacticStyle = h.tactic_style || h.target_style || h.tactic || "";
+  
+  if (selectedBranch.style_bonus) {
+    // 作戦の脚質が展開の脚質ボーナス対象に含まれているか判定
+    Object.keys(selectedBranch.style_bonus).forEach(bonusStyle => {
+      if (tacticStyle.includes(bonusStyle)) {
+        styleBonusPt = selectedBranch.style_bonus[bonusStyle] || 0;
+      }
+    });
+  }
 
-    h.posScore = h.positionPoint;
-    h.branchScore = extraScore;
-    h.randScore = randomBonus;
+  if (selectedBranch.position_bonus_type === "direct_asc") {
+    posAddPt = h.positionRank;
+  } else if (selectedBranch.position_bonus_type === "direct_desc") {
+    posAddPt = fieldSize + 1 - h.positionRank;
+  }
 
-    // 最終スコア算出
-    h.finalScore = statScore + totalDevelopmentAdd + randomBonus;
-    
-    // --- D. 内訳表示テキストの作成 ---
-    let detailPartsList = [];
+  // --- C. 展開アビリティ・乱数 ---
+  let extraScore = applyPhase4Abilities(h, selectedPace, selectedBranch.name);
+  let randomBonus = Math.random() * 5;
 
-    // 1. 能力算定（馬本体＋作戦パラメータの内訳を展開表示）
-    if (selectedBranch.formula) {
-      detailPartsList.push(`【能力算定】${formulaFormulaDetail} = ${statScore}pt`);
-    } else if (selectedBranch.key_stats && selectedBranch.key_stats.length > 0) {
-      let statDetails = [];
-      selectedBranch.key_stats.forEach(key => {
-        let statNameJa = key;
-        if (key === 'speed') statNameJa = 'SPD';
-        else if (key === 'stamina') statNameJa = 'STM';
-        else if (key === 'sharp') statNameJa = '瞬発';
-        else if (key === 'jizoku') statNameJa = '持続';
-        else if (key === 'guts') statNameJa = '根性';
-        else if (key === 'potential' || key === 'current_potential') statNameJa = 'ポテ';
+  const totalDevelopmentAdd = styleBonusPt + posAddPt + extraScore;
 
-        const calcKey = (key === "potential" || key === "current_potential") ? "calc_potential" : `calc_${key}`;
-        
-        // 馬本体と作戦パラメータの取得
+  h.posScore = h.positionPoint;
+  h.branchScore = extraScore;
+  h.randScore = randomBonus;
+
+  // 最終スコア算出
+  h.finalScore = statScore + totalDevelopmentAdd + randomBonus;
+  
+  // --- D. 内訳表示テキストの作成 ---
+  let detailPartsList = [];
+
+  if (selectedBranch.formula) {
+    detailPartsList.push(`【能力算定】${formulaFormulaDetail} = ${statScore}pt`);
+  } else if (selectedBranch.key_stats && selectedBranch.key_stats.length > 0) {
+    let statDetails = [];
+    selectedBranch.key_stats.forEach(key => {
+      let statNameJa = key;
+      if (key === 'speed') statNameJa = 'SPD';
+      else if (key === 'stamina') statNameJa = 'STM';
+      else if (key === 'sharp') statNameJa = '瞬発';
+      else if (key === 'jizoku') statNameJa = '持続';
+      else if (key === 'guts') statNameJa = '根性';
+      else if (key === 'potential' || key === 'current_potential') statNameJa = 'ポテ';
+
+      if (key === 'potential' || key === 'current_potential') {
+        // ポテンシャルを (馬ポテ + 作戦ポテ) に分けて表示
+        statDetails.push(`${statNameJa}:${totalPot}(${horseBasePot}+${stratPot})`);
+      } else {
+        const calcKey = `calc_${key}`;
         const horseBase = h[calcKey] ?? h[key] ?? 0;
         const stratVal = h[`strat_${key}`] ?? 0;
         const totalVal = horseBase + stratVal;
+        statDetails.push(`${statNameJa}:${totalVal}(${horseBase}+${stratVal})`);
+      }
+    });
+    detailPartsList.push(`【能力算定】${statDetails.join(" + ")} = ${statScore}pt`);
+  } else {
+    const spdBase = h.calc_speed || 0;
+    const spdStrat = h.strat_speed || 0;
+    const stmBase = h.calc_stamina || 0;
+    const stmStrat = h.strat_stamina || 0;
 
-        // ポテンシャルの場合は作戦加算がないため単体表示、それ以外は 合計(馬+作戦) 表示
-        if (key === 'potential' || key === 'current_potential') {
-          statDetails.push(`${statNameJa}:${totalVal}`);
-        } else {
-          statDetails.push(`${statNameJa}:${totalVal}(${horseBase}+${stratVal})`);
-        }
-      });
-      detailPartsList.push(`【能力算定】${statDetails.join(" + ")} = ${statScore}pt`);
-    } else {
-      const spdBase = h.calc_speed || 0;
-      const spdStrat = h.strat_speed || 0;
-      const spdTotal = spdBase + spdStrat;
+    detailPartsList.push(`【能力算定】SPD:${spdBase + spdStrat}(${spdBase}+${spdStrat}) + STM:${stmBase + stmStrat}(${stmBase}+${stmStrat}) = ${statScore}pt`);
+  }
 
-      const stmBase = h.calc_stamina || 0;
-      const stmStrat = h.strat_stamina || 0;
-      const stmTotal = stmBase + stmStrat;
+  // 展開加算（脚質ボーナス内訳）
+  let devDetails = [];
+  if (styleBonusPt > 0) devDetails.push(`脚質ボーナス+${styleBonusPt}`);
+  if (posAddPt > 0) devDetails.push(`位置+${posAddPt}`);
+  if (extraScore > 0) devDetails.push(`展開アビ+${extraScore}`);
 
-      detailPartsList.push(`【能力算定】SPD:${spdTotal}(${spdBase}+${spdStrat}) + STM:${stmTotal}(${stmBase}+${stmStrat}) = ${statScore}pt`);
-    }
+  const devDetailStr = devDetails.length > 0 ? ` (${devDetails.join(", ")})` : "";
+  detailPartsList.push(`【展開加算】+${totalDevelopmentAdd}pt${devDetailStr}`);
 
-    // 2. 展開による加算（脚質・位置・展開アビリティの明細）
-    let devDetails = [];
-    if (styleBonusPt > 0) devDetails.push(`脚質+${styleBonusPt}`);
-    if (posAddPt > 0) devDetails.push(`位置+${posAddPt}`);
-    if (extraScore > 0) devDetails.push(`展開アビ+${extraScore}`);
+  if (h.ability_buff && h.ability_buff > 0) {
+    const activeList = (h.activated_abilities && h.activated_abilities.length > 0) 
+      ? ` (${h.activated_abilities.join(", ")})` 
+      : "";
+    detailPartsList.push(`【環境バフ】+${h.ability_buff}pt${activeList}`);
+  }
 
-    const devDetailStr = devDetails.length > 0 ? ` (${devDetails.join(", ")})` : "";
-    detailPartsList.push(`【展開加算】+${totalDevelopmentAdd}pt${devDetailStr}`);
+  detailPartsList.push(`【乱数】+${randomBonus.toFixed(1)}`);
 
-    // 3. 環境・コースバフの内訳
-    if (h.ability_buff && h.ability_buff > 0) {
-      const activeList = (h.activated_abilities && h.activated_abilities.length > 0) 
-        ? ` (${h.activated_abilities.join(", ")})` 
-        : "";
-      detailPartsList.push(`【環境バフ】+${h.ability_buff}pt${activeList}`);
-    }
+  h.detailText = detailPartsList.join(" ｜ ");
+});
 
-    // 4. 乱数
-    detailPartsList.push(`【乱数】+${randomBonus.toFixed(1)}`);
-
-    h.detailText = detailPartsList.join(" ｜ ");
-  });
   // --------------------------------------------------------------------------
   // STEP 4: 着順ソートして返却
   // --------------------------------------------------------------------------
