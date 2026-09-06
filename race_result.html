@@ -796,19 +796,13 @@ function renderResults(scoredList) {
       nameClass = "p2-name";
     }
 
+    // 脚質（馬本来の脚質）と作戦情報
     const horseStyle = item.style || item.running_style || "自在";
+    const tacticName = item.tactic || "通常";
+    const tacticStyle = item.tactic_style || item.target_style || item.tactic || "自在";
+    const tacticLevel = item.level || 1;
 
-    let detailText = "";
-    if (item.detailText) {
-      detailText = item.detailText;
-    } else {
-      const posPt = item.posScore !== undefined ? item.posScore : (item.positionPoint || 0);
-      const branchPt = item.branchScore !== undefined ? item.branchScore : 0;
-      const lvPt = item.levelScore !== undefined ? item.levelScore : (item.level || 0);
-      const randPt = item.randScore !== undefined ? Number(item.randScore).toFixed(1) : "0.0";
-      
-      detailText = `位置:${posPt} | 展開:${branchPt} | Lv:${lvPt} | 乱:${randPt}`;
-    }
+    let detailText = item.detailText || "算定詳細なし";
 
     tbody.innerHTML += `
       <tr>
@@ -817,7 +811,18 @@ function renderResults(scoredList) {
         <td><strong>${item.positionPoint}</strong></td>
         <td>${typeLabel}</td>
         <td style="text-align:left;"><span class="${nameClass}">${item.name}</span></td>
-        <td style="text-align:left;">${horseStyle}: ${item.tactic} (Lv.${item.level})</td>
+        <!-- 脚質表示の拡張：[馬脚質] 作戦名(作戦脚質/Lv) -->
+        <td style="text-align:left; white-space: nowrap;">
+          <strong>[${horseStyle}]</strong> ${tacticName} <span style="color: #aaa; font-size: 0.9em;">(${tacticStyle} / Lv.${tacticLevel})</span>
+        </td>
+        <!-- 各作戦ステータス（該当あれば個別表示） -->
+        <td>${item.strat_speed || item.calc_speed || '-'}</td>
+        <td>${item.strat_stamina || item.calc_stamina || '-'}</td>
+        <td>${item.strat_sharp || item.calc_sharp || '-'}</td>
+        <td>${item.strat_jizoku || item.calc_jizoku || '-'}</td>
+        <td>${item.strat_guts || item.calc_guts || '-'}</td>
+        <td>${item.strat_power || item.calc_power || '-'}</td>
+        <!-- 黄色字の内訳表示部分 -->
         <td style="text-align:left; font-family: monospace; font-size: 0.85em; color: #ffcc00; white-space: nowrap;">${detailText}</td>
         <td><strong>${Math.floor(item.finalScore)}</strong></td>
       </tr>`;
