@@ -388,7 +388,7 @@ function buildRaceGridsFromFirebase() {
   const racesMobGates = currentMatch.races_mob_gates || [];
 
   if (playerEntries.length < 5) {
-    alert("対戦エントリーデータが見つかりません。お題画面へ戻ります。");
+    alert("対戦エントリーデータが見つかりません。シリーズ発表画面へ戻ります。");
     window.location.href = 'battle.html';
     return;
   }
@@ -496,7 +496,7 @@ function setupRace(rIdx) {
   }
   currentTrackConfig = TRACK_DIRECTION_MASTER[turnDir] || TRACK_DIRECTION_MASTER["右回り"];
   
-  activeHorses.forEach((h, i) => {
+    activeHorses.forEach((h, i) => {
     h.index = i;
     h.tactic_level = h.level || 3;
     let matchedStrat = h.stratObj;
@@ -506,16 +506,18 @@ function setupRace(rIdx) {
     }
 
     const levelVal = h.level || 1;
-    h.strat_potential = levelVal;
     
+    // 【修正】作戦の基礎値に levelVal を重複加算しない
     if (matchedStrat) {
       Object.keys(matchedStrat).forEach(key => {
         if (typeof matchedStrat[key] === 'number') {
-          h[`strat_${key}`] = matchedStrat[key] + levelVal;
+          h[`strat_${key}`] = matchedStrat[key]; 
         }
       });
     }
     
+    // レベル補正（ポテンシャル等への影響）のみ独立して設定
+    h.strat_potential = levelVal * 2;
     h.strat_name = matchedStrat ? matchedStrat.name : "通常";
 
     ensureStats(h);
