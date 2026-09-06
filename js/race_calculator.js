@@ -105,7 +105,7 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition) {
     if (abilityName === "札幌の看板役者" && raceInfo?.track === "札幌") buff = 1;
     if (abilityName === "函館ひと芝居" && raceInfo?.track === "函館") buff = 1;
     if (abilityName === "地方無双" && ["大井","川崎","船橋","浦和","盛岡","園田","高知","笠松","門別"].includes(raceInfo?.track)) buff = 1;
-    if (abilityName === "アメリカンドリーム") buff = 1; // （旧：プライドビギン）
+    if (abilityName === "アメリカンドリーム") buff = 1;
 
     // 【距離系】
     if (abilityName === "スピードスター" && raceInfo?.distance === 1200) buff = 1;
@@ -122,8 +122,8 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition) {
     if (abilityName === "最内一閃" && horse.gate_number === 1) buff = 2;
     if (abilityName === "大外大歓迎" && (horse.gate_number === 8 || horse.gate_number === 16)) buff = 2;
     if (abilityName === "ゲートパカ") {
-      if (horse.gate_number % 2 === 1) buff = -1; // 奇数枠はマイナス1
-      else if (horse.gate_number % 2 === 0) buff = 1; // 偶数枠はプラス1
+      if (horse.gate_number % 2 === 1) buff = -1;
+      else if (horse.gate_number % 2 === 0) buff = 1;
     }
 
     // バフ適用
@@ -168,12 +168,10 @@ function applyPhase3Abilities(resultList, leadCount) {
   firstHorse.activated_abilities = firstHorse.activated_abilities || [];
 
   firstHorse.ability.forEach(abilityName => {
-    // ロケットスタート（先頭逃げ時の全パラ+1）
     if (abilityName === "ロケットスタート") {
       applyAllStatsBuff(firstHorse, 1);
     }
 
-    // 大逃亡（2番手に位置取りPtで20差以上つけて先頭時、全パラ+2）
     if (abilityName === "大逃亡") {
       const secondPt = secondHorse ? secondHorse.positionPoint : 0;
       if ((firstHorse.positionPoint - secondPt) >= 20) {
@@ -184,7 +182,6 @@ function applyPhase3Abilities(resultList, leadCount) {
       }
     }
 
-    // 1人旅（単騎で逃げられた時に全パラ+2）
     if (abilityName === "1人旅" || abilityName === "一人旅") {
       if (leadCount === 1) {
         applyAllStatsBuff(firstHorse, 2);
@@ -206,12 +203,10 @@ function applyPhase4Abilities(horse, pace, branchName) {
 
   horse.ability.forEach(abilityName => {
     let triggered = false;
-    // まくり系・電光石火（前残り展開で+10）
     if ((abilityName === "電光石火" || abilityName === "衝撃のまくり" || abilityName === "異次元のまくり" || abilityName === "怒涛のまくり") && branchName.includes("前残り")) {
       extraScore += 10;
       triggered = true;
     }
-    // 王道・絶対王者（乱ペースで+10）
     if ((abilityName === "王道" || abilityName === "絶対王者") && pace.includes("乱ペース")) {
       extraScore += 10;
       triggered = true;
@@ -226,7 +221,6 @@ function applyPhase4Abilities(horse, pace, branchName) {
 
 // --- メイン計算エクスポート関数 ---
 export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInfo = null) {
-  // 逃げ馬の頭数を事前カウント（Phase 3の1人旅判定用）
   const leadCount = horses.filter(h => {
     const style = h.style || h.running_style || "";
     const tactic = h.tactic || "";
@@ -241,7 +235,45 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
 
   // 1. 位置取りポイント算定 ＆ 位置順位確定
   resultList.forEach((h) => {
-    let basePos = Math.floor(Math.random() * 30) + 50;
+    // 1-1. 作戦の脚質ベースPt (逃げ:90, 先行:70, 差し:40, 追込:20)
+    const tacticStyle = h.tactic_style || h.target_style || h.tactic || "";
+    let tacticStylePt = 40;
+    if (tacticStyle.includes("逃げ")) tacticStylePt = 90;
+    else if (tacticStyle.includes("先行")) tacticStylePt = 70;
+    else if (tacticStyle.includes("差し")) tacticStylePt = 40;
+    else if (tacticStyle.includes("追込")) tacticStylePt = 20;
+
+    // 1-2. 馬の脚質計算Pt (自在・逃追は×2、その他は固定加算)
+    const horseStyle = h.running_style || h.style || h.horse_style || "";
+    let styleCalcPt = 0;
+
+    if (horseStyle.includes("自在") || horseStyle.includes("逃追")) {
+      styleCalcPt = tacticStylePt * 2;
+    } else if (horseStyle.includes("大逃")) {
+      styleCalcPt = tacticStylePt + 50;
+    } else if (horseStyle.includes("逃げ")) {
+      styleCalcPt = tacticStylePt + 40;
+    } else if (horseStyle.includes("先行") || horseStyle.includes("好位")) {
+      styleCalcPt = tacticStylePt + 30;
+    } else if (horseStyle.includes("差し")) {
+      styleCalcPt = tacticStylePt + 20;
+    } else if (horseStyle.includes("追込")) {
+      styleCalcPt = tacticStylePt + 10;
+    } else {
+      styleCalcPt = tacticStylePt + 20;
+    }
+
+    // 1-3. スピードパラメータ (馬SPD + 作SPD)
+    const horseSpeed = h.speed || 0;
+    const stratSpeed = h.strat_speed || 0;
+
+    // 1-4. 乱数 (0〜5)
+    const randomVal = Math.floor(Math.random() * 6);
+
+    // 1-5. 基礎位置取りPt算出
+    let basePos = styleCalcPt + horseSpeed + stratSpeed + randomVal;
+
+    // 1-6. Phase 2 アビリティ適用 (ロケットスタート等の加算)
     h.positionPoint = applyPhase2Abilities(h, basePos);
   });
 
@@ -251,13 +283,13 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     if (target) target.positionRank = rank + 1;
   });
 
-  // 1.5 位置順位・先頭条件アビリティ（ロケットスタート追加・大逃亡・1人旅）の適用
+  // 1.5 位置順位・先頭条件アビリティの適用
   applyPhase3Abilities(resultList, leadCount);
 
-  // 2. レースマスター（pace_decision_master）からペースを抽選
+  // 2. レースマスターからペースを抽選
   const selectedPace = determinePace(resultList, raceMaster, trackCondition);
 
-  // 3. レースマスター（branches_by_pace）から対応する展開を抽選
+  // 3. レースマスターから対応する展開を抽選
   let availableBranches = raceMaster?.branches_by_pace?.[selectedPace];
   if (!availableBranches || availableBranches.length === 0) {
     availableBranches = [{
@@ -267,7 +299,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
   }
   const selectedBranch = availableBranches[Math.floor(Math.random() * availableBranches.length)];
 
-  // 4. スコア計算＆内訳テキスト（detailText）生成
+  // 4. スコア計算＆内訳テキスト生成
   const fieldSize = resultList.length || 16;
   resultList.forEach((h) => {
     let statScore = 0;
@@ -296,7 +328,6 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
         
         statScore += totalStat;
 
-        // ステータス表示名マッピング
         let statNameJa = key;
         if (key === 'speed') statNameJa = 'SPD';
         else if (key === 'stamina') statNameJa = 'STM';
@@ -315,13 +346,11 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     }
 
     // --- B. 脚質ボーナス判定 ---
-if (selectedBranch.style_bonus) {
-  // 馬の素の脚質ではなく作戦（tactic）に紐づく脚質プロパティを参照
-  const tacticStyle = h.tactic_style || h.target_style || h.tactic || "";
-  styleBonusPt = selectedBranch.style_bonus[tacticStyle] || 0;
-  statScore += styleBonusPt;
-}
-
+    if (selectedBranch.style_bonus) {
+      const tacticStyle = h.tactic_style || h.target_style || h.tactic || "";
+      styleBonusPt = selectedBranch.style_bonus[tacticStyle] || 0;
+      statScore += styleBonusPt;
+    }
 
     // --- C. 位置順位ダイレクトボーナス判定 ---
     if (selectedBranch.position_bonus_type === "direct_asc") {
@@ -343,10 +372,10 @@ if (selectedBranch.style_bonus) {
     h.levelScore = levelBonus;
     h.randScore = randomBonus;
 
-    // 最終スコア算出（隊列決定用である h.positionPoint を除外）
+    // 最終スコア算出
     h.finalScore = statScore + extraScore + levelBonus + randomBonus;
     
-    // --- E. 内訳テキスト（detailText）構築 ---
+    // --- E. 内訳テキスト構築 ---
     const baseParamScore = statScore - posAddPt - styleBonusPt;
     const statDetailStr = detailParts.join(" + ");
 
@@ -374,7 +403,6 @@ if (selectedBranch.style_bonus) {
     detailPartsList.push(`【Lv補正】+${levelBonus}pt`);
     detailPartsList.push(`【乱数】+${randomBonus.toFixed(1)}`);
 
-    // オブジェクトに内訳文字列を持たせる
     h.detailText = detailPartsList.join(" ｜ ");
   });
 
