@@ -208,18 +208,14 @@
           <th>区分</th>
           <th>馬名</th>
           <th>脚質: 作戦名 (Lv)</th>
-          <th>作SPD</th>
-          <th>作STM</th>
-          <th>作瞬発</th>
-          <th>作持続</th>
-          <th>作根性</th>
-          <th>作PWR</th>
+          <!-- 作戦パラメータ6列を削除 -->
           <th>加算詳細 (内訳)</th>
           <th>評価Pt</th>
         </tr>
       </thead>
       <tbody id="result-body"></tbody>
     </table>
+
   </div>
 </div>
 
@@ -796,7 +792,6 @@ function renderResults(scoredList) {
       nameClass = "p2-name";
     }
 
-    // 脚質（馬本来の脚質）と作戦情報
     const horseStyle = item.style || item.running_style || "自在";
     const tacticName = item.tactic || "通常";
     const tacticStyle = item.tactic_style || item.target_style || item.tactic || "自在";
@@ -811,18 +806,10 @@ function renderResults(scoredList) {
         <td><strong>${item.positionPoint}</strong></td>
         <td>${typeLabel}</td>
         <td style="text-align:left;"><span class="${nameClass}">${item.name}</span></td>
-        <!-- 脚質表示の拡張：[馬脚質] 作戦名(作戦脚質/Lv) -->
         <td style="text-align:left; white-space: nowrap;">
           <strong>[${horseStyle}]</strong> ${tacticName} <span style="color: #aaa; font-size: 0.9em;">(${tacticStyle} / Lv.${tacticLevel})</span>
         </td>
-        <!-- 各作戦ステータス（該当あれば個別表示） -->
-        <td>${item.strat_speed || item.calc_speed || '-'}</td>
-        <td>${item.strat_stamina || item.calc_stamina || '-'}</td>
-        <td>${item.strat_sharp || item.calc_sharp || '-'}</td>
-        <td>${item.strat_jizoku || item.calc_jizoku || '-'}</td>
-        <td>${item.strat_guts || item.calc_guts || '-'}</td>
-        <td>${item.strat_power || item.calc_power || '-'}</td>
-        <!-- 黄色字の内訳表示部分 -->
+        <!-- 作戦パラメータ列を出力していた箇所を取り除き、直接「加算詳細」を表示 -->
         <td style="text-align:left; font-family: monospace; font-size: 0.85em; color: #ffcc00; white-space: nowrap;">${detailText}</td>
         <td><strong>${Math.floor(item.finalScore)}</strong></td>
       </tr>`;
@@ -830,6 +817,7 @@ function renderResults(scoredList) {
 
   document.getElementById('result-container').style.display = "block";
 }
+
 
 function recordHistory(scoredList) {
   const pRank = scoredList.findIndex(item => item.isPlayer) + 1;
