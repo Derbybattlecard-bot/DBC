@@ -419,13 +419,45 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     // --- D. 内訳表示テキストの作成 ---
     let detailPartsList = [];
 
-    // 1. 能力算定（該当パラメータをすべて展開表示）
+    // 1. 能力算定（馬本体＋作戦パラメータの内訳を展開表示）
     if (selectedBranch.formula) {
       detailPartsList.push(`【能力算定】${formulaFormulaDetail} = ${statScore}pt`);
     } else if (selectedBranch.key_stats && selectedBranch.key_stats.length > 0) {
-      detailPartsList.push(`【能力算定】${detailParts.join(" + ")} = ${statScore}pt`);
+      let statDetails = [];
+      selectedBranch.key_stats.forEach(key => {
+        let statNameJa = key;
+        if (key === 'speed') statNameJa = 'SPD';
+        else if (key === 'stamina') statNameJa = 'STM';
+        else if (key === 'sharp') statNameJa = '瞬発';
+        else if (key === 'jizoku') statNameJa = '持続';
+        else if (key === 'guts') statNameJa = '根性';
+        else if (key === 'potential' || key === 'current_potential') statNameJa = 'ポテ';
+
+        const calcKey = (key === "potential" || key === "current_potential") ? "calc_potential" : `calc_${key}`;
+        
+        // 馬本体と作戦パラメータの取得
+        const horseBase = h[calcKey] ?? h[key] ?? 0;
+        const stratVal = h[`strat_${key}`] ?? 0;
+        const totalVal = horseBase + stratVal;
+
+        // ポテンシャルの場合は作戦加算がないため単体表示、それ以外は 合計(馬+作戦) 表示
+        if (key === 'potential' || key === 'current_potential') {
+          statDetails.push(`${statNameJa}:${totalVal}`);
+        } else {
+          statDetails.push(`${statNameJa}:${totalVal}(${horseBase}+${stratVal})`);
+        }
+      });
+      detailPartsList.push(`【能力算定】${statDetails.join(" + ")} = ${statScore}pt`);
     } else {
-      detailPartsList.push(`【能力算定】SPD:${h.calc_speed || 0} + STM:${h.calc_stamina || 0} = ${statScore}pt`);
+      const spdBase = h.calc_speed || 0;
+      const spdStrat = h.strat_speed || 0;
+      const spdTotal = spdBase + spdStrat;
+
+      const stmBase = h.calc_stamina || 0;
+      const stmStrat = h.strat_stamina || 0;
+      const stmTotal = stmBase + stmStrat;
+
+      detailPartsList.push(`【能力算定】SPD:${spdTotal}(${spdBase}+${spdStrat}) + STM:${stmTotal}(${stmBase}+${stmStrat}) = ${statScore}pt`);
     }
 
     // 2. 展開による加算（脚質・位置・展開アビリティの明細）
@@ -437,7 +469,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     const devDetailStr = devDetails.length > 0 ? ` (${devDetails.join(", ")})` : "";
     detailPartsList.push(`【展開加算】+${totalDevelopmentAdd}pt${devDetailStr}`);
 
-    // 3. 環境・コースバフの内訳（発動したアビリティ名を併記）
+    // 3. 環境・コースバフの内訳
     if (h.ability_buff && h.ability_buff > 0) {
       const activeList = (h.activated_abilities && h.activated_abilities.length > 0) 
         ? ` (${h.activated_abilities.join(", ")})` 
@@ -450,7 +482,6 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
 
     h.detailText = detailPartsList.join(" ｜ ");
   });
-
   // --------------------------------------------------------------------------
   // STEP 4: 着順ソートして返却
   // --------------------------------------------------------------------------
