@@ -372,14 +372,14 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     let styleBonusPt = 0;
     let posAddPt = 0;
 
-    // --- A. 対象パラメータに基づく基礎能力算定 ---
+    // --- A. 対象パラメータに基づく基礎能力算定（馬本体能力 calc_ のみで計算） ---
     if (selectedBranch.formula) {
       const pot = h.calc_potential ?? 0;
       let targetVal = 50;
       if (selectedBranch.target_pool && selectedBranch.target_pool.length > 0) {
         const randomKey = selectedBranch.target_pool[Math.floor(Math.random() * selectedBranch.target_pool.length)];
         const keyName = `calc_${randomKey}`;
-        targetVal = (h[keyName] || h[randomKey] || 0) + (h[`strat_${randomKey}`] || 0);
+        targetVal = h[keyName] || h[randomKey] || 0;
       }
       statScore = 30 - pot + targetVal;
       detailParts.push(`特殊算定:${statScore}`);
@@ -387,11 +387,9 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     else if (selectedBranch.key_stats && selectedBranch.key_stats.length > 0) {
       selectedBranch.key_stats.forEach(key => {
         const calcKey = (key === "potential" || key === "current_potential") ? "calc_potential" : `calc_${key}`;
-        const horseStat = h[calcKey] ?? h[key] ?? 0; // 馬本体パラメータ
-        const stratStat = h[`strat_${key}`] || 0;   // 作戦による補正パラメータ
-        const totalStat = horseStat + stratStat;
+        const horseStat = h[calcKey] ?? h[key] ?? 0; // 馬本体の素の能力値（作戦補正は混ぜない）
         
-        statScore += totalStat;
+        statScore += horseStat;
 
         let statNameJa = key;
         if (key === 'speed') statNameJa = 'SPD';
@@ -401,7 +399,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
         else if (key === 'guts') statNameJa = '根性';
         else if (key === 'potential' || key === 'current_potential') statNameJa = 'ポテ';
 
-        detailParts.push(`${statNameJa}:${totalStat}(馬${horseStat}+作${stratStat})`);
+        detailParts.push(`${statNameJa}:${horseStat}`);
       });
     } else {
       const spd = h.calc_speed || 0;
@@ -410,45 +408,39 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       detailParts.push(`SPD+STM:${statScore}`);
     }
 
-    // --- B. 脚質適合ボーナス ---
+    // --- B. 作戦ポテンシャル（作戦レベル×2）を常に一律加算 ---
+    const tacticLevel = h.level || h.tactics_level || h.tactic_level || 1;
+    const tacticBonusPt = tacticLevel * 2;
+
+    // --- C. 脚質適合ボーナス ---
     if (selectedBranch.style_bonus) {
       const tacticStyle = h.tactic_style || h.target_style || h.tactic || "";
       styleBonusPt = selectedBranch.style_bonus[tacticStyle] || 0;
-      statScore += styleBonusPt;
     }
 
-    // --- C. 展開位置（位置取り順位）ボーナス ---
+    // --- D. 展開位置（位置取り順位）ボーナス ---
     if (selectedBranch.position_bonus_type === "direct_asc") {
       posAddPt = h.positionRank;
-      statScore += posAddPt;
     } else if (selectedBranch.position_bonus_type === "direct_desc") {
       posAddPt = fieldSize + 1 - h.positionRank;
-      statScore += posAddPt;
     }
 
-    // --- D. 展開アビリティ・乱数の加算 ---
+    // --- E. 展開アビリティ・乱数の加算 ---
     let extraScore = applyPhase4Abilities(h, selectedPace, selectedBranch.name);
     let randomBonus = Math.random() * 5;
 
-    // 【修正】作戦レベル（Lv補正）の二重加算を防止。
-    // 作戦補正値（strat_〜）ですでに反映されているため、末尾での h.level * 2 加算は廃止。
     h.posScore = h.positionPoint;
     h.branchScore = extraScore;
+    h.levelScore = tacticBonusPt;
     h.randScore = randomBonus;
 
-    // 最終スコア算出（能力算定 + 展開ボーナス + アビリティ + 乱数）
-    h.finalScore = statScore + extraScore + randomBonus;
+    // 最終スコア算出（基礎能力 + 作戦Lv×2 + 脚質ボーナス + 展開位置ボーナス + 展開アビリティ + 乱数）
+    h.finalScore = statScore + tacticBonusPt + styleBonusPt + posAddPt + extraScore + randomBonus;
     
-    // --- E. 内訳表示テキストの構築 ---
-    const baseParamScore = statScore - posAddPt - styleBonusPt;
-    const statDetailStr = detailParts.join(" + ");
-
+    // --- F. 内訳表示テキストの構築 ---
     let detailPartsList = [];
-    if (detailParts.length > 0) {
-      detailPartsList.push(`【能力算定】${statDetailStr} = ${baseParamScore}pt`);
-    } else {
-      detailPartsList.push(`【能力算定】${baseParamScore}pt`);
-    }
+    detailPartsList.push(`【能力算定】${detailParts.join(" + ")} = ${statScore}pt`);
+    detailPartsList.push(`【作戦Lv補正】+${tacticBonusPt}pt(Lv.${tacticLevel}×2)`);
 
     if (styleBonusPt > 0) {
       detailPartsList.push(`【脚質ボーナス】+${styleBonusPt}pt`);
