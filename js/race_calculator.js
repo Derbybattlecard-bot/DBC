@@ -118,9 +118,13 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition) {
 
   horse.activated_abilities = horse.activated_abilities || [];
 
+  // 海外競馬場リストの定義
+  const overseasTracks = ["沙田", "メイダン", "ロンシャン", "パリロンシャン", "デルマー", "サンシャイン", "チャーチルダウンズ", "アスコット"];
+
   horse.ability.forEach(abilityName => {
     let buff = 0;
 
+    // --- 国内競馬場 ---
     if (abilityName === "中山マイスター" && raceInfo?.track === "中山") buff = 1;
     if (abilityName === "府中の鬼" && raceInfo?.track === "東京") buff = 1;
     if (abilityName === "淀の千両役者" && raceInfo?.track === "京都") buff = 1;
@@ -132,8 +136,21 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition) {
     if (abilityName === "札幌の看板役者" && raceInfo?.track === "札幌") buff = 1;
     if (abilityName === "函館ひと芝居" && raceInfo?.track === "函館") buff = 1;
     if (abilityName === "地方無双" && ["大井","川崎","船橋","浦和","盛岡","園田","高知","笠松","門別"].includes(raceInfo?.track)) buff = 1;
-    if (abilityName === "アメリカンドリーム") buff = 1;
 
+    // --- 海外競馬場・コース・環境系 ---
+    if (abilityName === "本領の香港" && (raceInfo?.track === "沙田" || raceInfo?.track === "香港")) buff = 2;
+    if (abilityName === "メイダンの名誉" && raceInfo?.track === "メイダン") buff = 2;
+    if (abilityName === "凱旋へのプレリュード" && (raceInfo?.track === "ロンシャン" || raceInfo?.track === "パリロンシャン")) buff = 2;
+    if (abilityName === "アメリカンドリーム") buff = 1;
+    if (abilityName === "国境突破" && overseasTracks.includes(raceInfo?.track)) buff = 1;
+
+    // --- みちのく（福島・函館） ---
+    const tacticStyle = horse.style || horse.running_style || horse.tactic || "";
+    const isEscapeStyle = tacticStyle.includes("逃げ");
+    if (abilityName === "みちのく一人旅" && ["福島", "函館"].includes(raceInfo?.track) && isEscapeStyle) buff = 1;
+    if (abilityName === "みちのく職人技" && ["福島", "函館"].includes(raceInfo?.track) && !isEscapeStyle) buff = 1;
+
+    // --- 距離・馬場 ---
     if (abilityName === "スピードスター" && raceInfo?.distance === 1200) buff = 1;
     if (abilityName === "オイラはマイラー" && raceInfo?.distance === 1600) buff = 1;
     if (abilityName === "体力オバケ" && raceInfo?.distance === 3200) buff = 1;
@@ -143,9 +160,10 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition) {
       else if (trackCondition === "重" || trackCondition === "不良") buff = 2;
     }
 
+    // --- 枠順・スタート系 (「ゲートバカラ」に名称統一) ---
     if (abilityName === "最内一閃" && horse.gate_number === 1) buff = 2;
     if (abilityName === "大外大歓迎" && (horse.gate_number === 8 || horse.gate_number === 16)) buff = 2;
-    if (abilityName === "ゲートパカ") {
+    if (abilityName === "ゲートバカラ" || abilityName === "ゲートパカ") {
       if (horse.gate_number % 2 === 1) buff = -1;
       else if (horse.gate_number % 2 === 0) buff = 1;
     }
@@ -232,13 +250,25 @@ function applyPhase4Abilities(horse, pace, branchName) {
 
   horse.ability.forEach(abilityName => {
     let triggered = false;
-    if ((abilityName === "電光石火" || abilityName === "衝撃のまくり" || abilityName === "異次元のまくり" || abilityName === "怒涛のまくり") && branchName.includes("前残り")) {
+
+    // 「まくり」系：ひらがな・カタカナ・漢字（まくり/マクリ/捲り）すべてに対応
+    const isMakuri = /まくり|マクリ|捲り/.test(abilityName);
+    if ((abilityName === "電光石火" || isMakuri) && branchName.includes("前残り")) {
       extraScore += 10;
       triggered = true;
     }
+
     if ((abilityName === "王道" || abilityName === "絶対王者") && pace.includes("乱ペース")) {
       extraScore += 10;
       triggered = true;
+    }
+
+    // レコードホルダー：展開が「レコード決着」または「スピード勝負」の時に +2 ＆ 直線ポップアップ・実況フラグ追加
+    if (abilityName === "レコードホルダー" && (branchName.includes("レコード決着") || branchName.includes("スピード勝負"))) {
+      extraScore += 2;
+      triggered = true;
+      horse.straight_popup_trigger = true; // 直線に入ってからのポップアップ用フラグ
+      horse.commentary_trigger = "レコードホルダー"; // 実況トリガー用フラグ
     }
 
     if (triggered && !horse.activated_abilities.includes(abilityName)) {
@@ -270,7 +300,6 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
   // STEP 1: 位置取りポイント計算と隊列順位判定
   // --------------------------------------------------------------------------
   resultList.forEach((h) => {
-    // 作戦の脚質属性 (style) を優先的に参照
     const tacticStyle = h.style || h.tactic_style || h.target_style || h.tactic || "";
     let tacticStylePt = 40;
     if (tacticStyle.includes("逃げ")) tacticStylePt = 90;
@@ -278,7 +307,6 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     else if (tacticStyle.includes("差し")) tacticStylePt = 40;
     else if (tacticStyle.includes("追込")) tacticStylePt = 20;
 
-    // 馬本来の脚質
     const horseStyle = h.running_style || h.horse_style || "";
     let styleCalcPt = 0;
 
@@ -345,13 +373,10 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     let posAddPt = 0;
     let formulaFormulaDetail = "";
 
-    // --- 作戦ポテンシャルの算出 (作戦レベル × 2) ---
     const stratPot = (h.level || 1) * 2;
     const horseBasePot = h.potential || 0;
-    // 総合ポテンシャル = 馬本体ポテンシャル + 作戦ポテンシャル
     const totalPot = (h.calc_potential ?? horseBasePot) + stratPot;
 
-    // --- A. 基礎能力算定 ---
     if (selectedBranch.formula) {
       let targetVal = 50;
       let targetStatName = "標準値";
@@ -368,7 +393,6 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
         else if (randomKey === 'guts') targetStatName = '根性';
       }
 
-      // 計算式に総合ポテンシャルを適用
       statScore = 30 - totalPot + targetVal;
       formulaFormulaDetail = `30 - ポテ:${totalPot}(${horseBasePot}+${stratPot}) + ${targetStatName}:${targetVal}`;
     } 
@@ -391,8 +415,6 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       statScore = (spdBase + spdStrat) + (stmBase + stmStrat);
     }
 
-    // --- B. 展開による加算値（作戦の脚質による判定） ---
-    // 作戦の脚質属性 (style) を優先的に参照
     const tacticStyle = h.style || h.tactic_style || h.target_style || h.tactic || "";
     
     if (selectedBranch.style_bonus) {
@@ -409,7 +431,6 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       posAddPt = fieldSize + 1 - h.positionRank;
     }
 
-    // --- C. 展開アビリティ・乱数 ---
     let extraScore = applyPhase4Abilities(h, selectedPace, selectedBranch.name);
     let randomBonus = Math.random() * 5;
 
@@ -419,10 +440,8 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     h.branchScore = extraScore;
     h.randScore = randomBonus;
 
-    // 最終スコア算出
     h.finalScore = statScore + totalDevelopmentAdd + randomBonus;
     
-    // --- D. 内訳表示テキストの作成 ---
     let detailPartsList = [];
 
     if (selectedBranch.formula) {
@@ -458,7 +477,6 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       detailPartsList.push(`【能力算定】SPD:${spdBase + spdStrat}(${spdBase}+${spdStrat}) + STM:${stmBase + stmStrat}(${stmBase}+${stmStrat}) = ${statScore}pt`);
     }
 
-    // 展開加算（脚質ボーナス内訳）
     let devDetails = [];
     if (styleBonusPt > 0) devDetails.push(`脚質ボーナス+${styleBonusPt}`);
     if (posAddPt > 0) devDetails.push(`位置+${posAddPt}`);
