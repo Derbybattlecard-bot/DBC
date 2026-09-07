@@ -535,14 +535,22 @@ function setupRace(rIdx) {
   document.getElementById('p2-card-strat').textContent = `作戦: ${cpuObj.tactic} (Lv.${cpuObj.level})`;
 
   // --- 馬IDに連動した画像パスの設定 (例: /images/0001.jpg) ---
-  const p1ImgId = playerObj.horse_id ? String(playerObj.horse_id).padStart(4, '0') : '0000';
-  const p2ImgId = cpuObj.horse_id ? String(cpuObj.horse_id).padStart(4, '0') : '0000';
+    // --- 馬IDに連動した画像パスの設定 (例: ./images/0001.jpg) ---
+  const p1ImgId = playerObj.horse_id ? String(playerObj.horse_id).padStart(4, '0') : '8801';
+  const p2ImgId = cpuObj.horse_id ? String(cpuObj.horse_id).padStart(4, '0') : '8801';
 
   const p1ImgEl = document.getElementById('p1-card-img');
-  if (p1ImgEl) p1ImgEl.src = `/images/${p1ImgId}.jpg`;
+  if (p1ImgEl) {
+    p1ImgEl.src = `./images/${p1ImgId}.jpg`;
+    p1ImgEl.onerror = () => { p1ImgEl.src = './images/0000.jpg'; }; // エラー時の代替画像
+  }
 
   const p2ImgEl = document.getElementById('p2-card-img');
-  if (p2ImgEl) p2ImgEl.src = `/images/${p2ImgId}.jpg`;
+  if (p2ImgEl) {
+    p2ImgEl.src = `./images/${p2ImgId}.jpg`;
+    p2ImgEl.onerror = () => { p2ImgEl.src = './images/8801.jpg'; }; // エラー時の代替画像
+  }
+
 
   const btn = document.getElementById('nextBtn');
   btn.disabled = false;
