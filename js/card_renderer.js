@@ -266,23 +266,23 @@ export class CardRenderer {
         text-align: center;
       }
 
-      /* 画像枠：横幅を約2/3（66%）にして中央寄せ */
+      /* 画像枠：横幅を約66%にして中央寄せ */
       .crc-large-image-box {
         width: 66%;
-        height: 120px;
+        height: 140px;
         margin: 0 auto;
         background: #f2f7f3;
         border-radius: 6px;
-        border: 1px dashed #b5d4ba;
+        border: 1px solid #b5d4ba;
         display: flex;
         align-items: center;
         justify-content: center;
         overflow: hidden;
       }
       .crc-large-image-box img {
-        max-width: 100%;
-        max-height: 100%;
-        object-fit: contain;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
       }
 
       /* 画像下のバッジ配置領域 */
@@ -476,7 +476,14 @@ export class CardRenderer {
 
     // 2. 拡大パターン（大型表示）
     if (mode === 'large') {
-      const imgPath = horse.image_url || horse.image || `./images/horses/${horse.horse_id || horse.id}.png`;
+      // 馬IDを4桁（例: 9502）として取得
+      const rawId = String(horse.horse_id || horse.id || '8801');
+      const formattedId = rawId.padStart(4, '0');
+      
+      // 画像パス（./images/9502.jpg）
+      const imgPath = `./images/${formattedId}.jpg`;
+      const fallbackPath = `./images/8801.jpg`;
+
       return `
         <div class="crc-card crc-card-large" style="border: 2px solid ${borderColor}; border-left: 6px solid${borderColor};">
           <!-- 1行独立表示の馬名 -->
@@ -484,7 +491,7 @@ export class CardRenderer {
 
           <!-- 横幅2/3の画像ボックス -->
           <div class="crc-large-image-box">
-            <img src="${imgPath}" alt="${horse.name}" onerror="this.style.display='none'; this.parentElement.innerText='🐴 No Image';">
+            <img src="${imgPath}" alt="${horse.name}" onerror="this.onerror=null; this.src='${fallbackPath}';">
           </div>
 
           <!-- 画像の下に配置したバッジ類 -->
@@ -494,7 +501,7 @@ export class CardRenderer {
 
           <!-- 拡大表示用の詳細テキスト（適性・距離・脚質・性別） -->
           <div class="crc-deck-details">
-            <div>${surfaceText}${distanceText}</div>
+            <div>${surfaceText} ${distanceText}</div>
             <div>脚質:${horse.style || '-'} 性別:${sexText}</div>
             <div class="crc-deck-params">
               <span>ス:${spd}</span>
@@ -517,7 +524,7 @@ export class CardRenderer {
             ${genBadgeHtml}${rarityBadgeHtml}
           </div>
         </div>
-        <div class="crc-pool-sub">${surfaceText} ${distanceText}${sexText}</div>
+        <div class="crc-pool-sub">${surfaceText} ${distanceText} ${sexText}</div>
         <div class="crc-pool-stats-grid">
           <div class="crc-stat-item"><span class="crc-stat-label">脚質</span><span class="crc-stat-val">${horse.style || '-'}</span></div>
           <div class="crc-stat-item"><span class="crc-stat-label">スピ</span><span class="crc-stat-val">${spd}</span></div>
