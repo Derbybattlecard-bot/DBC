@@ -213,14 +213,14 @@
   <div class="vs-container">
     <div class="mini-card p1">
       <div class="card-label p1">★ YOUR HORSE</div>
-      <img src="dot2026_0822_1512_58~2.jpg" alt="horse" class="card-horse-img">
+      <img src="" alt="horse" class="card-horse-img" id="p1-card-img">
       <div class="card-horse-name" id="p1-card-name">-</div>
       <div class="card-strat-info" id="p1-card-strat">作戦: - (Lv.-)</div>
     </div>
     <div class="vs-badge">VS</div>
     <div class="mini-card p2">
       <div class="card-label p2">CPU HORSE</div>
-      <img src="1000026007.png" alt="horse" class="card-horse-img">
+      <img src="" alt="horse" class="card-horse-img" id="p2-card-img">
       <div class="card-horse-name" id="p2-card-name">-</div>
       <div class="card-strat-info" id="p2-card-strat">作戦: - (Lv.-)</div>
     </div>
@@ -449,7 +449,6 @@ function buildRaceGridsFromFirebase() {
   }
 }
 
-// 修正後: マスターデータの値を優先し、存在しない場合のみ 0 や適切なデフォルトを設定
 function ensureStats(h) {
   const master = HORSES_MASTER[h.horse_id] || {};
   h.potential = h.potential ?? master.potential ?? 20;
@@ -475,7 +474,7 @@ function setupRace(rIdx) {
   
   let seriesInfo = seriesMasterData.find(s => s.series_id === seriesIdStr) || seriesMasterData[0];
   let roundInfo = (seriesInfo && seriesInfo.rounds && seriesInfo.rounds[0]) ? seriesInfo.rounds[0] : null;
-    currentRaceInfo = (roundInfo && roundInfo.races && roundInfo.races[rIdx]) 
+  currentRaceInfo = (roundInfo && roundInfo.races && roundInfo.races[rIdx]) 
     ? roundInfo.races[rIdx] 
     : { race_name: "一般レース", track: "中山", surface: "芝", distance: 2000 };
     
@@ -496,7 +495,7 @@ function setupRace(rIdx) {
   }
   currentTrackConfig = TRACK_DIRECTION_MASTER[turnDir] || TRACK_DIRECTION_MASTER["右回り"];
   
-    activeHorses.forEach((h, i) => {
+  activeHorses.forEach((h, i) => {
     h.index = i;
     h.tactic_level = h.level || 3;
     let matchedStrat = h.stratObj;
@@ -534,6 +533,16 @@ function setupRace(rIdx) {
   
   document.getElementById('p2-card-name').textContent = cpuObj.name;
   document.getElementById('p2-card-strat').textContent = `作戦: ${cpuObj.tactic} (Lv.${cpuObj.level})`;
+
+  // --- 馬IDに連動した画像パスの設定 (例: /images/0001.jpg) ---
+  const p1ImgId = playerObj.horse_id ? String(playerObj.horse_id).padStart(4, '0') : '0000';
+  const p2ImgId = cpuObj.horse_id ? String(cpuObj.horse_id).padStart(4, '0') : '0000';
+
+  const p1ImgEl = document.getElementById('p1-card-img');
+  if (p1ImgEl) p1ImgEl.src = `/images/${p1ImgId}.jpg`;
+
+  const p2ImgEl = document.getElementById('p2-card-img');
+  if (p2ImgEl) p2ImgEl.src = `/images/${p2ImgId}.jpg`;
 
   const btn = document.getElementById('nextBtn');
   btn.disabled = false;
@@ -753,9 +762,8 @@ async function startRace() {
 
       updateLog(`<strong>【向正面】</strong> ${msg}<br><span style="color:var(--gold-color);">${abilityLogs.join("<br>")}</span>`);
       
-      // 最初のアビリティ発動馬（優先度: YOUR -> CPU）に対してポップアップ表示
       // アビリティポップアップ演出の実行（キュー処理）
-queueAbilities(targetHorses);
+      queueAbilities(targetHorses);
 
     } else {
       updateLog(`<strong>【向正面】</strong> ${msg} 各馬ポジションが決まりました。`);
