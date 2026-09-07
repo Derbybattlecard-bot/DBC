@@ -236,25 +236,30 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
   horse.calc_guts = horse.guts || 0;
   horse.ability_buff = 0;
 
-  const isTurf = raceInfo?.surface !== "ダート";
+    const isTurf = raceInfo?.surface !== "ダート";
   const turfPot = horse.turf_potential ?? horse.potential ?? 0;
   const dirtPot = horse.dirt_potential ?? horse.potential ?? 0;
 
   if (isTurf) {
+    // 芝レース：芝ポテンシャルを適用
     horse.calc_potential = turfPot;
   } else {
-    if (dirtPot > turfPot) {
+    // ダートレース：芝ポテンシャル15以上かつダートポテンシャルが上回る場合のみ差分加算
+    if (turfPot >= 15 && dirtPot > turfPot) {
       const potDiff = dirtPot - turfPot;
-      horse.calc_potential = dirtPot;
+      
+      horse.calc_potential = dirtPot; // ポテンシャルをダートポテンシャルに更新
       horse.calc_speed += potDiff;
       horse.calc_stamina += potDiff;
       horse.calc_sharp += potDiff;
       horse.calc_jizoku += potDiff;
       horse.calc_guts += potDiff;
     } else {
-      horse.calc_potential = turfPot;
+      // 上記条件外（ポテンシャル同等、または芝ポテンシャル14以下など）はステータス加算なし
+      horse.calc_potential = dirtPot > 0 ? dirtPot : turfPot;
     }
   }
+
 
   if (!isEligibleForAbility(horse)) return;
   if (!horse.ability || !Array.isArray(horse.ability)) return;
