@@ -1,6 +1,6 @@
 // ============================================================================
 // js/race_calculator.js
-// 競馬シミュレーション・計算エンジンモジュール (アビリティマスター動的引用版)
+// 競馬シミュレーション・計算エンジン ＆ 実況生成統合モジュール
 // ============================================================================
 
 /**
@@ -19,17 +19,76 @@ const MIXED_G1_RACES = [
   "ホープフルステークス", "ホープフルS"
 ];
 
- // 海外競馬場フルリスト（シリーズマスター網羅版）
+// 海外競馬場フルリスト
 const OVERSEAS_TRACKS = [
-  // 香港・アジア
-  "沙田", "香港", "クランジ",
-  // ドバイ
-  "メイダン",
-  // 欧州
+  "沙田", "香港", "クランジ", "メイダン",
   "ロンシャン", "パリロンシャン", "サンクルー", "アスコット", "ニューマーケット", "エプソム",
-  // アメリカ
   "デルマー", "サンシャイン", "チャーチルダウンズ", "サンタアニタ", "ベルモントパーク", "アーリントンパーク"
 ];
+
+/**
+ * 内部関数: 実況テキストの生成
+ */
+function generateRaceCommentary(raceData) {
+  const { results, pace, branch, posSorted } = raceData;
+
+  const player = results.find(h => h.isPlayer);
+  const cpu = results.find(h => h.isCpu);
+
+  // フェーズ 1: スタート〜序盤
+  const phase1Text = "各馬一斉にきれいなスタートを切りました！綺麗な飛び出しです。";
+
+  // フェーズ 2: 隊列形成（4番手・5番手をコール）
+  let phase2Text = "";
+  if (posSorted && posSorted.length >= 5) {
+    const pos1 = posSorted[0]?.name || "1番手";
+    const pos2 = posSorted[1]?.name || "2番手";
+    const pos3 = posSorted[2]?.name || "3番手";
+    const pos4 = posSorted[3]?.name || "4番手";
+    const pos5 = posSorted[4]?.name || "5番手";
+
+    phase2Text = `果敢にハナを切るのは${pos1}！直後に${pos2}、${pos3}が続いていきます。さらに${pos4}、${pos5}も先団を形成して前を伺います！`;
+  } else {
+    phase2Text = "各馬隊列を整えながら、1コーナーへと向かっていきます。";
+  }
+
+  // フェーズ 3: 中盤〜展開分岐（自馬・ライバルの位置比較）
+  let phase3Text = `ペースは${pace}で流れています。レースは展開分岐「${branch?.name || "勝負所"}」へ！ `;
+
+  if (player && cpu) {
+    const pRank = player.positionRank;
+    const cRank = cpu.positionRank;
+
+    if (pRank < cRank) {
+      phase3Text += `あなたの${player.name}は絶好の手応えで${pRank}番手をキープ！追うライバル${cpu.name}は後方${cRank}番手から前を狙う！`;
+    } else if (pRank > cRank) {
+      phase3Text += `ライバル${cpu.name}が${cRank}番手でレースを引っ張る！あなたの${player.name}は${pRank}番手からじっくりと機会を伺う！`;
+    } else {
+      phase3Text += `あなたの${player.name}とライバル${cpu.name}、${pRank}番手付近でぴたりと並んで第4コーナーを回ってきます！`;
+    }
+  } else if (player) {
+    phase3Text += `あなたの${player.name}は現在${player.positionRank}番手の位置！手応え十分で直線を迎えます！`;
+  }
+
+  // フェーズ 4 / ゴール: 決着（1〜3着コール）
+  let finishText = "";
+  if (results && results.length >= 3) {
+    const rank1 = results[0].name;
+    const rank2 = results[1].name;
+    const rank3 = results[2].name;
+
+    finishText = `大混戦のゴール前！制したのは${rank1}！${rank1}見事に1着でゴールイン！2着には${rank2}、3着は${rank3}が入りました！`;
+  } else if (results && results.length > 0) {
+    finishText = `先頭でゴールを駆け抜けたのは${results[0].name}！`;
+  }
+
+  return {
+    phase1: phase1Text,
+    phase2: phase2Text,
+    phase3: phase3Text,
+    finish: finishText
+  };
+}
 
 /**
  * アビリティ発動対象馬かどうか判定するヘルパー
@@ -39,7 +98,7 @@ function isEligibleForAbility(horse) {
 }
 
 /**
- * 全パラメータ増減用の箱（calc_〜）へ一括でバフ（加算/減算）を適用する
+ * 全パラメータ増減用の箱（calc_〜）へ一括でバフを適用
  */
 function applyAllStatsBuff(horse, buffValue) {
   horse.calc_speed += buffValue;
@@ -67,7 +126,7 @@ function weightedRandomSelect(probObj) {
 }
 
 /**
- * 出走馬の「逃げ」頭数と馬場状態からレースペースを判定する
+ * 出走馬の「逃げ」頭数と馬場状態からレースペースを判定
  */
 function determinePace(horses, raceMaster, trackCondition) {
   const paceMaster = raceMaster?.pace_decision_master;
@@ -108,7 +167,7 @@ function determinePace(horses, raceMaster, trackCondition) {
 }
 
 /**
- * 【汎用判定】アビリティの条件（condition）に合致するか判定
+ * アビリティの条件（condition）に合致するか判定
  */
 function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHorses = []) {
   const gate = horse.gate_number || 0;
@@ -118,13 +177,10 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
   const isEscape = (horse.style || horse.tactic || "").includes("逃げ");
 
   switch (condition) {
-    // --- 枠順 ---
     case "gate_odd": return gate % 2 === 1;
     case "gate_even": return gate % 2 === 0;
     case "gate_1": return gate === 1;
     case "gate_8": return gate === 8 || gate === 16;
-
-    // --- 競馬場（国内・地方・海外） ---
     case "track_nakayama": return track === "中山";
     case "track_tokyo": return track === "東京";
     case "track_kyoto": return track === "京都";
@@ -137,71 +193,35 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
     case "track_local": return ["大井","川崎","船橋","浦和","盛岡","園田","高知","笠松","門別"].includes(track);
     case "track_fukushima_escape": return track === "福島" && isEscape;
     case "track_fukushima_not_escape": return track === "福島" && !isEscape;
-    // --- 競馬場（海外判定・地域別） ---
     case "track_overseas_hongkong":
     case "track_overseas_asia": return ["沙田", "香港", "クランジ"].includes(track);
     case "track_overseas_dubai": return track === "メイダン";
     case "track_overseas_europe": return ["ロンシャン", "パリロンシャン", "サンクルー", "アスコット", "ニューマーケット", "エプソム"].includes(track);
     case "track_overseas_usa": return ["デルマー", "サンシャイン", "チャーチルダウンズ", "サンタアニタ", "ベルモントパーク", "アーリントンパーク"].includes(track);
-    
-    // 国境突破・汎用海外判定
     case "track_overseas_all":
     case "is_overseas": return OVERSEAS_TRACKS.includes(track);
-    
     case "prob_33": return OVERSEAS_TRACKS.includes(track) && Math.random() < (1 / 3);
-
     case "is_local_exchange_series": return !!(raceInfo?.is_local_exchange || raceInfo?.series_type === "地方交流");
-
-    // --- 距離 ---
     case "dist_1200": return dist === 1200;
     case "dist_1600": return dist === 1600;
     case "dist_3200": return dist === 3200;
-
-    // --- 馬場状態 ---
     case "ground_yielding": return trackCondition === "稍重";
     case "ground_heavy_bad": return trackCondition === "重" || trackCondition === "不良";
-
-    // --- 性別・実績・戦績 ---
     case "is_female_in_mixed_g1": return isFemale && MIXED_G1_RACES.includes(raceInfo?.race_name);
     case "pot_highest": {
       const myPot = horse.calc_potential ?? horse.potential ?? 0;
       return allHorses.every(other => (other.calc_potential ?? other.potential ?? 0) <= myPot);
     }
-    case "streak_3_wins": {
-      const round = raceInfo?.series_round || 1;
-      const history = horse.series_history || [];
-      return round >= 3 && history[0] === 1 && history[1] === 1;
-    }
-    case "streak_4_wins": {
-      const round = raceInfo?.series_round || 1;
-      const history = horse.series_history || [];
-      return round >= 4 && history[1] === 1 && history[2] === 1;
-    }
-    case "prev_rank_1_to_2": {
-      const history = horse.series_history || [];
-      return history.length > 0 && history[history.length - 1] <= 2;
-    }
-    case "prev_rank_10_or_worse": {
-      const history = horse.series_history || [];
-      return history.length > 0 && history[history.length - 1] >= 10;
-    }
     case "always": return true;
-
     default: return false;
   }
 }
 
-/**
- * アビリティ名からマスターの定義を取得するヘルパー
- */
 function getAbilityMasterData(abilityName, abilityMasterData) {
   if (!abilityMasterData) return null;
   return Object.values(abilityMasterData).find(master => master.name === abilityName || master.name.includes(abilityName));
 }
 
-/**
- * 【特殊アビリティ】「マーク屋」の作戦コピー処理
- */
 function processMarkStrategy(resultList) {
   const player = resultList.find(h => h.isPlayer);
   const cpu = resultList.find(h => h.isCpu);
@@ -225,9 +245,6 @@ function processMarkStrategy(resultList) {
   });
 }
 
-/**
- * 【Phase 1】基礎能力値の展開 ＆ アビリティマスターに基づく環境補正適用
- */
 function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilityMasterData) {
   horse.calc_speed = horse.speed || 0;
   horse.calc_stamina = horse.stamina || 0;
@@ -243,7 +260,6 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
   if (isTurf) {
     horse.calc_potential = turfPot;
   } else {
-    // ダート時：芝ポテンシャルが14以上かつダートポテンシャルの方が高い場合のみ差分を加算
     if (turfPot >= 14 && dirtPot > turfPot) {
       const potDiff = dirtPot - turfPot;
       horse.calc_potential = dirtPot;
@@ -263,7 +279,6 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
   horse.activated_abilities = horse.activated_abilities || [];
 
   horse.ability.forEach(abilityName => {
-    // --- 荒ぶる魂（確率分岐が特殊なため個別保持） ---
     if (abilityName === "荒ぶる魂") {
       const rand = Math.random();
       let buff = 0;
@@ -277,7 +292,6 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
       return;
     }
 
-    // マスターデータから該当するエフェクトを取得して動的判定
     const master = getAbilityMasterData(abilityName, abilityMasterData);
     if (!master || !master.effects) return;
 
@@ -299,9 +313,6 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
   });
 }
 
-/**
- * 【Phase 2】位置取り計算時のスタートダッシュ等適用
- */
 function applyPhase2Abilities(horse, positionPoint, abilityMasterData) {
   if (!isEligibleForAbility(horse)) return positionPoint;
   if (!horse.ability || !Array.isArray(horse.ability)) return positionPoint;
@@ -326,9 +337,6 @@ function applyPhase2Abilities(horse, positionPoint, abilityMasterData) {
   return newPoint;
 }
 
-/**
- * 【Phase 3】位置順位確定後の展開条件アビリティ適用
- */
 function applyPhase3Abilities(resultList, leadCount) {
   if (resultList.length === 0) return;
 
@@ -366,9 +374,6 @@ function applyPhase3Abilities(resultList, leadCount) {
   });
 }
 
-/**
- * 【Phase 4】ペース・展開依存のアビリティ判定
- */
 function applyPhase4Abilities(horse, pace, branchName) {
   if (!isEligibleForAbility(horse)) return 0;
   if (!horse.ability || !Array.isArray(horse.ability)) return 0;
@@ -421,9 +426,6 @@ function applyPhase4Abilities(horse, pace, branchName) {
   return extraScore;
 }
 
-/**
- * 【特殊アビリティ】「名脇役」「ジェントルマン」の確定着順入替え処理
- */
 function applyRankSwapAbilities(resultList) {
   const player = resultList.find(h => h.isPlayer);
   const cpu = resultList.find(h => h.isCpu);
@@ -484,17 +486,13 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     return copy;
   });
 
-  // --- マーク屋の作戦コピー適用 ---
   processMarkStrategy(resultList);
 
-  // --- Phase 1 アビリティ適用 ---
   resultList.forEach(copy => {
     applyPhase1Abilities(copy, raceInfo, trackCondition, resultList, abilityMasterData);
   });
 
-  // --------------------------------------------------------------------------
-  // STEP 1: 位置取りポイント計算と隊列順位判定
-  // --------------------------------------------------------------------------
+  // STEP 1: 位置取り計算
   resultList.forEach((h) => {
     const tacticStyle = h.style || h.tactic_style || h.target_style || h.tactic || "";
     let tacticStylePt = 40;
@@ -545,9 +543,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
 
   applyPhase3Abilities(resultList, leadCount);
 
-  // --------------------------------------------------------------------------
-  // STEP 2: ペース判定および展開分岐決定
-  // --------------------------------------------------------------------------
+  // STEP 2: ペース判定および展開分岐
   const selectedPace = determinePace(resultList, raceMaster, trackCondition);
 
   let availableBranches = raceMaster?.branches_by_pace?.[selectedPace];
@@ -559,9 +555,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
   }
   const selectedBranch = availableBranches[Math.floor(Math.random() * availableBranches.length)];
 
-  // --------------------------------------------------------------------------
-  // STEP 3: 各馬のスコア算出
-  // --------------------------------------------------------------------------
+  // STEP 3: スコア算出
   const fieldSize = resultList.length || 16;
   resultList.forEach((h) => {
     let statScore = 0;
@@ -596,7 +590,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       selectedBranch.key_stats.forEach(key => {
         if (key === 'potential' || key === 'current_potential') {
           statScore += totalPot;
-       } else {
+        } else {
           const calcKey = `calc_${key}`;
           const horseBase = h[calcKey] ?? h[key] ?? 0;
           const stratVal = h[`strat_${key}`] ?? 0;
@@ -693,16 +687,22 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     h.detailText = detailPartsList.join(" ｜ ");
   });
 
-  // --------------------------------------------------------------------------
-  // STEP 4: 着順ソート ＆ 名脇役・ジェントルマンの入れ替え適用
-  // --------------------------------------------------------------------------
+  // STEP 4: 着順ソート ＆ 特殊アビリティ入れ替え
   resultList.sort((a, b) => b.finalScore - a.finalScore);
-
   applyRankSwapAbilities(resultList);
+
+  // STEP 5: 実況テキスト生成
+  const commentaryData = generateRaceCommentary({
+    results: resultList,
+    pace: selectedPace,
+    branch: selectedBranch,
+    posSorted: posSorted
+  });
 
   return {
     results: resultList,
     pace: selectedPace,
-    branch: selectedBranch
+    branch: selectedBranch,
+    commentary: commentaryData
   };
 }
