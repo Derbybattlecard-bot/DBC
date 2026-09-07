@@ -270,14 +270,16 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
   // STEP 1: 位置取りポイント計算と隊列順位判定
   // --------------------------------------------------------------------------
   resultList.forEach((h) => {
-    const tacticStyle = h.tactic_style || h.target_style || h.tactic || "";
+    // 作戦の脚質属性 (style) を優先的に参照
+    const tacticStyle = h.style || h.tactic_style || h.target_style || h.tactic || "";
     let tacticStylePt = 40;
     if (tacticStyle.includes("逃げ")) tacticStylePt = 90;
     else if (tacticStyle.includes("先行")) tacticStylePt = 70;
     else if (tacticStyle.includes("差し")) tacticStylePt = 40;
     else if (tacticStyle.includes("追込")) tacticStylePt = 20;
 
-    const horseStyle = h.running_style || h.style || h.horse_style || "";
+    // 馬本来の脚質
+    const horseStyle = h.running_style || h.horse_style || "";
     let styleCalcPt = 0;
 
     if (horseStyle.includes("自在") || horseStyle.includes("逃追")) {
@@ -390,7 +392,8 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     }
 
     // --- B. 展開による加算値（作戦の脚質による判定） ---
-    const tacticStyle = h.tactic_style || h.target_style || h.tactic || "";
+    // 作戦の脚質属性 (style) を優先的に参照
+    const tacticStyle = h.style || h.tactic_style || h.target_style || h.tactic || "";
     
     if (selectedBranch.style_bonus) {
       Object.keys(selectedBranch.style_bonus).forEach(bonusStyle => {
