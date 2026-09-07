@@ -451,17 +451,31 @@ export class CardRenderer {
     const jzk = this.getParamRank(this.getHorseParam(horse, ['jizoku', 'durability', 'tenacity']));
     const gut = this.getParamRank(this.getHorseParam(horse, ['guts', 'stren']));
 
-    // 1. デック用（コンパクト表示）
+        // 1. デック用（コンパクト表示）
     if (mode === 'deck') {
+      // 画像パスの生成処理を追加
+      const rawId = String(horse?.horse_id || horse?.id || '8801');
+      const formattedId = rawId.padStart(4, '0');
+      const imgPath = `./images/${formattedId}.jpg`;
+      const fallbackPath = `./images/8801.jpg`;
+
       return `
         <div class="crc-card crc-card-deck" style="border: 1px solid ${borderColor}; border-left: 4px solid${borderColor};">
           <div class="crc-card-header">
             <div class="crc-deck-name">${horse.name}</div>
             ${genBadgeHtml}${rarityBadgeHtml}
           </div>
+          <!-- 画像と適性テキストを横並びにするレイアウト -->
+          <div style="display: flex; gap: 6px; margin-top: 4px; margin-bottom: 2px;">
+            <div style="width: 36px; height: 36px; flex-shrink: 0; border: 1px solid #b5d4ba; border-radius: 4px; overflow: hidden; background: #f2f7f3;">
+              <img src="${imgPath}" onerror="this.onerror=null; this.src='${fallbackPath}';" style="width:100%; height:100%; object-fit:cover;" alt="horse">
+            </div>
+            <div class="crc-deck-details" style="flex-grow: 1; justify-content: center;">
+              <span>${surfaceText} ${distanceText} 性別:${sexText}</span>
+              <span>脚:${horse.style || '-'}</span>
+            </div>
+          </div>
           <div class="crc-deck-details">
-            <span>${surfaceText} ${distanceText} 性別:${sexText}</span>
-            <span>脚:${horse.style || '-'}</span>
             <div class="crc-deck-params">
               <span>ス:${spd}</span>
               <span>タ:${stm}</span>
@@ -473,6 +487,7 @@ export class CardRenderer {
           ${abilitiesHtml}
         </div>`;
     }
+
 
     // 2. 拡大パターン（大型表示）
     if (mode === 'large') {
