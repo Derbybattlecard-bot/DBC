@@ -19,10 +19,17 @@ const MIXED_G1_RACES = [
   "ホープフルステークス", "ホープフルS"
 ];
 
-/**
- * 海外競馬場リスト
- */
-const OVERSEAS_TRACKS = ["沙田", "香港", "メイダン", "ロンシャン", "パリロンシャン", "デルマー", "サンシャイン", "チャーチルダウンズ", "アスコット"];
+ // 海外競馬場フルリスト（シリーズマスター網羅版）
+const OVERSEAS_TRACKS = [
+  // 香港・アジア
+  "沙田", "香港", "クランジ",
+  // ドバイ
+  "メイダン",
+  // 欧州
+  "ロンシャン", "パリロンシャン", "サンクルー", "アスコット", "ニューマーケット", "エプソム",
+  // アメリカ
+  "デルマー", "サンシャイン", "チャーチルダウンズ", "サンタアニタ", "ベルモントパーク", "アーリントンパーク"
+];
 
 /**
  * アビリティ発動対象馬かどうか判定するヘルパー
@@ -130,11 +137,19 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
     case "track_local": return ["大井","川崎","船橋","浦和","盛岡","園田","高知","笠松","門別"].includes(track);
     case "track_fukushima_escape": return track === "福島" && isEscape;
     case "track_fukushima_not_escape": return track === "福島" && !isEscape;
-    case "track_overseas_hongkong": return ["沙田", "香港"].includes(track);
+        // --- 競馬場（海外判定・地域別） ---
+    case "track_overseas_hongkong":
+    case "track_overseas_asia": return ["沙田", "香港", "クランジ"].includes(track);
     case "track_overseas_dubai": return track === "メイダン";
-    case "track_overseas_europe": return ["ロンシャン", "パリロンシャン", "アスコット"].includes(track);
-    case "track_overseas_usa": return ["デルマー", "サンシャイン", "チャーチルダウンズ"].includes(track);
+    case "track_overseas_europe": return ["ロンシャン", "パリロンシャン", "サンクルー", "アスコット", "ニューマーケット", "エプソム"].includes(track);
+    case "track_overseas_usa": return ["デルマー", "サンシャイン", "チャーチルダウンズ", "サンタアニタ", "ベルモントパーク", "アーリントンパーク"].includes(track);
+    
+    // 国境突破・汎用海外判定
+    case "track_overseas_all":
+    case "is_overseas": return OVERSEAS_TRACKS.includes(track);
+    
     case "prob_33": return OVERSEAS_TRACKS.includes(track) && Math.random() < (1 / 3);
+
     case "is_local_exchange_series": return !!(raceInfo?.is_local_exchange || raceInfo?.series_type === "地方交流");
 
     // --- 距離 ---
