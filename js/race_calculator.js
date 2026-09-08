@@ -77,7 +77,6 @@ function generateRaceCommentary(raceData) {
     const rank2 = results[1].name;
     const rank3 = results[2].name;
 
-    // ※「見いに」を「が見事に」へ修正
     finishText = `大混戦のゴール前！制したのは${rank1}！${rank1}が見事に1着でゴールイン！2着には${rank2}、3着は${rank3}が入りました！`;
   } else if (results && results.length > 0) {
     finishText = `先頭でゴールを駆け抜けたのは${results[0].name}！`;
@@ -99,14 +98,25 @@ function isEligibleForAbility(horse) {
 }
 
 /**
- * アビリティマスターデータを取得するヘルパー関数
+ * アビリティマスターデータを取得するヘルパー関数（修正済み）
  */
 function getAbilityMasterData(abilityName, abilityMasterData) {
   if (!abilityMasterData) return null;
+
+  // 配列の場合のマッチング
   if (Array.isArray(abilityMasterData)) {
     return abilityMasterData.find(a => a.name === abilityName || a.ability_name === abilityName) || null;
   }
-  return abilityMasterData[abilityName] || null;
+
+  // オブジェクトのキーが直接アビリティ名になっている場合
+  if (abilityMasterData[abilityName]) {
+    return abilityMasterData[abilityName];
+  }
+
+  // オブジェクト（連想配列）の各要素の name / ability_name プロパティでマッチング
+  return Object.values(abilityMasterData).find(
+    a => a && (a.name === abilityName || a.ability_name === abilityName)
+  ) || null;
 }
 
 /**
@@ -584,7 +594,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       let targetVal = 50;
       let targetStatName = "標準値";
 
-  if (selectedBranch.target_pool && selectedBranch.target_pool.length > 0) {
+      if (selectedBranch.target_pool && selectedBranch.target_pool.length > 0) {
         const randomKey = selectedBranch.target_pool[Math.floor(Math.random() * selectedBranch.target_pool.length)];
         const keyName = `calc_${randomKey}`;
         targetVal = h[keyName] ?? h[randomKey] ?? 0;
