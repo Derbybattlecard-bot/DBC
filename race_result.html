@@ -306,6 +306,7 @@ let seriesHistory = [];
 let raceMasterData = null; 
 let seriesMasterData = null; 
 let strategyMasterData = null;
+let abilityMasterData = null;
 let HORSES_MASTER = {};
 let HORSES_ARRAY = [];
 
@@ -365,11 +366,13 @@ async function loadMasterData() {
       fetchJsonWithFallback('race_master.json'),
       fetchJsonWithFallback('series_master.json'),
       fetchJsonWithFallback('strategy_master.json'),
-      fetchJsonWithFallback('horses_master.json')
+      fetchJsonWithFallback('horses_master.json'),
+      fetchJsonWithFallback('ability_master.json') 
     ]);
     raceMasterData = raceRes;
     seriesMasterData = seriesRes;
     strategyMasterData = stratRes;
+    abilityMasterData = abilityRes; // 追加
     
     HORSES_ARRAY = horseRes;
     HORSES_ARRAY.forEach(h => HORSES_MASTER[h.horse_id] = h);
@@ -690,7 +693,8 @@ async function startRace() {
   btn.innerText = "🏃 レース進行中...";
 
   // 1. レースロジック一括実行 (動的実況を含む)
-  const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, currentRaceInfo, strategyMasterData);
+const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, currentRaceInfo, abilityMasterData);
+
   calculatedResults = raceResultData.results;
   currentRacePace = raceResultData.pace;
   currentRaceBranch = raceResultData.branch.name;
