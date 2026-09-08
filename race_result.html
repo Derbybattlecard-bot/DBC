@@ -361,8 +361,10 @@ async function fetchJsonWithFallback(filename) {
 }
 
 async function loadMasterData() {
+async function loadMasterData() {
   try {
-    const [raceRes, seriesRes, stratRes, horseRes] = await Promise.all([
+    // 受け取り側の配列に abilityRes を追加（計5つ）
+    const [raceRes, seriesRes, stratRes, horseRes, abilityRes] = await Promise.all([
       fetchJsonWithFallback('race_master.json'),
       fetchJsonWithFallback('series_master.json'),
       fetchJsonWithFallback('strategy_master.json'),
@@ -372,7 +374,7 @@ async function loadMasterData() {
     raceMasterData = raceRes;
     seriesMasterData = seriesRes;
     strategyMasterData = stratRes;
-    abilityMasterData = abilityRes; // 追加
+    abilityMasterData = abilityRes; 
     
     HORSES_ARRAY = horseRes;
     HORSES_ARRAY.forEach(h => HORSES_MASTER[h.horse_id] = h);
@@ -381,6 +383,7 @@ async function loadMasterData() {
     alert("マスターデータの読み込みに失敗しました。");
   }
 }
+
 
 function buildRaceGridsFromFirebase() {
   const status = globalUserData?.cpu_battle_status || {};
