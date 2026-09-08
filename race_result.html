@@ -362,7 +362,6 @@ async function fetchJsonWithFallback(filename) {
 
 async function loadMasterData() {
   try {
-    // 受け取り側の配列に abilityRes を追加（計5つ）
     const [raceRes, seriesRes, stratRes, horseRes, abilityRes] = await Promise.all([
       fetchJsonWithFallback('race_master.json'),
       fetchJsonWithFallback('series_master.json'),
@@ -382,7 +381,6 @@ async function loadMasterData() {
     alert("マスターデータの読み込みに失敗しました。");
   }
 }
-
 
 function buildRaceGridsFromFirebase() {
   const status = globalUserData?.cpu_battle_status || {};
@@ -519,7 +517,7 @@ function setupRace(rIdx) {
         }
       });
     }
-        // レベル補正（ポテンシャル等への影響）の設定
+    // レベル補正（ポテンシャル等への影響）の設定
     h.strat_potential = levelVal * 2;
     h.strat_name = matchedStrat ? matchedStrat.name : "通常";
 
@@ -545,38 +543,23 @@ function setupRace(rIdx) {
   const p1ImgEl = document.getElementById('p1-card-img');
   if (p1ImgEl) {
     p1ImgEl.src = `./images/${p1ImgId}.jpg`;
-    p1ImgEl.onerror = () => { p1ImgEl.src = './images/0000.jpg'; }; // エラー時の代替画像
+    p1ImgEl.onerror = () => { p1ImgEl.src = './images/0000.jpg'; };
   }
 
   const p2ImgEl = document.getElementById('p2-card-img');
   if (p2ImgEl) {
     p2ImgEl.src = `./images/${p2ImgId}.jpg`;
-    p2ImgEl.onerror = () => { p2ImgEl.src = './images/8801.jpg'; }; // エラー時の代替画像
+    p2ImgEl.onerror = () => { p2ImgEl.src = './images/8801.jpg'; };
   }
+
+  renderLanes();
 
   const btn = document.getElementById('nextBtn');
   btn.disabled = false;
   btn.innerText = "🏁 レーススタート！";
   document.getElementById('result-container').style.display = "none";
   updateLog(`第${rIdx + 1}レース（${currentRaceInfo.race_name}）の準備が完了しました。`);
-  
-  // startRace 関数の冒頭にアビリティキュー初期化を追加
-async function startRace() {
-  if (raceState !== 'ready') return;
-  raceState = 'running';
-
-  // キューと演出状態を毎回初期化
-  abilityQueue = [];
-  isShowingAbility = false;
-
-  const btn = document.getElementById('nextBtn');
-  btn.disabled = true;
-  btn.innerText = "🏃 レース進行中...";
-
-  // 1. レースロジック一括実行 (動的実況を含む)
-  const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, currentRaceInfo, abilityMasterData);
-  // ... 以降は既存の処理と同じ
-
+}
 
 function getKana3(name) {
   if (!name) return 'ダミ';
@@ -696,12 +679,16 @@ async function startRace() {
   if (raceState !== 'ready') return;
   raceState = 'running';
 
+  // キューと演出状態を毎回初期化
+  abilityQueue = [];
+  isShowingAbility = false;
+
   const btn = document.getElementById('nextBtn');
   btn.disabled = true;
   btn.innerText = "🏃 レース進行中...";
 
   // 1. レースロジック一括実行 (動的実況を含む)
-const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, currentRaceInfo, abilityMasterData);
+  const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, currentRaceInfo, abilityMasterData);
 
   calculatedResults = raceResultData.results;
   currentRacePace = raceResultData.pace;
