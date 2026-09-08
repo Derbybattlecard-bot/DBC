@@ -560,17 +560,23 @@ function setupRace(rIdx) {
   document.getElementById('result-container').style.display = "none";
   updateLog(`第${rIdx + 1}レース（${currentRaceInfo.race_name}）の準備が完了しました。`);
   
-  const wipe = document.getElementById('wipe-overlay');
-  wipe.style.transition = "none"; wipe.style.left = "-100%"; 
-  hideTelop();
-  document.getElementById('goal-line').style.display = "none";
-  document.getElementById('goal-flag').style.display = "none";
-  renderLanes();
+  // startRace 関数の冒頭にアビリティキュー初期化を追加
+async function startRace() {
+  if (raceState !== 'ready') return;
+  raceState = 'running';
 
-  setHorseDirection(currentTrackConfig.phase1_3_dir);
-  let initialPositions = activeHorses.map(() => 0);
-  setPhasePositions(initialPositions, 0, "linear", currentTrackConfig.phase1_3_dir); 
-}
+  // キューと演出状態を毎回初期化
+  abilityQueue = [];
+  isShowingAbility = false;
+
+  const btn = document.getElementById('nextBtn');
+  btn.disabled = true;
+  btn.innerText = "🏃 レース進行中...";
+
+  // 1. レースロジック一括実行 (動的実況を含む)
+  const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, currentRaceInfo, abilityMasterData);
+  // ... 以降は既存の処理と同じ
+
 
 function getKana3(name) {
   if (!name) return 'ダミ';
