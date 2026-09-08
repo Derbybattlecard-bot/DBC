@@ -77,7 +77,7 @@ function generateRaceCommentary(raceData) {
     const rank2 = results[1].name;
     const rank3 = results[2].name;
 
-    finishText = `大混戦のゴール前！制したのは${rank1}！${rank1}見事に1着でゴールイン！2着には${rank2}、3着は${rank3}が入りました！`;
+    finishText = `大混戦のゴール前！制したのは${rank1}！${rank1}見いに1着でゴールイン！2着には${rank2}、3着は${rank3}が入りました！`;
   } else if (results && results.length > 0) {
     finishText = `先頭でゴールを駆け抜けたのは${results[0].name}！`;
   }
@@ -95,6 +95,17 @@ function generateRaceCommentary(raceData) {
  */
 function isEligibleForAbility(horse) {
   return !!(horse && (horse.isPlayer || horse.isCpu));
+}
+
+/**
+ * アビリティマスターデータを取得するヘルパー関数
+ */
+function getAbilityMasterData(abilityName, abilityMasterData) {
+  if (!abilityMasterData) return null;
+  if (Array.isArray(abilityMasterData)) {
+    return abilityMasterData.find(a => a.name === abilityName || a.ability_name === abilityName) || null;
+  }
+  return abilityMasterData[abilityName] || null;
 }
 
 /**
@@ -176,7 +187,7 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
   const isFemale = ["牝", "牝馬"].includes(horse.sex);
   const isEscape = (horse.style || horse.tactic || "").includes("逃げ");
 
-    switch (condition) {
+  switch (condition) {
     case "race_start": return true;
     case "single_escape": return isEscape;
     case "pace_front_remain": return true;
@@ -222,7 +233,7 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
     case "always": return true;
     default: return false;
   }
-
+} // ← 閉じカッコを追加
 
 function processMarkStrategy(resultList) {
   const player = resultList.find(h => h.isPlayer);
@@ -572,12 +583,12 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       let targetVal = 50;
       let targetStatName = "標準値";
 
-      if (selectedBranch.target_pool && selectedBranch.target_pool.length > 0) {
+        if (selectedBranch.target_pool && selectedBranch.target_pool.length > 0) {
         const randomKey = selectedBranch.target_pool[Math.floor(Math.random() * selectedBranch.target_pool.length)];
         const keyName = `calc_${randomKey}`;
         targetVal = h[keyName] ?? h[randomKey] ?? 0;
         
-    if (randomKey === 'speed') targetStatName = 'SPD';
+        if (randomKey === 'speed') targetStatName = 'SPD';
         else if (randomKey === 'stamina') targetStatName = 'STM';
         else if (randomKey === 'sharp') targetStatName = '瞬発';
         else if (randomKey === 'jizoku') targetStatName = '持続';
