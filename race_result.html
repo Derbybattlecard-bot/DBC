@@ -571,28 +571,16 @@ function getKana3(name) {
 function renderLanes() {
   const lanes = document.getElementById('lanes');
   lanes.innerHTML = "";
-
-  // 左回り（right_to_left）の場合は画面右端を初期位置にする
-  const isRightToLeft = (currentTrackConfig.phase1_3_dir === "right_to_left");
-  const trackContainer = document.getElementById('track-container');
-  const trackWidth = trackContainer ? (trackContainer.clientWidth - 70) : 500;
-  
-  // 初期座標の計算（左回りなら右端、右回り・直線なら左端）
-  const initialLeftPx = isRightToLeft ? (10 + trackWidth) : 10;
-
   activeHorses.forEach((h, i) => {
     let nameClass = h.isPlayer ? "p1-name" : (h.isCpu ? "p2-name" : "");
     const gateNum = h.gate_number || (i + 1);
     lanes.innerHTML += `
       <div class="horse-lane">
-        <div class="horse-icon" id="horse-icon-${i}" style="left: ${initialLeftPx}px;">
+        <div class="horse-icon" id="horse-icon-${i}" style="left: 10px;">
           <span class="horse-emoji" id="emoji-${i}">🏇</span><span class="${nameClass}">${gateNum}.${getKana3(h.name)}</span>
         </div>
       </div>`;
   });
-
-  // レース開始前の初期向きをコースに合わせてセット
-  setHorseDirection(currentTrackConfig.phase1_3_dir);
 }
 
 function setHorseDirection(direction) {
