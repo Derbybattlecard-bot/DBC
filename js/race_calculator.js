@@ -176,7 +176,10 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
   const isFemale = ["牝", "牝馬"].includes(horse.sex);
   const isEscape = (horse.style || horse.tactic || "").includes("逃げ");
 
-  switch (condition) {
+    switch (condition) {
+    case "race_start": return true;
+    case "single_escape": return isEscape;
+    case "pace_front_remain": return true;
     case "gate_odd": return gate % 2 === 1;
     case "gate_even": return gate % 2 === 0;
     case "gate_1": return gate === 1;
@@ -219,12 +222,7 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
     case "always": return true;
     default: return false;
   }
-}
 
-function getAbilityMasterData(abilityName, abilityMasterData) {
-  if (!abilityMasterData) return null;
-  return Object.values(abilityMasterData).find(master => master && master.name && (master.name === abilityName || master.name.includes(abilityName)));
-}
 
 function processMarkStrategy(resultList) {
   const player = resultList.find(h => h.isPlayer);
