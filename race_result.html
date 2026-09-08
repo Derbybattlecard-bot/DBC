@@ -514,8 +514,7 @@ function setupRace(rIdx) {
         }
       });
     }
-    
-    // レベル補正（ポテンシャル等への影響）の設定
+        // レベル補正（ポテンシャル等への影響）の設定
     h.strat_potential = levelVal * 2;
     h.strat_name = matchedStrat ? matchedStrat.name : "通常";
 
@@ -534,8 +533,7 @@ function setupRace(rIdx) {
   document.getElementById('p2-card-name').textContent = cpuObj.name;
   document.getElementById('p2-card-strat').textContent = `作戦: ${cpuObj.tactic} (Lv.${cpuObj.level})`;
 
-  // --- 馬IDに連動した画像パスの設定 (例: /images/0001.jpg) ---
-    // --- 馬IDに連動した画像パスの設定 (例: ./images/0001.jpg) ---
+  // --- 馬IDに連動した画像パスの設定 (例: ./images/0001.jpg) ---
   const p1ImgId = playerObj.horse_id ? String(playerObj.horse_id).padStart(4, '0') : '0000';
   const p2ImgId = cpuObj.horse_id ? String(cpuObj.horse_id).padStart(4, '0') : '8801';
 
@@ -550,7 +548,6 @@ function setupRace(rIdx) {
     p2ImgEl.src = `./images/${p2ImgId}.jpg`;
     p2ImgEl.onerror = () => { p2ImgEl.src = './images/8801.jpg'; }; // エラー時の代替画像
   }
-
 
   const btn = document.getElementById('nextBtn');
   btn.disabled = false;
@@ -692,11 +689,14 @@ async function startRace() {
   btn.disabled = true;
   btn.innerText = "🏃 レース進行中...";
 
-  // 1. レースロジック一括実行
-  const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, currentRaceInfo);
+  // 1. レースロジック一括実行 (動的実況を含む)
+  const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, currentRaceInfo, strategyMasterData);
   calculatedResults = raceResultData.results;
   currentRacePace = raceResultData.pace;
   currentRaceBranch = raceResultData.branch.name;
+
+  // race_calculator.js が生成した動的実況データ
+  const comm = raceResultData.commentary;
 
   if (raceResultData.branch.formula) {
     currentRaceFormulaStr = raceResultData.branch.formula;
@@ -746,17 +746,14 @@ async function startRace() {
   }
 
   // 3. レース実況アニメーション演出
-  let leaders = calculatedResults.filter(h => h.positionRank <= 3).sort((a, b) => a.positionRank - b.positionRank);
-  let leaderNames = leaders.map(h => h.name).join("、");
-  updateLog(`<strong>【スタート】</strong> ゲートが開いた！ ${leaderNames} あたりがハナを主張、先頭争いだ！`);
+  // ★ Phase 1: スタート動的実況
+  updateLog(`<strong>【スタート】</strong> ${comm.phase1}`);
   
   let p1Pos = getPosPointsMap(calculatedResults, 35, 8);
   setPhasePositions(p1Pos, 4.0, "linear", currentTrackConfig.phase1_3_dir); 
 
   // Phase 2〜Phase 3の間（約4秒後：向正面）
   setTimeout(() => {
-    let msg = (currentRacePace.includes("ハイ")) ? "縦長の隊列になりました。" : "淡々とレースは流れていきます。";
-    
     // 対戦馬（YOUおよびCPU）のアビリティ発動状況の判定
     const targetHorses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.activated_abilities && h.activated_abilities.length > 0);
     
@@ -768,13 +765,15 @@ async function startRace() {
         abilityLogs.push(`${label} ${h.name}の限定能力 ${abs} が発動！`);
       });
 
-      updateLog(`<strong>【向正面】</strong> ${msg}<br><span style="color:var(--gold-color);">${abilityLogs.join("<br>")}</span>`);
+      // ★ Phase 2: 向正面動的実況 ＋ アビリティ発動ログ
+      updateLog(`<strong>【向正面】</strong> ${comm.phase2}<br><span style="color:var(--gold-color);">${abilityLogs.join("<br>")}</span>`);
       
       // アビリティポップアップ演出の実行（キュー処理）
       queueAbilities(targetHorses);
 
     } else {
-      updateLog(`<strong>【向正面】</strong> ${msg} 各馬ポジションが決まりました。`);
+      // ★ Phase 2: 向正面動的実況
+      updateLog(`<strong>【向正面】</strong> ${comm.phase2}`);
     }
     
     let p2Pos = getPosPointsMap(calculatedResults, 65, 20);
@@ -782,7 +781,8 @@ async function startRace() {
   }, 4000); 
 
   setTimeout(() => {
-    updateLog(`<strong>【3コーナーを回して直線へ】</strong> ペースは『${currentRacePace}』！ 勝負どころの最終コーナーへ！`);
+    // ★ Phase 3: 展開・攻防動的実況
+    updateLog(`<strong>【3コーナー〜展開】</strong> ${comm.phase3}`);
     showTelop(`【ペース】 ${currentRacePace}`, 3000);
     
     let p3Pos = getPosPointsMap(calculatedResults, 88, 35);
@@ -821,7 +821,6 @@ async function startRace() {
     setTimeout(() => {
       wipe.style.left = "100%"; 
       setTimeout(() => {
-        let winner = calculatedResults[0];
         let finalPositions = new Array(activeHorses.length);
         
         calculatedResults.forEach((item, rank) => {
@@ -838,7 +837,8 @@ async function startRace() {
         }, 1500);
         
         setTimeout(() => {
-          updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>1着フィニッシュは ${winner.name} ！！</b></span>`);
+          // ★ Phase 4 / Finish: ゴール・確定動的実況
+          updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>${comm.finish}</b></span>`);
         }, 7500); 
         
         setTimeout(() => {
