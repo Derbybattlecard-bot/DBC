@@ -77,7 +77,8 @@ function generateRaceCommentary(raceData) {
     const rank2 = results[1].name;
     const rank3 = results[2].name;
 
-    finishText = `大混戦のゴール前！制したのは${rank1}！${rank1}見いに1着でゴールイン！2着には${rank2}、3着は${rank3}が入りました！`;
+    // ※「見いに」を「が見事に」へ修正
+    finishText = `大混戦のゴール前！制したのは${rank1}！${rank1}が見事に1着でゴールイン！2着には${rank2}、3着は${rank3}が入りました！`;
   } else if (results && results.length > 0) {
     finishText = `先頭でゴールを駆け抜けたのは${results[0].name}！`;
   }
@@ -195,27 +196,27 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
     case "gate_even": return gate % 2 === 0;
     case "gate_1": return gate === 1;
     case "gate_8": return gate === 8 || gate === 16;
-    case "track_nakayama": return track.includes("中山");
-    case "track_tokyo": return track.includes("東京");
-    case "track_kyoto": return track.includes("京都");
-    case "track_hanshin": return track.includes("阪神");
-    case "track_niigata": return track.includes("新潟");
-    case "track_chukyo": return track.includes("中京");
-    case "track_kokura": return track.includes("小倉");
-    case "track_sapporo": return track.includes("札幌");
-    case "track_hakodate": return track.includes("函館");
-    case "track_fukushima": return track.includes("福島");
-    case "track_local": return ["大井","川崎","船橋","浦和","盛岡","園田","高知","笠松","門別"].some(t => track.includes(t));
-    case "track_fukushima_escape": return track.includes("福島") && isEscape;
-    case "track_fukushima_not_escape": return track.includes("福島") && !isEscape;
+    case "track_nakayama": return track === "中山";
+    case "track_tokyo": return track === "東京";
+    case "track_kyoto": return track === "京都";
+    case "track_hanshin": return track === "阪神";
+    case "track_niigata": return track === "新潟";
+    case "track_chukyo": return track === "中京";
+    case "track_kokura": return track === "小倉";
+    case "track_sapporo": return track === "札幌";
+    case "track_hakodate": return track === "函館";
+    case "track_fukushima": return track === "福島";
+    case "track_local": return ["大井","川崎","船橋","浦和","盛岡","園田","高知","笠松","門別"].includes(track);
+    case "track_fukushima_escape": return track === "福島" && isEscape;
+    case "track_fukushima_not_escape": return track === "福島" && !isEscape;
     case "track_overseas_hongkong":
-    case "track_overseas_asia": return ["沙田", "香港", "クランジ"].some(t => track.includes(t));
-    case "track_overseas_dubai": return track.includes("メイダン");
-    case "track_overseas_europe": return ["ロンシャン", "パリロンシャン", "サンクルー", "アスコット", "ニューマーケット", "エプソム"].some(t => track.includes(t));
-    case "track_overseas_usa": return ["デルマー", "サンシャイン", "チャーチルダウンズ", "サンタアニタ", "ベルモントパーク", "アーリントンパーク"].some(t => track.includes(t));
+    case "track_overseas_asia": return ["沙田", "香港", "クランジ"].includes(track);
+    case "track_overseas_dubai": return track === "メイダン";
+    case "track_overseas_europe": return ["ロンシャン", "パリロンシャン", "サンクルー", "アスコット", "ニューマーケット", "エプソム"].includes(track);
+    case "track_overseas_usa": return ["デルマー", "サンシャイン", "チャーチルダウンズ", "サンタアニタ", "ベルモントパーク", "アーリントンパーク"].includes(track);
     case "track_overseas_all":
-    case "is_overseas": return OVERSEAS_TRACKS.some(t => track.includes(t));
-    case "prob_33": return OVERSEAS_TRACKS.some(t => track.includes(t)) && Math.random() < (1 / 3);
+    case "is_overseas": return OVERSEAS_TRACKS.includes(track);
+    case "prob_33": return OVERSEAS_TRACKS.includes(track) && Math.random() < (1 / 3);
     case "is_local_exchange_series": return !!(raceInfo?.is_local_exchange || raceInfo?.series_type === "地方交流");
     case "dist_1200": return dist === 1200;
     case "dist_1600": return dist === 1600;
@@ -476,10 +477,6 @@ function applyRankSwapAbilities(resultList) {
       if (!horse.activated_abilities.includes(activeName)) {
         horse.activated_abilities.push(activeName);
       }
-
-      // 直線突入時ポップアップトリガーとメッセージの追加設定
-      horse.straight_popup_trigger = true;
-      horse.popup_message = activeName;
     }
   });
 }
@@ -587,7 +584,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       let targetVal = 50;
       let targetStatName = "標準値";
 
-      if (selectedBranch.target_pool && selectedBranch.target_pool.length > 0) {
+  if (selectedBranch.target_pool && selectedBranch.target_pool.length > 0) {
         const randomKey = selectedBranch.target_pool[Math.floor(Math.random() * selectedBranch.target_pool.length)];
         const keyName = `calc_${randomKey}`;
         targetVal = h[keyName] ?? h[randomKey] ?? 0;
@@ -722,4 +719,3 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     commentary: commentaryData
   };
 }
-   
