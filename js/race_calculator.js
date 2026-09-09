@@ -235,7 +235,7 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
     case "prob_33": return OVERSEAS_TRACKS.includes(track) && Math.random() < (1 / 3);
     case "is_local_exchange_series": return !!(raceInfo?.is_local_exchange || raceInfo?.series_type === "地方交流");
 
-    // 距離判定条件の更新
+    // 距離判定条件
     case "dist_1200":
     case "speed_star": 
       return dist <= 1200; // スピードスター: 1200m以下
@@ -321,6 +321,7 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
   horse.activated_abilities = horse.activated_abilities || [];
 
   horse.ability.forEach(abilityName => {
+    // 荒ぶる魂 仕様
     if (abilityName === "荒ぶる魂") {
       const rand = Math.random();
       let buff = 0;
@@ -342,6 +343,35 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
       const buffVal = (gate % 2 === 0) ? 1 : -1;
       applyAllStatsBuff(horse, buffVal);
       if (!horse.activated_abilities.includes(abilityName)) horse.activated_abilities.push(abilityName);
+      return;
+    }
+
+    // アメリカンドリーム (旧ケンタッキー / プライドビギン) 仕様
+    if (abilityName === "アメリカンドリーム" || abilityName === "ケンタッキー" || abilityName === "プライドビギン") {
+      if (OVERSEAS_TRACKS.includes(raceInfo?.track || "")) {
+        applyAllStatsBuff(horse, 2);
+        if (!horse.activated_abilities.includes("アメリカンドリーム")) {
+          horse.activated_abilities.push("アメリカンドリーム");
+        }
+      }
+      return;
+    }
+
+    // 東京・中山・京都・阪神の能力アップ系アビリティ (全てパラメータ +1)
+    const venueBuffMap = {
+      "府中特急": "東京",
+      "中山巧者": "中山",
+      "淀の坂超え": "京都",
+      "阪神急坂": "阪神"
+    };
+    if (venueBuffMap[abilityName]) {
+      const reqTrack = venueBuffMap[abilityName];
+      if ((raceInfo?.track || "") === reqTrack) {
+        applyAllStatsBuff(horse, 1);
+        if (!horse.activated_abilities.includes(abilityName)) {
+          horse.activated_abilities.push(abilityName);
+        }
+      }
       return;
     }
 
@@ -413,14 +443,27 @@ function applyPhase3Abilities(resultList, leadCount) {
   firstHorse.activated_abilities = firstHorse.activated_abilities || [];
 
   firstHorse.ability.forEach(abilityName => {
-    // ロケットスタート / 大逃亡: 先頭に立った場合パラメータ全て+1
-    if (abilityName === "ロケットスタート" || abilityName === "大逃亡") {
+    // ロケットスタート: 先頭で逃げた時に全てパラメータ+1
+    if (abilityName === "ロケットスタート") {
       applyAllStatsBuff(firstHorse, 1);
       if (!firstHorse.activated_abilities.includes(abilityName)) {
         firstHorse.activated_abilities.push(abilityName);
       }
     }
 
+    // 大逃亡: 先頭に立ち、2番手と位置取りPt差が20以上の時に全てパラメータ+2
+    if (abilityName === "大逃亡") {
+      const secondHorse = resultList.find(h => h.positionRank === 2);
+      const gap = secondHorse ? (firstHorse.positionPoint - secondHorse.positionPoint) : 20;
+      if (gap >= 20) {
+        applyAllStatsBuff(firstHorse, 2);
+        if (!firstHorse.activated_abilities.includes(abilityName)) {
+          firstHorse.activated_abilities.push(abilityName);
+        }
+      }
+    }
+
+    // 1人旅 (一人旅): 単騎逃げ（逃げ1頭）の時に全てパラメータ+2
     if (abilityName === "1人旅" || abilityName === "一人旅") {
       if (leadCount === 1) {
         applyAllStatsBuff(firstHorse, 2);
@@ -457,6 +500,7 @@ function applyPhase4Abilities(horse, pace, branchName) {
       }
     }
 
+    // まくり系 (衝撃のまくり、異次元のまくり、怒涛のまくり等) / 電光石火: 前残りの時に+10
     const isMakuri = /まくり|マクリ|捲り/.test(abilityName);
     if ((abilityName === "電光石火" || isMakuri) && branchName.includes("前残り")) {
       extraScore += 10;
@@ -597,7 +641,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
 
   applyPhase3Abilities(resultList, leadCount);
 
-// STEP 2: 展開分岐選択
+  // STEP 2: 展開分岐選択
   let availableBranches = raceMaster?.branches_by_pace?.[selectedPace];
   if (!availableBranches || availableBranches.length === 0) {
     availableBranches = [{
