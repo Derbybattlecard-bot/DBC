@@ -325,21 +325,23 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
   horse.activated_abilities = horse.activated_abilities || [];
 
   horse.ability.forEach(abilityName => {
-    // 荒ぶる魂 仕様
-    if (abilityName === "荒ぶる魂") {
-      const rand = Math.random();
-      let buff = 0;
-      if (rand < 0.25) {
-        buff = 2;
-      } else {
-        buff = -1;
-        horse.popup_message = "荒ぶる魂不発";
-      }
-      
-      applyAllStatsBuff(horse, buff);
-      if (!horse.activated_abilities.includes(abilityName)) horse.activated_abilities.push(abilityName);
-      return;
-    }
+// 荒ぶる魂 仕様
+if (abilityName === "荒ぶる魂") {
+  horse.popup_messages = horse.popup_messages || {};
+  const rand = Math.random();
+  let buff = 0;
+  if (rand < 0.25) {
+    buff = 2;
+  } else {
+    buff = -1;
+    horse.popup_messages["荒ぶる魂"] = "荒ぶる魂不発";
+  }
+  
+  applyAllStatsBuff(horse, buff);
+  if (!horse.activated_abilities.includes(abilityName)) horse.activated_abilities.push(abilityName);
+  return;
+}
+
 
     // ゲートバカラ (ゲートパカ) 仕様
     if (abilityName === "ゲートバカラ") {
@@ -364,8 +366,10 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
         }
 
         if (effect.popup_name) {
-          horse.popup_message = effect.popup_name;
-        }
+  horse.popup_messages = horse.popup_messages || {};
+  horse.popup_messages[abilityName] = effect.popup_name;
+}
+
 
         if (!horse.activated_abilities.includes(abilityName)) {
           horse.activated_abilities.push(abilityName);
