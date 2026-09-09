@@ -296,8 +296,18 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
   horse.ability_buff = 0;
 
   const isTurf = raceInfo?.surface !== "ダート";
-  const turfPot = horse.turf_potential ?? horse.potential ?? 0;
-  const dirtPot = horse.dirt_potential ?? horse.potential ?? 0;
+// レースの馬場判定（芝かダートか）
+const isTurf = race.surface === '芝' || race.track_type === 'turf';
+
+// コースに応じた基礎ポテンシャルのみを取得（未設定時は 0）
+const master = HORSES_MASTER[horse.horse_id] || {};
+const surfacePot = isTurf 
+  ? (horse.turf_potential ?? master.turf_potential ?? 0)
+  : (horse.dirt_potential ?? master.dirt_potential ?? 0);
+
+// 基礎ポテンシャルとして保持（作戦レベルなどの加算は既存の別処理に任せる）
+horse.calc_potential = surfacePot;
+
 
   if (isTurf) {
     horse.calc_potential = turfPot;
@@ -744,7 +754,11 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
         else if (key === 'potential' || key === 'current_potential') statNameJa = 'ポテ';
 
         if (key === 'potential' || key === 'current_potential') {
-          statDetails.push(`${statNameJa}:${totalPot}(${horseBasePot}+${stratPot})`);
+  // 実際に適用されたポテンシャル値をそのまま出力
+  const displayPot = h.calc_potential ?? surfacePot;
+  statDetails.push(`${statNameJa}:${displayPot}`);
+}
+
         } else {
           const calcKey = `calc_${key}`;
           const horseBase = h[calcKey] ?? h[key] ?? 0;
