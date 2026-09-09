@@ -455,7 +455,6 @@ function buildRaceGridsFromFirebase() {
 function ensureStats(h) {
   const master = HORSES_MASTER[h.horse_id] || {};
   
-  // 20 などの固定補正は行わず、未設定時は 0 で保持
   h.turf_potential = h.turf_potential ?? master.turf_potential ?? 0;
   h.dirt_potential = h.dirt_potential ?? master.dirt_potential ?? 0;
   h.potential = h.potential ?? master.potential ?? 0;
@@ -474,12 +473,10 @@ function setupRace(rIdx) {
   raceState = 'ready';
   activeHorses = fullRaceGrids[rIdx] || [];
 
-  // ▼ ここから追加した部分 ▼
   const gl = document.getElementById('goal-line');
   const gf = document.getElementById('goal-flag');
   if (gl) gl.style.display = "none";
   if (gf) gf.style.display = "none";
-  // ▲ ここまで追加した部分 ▲
 
   const racesTrackConditions = globalUserData?.cpu_battle_status?.current_match?.races_track_conditions || [];
   trackCondition = racesTrackConditions[rIdx] || "良";
@@ -510,18 +507,10 @@ function setupRace(rIdx) {
   }
   currentTrackConfig = TRACK_DIRECTION_MASTER[turnDir] || TRACK_DIRECTION_MASTER["右回り"];
   
-    activeHorses.forEach((h, i) => {
+  activeHorses.forEach((h, i) => {
     h.index = i;
     h.tactic_level = h.level || 3;
     let matchedStrat = h.stratObj;
-    if (!matchedStrat && strategyMasterData) {
-      const stratList = Object.values(strategyMasterData);
-      matchedStrat = stratList.find(s => s.style === h.tactic || s.name === h.tactic) || stratList[0];
-    }
-
-    const levelVal = h.level || 1;
-    
-    // 作戦の基礎設定
     if (matchedStrat) {
       Object.keys(matchedStrat).forEach(key => {
         if (typeof matchedStrat[key] === 'number') {
@@ -529,11 +518,10 @@ function setupRace(rIdx) {
         }
       });
     }
-    // レベル補正（ポテンシャル等への影響）の設定
+
     h.strat_potential = levelVal * 2;
     h.strat_name = matchedStrat ? matchedStrat.name : "通常";
 
-    // アビリティ配列を馬データに引き継ぐ
     const master = HORSES_MASTER[h.horse_id] || {};
     if (master.ability) {
       h.ability = master.ability;
@@ -554,7 +542,6 @@ function setupRace(rIdx) {
   document.getElementById('p2-card-name').textContent = cpuObj.name;
   document.getElementById('p2-card-strat').textContent = `作戦: ${cpuObj.tactic} (Lv.${cpuObj.level})`;
 
-  // --- 馬IDに連動した画像パスの設定 (例: ./images/0001.jpg) ---
   const p1ImgId = playerObj.horse_id ? String(playerObj.horse_id).padStart(4, '0') : '0000';
   const p2ImgId = cpuObj.horse_id ? String(cpuObj.horse_id).padStart(4, '0') : '8801';
 
@@ -590,12 +577,10 @@ function renderLanes() {
   const lanes = document.getElementById('lanes');
   lanes.innerHTML = "";
 
-  // 左回り（right_to_left）の場合は画面右端を初期位置にする
   const isRightToLeft = (currentTrackConfig.phase1_3_dir === "right_to_left");
   const trackContainer = document.getElementById('track-container');
   const trackWidth = trackContainer ? (trackContainer.clientWidth - 70) : 500;
   
-  // 初期座標の計算（左回りなら右端、右回り・直線なら左端）
   const initialLeftPx = isRightToLeft ? (10 + trackWidth) : 10;
 
   activeHorses.forEach((h, i) => {
@@ -609,7 +594,6 @@ function renderLanes() {
       </div>`;
   });
 
-  // レース開始前の初期向きをコースに合わせてセット
   setHorseDirection(currentTrackConfig.phase1_3_dir);
 }
 
@@ -673,13 +657,12 @@ function processAbilityQueue() {
 
   if (item.horse.isPlayer) {
     box.classList.add('p1-ability');
-    popup.classList.add('p1-pos'); // 自馬は上部
+    popup.classList.add('p1-pos');
   } else {
     box.classList.add('p2-ability');
-    popup.classList.add('p2-pos'); // 対戦馬は下部
+    popup.classList.add('p2-pos');
   }
 
-  // 馬名とアビリティ名の書き換え処理
   horseEl.textContent = `${item.horse.gate_number}番 ${item.horse.name}`;
   const displayMsg = item.popupMessage || item.abilityName;
   nameEl.textContent = `【${displayMsg}】`;
@@ -690,7 +673,7 @@ function processAbilityQueue() {
     popup.classList.remove('show');
     setTimeout(() => {
       isShowingAbility = false;
-      processAbilityQueue(); // 次のアビリティを再生
+      processAbilityQueue();
     }, 400);
   }, 2000);
 }
@@ -699,7 +682,6 @@ function queueAbilities(targetHorses) {
   targetHorses.forEach(h => {
     if (h.activated_abilities && h.activated_abilities.length > 0) {
       h.activated_abilities.forEach(abName => {
-        // アビリティ個別のメッセージを取得（設定がなければアビリティ名）
         const msg = (h.popup_messages && h.popup_messages[abName]) || abName;
         abilityQueue.push({ horse: h, abilityName: abName, popupMessage: msg });
       });
@@ -707,29 +689,12 @@ function queueAbilities(targetHorses) {
   });
   processAbilityQueue();
 }
-
-
-
-function queueAbilities(targetHorses) {
-  targetHorses.forEach(h => {
-    if (h.activated_abilities && h.activated_abilities.length > 0) {
-      h.activated_abilities.forEach(abName => {
-        // アビリティ個別のメッセージを取得（設定がなければアビリティ名）
-        const msg = (h.popup_messages && h.popup_messages[abName]) || abName;
-        abilityQueue.push({ horse: h, abilityName: abName, popupMessage: msg });
-      });
-    }
-  });
-  processAbilityQueue();
-}
-
 
 // ---------- レース実行メインロジック ----------
 async function startRace() {
   if (raceState !== 'ready') return;
   raceState = 'running';
 
-  // キューと演出状態を毎回初期化
   abilityQueue = [];
   isShowingAbility = false;
 
@@ -737,14 +702,12 @@ async function startRace() {
   btn.disabled = true;
   btn.innerText = "🏃 レース進行中...";
 
-  // 1. レースロジック一括実行 (動的実況を含む)
   const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, currentRaceInfo, abilityMasterData);
 
   calculatedResults = raceResultData.results;
   currentRacePace = raceResultData.pace;
   currentRaceBranch = raceResultData.branch.name;
 
-  // race_calculator.js が生成した動的実況データ
   const comm = raceResultData.commentary;
 
   if (raceResultData.branch.formula) {
@@ -770,7 +733,6 @@ async function startRace() {
     currentRaceFormulaStr += " ＋ 脚質ボーナス";
   }
 
-  // 2. 結果レコードの生成とFirebase進捗保存
   recordHistory(calculatedResults);
   const nextRaceIdx = currentRaceIndex + 1;
 
@@ -794,16 +756,12 @@ async function startRace() {
     }
   }
 
-  // 3. レース実況アニメーション演出
-  // ★ Phase 1: スタート動的実況
   updateLog(`<strong>【スタート】</strong> ${comm.phase1}`);
   
   let p1Pos = getPosPointsMap(calculatedResults, 35, 8);
   setPhasePositions(p1Pos, 4.0, "linear", currentTrackConfig.phase1_3_dir); 
 
-  // Phase 2〜Phase 3の間（約4秒後：向正面）
   setTimeout(() => {
-    // 対戦馬（YOUおよびCPU）のアビリティ発動状況の判定
     const targetHorses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.activated_abilities && h.activated_abilities.length > 0);
     
     if (targetHorses.length > 0) {
@@ -814,14 +772,9 @@ async function startRace() {
         abilityLogs.push(`${label} ${h.name}の限定能力 ${abs} が発動！`);
       });
 
-      // ★ Phase 2: 向正面動的実況 ＋ アビリティ発動ログ
       updateLog(`<strong>【向正面】</strong> ${comm.phase2}<br><span style="color:var(--gold-color);">${abilityLogs.join("<br>")}</span>`);
-      
-      // アビリティポップアップ演出の実行（キュー処理）
       queueAbilities(targetHorses);
-
     } else {
-      // ★ Phase 2: 向正面動的実況
       updateLog(`<strong>【向正面】</strong> ${comm.phase2}`);
     }
     
@@ -830,7 +783,6 @@ async function startRace() {
   }, 4000); 
 
   setTimeout(() => {
-    // ★ Phase 3: 展開・攻防動的実況
     updateLog(`<strong>【3コーナー〜展開】</strong> ${comm.phase3}`);
     showTelop(`【ペース】 ${currentRacePace}`, 3000);
     
@@ -886,7 +838,6 @@ async function startRace() {
         }, 1500);
         
         setTimeout(() => {
-          // ★ Phase 4 / Finish: ゴール・確定動的実況
           updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>${comm.finish}</b></span>`);
         }, 7500); 
         
