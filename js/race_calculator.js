@@ -295,19 +295,13 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
   horse.calc_guts = horse.guts || 0;
   horse.ability_buff = 0;
 
-  const isTurf = raceInfo?.surface !== "ダート";
-// レースの馬場判定（芝かダートか）
-const isTurf = race.surface === '芝' || race.track_type === 'turf';
+  // レースの馬場判定（芝かダートか）
+  const isTurf = raceInfo?.surface === '芝' || raceInfo?.surface !== 'ダート';
 
-// コースに応じた基礎ポテンシャルのみを取得（未設定時は 0）
-const master = HORSES_MASTER[horse.horse_id] || {};
-const surfacePot = isTurf 
-  ? (horse.turf_potential ?? master.turf_potential ?? 0)
-  : (horse.dirt_potential ?? master.dirt_potential ?? 0);
-
-// 基礎ポテンシャルとして保持（作戦レベルなどの加算は既存の別処理に任せる）
-horse.calc_potential = surfacePot;
-
+  // コースに応じた基礎ポテンシャルを取得
+  const master = (typeof HORSES_MASTER !== 'undefined' ? HORSES_MASTER[horse.horse_id] : {}) || {};
+  const turfPot = horse.turf_potential ?? master.turf_potential ?? horse.potential ?? 0;
+  const dirtPot = horse.dirt_potential ?? master.dirt_potential ?? horse.potential ?? 0;
 
   if (isTurf) {
     horse.calc_potential = turfPot;
@@ -321,7 +315,7 @@ horse.calc_potential = surfacePot;
       horse.calc_jizoku += potDiff;
       horse.calc_guts += potDiff;
     } else {
-      horse.calc_potential = turfPot;
+      horse.calc_potential = dirtPot;
     }
   }
 
@@ -355,10 +349,11 @@ horse.calc_potential = surfacePot;
       if (!horse.activated_abilities.includes(abilityName)) horse.activated_abilities.push(abilityName);
       return;
     }
-    const master = getAbilityMasterData(abilityName, abilityMasterData);
-    if (!master || !master.effects) return;
 
-    master.effects.forEach(effect => {
+    const masterAbility = getAbilityMasterData(abilityName, abilityMasterData);
+    if (!masterAbility || !masterAbility.effects) return;
+
+    masterAbility.effects.forEach(effect => {
       if (effect.phase !== "phase1") return;
 
       if (evalAbilityCondition(effect.condition, horse, raceInfo, trackCondition, allHorses)) {
@@ -594,8 +589,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       styleCalcPt = tacticStylePt + 20;
     } else if (horseStyle.includes("追込")) {
       styleCalcPt = tacticStylePt + 10;
-    } else {
-      styleCalcPt = tacticStylePt + 20;
+    } else {styleCalcPt = tacticStylePt + 20;
     }
 
     const horseSpeed = h.calc_speed || 0;
@@ -724,11 +718,8 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
         else if (key === 'potential' || key === 'current_potential') statNameJa = 'ポテ';
 
         if (key === 'potential' || key === 'current_potential') {
-  // 実際に適用されたポテンシャル値をそのまま出力
-  const displayPot = h.calc_potential ?? surfacePot;
-  statDetails.push(`${statNameJa}:${displayPot}`);
-}
-
+          const displayPot = h.calc_potential ?? h.potential ?? 0;
+          statDetails.push(`${statNameJa}:${displayPot}`);
         } else {
           const calcKey = `calc_${key}`;
           const horseBase = h[calcKey] ?? h[key] ?? 0;
