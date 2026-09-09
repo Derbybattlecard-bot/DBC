@@ -98,22 +98,19 @@ function isEligibleForAbility(horse) {
 }
 
 /**
- * アビリティマスターデータを取得するヘルパー関数（修正済み）
+ * アビリティマスターデータを取得するヘルパー関数
  */
 function getAbilityMasterData(abilityName, abilityMasterData) {
   if (!abilityMasterData) return null;
 
-  // 配列の場合のマッチング
   if (Array.isArray(abilityMasterData)) {
     return abilityMasterData.find(a => a.name === abilityName || a.ability_name === abilityName) || null;
   }
 
-  // オブジェクトのキーが直接アビリティ名になっている場合
   if (abilityMasterData[abilityName]) {
     return abilityMasterData[abilityName];
   }
 
-  // オブジェクト（連想配列）の各要素の name / ability_name プロパティでマッチング
   return Object.values(abilityMasterData).find(
     a => a && (a.name === abilityName || a.ability_name === abilityName)
   ) || null;
@@ -204,8 +201,17 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
     case "pace_front_remain": return true;
     case "gate_odd": return gate % 2 === 1;
     case "gate_even": return gate % 2 === 0;
-    case "gate_1": return gate === 1;
-    case "gate_8": return gate === 8 || gate === 16;
+    
+    // 最内一閃 (馬番1, 2)
+    case "gate_1":
+    case "inside_slot": 
+      return gate === 1 || gate === 2;
+      
+    // 大外大歓迎 (馬番15, 16)
+    case "gate_8":
+    case "outside_slot": 
+      return gate === 15 || gate === 16;
+
     case "track_nakayama": return track === "中山";
     case "track_tokyo": return track === "東京";
     case "track_kyoto": return track === "京都";
@@ -228,9 +234,21 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
     case "is_overseas": return OVERSEAS_TRACKS.includes(track);
     case "prob_33": return OVERSEAS_TRACKS.includes(track) && Math.random() < (1 / 3);
     case "is_local_exchange_series": return !!(raceInfo?.is_local_exchange || raceInfo?.series_type === "地方交流");
-    case "dist_1200": return dist === 1200;
-    case "dist_1600": return dist === 1600;
-    case "dist_3200": return dist === 3200;
+
+    // 距離判定条件の更新
+    case "dist_1200":
+    case "speed_star": 
+      return dist <= 1200; // スピードスター: 1200m以下
+
+    case "dist_1600":
+    case "oira_miler": 
+      return dist === 1600; // オイラはマイラー: 1600mのみ
+
+    case "dist_3000":
+    case "dist_3200":
+    case "stamina_monster": 
+      return dist >= 3000; // 体力オバケ: 3000m以上
+
     case "ground_yielding": return trackCondition === "稍重";
     case "ground_heavy_bad": return trackCondition === "重" || trackCondition === "不良";
     case "is_female_in_mixed_g1": return isFemale && MIXED_G1_RACES.includes(raceInfo?.race_name);
@@ -318,6 +336,15 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
       return;
     }
 
+    // ゲートバカラ (ゲートパカ) 仕様
+    if (abilityName === "ゲートバカラ" || abilityName === "ゲートパカ") {
+      const gate = horse.gate_number || 0;
+      const buffVal = (gate % 2 === 0) ? 1 : -1;
+      applyAllStatsBuff(horse, buffVal);
+      if (!horse.activated_abilities.includes(abilityName)) horse.activated_abilities.push(abilityName);
+      return;
+    }
+
     const master = getAbilityMasterData(abilityName, abilityMasterData);
     if (!master || !master.effects) return;
 
@@ -351,6 +378,14 @@ function applyPhase2Abilities(horse, positionPoint, abilityMasterData) {
   let newPoint = positionPoint;
 
   horse.ability.forEach(abilityName => {
+    // ロケットスタート / 大逃亡: 位置取りポイント+20
+    if (abilityName === "ロケットスタート" || abilityName === "大逃亡") {
+      newPoint += 20;
+      if (!horse.activated_abilities.includes(abilityName)) {
+        horse.activated_abilities.push(abilityName);
+      }
+    }
+
     const master = getAbilityMasterData(abilityName, abilityMasterData);
     if (!master || !master.effects) return;
 
@@ -371,7 +406,6 @@ function applyPhase3Abilities(resultList, leadCount) {
   if (resultList.length === 0) return;
 
   const firstHorse = resultList.find(h => h.positionRank === 1);
-  const secondHorse = resultList.find(h => h.positionRank === 2);
 
   if (!firstHorse || !isEligibleForAbility(firstHorse)) return;
   if (!firstHorse.ability || !Array.isArray(firstHorse.ability)) return;
@@ -379,17 +413,11 @@ function applyPhase3Abilities(resultList, leadCount) {
   firstHorse.activated_abilities = firstHorse.activated_abilities || [];
 
   firstHorse.ability.forEach(abilityName => {
-    if (abilityName === "ロケットスタート") {
+    // ロケットスタート / 大逃亡: 先頭に立った場合パラメータ全て+1
+    if (abilityName === "ロケットスタート" || abilityName === "大逃亡") {
       applyAllStatsBuff(firstHorse, 1);
-    }
-
-    if (abilityName === "大逃亡") {
-      const secondPt = secondHorse ? secondHorse.positionPoint : 0;
-      if ((firstHorse.positionPoint - secondPt) >= 20) {
-        applyAllStatsBuff(firstHorse, 2);
-        if (!firstHorse.activated_abilities.includes(abilityName)) {
-          firstHorse.activated_abilities.push(abilityName);
-        }
+      if (!firstHorse.activated_abilities.includes(abilityName)) {
+        firstHorse.activated_abilities.push(abilityName);
       }
     }
 
@@ -414,6 +442,7 @@ function applyPhase4Abilities(horse, pace, branchName) {
   horse.ability.forEach(abilityName => {
     let triggered = false;
 
+    // 大逃亡: 前崩れ発生時に+10
     if (abilityName === "大逃亡") {
       if (branchName.includes("前崩れ")) {
         extraScore += 10;
@@ -568,7 +597,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
 
   applyPhase3Abilities(resultList, leadCount);
 
-  // STEP 2: 展開分岐選択
+// STEP 2: 展開分岐選択
   let availableBranches = raceMaster?.branches_by_pace?.[selectedPace];
   if (!availableBranches || availableBranches.length === 0) {
     availableBranches = [{
@@ -698,11 +727,12 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     const devDetailStr = devDetails.length > 0 ? ` (${devDetails.join(", ")})` : "";
     detailPartsList.push(`【展開加算】+${totalDevelopmentAdd}pt${devDetailStr}`);
 
-    if (h.ability_buff && h.ability_buff > 0) {
+    if (h.ability_buff && h.ability_buff !== 0) {
       const activeList = (h.activated_abilities && h.activated_abilities.length > 0) 
         ? ` (${h.activated_abilities.join(", ")})` 
         : "";
-      detailPartsList.push(`【環境バフ】+${h.ability_buff}pt${activeList}`);
+      const signStr = h.ability_buff > 0 ? `+${h.ability_buff}` : `${h.ability_buff}`;
+      detailPartsList.push(`【環境バフ】${signStr}pt${activeList}`);
     }
 
     detailPartsList.push(`【乱数】+${randomBonus.toFixed(1)}`);
