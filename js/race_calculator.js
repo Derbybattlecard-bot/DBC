@@ -348,43 +348,13 @@ horse.calc_potential = surfacePot;
     }
 
     // ゲートバカラ (ゲートパカ) 仕様
-    if (abilityName === "ゲートバカラ" || abilityName === "ゲートパカ") {
+    if (abilityName === "ゲートバカラ") {
       const gate = horse.gate_number || 0;
       const buffVal = (gate % 2 === 0) ? 1 : -1;
       applyAllStatsBuff(horse, buffVal);
       if (!horse.activated_abilities.includes(abilityName)) horse.activated_abilities.push(abilityName);
       return;
     }
-
-    // アメリカンドリーム (旧ケンタッキー / プライドビギン) 仕様
-    if (abilityName === "アメリカンドリーム" || abilityName === "ケンタッキー" || abilityName === "プライドビギン") {
-      if (OVERSEAS_TRACKS.includes(raceInfo?.track || "")) {
-        applyAllStatsBuff(horse, 2);
-        if (!horse.activated_abilities.includes("アメリカンドリーム")) {
-          horse.activated_abilities.push("アメリカンドリーム");
-        }
-      }
-      return;
-    }
-
-    // 東京・中山・京都・阪神の能力アップ系アビリティ (全てパラメータ +1)
-    const venueBuffMap = {
-      "府中特急": "東京",
-      "中山巧者": "中山",
-      "淀の坂超え": "京都",
-      "阪神急坂": "阪神"
-    };
-    if (venueBuffMap[abilityName]) {
-      const reqTrack = venueBuffMap[abilityName];
-      if ((raceInfo?.track || "") === reqTrack) {
-        applyAllStatsBuff(horse, 1);
-        if (!horse.activated_abilities.includes(abilityName)) {
-          horse.activated_abilities.push(abilityName);
-        }
-      }
-      return;
-    }
-
     const master = getAbilityMasterData(abilityName, abilityMasterData);
     if (!master || !master.effects) return;
 
