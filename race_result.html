@@ -505,7 +505,7 @@ function setupRace(rIdx) {
   }
   currentTrackConfig = TRACK_DIRECTION_MASTER[turnDir] || TRACK_DIRECTION_MASTER["右回り"];
   
-  activeHorses.forEach((h, i) => {
+    activeHorses.forEach((h, i) => {
     h.index = i;
     h.tactic_level = h.level || 3;
     let matchedStrat = h.stratObj;
@@ -527,6 +527,12 @@ function setupRace(rIdx) {
     // レベル補正（ポテンシャル等への影響）の設定
     h.strat_potential = levelVal * 2;
     h.strat_name = matchedStrat ? matchedStrat.name : "通常";
+
+    // アビリティ配列を馬データに引き継ぐ
+    const master = HORSES_MASTER[h.horse_id] || {};
+    if (master.ability) {
+      h.ability = master.ability;
+    }
 
     ensureStats(h);
   });
