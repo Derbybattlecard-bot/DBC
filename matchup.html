@@ -626,32 +626,92 @@
     }
   }
 
+    // 92年世代以降かどうかを判定するヘルパー関数
+  function isFrom1992OrLater(horse) {
+    if (!horse) return false;
+    const gen = horse.generation || horse.year || horse.birth_year || horse.era;
+    if (!gen) return true;
+
+    const genNum = parseInt(gen, 10);
+    if (isNaN(genNum)) return true;
+
+    if (genNum >= 1992) return true;
+    if (genNum >= 92 && genNum < 100) return true;
+    return false;
+  }
+
+  // 馬の条件適合チェック（適性・距離・性別・Pt・世代）
+  function isEligibleHorse(horse, race, raceSexLimit, minPt, maxPt, usedIdsSet, checkGeneration = false) {
+    if (!horse) return false;
+    const hId = String(horse.horse_id);
+    if (usedIdsSet.has(hId)) return false;
+
+    const pt = getHorsePotential(horse, race.surface);
+    if (pt < minPt || pt > maxPt) return false;
+
+    const sexOk = isValidSex(horse.sex || "牡馬", raceSexLimit);
+    const surfaceOk = isValidSurface(horse, race.surface);
+    const distOk = isValidDistance(horse, race.distance);
+
+    if (!sexOk || !surfaceOk || !distOk) return false;
+
+    if (checkGeneration && !isFrom1992OrLater(horse)) return false;
+
+    return true;
+  }
+
+  // 対戦馬（CPU＋モブ馬）の生成メイン関数
   function generateCpuAndMobEntries(races) {
     const limits = currentSeries?.potential_limit || { max_total_potential: 95 };
-    const targetPtBase = Math.floor((limits.max_total_potential || 95) / 5);
-    const minPt = Math.max(0, targetPtBase - 2);
-    const maxPt = targetPtBase + 2;
+    const maxTotalPt = limits.max_total_potential || 95;
+    const targetPtBase = Math.floor(maxTotalPt / 5);
+    
+    const defaultMinPt = Math.max(1, targetPtBase - 2);
+    const defaultMaxPt = targetPtBase + 2;
+
     const allHorses = Object.values(HORSES_MASTER);
 
-    const deckHorseIds = new Set(deckHorses.map(h => String(h.horse_id)));
+    // 自チームの選択馬IDをセット化
+    const playerChosenIds = new Set(selectedEntries.map(id => String(id)));
 
     const cpuEntries = [];
     const racesMobIds = {};
 
+    let remainingCpuPtBudget = maxTotalPt;
+
     races.forEach((race, rIdx) => {
       const raceSexLimit = race.sex || currentSeries?.sex || "制限なし";
+      
+      const remainingRaces = 5 - rIdx;
+      const currentMaxPt = Math.min(defaultMaxPt, remainingCpuPtBudget - (remainingRaces - 1) * defaultMinPt);
+      const currentMinPt = defaultMinPt;
 
-      let eligibleCpu = allHorses.filter(h => {
-        const hId = String(h.horse_id);
-        const pt = getHorsePotential(h, race.surface);
-        const sexOk = isValidSex(h.sex || "牡馬", raceSexLimit);
-        const surfaceOk = isValidSurface(h, race.surface);
-        const distOk = isValidDistance(h, race.distance);
-        return !deckHorseIds.has(hId) && pt >= minPt && pt <= maxPt && sexOk && surfaceOk && distOk;
-      });
+      const cpuUsedIds = new Set([
+        ...playerChosenIds,
+        ...cpuEntries.map(c => String(c.horse_id))
+      ]);
 
+      // 抽出1: 理想条件（92世代以降）
+      let eligibleCpu = allHorses.filter(h => 
+        isEligibleHorse(h, race, raceSexLimit, currentMinPt, currentMaxPt, cpuUsedIds, true)
+      );
+
+      // 抽出2: 世代制限緩和
       if (eligibleCpu.length === 0) {
-        eligibleCpu = allHorses.filter(h => !deckHorseIds.has(String(h.horse_id)) && isValidSex(h.sex || "牡馬", raceSexLimit) && isValidSurface(h, race.surface));
+        eligibleCpu = allHorses.filter(h => 
+          isEligibleHorse(h, race, raceSexLimit, currentMinPt, currentMaxPt, cpuUsedIds, false)
+        );
+      }
+
+      // 抽出3: Pt制限緩和
+      if (eligibleCpu.length === 0) {
+        eligibleCpu = allHorses.filter(h => {
+          const hId = String(h.horse_id);
+          if (cpuUsedIds.has(hId)) return false;
+          return isValidSex(h.sex || "牡馬", raceSexLimit) && 
+                 isValidSurface(h, race.surface) && 
+                 isValidDistance(h, race.distance);
+        });
       }
 
       const chosenCpu = eligibleCpu.length > 0 
@@ -659,39 +719,67 @@
         : { horse_id: "0000" };
 
       const cpuId = String(chosenCpu.horse_id);
+      const cpuPt = getHorsePotential(chosenCpu, race.surface);
+      remainingCpuPtBudget -= cpuPt;
 
       cpuEntries.push({
         horse_id: cpuId,
-        strategy: "先行",
+        strategy: getHorseLegStyle(chosenCpu) || "先行",
         strategy_level: Math.floor(Math.random() * 3) + 2
       });
 
-      const excludeIds = new Set([...deckHorseIds, cpuId]);
+      // モブ馬（14頭）の抽出
+      const raceUsedIds = new Set([...playerChosenIds, cpuId]);
 
-      let pool = allHorses.filter(h => {
-        const hId = String(h.horse_id);
-        if (excludeIds.has(hId)) return false;
-        const pt = getHorsePotential(h, race.surface);
-        const sexOk = isValidSex(h.sex || "牡馬", raceSexLimit);
-        const surfaceOk = isValidSurface(h, race.surface);
-        return pt >= minPt && pt <= maxPt && sexOk && surfaceOk;
-      });
+      let mobPool = allHorses.filter(h => 
+        isEligibleHorse(h, race, raceSexLimit, defaultMinPt, defaultMaxPt, raceUsedIds, true)
+      );
 
-      if (pool.length < 14) {
-        const fallbackPool = allHorses.filter(h => !excludeIds.has(String(h.horse_id)) && isValidSex(h.sex || "牡馬", raceSexLimit) && isValidSurface(h, race.surface));
-        pool = pool.concat(fallbackPool.filter(h => !pool.includes(h)));
+      if (mobPool.length < 14) {
+        const fallbackPool = allHorses.filter(h => 
+          isEligibleHorse(h, race, raceSexLimit, defaultMinPt, defaultMaxPt, raceUsedIds, false)
+        );
+        fallbackPool.forEach(h => {
+          if (!mobPool.some(m => String(m.horse_id) === String(h.horse_id))) {
+            mobPool.push(h);
+          }
+        });
       }
 
-      pool.sort(() => Math.random() - 0.5);
-      const selectedMobs = pool.slice(0, 14).map(h => String(h.horse_id).padStart(4, '0'));
+      if (mobPool.length < 14) {
+        const relaxPool = allHorses.filter(h => {
+          const hId = String(h.horse_id);
+          if (raceUsedIds.has(hId)) return false;
+          return isValidSex(h.sex || "牡馬", raceSexLimit) && isValidSurface(h, race.surface);
+        });
+        relaxPool.forEach(h => {
+          if (!mobPool.some(m => String(m.horse_id) === String(h.horse_id))) {
+            mobPool.push(h);
+          }
+        });
+      }
+
+      mobPool.sort(() => Math.random() - 0.5);
       
-      while (selectedMobs.length < 14) selectedMobs.push("0000");
+      const selectedMobs = [];
+      for (const mob of mobPool) {
+        if (selectedMobs.length >= 14) break;
+        const mId = String(mob.horse_id).padStart(4, '0');
+        if (!selectedMobs.includes(mId)) {
+          selectedMobs.push(mId);
+        }
+      }
+
+      while (selectedMobs.length < 14) {
+        selectedMobs.push("0000");
+      }
 
       racesMobIds[rIdx] = selectedMobs;
     });
 
     return { cpuEntries, racesMobIds };
   }
+
 
   window.startMatch = async function() {
     if (!currentUser) return;
