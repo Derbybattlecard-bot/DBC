@@ -787,7 +787,8 @@ async function startRace() {
     setPhasePositions(p3Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
   }, 8300); 
 
-  setTimeout(() => {
+  finalPositions[horseIdx] = posVal;
+       setTimeout(() => {
     const wipe = document.getElementById('wipe-overlay');
     wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
     wipe.style.left = "0";
@@ -827,6 +828,51 @@ async function startRace() {
         
         calculatedResults.forEach((item, rank) => {
           let posVal = 90 - (rank * 4.5);
+          let horseIdx = (typeof item.index === 'number') ? item.index : rank;
+           });
+        
+        setPhasePositions(finalPositions, 10.0, "linear", currentTrackConfig.phase4_dir); 
+ 
+    setTimeout(() => {
+    const wipe = document.getElementById('wipe-overlay');
+    wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
+    wipe.style.left = "0";
+    
+    setTimeout(() => {
+      const gl = document.getElementById('goal-line');
+      const gf = document.getElementById('goal-flag');
+      gl.style.display = "block";
+      gf.style.display = "block";
+      
+      // ゴールラインを画面の左端付近に配置
+      if (currentTrackConfig.goal_position === "right") {
+        gl.style.left = "calc(100% - 20px)";
+        gf.style.left = "calc(100% - 10px)";
+      } else {
+        gl.style.left = "8px";
+        gf.style.left = "2px";
+      }
+      
+      setHorseDirection(currentTrackConfig.phase4_dir);
+
+      // 【修正】直線向いた時のスタート位置：右側の赤い枠あたり（位置90〜95付近）に全馬を配置
+      let p4StartPos = new Array(activeHorses.length);
+      calculatedResults.forEach((item, rank) => {
+        let horseIdx = (typeof item.index === 'number') ? item.index : rank;
+        // 1着が一番前（ゴール側＝左側に向かうため値は小さめ）、後方ほど右側からスタートするようにバラす
+        p4StartPos[horseIdx] = Math.max(70, Math.min(95, 90 - (rank * 1.5)));
+      });
+      setPhasePositions(p4StartPos, 0, "linear", currentTrackConfig.phase4_dir);
+    }, 800);
+
+    setTimeout(() => {
+      wipe.style.left = "100%"; 
+      setTimeout(() => {
+        let finalPositions = new Array(activeHorses.length);
+        
+        // 【修正】ゴール時の位置：1着はゴール手前の左側（位置15付近）、着順に応じて大きくダイナミックに移動させる
+        calculatedResults.forEach((item, rank) => {
+          let posVal = Math.max(10, Math.min(85, 85 - (rank * 5.0)));
           let horseIdx = (typeof item.index === 'number') ? item.index : rank;
           finalPositions[horseIdx] = posVal;
         });
@@ -868,7 +914,7 @@ async function startRace() {
       }, 100);
     }, 1500);
   }, 12600); 
-}
+
 
 function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear", moveDir = "left_to_right") {
   const trackContainer = document.getElementById('track-container');
