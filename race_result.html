@@ -507,12 +507,19 @@ function setupRace(rIdx) {
   }
   currentTrackConfig = TRACK_DIRECTION_MASTER[turnDir] || TRACK_DIRECTION_MASTER["右回り"];
   
-    activeHorses.forEach((h, i) => {
+      activeHorses.forEach((h, i) => {
     h.index = i;
     const lvl = h.level || 3;
     h.tactic_level = lvl;
-    let matchedStrat = h.stratObj;
+
+    // 作戦マスターから該当する作戦データを検索
+    let matchedStrat = null;
+    if (strategyMasterData && h.tactic) {
+      matchedStrat = strategyMasterData.find(s => s.name === h.tactic || s.tactic === h.tactic);
+    }
+
     if (matchedStrat) {
+      h.stratObj = matchedStrat;
       Object.keys(matchedStrat).forEach(key => {
         if (typeof matchedStrat[key] === 'number') {
           h[`strat_${key}`] = matchedStrat[key]; 
@@ -521,7 +528,7 @@ function setupRace(rIdx) {
     }
 
     h.strat_potential = lvl * 2;
-    h.strat_name = matchedStrat ? matchedStrat.name : "通常";
+    h.strat_name = matchedStrat ? matchedStrat.name : (h.tactic || "通常");
 
     const master = HORSES_MASTER[h.horse_id] || {};
     if (master.ability) {
@@ -530,6 +537,7 @@ function setupRace(rIdx) {
 
     ensureStats(h);
   });
+
 
 
   const playerObj = activeHorses.find(h => h.isPlayer) || { name: "自馬", tactic: "先行", level: 3 };
