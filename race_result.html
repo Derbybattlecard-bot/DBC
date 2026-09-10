@@ -468,6 +468,17 @@ function ensureStats(h) {
   h.style = h.style || master.style || master.running_style || "自在";
 }
 
+function getPosPointsMap(scoredList, defaultPos, spread) {
+  let positions = new Array(activeHorses.length);
+  scoredList.forEach((item, rank) => {
+    let horseIdx = (typeof item.index === 'number') ? item.index : rank;
+    // 順位に応じて位置（0〜100の割合）を算出
+    positions[horseIdx] = Math.max(5, Math.min(95, defaultPos - (rank * (spread / scoredList.length))));
+  });
+  return positions;
+}
+
+  
 function setupRace(rIdx) {
   if (!raceMasterData || !seriesMasterData) return;
   raceState = 'ready';
