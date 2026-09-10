@@ -842,10 +842,26 @@ async function startRace() {
         
         setPhasePositions(finalPositions, 10.0, "linear", currentTrackConfig.phase4_dir); 
         
-        setTimeout(() => {
+                setTimeout(() => {
           updateLog(`<strong>【最後の直線】</strong> このレースは『${currentRaceBranch}』！ 激しい叩き合いだ！`);
           showTelop(`【展開】 ${currentRaceBranch}`, 3500);
+
+          // ★追加: 「名脇役」「ジェントルマン」の直線ポップアップ表示処理
+          const swapTriggerHorses = calculatedResults.filter(
+            h => (h.isPlayer || h.isCpu) && h.rank_swap_trigger
+          );
+          if (swapTriggerHorses.length > 0) {
+            swapTriggerHorses.forEach(h => {
+              abilityQueue.push({
+                horse: h,
+                abilityName: h.rank_swap_trigger,
+                popupMessage: `${h.rank_swap_trigger}発動！着順浮上！`
+              });
+            });
+            processAbilityQueue();
+          }
         }, 1500);
+
         
         setTimeout(() => {
           updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>${comm.finish}</b></span>`);
