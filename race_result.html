@@ -798,35 +798,173 @@ async function startRace() {
       
       if (currentTrackConfig.goal_position === "right") {
         gl.style.left = "calc(100% - 20px)";
+async function startRace() {
+  if (raceState !== 'ready') return;
+  raceState = 'running';
+
+  abilityQueue = [];
+  isShowingAbility = false;
+
+  const btn = document.getElementById('nextBtn');
+  btn.disabled = true;
+  btn.innerText = "🏃 レース進行中...";
+
+  const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, currentRaceInfo, abilityMasterData);
+
+  calculatedResults = raceResultData.results;
+  currentRacePace = raceResultData.pace;
+  currentRaceBranch = raceResultData.branch.name;
+
+  const comm = raceResultData.commentary;
+
+  if (raceResultData.branch.formula) {
+    currentRaceFormulaStr = raceResultData.branch.formula;
+  } else if (raceResultData.branch.key_stats) {
+    currentRaceFormulaStr = raceResultData.branch.key_stats.map(k => {
+      const nameMap = {
+        potential: "ポテンシャル", current_potential: "ポテンシャル",
+        speed: "スピード", stamina: "スタミナ", sharp: "瞬発", jizoku: "持続", guts: "根性", power: "パワー"
+      };
+      return nameMap[k] || k;
+    }).join(" ＋ ");
+  } else {
+    currentRaceFormulaStr = "標準評価算定";
+  }
+
+  if (raceResultData.branch.position_bonus_type === "direct_asc") {
+    currentRaceFormulaStr += " ＋ 位置ボーナス(後方有利)";
+  } else if (raceResultData.branch.position_bonus_type === "direct_desc") {
+    currentRaceFormulaStr += " ＋ 位置ボーナス(前方有利)";
+  }
+  if (raceResultData.branch.style_bonus) {
+    currentRaceFormulaStr += " ＋ 脚質ボーナス";
+  }
+
+  recordHistory(calculatedResults);
+  const nextRaceIdx = currentRaceIndex + 1;
+
+  if (currentUser) {
+    try {
+      const status = globalUserData?.cpu_battle_status || {};
+      const currentMatch = status.current_match || {};
+      const updatedMatch = {
+        ...currentMatch,
+        current_race_index: nextRaceIdx,
+        series_history: seriesHistory
+      };
+      await setDoc(doc(db, "users", currentUser.uid), {
+        cpu_battle_status: {
+          ...status,
+          current_match: updatedMatch
+        }
+      }, { merge: true });
+    } catch (err) {
+      console.error("進捗即時保存エラー:", err);
+    }
+  }
+
+  // Phase 1: スタート
+  updateLog(`<strong>【スタート】</strong> ${comm.phase1}`);
+  let p1Pos = getPosPointsMap(calculatedResults, 35, 8);
+  setPhasePositions(p1Pos, 4.0, "linear", currentTrackConfig.phase1_3_dir); 
+
+  // Phase 2: 向正面
+  setTimeout(() => {
+    const targetHorses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.activated_abilities && h.activated_abilities.length > 0);
+    
+    if (targetHorses.length > 0) {
+      let abilityLogs = [];
+      targetHorses.forEach(h => {
+        const abs = h.activated_abilities.map(a => `【${a}】`).join("");
+        const label = h.isPlayer ? '<span style="color:var(--player-color); font-weight:bold;">[YOUR]</span>' : '<span style="color:var(--cpu-color); font-weight:bold;">[CPU]</span>';
+        abilityLogs.push(`${label} ${h.name}の限定能力 ${abs} が発動！`);
+      });
+
+      updateLog(`<strong>【向正面】</strong> ${comm.phase2}<br><span style="color:var(--gold-color);">${abilityLogs.join("<br>")}</span>`);
+      queueAbilities(targetHorses);
+    } else {
+      updateLog(`<strong>【向正面】</strong> ${comm.phase2}`);
+    }
+    
+    let p2Pos = getPosPointsMap(calculatedResults, 65, 20);
+    setPhasePositions(p2Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
+  }, 4000); 
+
+  // Phase 3: 3〜4コーナー
+  setTimeout(() => {
+    updateLog(`<strong>【3コーナー〜展開】</strong> ${comm.phase3}`);
+    showTelop(`【ペース】 ${currentRacePace}`, 3000);
+    
+    let p3Pos = getPosPointsMap(calculatedResults, 88, 35);
+    setPhasePositions(p3Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
+  }, 8300); 
+
+  // Phase 4: 最後の直線・ワイプ切り替え〜ゴール
+  setTimeout(() => {
+    const wipe = document.getElementById('wipe-overlay');
+    wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
+    wipe.style.left = "0";
+    
+    setTimeout(() => {
+      const gl = document.getElementById('goal-line');
+      const gf = document.getElementById('goal-flag');
+      gl.style.display = "block";
+      gf.style.display = "block";
+      
+      // ゴールライン・フラグの配置（左回りなら右端、右回りなら左端付近）
+      const isLeftTurn = (currentTrackConfig.goal_position === "right");
+      if (isLeftTurn) {
+        gl.style.left = "calc(100% - 20px)";
         gf.style.left = "calc(100% - 35px)";
       } else {
         gl.style.left = "8px";
         gf.style.left = "2px";
       }
       
-      let straightDir = (currentTrackConfig.goal_position === "right") ? "right_to_left" : currentTrackConfig.phase4_dir;
+      // 直線の進行方向設定（左回り：left_to_right、右回り：right_to_left）
+      let straightDir = isLeftTurn ? "left_to_right" : "right_to_left";
       setHorseDirection(straightDir);
 
+      // 【直線スタート位置設定】
+      // 位置取りポイントが高い（positionRankが1に近い）馬ほど前（25%位置）に配置
       let p4StartPos = new Array(activeHorses.length);
-      calculatedResults.forEach((item, rank) => {
-        let horseIdx = (typeof item.index === 'number') ? item.index : rank;
-        p4StartPos[horseIdx] = Math.max(70, Math.min(95, 75 + (rank * 1.5)));
+      const totalCount = activeHorses.length;
+
+      activeHorses.forEach((_, horseIdx) => {
+        const resItem = calculatedResults.find(r => (typeof r.index === 'number' ? r.index : -1) === horseIdx) || {};
+        const posRank = resItem.positionRank || (horseIdx + 1); // 位置取り順位 (1〜)
+        
+        // 先頭(1位)が25%、後続ほど左寄り（手前）へ配置
+        let posVal = 25 - ((posRank - 1) * (18 / Math.max(1, totalCount - 1)));
+        p4StartPos[horseIdx] = Math.max(5, posVal);
       });
+
       setPhasePositions(p4StartPos, 0, "linear", straightDir);
     }, 800);
 
+    // ワイプが開けて直線の叩き合いスタート
     setTimeout(() => {
       wipe.style.left = "100%"; 
       setTimeout(() => {
-        let finalPositions = new Array(activeHorses.length);
-        let straightDir = (currentTrackConfig.goal_position === "right") ? "right_to_left" : currentTrackConfig.phase4_dir;
+        const isLeftTurn = (currentTrackConfig.goal_position === "right");
+        let straightDir = isLeftTurn ? "left_to_right" : "right_to_left";
         
+        // 【ゴール時の到達位置設定】
+        // 着順1着ほど前へ移動（1着：108%で画面外へ飛び出す / 最下位：80%で右寄り20%地点まで進行）
+        let finalPositions = new Array(activeHorses.length);
+        const totalCount = calculatedResults.length;
+
         calculatedResults.forEach((item, rank) => {
-          let posVal = -5 + (rank * 12.0);
           let horseIdx = (typeof item.index === 'number') ? item.index : rank;
+          
+          let posVal = 108;
+          if (totalCount > 1) {
+            posVal = 108 - (rank * ((108 - 80) / (totalCount - 1)));
+          }
           finalPositions[horseIdx] = posVal;
         });
         
+        // 10秒かけて直線版の最終到達位置へ移動
         setPhasePositions(finalPositions, 10.0, "linear", straightDir); 
         
         setTimeout(() => {
@@ -865,6 +1003,7 @@ async function startRace() {
     }, 1500);
   }, 12600); 
 }
+
 
 function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear", moveDir = "left_to_right") {
   const trackContainer = document.getElementById('track-container');
