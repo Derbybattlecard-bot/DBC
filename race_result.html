@@ -510,7 +510,7 @@ function setupRace(rIdx) {
 
   let trackName = currentRaceInfo.track || "中山";
 
- let turnDir = VENUE_DIRECTION_MASTER[trackName] || "右回り";
+  let turnDir = VENUE_DIRECTION_MASTER[trackName] || "右回り";
   if (currentRaceInfo.distance === 1000 && trackName === "新潟") {
     turnDir = "直線"; 
   }
@@ -807,14 +807,23 @@ async function startRace() {
         gf.style.left = "2px";
       }
       
-      let straightDir = (currentTrackConfig.goal_position === "right") ? "right_to_left" : currentTrackConfig.phase4_dir;
+      let straightDir = currentTrackConfig.phase4_dir;
       setHorseDirection(straightDir);
 
+      // 直線スタート時配置: 位置取り1位=進行方向25%地点, 最下位=0%地点
       let p4StartPos = new Array(activeHorses.length);
-      calculatedResults.forEach((item, rank) => {
-        let horseIdx = (typeof item.index === 'number') ? item.index : rank;
-        p4StartPos[horseIdx] = Math.max(70, Math.min(95, 75 + (rank * 1.5)));
+      const totalHorses = calculatedResults.length;
+      
+      calculatedResults.forEach((item, index) => {
+        let horseIdx = (typeof item.index === 'number') ? item.index : index;
+        let posRank = item.positionRank || (index + 1);
+        let startPosVal = 25;
+        if (totalHorses > 1) {
+          startPosVal = 25 - ((posRank - 1) * (25 / (totalHorses - 1)));
+        }
+        p4StartPos[horseIdx] = startPosVal;
       });
+
       setPhasePositions(p4StartPos, 0, "linear", straightDir);
     }, 800);
 
@@ -822,12 +831,17 @@ async function startRace() {
       wipe.style.left = "100%"; 
       setTimeout(() => {
         let finalPositions = new Array(activeHorses.length);
-        let straightDir = (currentTrackConfig.goal_position === "right") ? "right_to_left" : currentTrackConfig.phase4_dir;
+        let straightDir = currentTrackConfig.phase4_dir;
         
+        // ゴール到着時配置: 着順 1着=進行方向108%地点, 最下位=進行方向80%地点
+        const totalHorses = calculatedResults.length;
         calculatedResults.forEach((item, rank) => {
-          let posVal = -5 + (rank * 12.0);
+          let endPosVal = 108;
+          if (totalHorses > 1) {
+            endPosVal = 108 - (rank * (28 / (totalHorses - 1)));
+          }
           let horseIdx = (typeof item.index === 'number') ? item.index : rank;
-          finalPositions[horseIdx] = posVal;
+          finalPositions[horseIdx] = endPosVal;
         });
         
         setPhasePositions(finalPositions, 10.0, "linear", straightDir); 
@@ -879,6 +893,7 @@ function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear",
     if (el) {
       let validPos = (typeof pos === 'number' && !isNaN(pos)) ? pos : 0;
       el.style.transition = `left ${durationSec}s ${timing}`;
+      // moveDir が right_to_left の場合は画面右側を基準 (100 - validPos) に反転
       let actualPos = (moveDir === "right_to_left") ? (100 - validPos) : validPos;
       el.style.left = (10 + (trackWidth * (actualPos / 100))) + "px";
     }
