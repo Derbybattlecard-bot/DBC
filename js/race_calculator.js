@@ -534,14 +534,18 @@ function applyRankSwapAbilities(resultList) {
       resultList[targetIdx] = resultList[currentIdx];
       resultList[currentIdx] = temp;
 
-      if (!horse.activated_abilities) horse.activated_abilities = [];
+            if (!horse.activated_abilities) horse.activated_abilities = [];
       const activeName = hasNameWakiyaku ? "名脇役" : "ジェントルマン";
       if (!horse.activated_abilities.includes(activeName)) {
         horse.activated_abilities.push(activeName);
       }
+
+      // ★追加: 直線でのポップアップ発動用フラグを保持
+      horse.rank_swap_trigger = activeName;
     }
   });
 }
+
 
 // ============================================================================
 // メイン処理エクスポート関数: runRaceLogic
