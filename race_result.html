@@ -620,24 +620,90 @@ function setHorseDirection(direction) {
   });
 }
 
-function getPosPointsMap(horses, leadPos, trailPos) {
-  const positions = new Array(horses.length);
-  const sorted = [...horses].sort((a, b) => (b.positionPoint || 0) - (a.positionPoint || 0));
-  const maxPt = sorted[0]?.positionPoint ?? 1;
-  const minPt = sorted[sorted.length - 1]?.positionPoint ?? 0;
-  let range = maxPt - minPt;
-  if (range <= 0) range = 1;
+// 最後の直線のフェーズ部分のタイマー処理内
+setTimeout(() => {
+  const wipe = document.getElementById('wipe-overlay');
+  wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
+  wipe.style.left = "0";
+  
+  setTimeout(() => {
+    const gl = document.getElementById('goal-line');
+    const gf = document.getElementById('goal-flag');
+    gl.style.display = "block";
+    gf.style.display = "block";
+    
+    // 黄色いゴールラインを現在の位置より外側（右端の外）に配置
+    if (currentTrackConfig.goal_position === "right") {
+      gl.style.left = "calc(100% + 20px)";
+      gf.style.left = "calc(100% + 40px)";
+    } else {
+      gl.style.left = "-20px";
+      gf.style.left = "-40px";
+    }
+    
+    setHorseDirection(currentTrackConfig.phase4_dir);
 
-  sorted.forEach((h, idx) => {
-    const pt = h.positionPoint ?? 0;
-    const ratio = (pt - minPt) / range;
-    const calculatedX = trailPos + ratio * (leadPos - trailPos);
-    const horseIdx = (typeof h.index === 'number') ? h.index : idx;
-    positions[horseIdx] = calculatedX;
-  });
+    // 直線開始時の初期位置（バラツキを持たせる）
+    let p4StartPos = new Array(activeHorses.length);
+    calculatedResults.forEach((h) => {
+      let horseIdx = (typeof h.index === 'number') ? h.index : 0;
+      p4StartPos[horseIdx] = 10 + Math.random() * 15;
+    });
+    setPhasePositions(p4StartPos, 0, "linear", currentTrackConfig.phase4_dir);
+  }, 800);
 
-  return positions;
-}
+  setTimeout(() => {
+    wipe.style.left = "100%"; 
+    setTimeout(() => {
+      let finalPositions = new Array(activeHorses.length);
+      
+      // 3着馬がゴールライン（100%付近）に達し、1着はさらにその先へ抜けるような位置計算
+      calculatedResults.forEach((item, rank) => {
+        // 1着は115%、3着は100%、それ以降は順位に応じて手前に配置
+        let posVal = 115 - (rank * 5); 
+        let horseIdx = (typeof item.index === 'number') ? item.index : rank;
+        finalPositions[horseIdx] = posVal;
+      });
+      
+      // 3着馬がゴールするまでしっかり動き続けるよう時間を長めに確保 (例: 8.0秒〜10.0秒)
+      setPhasePositions(finalPositions, 9.0, "linear", currentTrackConfig.phase4_dir); 
+      
+      setTimeout(() => {
+        updateLog(`<strong>【最後の直線】</strong> このレースは『${currentRaceBranch}』！ 激しい叩き合いだ！`);
+        showTelop(`【展開】 ${currentRaceBranch}`, 3500);
+
+        const swapTriggerHorses = calculatedResults.filter(
+          h => (h.isPlayer || h.isCpu) && h.rank_swap_trigger
+        );
+        if (swapTriggerHorses.length > 0) {
+          swapTriggerHorses.forEach(h => {
+            abilityQueue.push({
+              horse: h,
+              abilityName: h.rank_swap_trigger,
+              popupMessage: `${h.rank_swap_trigger}発動！着順浮上！`
+            });
+          });
+          processAbilityQueue();
+        }
+      }, 1500);
+
+      setTimeout(() => {
+        updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>${comm.finish}</b></span>`);
+      }, 7500); 
+      
+      setTimeout(() => {
+        hideTelop();
+        renderResults(calculatedResults);
+        
+        raceState = 'finished';
+        const btn = document.getElementById('nextBtn');
+        btn.disabled = false; 
+        btn.innerText = (currentRaceIndex < 4) ? "➡️ 次のレースへ進む" : "🏆 5レース終了：総合リザルトを見る";
+      }, 9500); 
+    }, 100);
+  }, 12600);
+}, 12600);
+
 
 window.handleButtonClick = function() {
   if (raceState === 'ready') startRace();
