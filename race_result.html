@@ -468,30 +468,6 @@ function ensureStats(h) {
   h.style = h.style || master.style || master.running_style || "自在";
 }
 
-// 【重要修正】計算結果の馬インデックスが欠落し、0地点として計算されるバグを防ぐ関数
-function getHorseIndex(item) {
-  if (typeof item.index === 'number' && item.index >= 0 && item.index < activeHorses.length) {
-    if (activeHorses[item.index].horse_id === item.horse_id) {
-      return item.index;
-    }
-  }
-  let found = activeHorses.findIndex(h => h.horse_id === item.horse_id);
-  if (found !== -1) return found;
-  found = activeHorses.findIndex(h => h.name === item.name);
-  if (found !== -1) return found;
-  return typeof item.index === 'number' ? item.index : 0;
-}
-
-// 【修正】すべての馬に確実に初期値が行き渡るよう配列を初期化
-function getPosPointsMap(scoredList, defaultPos, spread) {
-  let positions = new Array(activeHorses.length).fill(defaultPos);
-  scoredList.forEach((item, rank) => {
-    let horseIdx = getHorseIndex(item);
-    positions[horseIdx] = Math.max(5, Math.min(95, defaultPos - (rank * (spread / scoredList.length))));
-  });
-  return positions;
-}
-  
 function setupRace(rIdx) {
   if (!raceMasterData || !seriesMasterData) return;
   raceState = 'ready';
@@ -508,7 +484,7 @@ function setupRace(rIdx) {
   const status = globalUserData?.cpu_battle_status || {};
   let seriesIdStr = status.selected_series_id || (status.series_lineup ? status.series_lineup[(status.current_round || 1) - 1] : null);
   
-let seriesInfo = seriesMasterData.find(s => s.series_id === seriesIdStr) || seriesMasterData[0];
+  let seriesInfo = seriesMasterData.find(s => s.series_id === seriesIdStr) || seriesMasterData[0];
   let roundInfo = (seriesInfo && seriesInfo.rounds && seriesInfo.rounds[0]) ? seriesInfo.rounds[0] : null;
   currentRaceInfo = (roundInfo && roundInfo.races && roundInfo.races[rIdx]) 
     ? roundInfo.races[rIdx] 
@@ -536,6 +512,7 @@ let seriesInfo = seriesMasterData.find(s => s.series_id === seriesIdStr) || seri
     const lvl = h.level || 3;
     h.tactic_level = lvl;
 
+    // 作戦マスターから該当する作戦データを検索
     let matchedStrat = null;
     if (strategyMasterData && h.tactic) {
       matchedStrat = strategyMasterData.find(s => s.name === h.tactic || s.tactic === h.tactic);
@@ -606,24 +583,25 @@ function getKana3(name) {
 
 function renderLanes() {
   const lanes = document.getElementById('lanes');
-  lanes.innerHTML = "";
-
+  
   const isRightToLeft = (currentTrackConfig.phase1_3_dir === "right_to_left");
   const trackContainer = document.getElementById('track-container');
   const trackWidth = trackContainer ? (trackContainer.clientWidth - 70) : 500;
   
   const initialLeftPx = isRightToLeft ? (10 + trackWidth) : 10;
 
+  let htmlBuffer = "";
   activeHorses.forEach((h, i) => {
     let nameClass = h.isPlayer ? "p1-name" : (h.isCpu ? "p2-name" : "");
     const gateNum = h.gate_number || (i + 1);
-    lanes.innerHTML += `
+    htmlBuffer += `
       <div class="horse-lane">
         <div class="horse-icon" id="horse-icon-${i}" style="left: ${initialLeftPx}px;">
           <span class="horse-emoji" id="emoji-${i}">🏇</span><span class="${nameClass}">${gateNum}.${getKana3(h.name)}</span>
         </div>
       </div>`;
   });
+  lanes.innerHTML = htmlBuffer;
 
   setHorseDirection(currentTrackConfig.phase1_3_dir);
 }
@@ -641,6 +619,25 @@ function setHorseDirection(direction) {
   });
 }
 
+function getPosPointsMap(horses, leadPos, trailPos) {
+  const positions = new Array(horses.length);
+  const sorted = [...horses].sort((a, b) => (b.positionPoint || 0) - (a.positionPoint || 0));
+  const maxPt = sorted[0]?.positionPoint ?? 1;
+  const minPt = sorted[sorted.length - 1]?.positionPoint ?? 0;
+  let range = maxPt - minPt;
+  if (range <= 0) range = 1;
+
+  sorted.forEach((h, idx) => {
+    const pt = h.positionPoint ?? 0;
+    const ratio = (pt - minPt) / range;
+    const calculatedX = trailPos + ratio * (leadPos - trailPos);
+    const horseIdx = (typeof h.index === 'number') ? h.index : idx;
+    positions[horseIdx] = calculatedX;
+  });
+
+  return positions;
+}
+
 window.handleButtonClick = function() {
   if (raceState === 'ready') startRace();
   else if (raceState === 'finished') {
@@ -650,6 +647,7 @@ window.handleButtonClick = function() {
   }
 };
 
+// アビリティポップアップ再生キュー
 let abilityQueue = [];
 let isShowingAbility = false;
 
@@ -701,6 +699,7 @@ function queueAbilities(targetHorses) {
   processAbilityQueue();
 }
 
+// ---------- レース実行メインロジック ----------
 async function startRace() {
   if (raceState !== 'ready') return;
   raceState = 'running';
@@ -766,12 +765,11 @@ async function startRace() {
     }
   }
 
-  // Phase 1: スタート
   updateLog(`<strong>【スタート】</strong> ${comm.phase1}`);
+  
   let p1Pos = getPosPointsMap(calculatedResults, 35, 8);
   setPhasePositions(p1Pos, 4.0, "linear", currentTrackConfig.phase1_3_dir); 
 
-  // Phase 2: 向正面
   setTimeout(() => {
     const targetHorses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.activated_abilities && h.activated_abilities.length > 0);
     
@@ -793,7 +791,6 @@ async function startRace() {
     setPhasePositions(p2Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
   }, 4000); 
 
-  // Phase 3: 3〜4コーナー
   setTimeout(() => {
     updateLog(`<strong>【3コーナー〜展開】</strong> ${comm.phase3}`);
     showTelop(`【ペース】 ${currentRacePace}`, 3000);
@@ -802,7 +799,6 @@ async function startRace() {
     setPhasePositions(p3Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
   }, 8300); 
 
-  // Phase 4: 最後の直線・ゴール
   setTimeout(() => {
     const wipe = document.getElementById('wipe-overlay');
     wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
@@ -815,56 +811,41 @@ async function startRace() {
       gf.style.display = "block";
       
       if (currentTrackConfig.goal_position === "right") {
-        gl.style.left = "calc(100% - 20px)";
-        gf.style.left = "calc(100% - 35px)";
+        gl.style.left = "calc(100% - 60px)";
+        gf.style.left = "calc(100% - 40px)";
       } else {
-        gl.style.left = "8px";
-        gf.style.left = "2px";
+        gl.style.left = "40px";
+        gf.style.left = "20px";
       }
       
-      let straightDir = currentTrackConfig.phase4_dir;
-      setHorseDirection(straightDir);
+      setHorseDirection(currentTrackConfig.phase4_dir);
 
-      // 【修正】配列初期化時にデフォルト値を敷き詰めて欠落を防止
-      let p4StartPos = new Array(activeHorses.length).fill(25);
-      const totalHorses = calculatedResults.length;
-      
-      calculatedResults.forEach((item, index) => {
-        let horseIdx = getHorseIndex(item);
-        let posRank = item.positionRank || (index + 1);
-        let startPosVal = 25;
-        if (totalHorses > 1) {
-          startPosVal = 25 - ((posRank - 1) * (25 / (totalHorses - 1)));
-        }
-        p4StartPos[horseIdx] = startPosVal;
+      let p4StartPos = new Array(activeHorses.length);
+      calculatedResults.forEach((h) => {
+        let horseIdx = (typeof h.index === 'number') ? h.index : 0;
+        p4StartPos[horseIdx] = 10 + Math.random() * 15;
       });
-
-      setPhasePositions(p4StartPos, 0, "linear", straightDir);
+      setPhasePositions(p4StartPos, 0, "linear", currentTrackConfig.phase4_dir);
     }, 800);
 
     setTimeout(() => {
       wipe.style.left = "100%"; 
       setTimeout(() => {
-        // 【修正】配列初期化時にデフォルト値を敷き詰めて欠落を防止
-        let finalPositions = new Array(activeHorses.length).fill(80);
-        let straightDir = currentTrackConfig.phase4_dir;
+        let finalPositions = new Array(activeHorses.length);
         
-        const totalHorses = calculatedResults.length;
         calculatedResults.forEach((item, rank) => {
-          let endPosVal = 108;
-          if (totalHorses > 1) {
-            endPosVal = 108 - (rank * (28 / (totalHorses - 1)));
-          }
-          let horseIdx = getHorseIndex(item);
-          finalPositions[horseIdx] = endPosVal;
+          let posVal = 90 - (rank * 4.5);
+          let horseIdx = (typeof item.index === 'number') ? item.index : rank;
+          finalPositions[horseIdx] = posVal;
         });
         
-        setPhasePositions(finalPositions, 10.0, "linear", straightDir); 
+        setPhasePositions(finalPositions, 10.0, "linear", currentTrackConfig.phase4_dir); 
         
         setTimeout(() => {
           updateLog(`<strong>【最後の直線】</strong> このレースは『${currentRaceBranch}』！ 激しい叩き合いだ！`);
           showTelop(`【展開】 ${currentRaceBranch}`, 3500);
 
+          // 直線でのアビリティポップアップ表示処理
           const swapTriggerHorses = calculatedResults.filter(
             h => (h.isPlayer || h.isCpu) && h.rank_swap_trigger
           );
@@ -908,7 +889,6 @@ function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear",
     if (el) {
       let validPos = (typeof pos === 'number' && !isNaN(pos)) ? pos : 0;
       el.style.transition = `left ${durationSec}s ${timing}`;
-      // moveDir が right_to_left の場合は画面右側を基準 (100 - validPos) に反転
       let actualPos = (moveDir === "right_to_left") ? (100 - validPos) : validPos;
       el.style.left = (10 + (trackWidth * (actualPos / 100))) + "px";
     }
