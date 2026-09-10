@@ -22,17 +22,6 @@ const JRA_MIXED_G1_RACES = [
   "有馬記念"
 ];
 
-// evalAbilityCondition 内の「男勝り」判定処理
-case "is_female_in_mixed_g1": {
-  // 1. 性別判定（"牝" が含まれているか）
-  const isFemale = horse?.sex ? String(horse.sex).includes("牝") : false;
-  if (!isFemale || !raceInfo?.race_name) return false;
-
-  // 2. 中央混合G1判定（レース名に含まれているか）
-  return JRA_MIXED_G1_RACES.some(g1Name => raceInfo.race_name.includes(g1Name));
-}
-
-
 // 海外競馬場フルリスト
 const OVERSEAS_TRACKS = [
   "沙田", "香港", "クランジ", "メイダン",
@@ -265,7 +254,10 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
 
     case "ground_yielding": return trackCondition === "稍重";
     case "ground_heavy_bad": return trackCondition === "重" || trackCondition === "不良";
-    case "is_female_in_mixed_g1": return isFemale && MIXED_G1_RACES.includes(raceInfo?.race_name);
+    case "is_female_in_mixed_g1": {
+  if (!isFemale || !raceInfo?.race_name) return false;
+  return JRA_MIXED_G1_RACES.some(g1Name => raceInfo.race_name.includes(g1Name));
+}
     case "pace_high": return racePace.includes("ハイ");
     case "pace_super_high": return racePace.includes("超ハイ");
     case "pace_chaos": return racePace.includes("乱") || racePace.includes("波乱");
