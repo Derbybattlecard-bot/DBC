@@ -732,7 +732,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     
     let detailPartsList = [];
 
-    if (selectedBranch.formula) {
+        if (selectedBranch.formula) {
       detailPartsList.push(`【能力算定】${formulaFormulaDetail} = ${statScore}pt`);
     } else if (selectedBranch.key_stats && selectedBranch.key_stats.length > 0) {
       let statDetails = [];
@@ -746,8 +746,10 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
         else if (key === 'potential' || key === 'current_potential') statNameJa = 'ポテ';
 
         if (key === 'potential' || key === 'current_potential') {
-          const displayPot = h.calc_potential ?? h.potential ?? 0;
-          statDetails.push(`${statNameJa}:${displayPot}`);
+          const potValDisplay = basePotVal * potMultiplier;
+          const stratValDisplay = stratPotBase * potMultiplier;
+          const multText = isChikaraKurabe ? "(×3)" : "";
+          statDetails.push(`${statNameJa}${multText}:${totalPot}(${potValDisplay}+${stratValDisplay})`);
         } else {
           const calcKey = `calc_${key}`;
           const horseBase = h[calcKey] ?? h[key] ?? 0;
