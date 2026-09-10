@@ -325,16 +325,18 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
   horse.activated_abilities = horse.activated_abilities || [];
 
   horse.ability.forEach(abilityName => {
-// 荒ぶる魂 仕様
+
+    // 荒ぶる魂 仕様
 if (abilityName === "荒ぶる魂") {
   horse.popup_messages = horse.popup_messages || {};
   const rand = Math.random();
   let buff = 0;
   if (rand < 0.25) {
     buff = 2;
+    horse.popup_messages["荒ぶる魂"] = "荒ぶる魂発動"; // ★成功時の表示名
   } else {
     buff = -1;
-    horse.popup_messages["荒ぶる魂"] = "荒ぶる魂不発";
+    horse.popup_messages["荒ぶる魂"] = "荒ぶる魂不発"; // ★不発時の表示名
   }
   
   applyAllStatsBuff(horse, buff);
@@ -342,15 +344,21 @@ if (abilityName === "荒ぶる魂") {
   return;
 }
 
+// ゲートバカラ (ゲートパカ) 仕様
+if (abilityName === "ゲートバカラ") {
+  horse.popup_messages = horse.popup_messages || {};
+  const gate = horse.gate_number || 0;
+  const isEven = (gate % 2 === 0);
+  const buffVal = isEven ? 1 : -1;
 
-    // ゲートバカラ (ゲートパカ) 仕様
-    if (abilityName === "ゲートバカラ") {
-      const gate = horse.gate_number || 0;
-      const buffVal = (gate % 2 === 0) ? 1 : -1;
-      applyAllStatsBuff(horse, buffVal);
-      if (!horse.activated_abilities.includes(abilityName)) horse.activated_abilities.push(abilityName);
-      return;
-    }
+  // ★ 偶数（成功・アップ）と奇数（不発/ダウン）で表示を分岐
+  horse.popup_messages["ゲートバカラ"] = isEven ? "ゲートバカラ(UP)" : "ゲートバカラ(DOWN)";
+
+  applyAllStatsBuff(horse, buffVal);
+  if (!horse.activated_abilities.includes(abilityName)) horse.activated_abilities.push(abilityName);
+  return;
+}
+
 
     const masterAbility = getAbilityMasterData(abilityName, abilityMasterData);
     if (!masterAbility || !masterAbility.effects) return;
