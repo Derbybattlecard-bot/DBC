@@ -468,10 +468,25 @@ function ensureStats(h) {
   h.style = h.style || master.style || master.running_style || "自在";
 }
 
+// 【重要修正】計算結果の馬インデックスが欠落し、0地点として計算されるバグを防ぐ関数
+function getHorseIndex(item) {
+  if (typeof item.index === 'number' && item.index >= 0 && item.index < activeHorses.length) {
+    if (activeHorses[item.index].horse_id === item.horse_id) {
+      return item.index;
+    }
+  }
+  let found = activeHorses.findIndex(h => h.horse_id === item.horse_id);
+  if (found !== -1) return found;
+  found = activeHorses.findIndex(h => h.name === item.name);
+  if (found !== -1) return found;
+  return typeof item.index === 'number' ? item.index : 0;
+}
+
+// 【修正】すべての馬に確実に初期値が行き渡るよう配列を初期化
 function getPosPointsMap(scoredList, defaultPos, spread) {
-  let positions = new Array(activeHorses.length);
+  let positions = new Array(activeHorses.length).fill(defaultPos);
   scoredList.forEach((item, rank) => {
-    let horseIdx = (typeof item.index === 'number') ? item.index : rank;
+    let horseIdx = getHorseIndex(item);
     positions[horseIdx] = Math.max(5, Math.min(95, defaultPos - (rank * (spread / scoredList.length))));
   });
   return positions;
@@ -493,7 +508,7 @@ function setupRace(rIdx) {
   const status = globalUserData?.cpu_battle_status || {};
   let seriesIdStr = status.selected_series_id || (status.series_lineup ? status.series_lineup[(status.current_round || 1) - 1] : null);
   
-  let seriesInfo = seriesMasterData.find(s => s.series_id === seriesIdStr) || seriesMasterData[0];
+let seriesInfo = seriesMasterData.find(s => s.series_id === seriesIdStr) || seriesMasterData[0];
   let roundInfo = (seriesInfo && seriesInfo.rounds && seriesInfo.rounds[0]) ? seriesInfo.rounds[0] : null;
   currentRaceInfo = (roundInfo && roundInfo.races && roundInfo.races[rIdx]) 
     ? roundInfo.races[rIdx] 
@@ -810,12 +825,12 @@ async function startRace() {
       let straightDir = currentTrackConfig.phase4_dir;
       setHorseDirection(straightDir);
 
-      // 直線スタート時配置: 位置取り1位=進行方向25%地点, 最下位=0%地点
-      let p4StartPos = new Array(activeHorses.length);
+      // 【修正】配列初期化時にデフォルト値を敷き詰めて欠落を防止
+      let p4StartPos = new Array(activeHorses.length).fill(25);
       const totalHorses = calculatedResults.length;
       
       calculatedResults.forEach((item, index) => {
-        let horseIdx = (typeof item.index === 'number') ? item.index : index;
+        let horseIdx = getHorseIndex(item);
         let posRank = item.positionRank || (index + 1);
         let startPosVal = 25;
         if (totalHorses > 1) {
@@ -830,17 +845,17 @@ async function startRace() {
     setTimeout(() => {
       wipe.style.left = "100%"; 
       setTimeout(() => {
-        let finalPositions = new Array(activeHorses.length);
+        // 【修正】配列初期化時にデフォルト値を敷き詰めて欠落を防止
+        let finalPositions = new Array(activeHorses.length).fill(80);
         let straightDir = currentTrackConfig.phase4_dir;
         
-        // ゴール到着時配置: 着順 1着=進行方向108%地点, 最下位=進行方向80%地点
         const totalHorses = calculatedResults.length;
         calculatedResults.forEach((item, rank) => {
           let endPosVal = 108;
           if (totalHorses > 1) {
             endPosVal = 108 - (rank * (28 / (totalHorses - 1)));
           }
-          let horseIdx = (typeof item.index === 'number') ? item.index : rank;
+          let horseIdx = getHorseIndex(item);
           finalPositions[horseIdx] = endPosVal;
         });
         
