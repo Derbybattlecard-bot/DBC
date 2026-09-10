@@ -653,6 +653,17 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     const horseBasePot = h.potential || 0;
     const totalPot = (h.calc_potential ?? horseBasePot) + stratPot;
 
+        // --- 【修正箇所】「力比べ」判定時の計算倍率設定 ---
+    const isChikaraKurabe = selectedBranch.name === "力比べ" || selectedBranch.name.includes("力比べ");
+    const potMultiplier = isChikaraKurabe ? 3 : 1; // 力比べなら3倍、それ以外は1倍
+
+    const horseBasePot = h.potential || 0;
+    const basePotVal = h.calc_potential ?? horseBasePot;
+    const stratPotBase = (h.level || 1) * 2;
+
+    // ポテンシャル（×3） ＋ 作戦レベル（×3）
+    const totalPot = (basePotVal * potMultiplier) + (stratPotBase * potMultiplier);
+
     if (selectedBranch.formula) {
       let targetVal = 50;
       let targetStatName = "標準値";
@@ -670,7 +681,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       }
 
       statScore = 30 - totalPot + targetVal;
-      formulaFormulaDetail = `30 - ポテ:${totalPot}(${horseBasePot}+${stratPot}) + ${targetStatName}:${targetVal}`;
+      formulaFormulaDetail = `30 - ポテ:${totalPot}(${basePotVal * potMultiplier}+${stratPotBase * potMultiplier}) + ${targetStatName}:${targetVal}`;
     } 
     else if (selectedBranch.key_stats && selectedBranch.key_stats.length > 0) {
       selectedBranch.key_stats.forEach(key => {
@@ -690,6 +701,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       const stmStrat = h.strat_stamina || 0;
       statScore = (spdBase + spdStrat) + (stmBase + stmStrat);
     }
+
 
     const tacticStyle = h.style || h.tactic_style || h.target_style || h.tactic || "";
     
