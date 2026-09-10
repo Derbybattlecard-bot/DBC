@@ -771,25 +771,40 @@ async function startRace() {
   setPhasePositions(p1Pos, 4.0, "linear", currentTrackConfig.phase1_3_dir); 
 
   setTimeout(() => {
+    setTimeout(() => {
     const targetHorses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.activated_abilities && h.activated_abilities.length > 0);
     
     if (targetHorses.length > 0) {
       let abilityLogs = [];
       targetHorses.forEach(h => {
-        const abs = h.activated_abilities.map(a => `【${a}】`).join("");
+        // 名脇役・ジェントルマン等の入れ替え系アビリティは向正面では除外
+        const phase1to3Abilities = h.activated_abilities.filter(ab => ab !== h.rank_swap_trigger);
+        if (phase1to3Abilities.length === 0) return;
+
+        const abs = phase1to3Abilities.map(a => `【${a}】`).join("");
         const label = h.isPlayer ? '<span style="color:var(--player-color); font-weight:bold;">[YOUR]</span>' : '<span style="color:var(--cpu-color); font-weight:bold;">[CPU]</span>';
         abilityLogs.push(`${label} ${h.name}の限定能力 ${abs} が発動！`);
+
+        phase1to3Abilities.forEach(abName => {
+          const msg = (h.popup_messages && h.popup_messages[abName]) || abName;
+          abilityQueue.push({ horse: h, abilityName: abName, popupMessage: msg });
+        });
       });
 
-      updateLog(`<strong>【向正面】</strong> ${comm.phase2}<br><span style="color:var(--gold-color);">${abilityLogs.join("<br>")}</span>`);
-      queueAbilities(targetHorses);
+      if (abilityLogs.length > 0) {
+        updateLog(`<strong>【向正面】</strong> ${comm.phase2}<br><span style="color:var(--gold-color);">${abilityLogs.join("<br>")}</span>`);
+        processAbilityQueue();
+      } else {
+        updateLog(`<strong>【向正面】</strong> ${comm.phase2}`);
+      }
     } else {
       updateLog(`<strong>【向正面】</strong> ${comm.phase2}`);
     }
     
     let p2Pos = getPosPointsMap(calculatedResults, 65, 20);
     setPhasePositions(p2Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
-  }, 4000); 
+  }, 4000);
+
 
   setTimeout(() => {
     updateLog(`<strong>【3コーナー〜展開】</strong> ${comm.phase3}`);
@@ -840,12 +855,14 @@ async function startRace() {
         });
         
         setPhasePositions(finalPositions, 10.0, "linear", currentTrackConfig.phase4_dir); 
-        
+             
         setTimeout(() => {
           updateLog(`<strong>【最後の直線】</strong> このレースは『${currentRaceBranch}』！ 激しい叩き合いだ！`);
           showTelop(`【展開】 ${currentRaceBranch}`, 3500);
+        }, 1500);
 
-          // 直線でのアビリティポップアップ表示処理
+        // ゴール直前（7000ms時点）で「名脇役」ポップアップを発動
+        setTimeout(() => {
           const swapTriggerHorses = calculatedResults.filter(
             h => (h.isPlayer || h.isCpu) && h.rank_swap_trigger
           );
@@ -859,11 +876,12 @@ async function startRace() {
             });
             processAbilityQueue();
           }
-        }, 1500);
+        }, 7000); // タイミングを7000ms（ゴール前後のタイミング）に変更
 
         setTimeout(() => {
           updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>${comm.finish}</b></span>`);
         }, 7500); 
+
         
         setTimeout(() => {
           hideTelop();
