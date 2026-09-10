@@ -651,13 +651,11 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
 
     const stratPot = (h.level || 1) * 2;
     const horseBasePot = h.potential || 0;
-    const totalPot = (h.calc_potential ?? horseBasePot) + stratPot;
-
+    
         // --- 【修正箇所】「力比べ」判定時の計算倍率設定 ---
     const isChikaraKurabe = selectedBranch.name === "力比べ" || selectedBranch.name.includes("力比べ");
     const potMultiplier = isChikaraKurabe ? 3 : 1; // 力比べなら3倍、それ以外は1倍
 
-    const horseBasePot = h.potential || 0;
     const basePotVal = h.calc_potential ?? horseBasePot;
     const stratPotBase = (h.level || 1) * 2;
 
