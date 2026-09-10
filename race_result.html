@@ -507,12 +507,11 @@ function setupRace(rIdx) {
   }
   currentTrackConfig = TRACK_DIRECTION_MASTER[turnDir] || TRACK_DIRECTION_MASTER["右回り"];
   
-      activeHorses.forEach((h, i) => {
+  activeHorses.forEach((h, i) => {
     h.index = i;
     const lvl = h.level || 3;
     h.tactic_level = lvl;
 
-    // 作戦マスターから該当する作戦データを検索
     let matchedStrat = null;
     if (strategyMasterData && h.tactic) {
       matchedStrat = strategyMasterData.find(s => s.name === h.tactic || s.tactic === h.tactic);
@@ -537,8 +536,6 @@ function setupRace(rIdx) {
 
     ensureStats(h);
   });
-
-
 
   const playerObj = activeHorses.find(h => h.isPlayer) || { name: "自馬", tactic: "先行", level: 3 };
   const cpuObj = activeHorses.find(h => h.isCpu) || { name: "敵馬", tactic: "逃げ", level: 3 };
@@ -620,91 +617,6 @@ function setHorseDirection(direction) {
   });
 }
 
-// 最後の直線のフェーズ部分のタイマー処理内
-setTimeout(() => {
-  const wipe = document.getElementById('wipe-overlay');
-  wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
-  wipe.style.left = "0";
-  
-  setTimeout(() => {
-    const gl = document.getElementById('goal-line');
-    const gf = document.getElementById('goal-flag');
-    gl.style.display = "block";
-    gf.style.display = "block";
-    
-    // 黄色いゴールラインを現在の位置より外側（右端の外）に配置
-    if (currentTrackConfig.goal_position === "right") {
-      gl.style.left = "calc(100% + 20px)";
-      gf.style.left = "calc(100% + 40px)";
-    } else {
-      gl.style.left = "-20px";
-      gf.style.left = "-40px";
-    }
-    
-    setHorseDirection(currentTrackConfig.phase4_dir);
-
-    // 直線開始時の初期位置（バラツキを持たせる）
-    let p4StartPos = new Array(activeHorses.length);
-    calculatedResults.forEach((h) => {
-      let horseIdx = (typeof h.index === 'number') ? h.index : 0;
-      p4StartPos[horseIdx] = 10 + Math.random() * 15;
-    });
-    setPhasePositions(p4StartPos, 0, "linear", currentTrackConfig.phase4_dir);
-  }, 800);
-
-  setTimeout(() => {
-    wipe.style.left = "100%"; 
-    setTimeout(() => {
-      let finalPositions = new Array(activeHorses.length);
-      
-      // 3着馬がゴールライン（100%付近）に達し、1着はさらにその先へ抜けるような位置計算
-      calculatedResults.forEach((item, rank) => {
-        // 1着は115%、3着は100%、それ以降は順位に応じて手前に配置
-        let posVal = 115 - (rank * 5); 
-        let horseIdx = (typeof item.index === 'number') ? item.index : rank;
-        finalPositions[horseIdx] = posVal;
-      });
-      
-      // 3着馬がゴールするまでしっかり動き続けるよう時間を長めに確保 (例: 8.0秒〜10.0秒)
-      setPhasePositions(finalPositions, 9.0, "linear", currentTrackConfig.phase4_dir); 
-      
-      setTimeout(() => {
-        updateLog(`<strong>【最後の直線】</strong> このレースは『${currentRaceBranch}』！ 激しい叩き合いだ！`);
-        showTelop(`【展開】 ${currentRaceBranch}`, 3500);
-
-        const swapTriggerHorses = calculatedResults.filter(
-          h => (h.isPlayer || h.isCpu) && h.rank_swap_trigger
-        );
-        if (swapTriggerHorses.length > 0) {
-          swapTriggerHorses.forEach(h => {
-            abilityQueue.push({
-              horse: h,
-              abilityName: h.rank_swap_trigger,
-              popupMessage: `${h.rank_swap_trigger}発動！着順浮上！`
-            });
-          });
-          processAbilityQueue();
-        }
-      }, 1500);
-
-      setTimeout(() => {
-        updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>${comm.finish}</b></span>`);
-      }, 7500); 
-      
-      setTimeout(() => {
-        hideTelop();
-        renderResults(calculatedResults);
-        
-        raceState = 'finished';
-        const btn = document.getElementById('nextBtn');
-        btn.disabled = false; 
-        btn.innerText = (currentRaceIndex < 4) ? "➡️ 次のレースへ進む" : "🏆 5レース終了：総合リザルトを見る";
-      }, 9500); 
-    }, 100);
-  }, 12600);
-}, 12600);
-
-
 window.handleButtonClick = function() {
   if (raceState === 'ready') startRace();
   else if (raceState === 'finished') {
@@ -714,7 +626,6 @@ window.handleButtonClick = function() {
   }
 };
 
-// アビリティポップアップ再生キュー
 let abilityQueue = [];
 let isShowingAbility = false;
 
@@ -766,7 +677,6 @@ function queueAbilities(targetHorses) {
   processAbilityQueue();
 }
 
-// ---------- レース実行メインロジック ----------
 async function startRace() {
   if (raceState !== 'ready') return;
   raceState = 'running';
@@ -877,20 +787,24 @@ async function startRace() {
       gl.style.display = "block";
       gf.style.display = "block";
       
+      // 【修正】ゴールラインを画面の左端により近寄せて配置
       if (currentTrackConfig.goal_position === "right") {
-        gl.style.left = "calc(100% - 60px)";
-        gf.style.left = "calc(100% - 40px)";
+        gl.style.left = "calc(100% - 20px)";
+        gf.style.left = "calc(100% - 10px)";
       } else {
-        gl.style.left = "40px";
-        gf.style.left = "20px";
+        gl.style.left = "8px";
+        gf.style.left = "2px";
       }
       
       setHorseDirection(currentTrackConfig.phase4_dir);
 
+      // 【修正】直線向いた時（フェーズ4開始時）：先頭から順番に、後方に向かって右側に開きながら配置
       let p4StartPos = new Array(activeHorses.length);
-      calculatedResults.forEach((h) => {
-        let horseIdx = (typeof h.index === 'number') ? h.index : 0;
-        p4StartPos[horseIdx] = 10 + Math.random() * 15;
+      calculatedResults.forEach((item, rank) => {
+        let horseIdx = (typeof item.index === 'number') ? item.index : rank;
+        // 1着（rank=0）が最も左（ゴール側・値大）、後ろの順位ほど右側（値小）に配置
+        let posVal = Math.max(10, 85 - (rank * 4));
+        p4StartPos[horseIdx] = posVal;
       });
       setPhasePositions(p4StartPos, 0, "linear", currentTrackConfig.phase4_dir);
     }, 800);
@@ -908,11 +822,10 @@ async function startRace() {
         
         setPhasePositions(finalPositions, 10.0, "linear", currentTrackConfig.phase4_dir); 
         
-                setTimeout(() => {
+        setTimeout(() => {
           updateLog(`<strong>【最後の直線】</strong> このレースは『${currentRaceBranch}』！ 激しい叩き合いだ！`);
           showTelop(`【展開】 ${currentRaceBranch}`, 3500);
 
-          // ★追加: 「名脇役」「ジェントルマン」の直線ポップアップ表示処理
           const swapTriggerHorses = calculatedResults.filter(
             h => (h.isPlayer || h.isCpu) && h.rank_swap_trigger
           );
@@ -928,7 +841,6 @@ async function startRace() {
           }
         }, 1500);
 
-        
         setTimeout(() => {
           updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>${comm.finish}</b></span>`);
         }, 7500); 
