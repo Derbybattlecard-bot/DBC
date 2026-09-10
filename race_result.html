@@ -856,6 +856,80 @@ async function startRace() {
             updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>${comm.finish}</b></span>`);
           }, 7500); 
           
+          
+    setTimeout(() => {
+      const wipe = document.getElementById('wipe-overlay');
+      wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
+      wipe.style.left = "0";
+      
+      setTimeout(() => {
+        const gl = document.getElementById('goal-line');
+        const gf = document.getElementById('goal-flag');
+        gl.style.display = "block";
+        gf.style.display = "block";
+        
+        // ゴールライン・フラグの配置（右回りなら左端、左回りなら右端付近）
+        if (currentTrackConfig.goal_position === "right") {
+          gl.style.left = "calc(100% - 20px)";
+          gf.style.left = "calc(100% - 35px)";
+        } else {
+          gl.style.left = "8px";
+          gf.style.left = "2px";
+        }
+        
+        // 【直線スタート時の進行方向】
+        // 左回り(goal_position === "right")の直線は「右から左」へ向かうため phase1_3_dir と同じ向きにする
+        let straightDir = (currentTrackConfig.goal_position === "right") ? "right_to_left" : currentTrackConfig.phase4_dir;
+        setHorseDirection(straightDir);
+
+        // 【直線スタート位置】右側（数値としてのポジションは70〜95の範囲）に全馬を配置
+        let p4StartPos = new Array(activeHorses.length);
+        calculatedResults.forEach((item, rank) => {
+          let horseIdx = (typeof item.index === 'number') ? item.index : rank;
+          // 1着がゴール側（右側＝ポジション的小）、後方ほど左側（ポジション的大）からスタート
+          p4StartPos[horseIdx] = Math.max(70, Math.min(95, 75 + (rank * 1.5)));
+        });
+        setPhasePositions(p4StartPos, 0, "linear", straightDir);
+      }, 800);
+
+      setTimeout(() => {
+        wipe.style.left = "100%"; 
+        setTimeout(() => {
+          let finalPositions = new Array(activeHorses.length);
+          let straightDir = (currentTrackConfig.goal_position === "right") ? "right_to_left" : currentTrackConfig.phase4_dir;
+          
+          // 【ゴール時】1着はゴール側（ポジション-5など）へ抜け出し、着順が下がるにつれて後方に残る
+          calculatedResults.forEach((item, rank) => {
+            let posVal = -5 + (rank * 12.0);
+            let horseIdx = (typeof item.index === 'number') ? item.index : rank;
+            finalPositions[horseIdx] = posVal;
+          });
+          
+          setPhasePositions(finalPositions, 10.0, "linear", straightDir); 
+          
+          setTimeout(() => {
+            updateLog(`<strong>【最後の直線】</strong> このレースは『${currentRaceBranch}』！ 激しい叩き合いだ！`);
+            showTelop(`【展開】 ${currentRaceBranch}`, 3500);
+
+            const swapTriggerHorses = calculatedResults.filter(
+              h => (h.isPlayer || h.isCpu) && h.rank_swap_trigger
+            );
+            if (swapTriggerHorses.length > 0) {
+              swapTriggerHorses.forEach(h => {
+                abilityQueue.push({
+                  horse: h,
+                  abilityName: h.rank_swap_trigger,
+                  popupMessage: `${h.rank_swap_trigger}発動！着順浮上！`
+                });
+              });
+              processAbilityQueue();
+            }
+          }, 1500);
+
+          setTimeout(() => {
+            updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>${comm.finish}</b></span>`);
+          }, 7500); 
+          
           setTimeout(() => {
             hideTelop();
             renderResults(calculatedResults);
@@ -868,6 +942,7 @@ async function startRace() {
         }, 100);
       }, 1500);
     }, 12600); 
+
 
    
   
