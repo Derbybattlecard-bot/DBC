@@ -527,6 +527,7 @@ for (let i = 0; i < seriesHistory.length; i++) {
 // レース番号（1から始まる現在のレース数）
 const currentRaceNumber = seriesHistory.length + 1;
 
+
 // 出走馬オブジェクトへデータを注入
 activeHorses.forEach(h => {
   // 自軍（プレイヤー側）の馬へセット
@@ -535,7 +536,34 @@ activeHorses.forEach(h => {
     h.prev_ally_race_lost = prevAllyLost; // 前戦敗北フラグ（自軍）
   }
 
-// runRaceLogic 呼び出し時の raceInfo に現在のレース数を渡す
+  // 作戦マスターから該当する作戦データを検索
+  let matchedStrat = null;
+  if (strategyMasterData && h.tactic) {
+    matchedStrat = strategyMasterData.find(s => s.name === h.tactic || s.tactic === h.tactic);
+  }
+
+  if (matchedStrat) {
+    h.stratObj = matchedStrat;
+    Object.keys(matchedStrat).forEach(key => {
+      if (typeof matchedStrat[key] === 'number') {
+        h[`strat_${key}`] = matchedStrat[key]; 
+      }
+    });
+  }
+
+  const lvl = h.level || 1;
+  h.strat_potential = lvl * 2;
+  h.strat_name = matchedStrat ? matchedStrat.name : (h.tactic || "通常");
+
+  const master = HORSES_MASTER[h.horse_id] || {};
+  if (master.ability) {
+    h.ability = master.ability;
+  }
+
+  ensureStats(h);
+}); // ← ここで出走馬ループを確実に閉じる
+
+// 出走馬の準備が終わった後に raceInfo を構築（現在のレース数を含む）
 const raceInfo = {
   race_name: currentRaceInfo.race_name,
   race_number: currentRaceNumber,
@@ -544,33 +572,6 @@ const raceInfo = {
   track: currentRaceInfo.track
 };
 
-
-
-    // 作戦マスターから該当する作戦データを検索
-    let matchedStrat = null;
-    if (strategyMasterData && h.tactic) {
-      matchedStrat = strategyMasterData.find(s => s.name === h.tactic || s.tactic === h.tactic);
-    }
-
-    if (matchedStrat) {
-      h.stratObj = matchedStrat;
-      Object.keys(matchedStrat).forEach(key => {
-        if (typeof matchedStrat[key] === 'number') {
-          h[`strat_${key}`] = matchedStrat[key]; 
-        }
-      });
-    }
-
-    h.strat_potential = lvl * 2;
-    h.strat_name = matchedStrat ? matchedStrat.name : (h.tactic || "通常");
-
-    const master = HORSES_MASTER[h.horse_id] || {};
-    if (master.ability) {
-      h.ability = master.ability;
-    }
-
-    ensureStats(h);
-  });
 
   const playerObj = activeHorses.find(h => h.isPlayer) || { name: "自馬", tactic: "先行", level: 3 };
   const cpuObj = activeHorses.find(h => h.isCpu) || { name: "敵馬", tactic: "逃げ", level: 3 };
