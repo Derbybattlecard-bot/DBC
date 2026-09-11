@@ -267,9 +267,12 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
         // -------------------------------------------------------------
     // ★ 連勝街道 ＆ 青天の霹靂（自軍判定 / レース数制限対応）
     // -------------------------------------------------------------
-    // ▼ 連勝街道（3レース目以降 ＆ 自軍2連勝以上）
-    case "streak_2_or_more": {
-      const raceNum = raceInfo?.race_number || raceInfo?.race_index || 1;
+    // race_calculator.js 内
+case "streak_2_or_more": {
+  // 連勝数が2以上であれば、物理的に必ず3レース目以降となるため連勝数のみで判定
+  return (horse.ally_win_streak || 0) >= 2;
+}
+
       // 3レース目以降かつ自軍の連勝数が2以上
       return (raceNum >= 3) && ((horse.ally_win_streak || 0) >= 2);
     }
