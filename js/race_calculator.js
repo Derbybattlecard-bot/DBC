@@ -63,14 +63,14 @@ function generateRaceCommentary(raceData) {
     const cRank = cpu.positionRank;
 
     if (pRank < cRank) {
-      phase3Text += `あなたの${player.name}は絶好の手応えで${pRank}番手をキープ！追うライバル${cpu.name}は後方${cRank}番手から前を狙う！`;
+      phase3Text += `${player.name}は絶好の手応えで${pRank}番手をキープ！追う${cpu.name}は後方${cRank}番手から前を狙う！`;
     } else if (pRank > cRank) {
-      phase3Text += `ライバル${cpu.name}が${cRank}番手でレースを引っ張る！あなたの${player.name}は${pRank}番手からじっくりと機会を伺う！`;
+      phase3Text += `${cpu.name}が${cRank}番手でレースを引っ張る！${player.name}は${pRank}番手からじっくりと機会を伺う！`;
     } else {
-      phase3Text += `あなたの${player.name}とライバル${cpu.name}、${pRank}番手付近でぴたりと並んで第4コーナーを回ってきます！`;
+      phase3Text += `${player.name}と${cpu.name}、${pRank}番手付近でぴたりと並んで第4コーナーを回ってきます！`;
     }
   } else if (player) {
-    phase3Text += `あなたの${player.name}は現在${player.positionRank}番手の位置！手応え十分で直線を迎えます！`;
+    phase3Text += `${player.name}は現在${player.positionRank}番手の位置！手応え十分で直線を迎えます！`;
   }
 
   // フェーズ 4 / ゴール: 決着（1〜3着コール）
@@ -267,7 +267,7 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
       // 対戦相手が牡馬、もしくはセン馬か判定
       if (opponent) {
         const oppSex = opponent.sex;
-        if (oppSex === "牡" || oppSex === "牡馬" || oppSex === "セン" || oppSex === "セ") {
+        if (oppSex === "牡" || oppSex === "牡馬") {
           return true;
         }
       }
@@ -473,7 +473,7 @@ function applyPhase3Abilities(resultList, leadCount) {
       const secondHorse = resultList.find(h => h.positionRank === 2);
       const gap = secondHorse ? (firstHorse.positionPoint - secondHorse.positionPoint) : 20;
       if (gap >= 20) {
-        applyAllStatsBuff(firstHorse, 2);
+        applyAllStatsBuff(firstHorse, 1);
         if (!firstHorse.activated_abilities.includes(abilityName)) {
           firstHorse.activated_abilities.push(abilityName);
         }
@@ -483,7 +483,7 @@ function applyPhase3Abilities(resultList, leadCount) {
     // 1人旅 (一人旅): 単騎逃げ（逃げ1頭）の時に全てパラメータ+2
     if (abilityName === "1人旅" || abilityName === "一人旅") {
       if (leadCount === 1) {
-        applyAllStatsBuff(firstHorse, 2);
+        applyAllStatsBuff(firstHorse, 1);
         if (!firstHorse.activated_abilities.includes(abilityName)) {
           firstHorse.activated_abilities.push(abilityName);
         }
@@ -511,7 +511,7 @@ function applyPhase4Abilities(horse, pace, branchName) {
     }
 
     if (abilityName === "王道" || abilityName === "絶対王者") {
-      if (branchName.includes("波乱") || pace.includes("乱")) {
+      if (branchName.includes("波乱")) {
         extraScore += 10;
         triggered = true;
       }
@@ -561,7 +561,7 @@ function applyRankSwapAbilities(resultList) {
     if (currentRank >= 4 && currentRank <= 6) {
       targetRank = 3;
     } else if (currentRank >= 7 && currentRank <= 10) {
-      targetRank = 4;
+      targetRank =5;
     }
 
     if (targetRank && targetRank < currentRank) {
@@ -638,7 +638,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     }
 
     const horseSpeed = h.calc_speed || 0;
-    const randomVal = Math.floor(Math.random() * 6);
+    const randomVal = Math.floor(Math.random() * 1);
 
     let basePos = styleCalcPt + horseSpeed + randomVal;
     h.positionPoint = applyPhase2Abilities(h, basePos, abilityMasterData);
