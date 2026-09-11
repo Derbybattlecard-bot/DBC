@@ -257,11 +257,25 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
     // -------------------------------------------------------------
     // ★ ここから貼り付け（既存の is_female_in_mixed_g1 と差し替え・追加）
     // -------------------------------------------------------------
-    // ▼ 男勝り（牝馬かつ中央混合G1レース時）
+        // ▼ 男勝り（牝馬かつ中央混合G1レース時＋対戦相手が牡馬/セン馬）
     case "is_female_in_mixed_g1": {
       if (!isFemale || !raceInfo?.race_name) return false;
-      return JRA_MIXED_G1_RACES.some(g1Name => raceInfo.race_name.includes(g1Name));
+      const isMixedG1 = JRA_MIXED_G1_RACES.some(g1Name => raceInfo.race_name.includes(g1Name));
+      if (!isMixedG1) return false;
+
+      // 自馬以外の対戦馬（Player または CPU）を取得
+      const opponent = allHorses.find(other => (other.isPlayer || other.isCpu) && other.horse_id !== horse.horse_id);
+      
+      // 対戦相手が牡馬、もしくはセン馬か判定
+      if (opponent) {
+        const oppSex = opponent.sex;
+        if (oppSex === "牡" || oppSex === "牡馬" || oppSex === "セン" || oppSex === "セ") {
+          return true;
+        }
+      }
+      return false;
     }
+
 
     
         // -------------------------------------------------------------
