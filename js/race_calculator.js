@@ -254,10 +254,26 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
 
     case "ground_yielding": return trackCondition === "稍重";
     case "ground_heavy_bad": return trackCondition === "重" || trackCondition === "不良";
+    // -------------------------------------------------------------
+    // ★ ここから貼り付け（既存の is_female_in_mixed_g1 と差し替え・追加）
+    // -------------------------------------------------------------
+    // ▼ 男勝り（牝馬かつ中央混合G1レース時）
     case "is_female_in_mixed_g1": {
-  if (!isFemale || !raceInfo?.race_name) return false;
-  return JRA_MIXED_G1_RACES.some(g1Name => raceInfo.race_name.includes(g1Name));
-}
+      if (!isFemale || !raceInfo?.race_name) return false;
+      return JRA_MIXED_G1_RACES.some(g1Name => raceInfo.race_name.includes(g1Name));
+    }
+
+    // ▼ 連勝街道（直近2連勝以上）
+    case "streak_2_or_more": {
+      return (horse.win_streak >= 2);
+    }
+
+    // ▼ 青天の霹靂（1つ前のレースで味方/自馬が敗北）
+    case "prev_ally_race_loss": {
+      return !!horse.prev_race_lost;
+    }
+    // -------------------------------------------------------------
+
     case "pace_high": return racePace.includes("ハイ");
     case "pace_super_high": return racePace.includes("超ハイ");
     case "pace_chaos": return racePace.includes("乱") || racePace.includes("波乱");
