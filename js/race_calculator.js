@@ -263,15 +263,24 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
       return JRA_MIXED_G1_RACES.some(g1Name => raceInfo.race_name.includes(g1Name));
     }
 
-    // ▼ 連勝街道（直近2連勝以上）
+    
+        // -------------------------------------------------------------
+    // ★ 連勝街道 ＆ 青天の霹靂（自軍判定 / レース数制限対応）
+    // -------------------------------------------------------------
+    // ▼ 連勝街道（3レース目以降 ＆ 自軍2連勝以上）
     case "streak_2_or_more": {
-      return (horse.win_streak >= 2);
+      const raceNum = raceInfo?.race_number || raceInfo?.race_index || 1;
+      // 3レース目以降かつ自軍の連勝数が2以上
+      return (raceNum >= 3) && ((horse.ally_win_streak || 0) >= 2);
     }
 
-    // ▼ 青天の霹靂（1つ前のレースで味方/自馬が敗北）
+    // ▼ 青天の霹靂（2レース目以降 ＆ 直前のレースで自軍が敗北）
     case "prev_ally_race_loss": {
-      return !!horse.prev_race_lost;
+      const raceNum = raceInfo?.race_number || raceInfo?.race_index || 1;
+      // 2レース目以降かつ直前レースで自軍が敗北
+      return (raceNum >= 2) && !!horse.prev_ally_race_lost;
     }
+
     // -------------------------------------------------------------
 
     case "pace_high": return racePace.includes("ハイ");
