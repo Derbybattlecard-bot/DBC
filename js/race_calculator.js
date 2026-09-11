@@ -216,27 +216,28 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
       return gate === 15 || gate === 16;
 
     case "track_nakayama": return track === "中山";
-    case "track_tokyo": return track === "東京";
-    case "track_kyoto": return track === "京都";
-    case "track_hanshin": return track === "阪神";
-    case "track_niigata": return track === "新潟";
-    case "track_chukyo": return track === "中京";
-    case "track_kokura": return track === "小倉";
-    case "track_sapporo": return track === "札幌";
-    case "track_hakodate": return track === "函館";
-    case "track_fukushima": return track === "福島";
-    case "track_local": return ["大井","川崎","船橋","浦和","盛岡","園田","高知","笠松","門別"].includes(track);
-    case "track_fukushima_escape": return track === "福島" && isEscape;
-    case "track_fukushima_not_escape": return track === "福島" && !isEscape;
-    case "track_overseas_hongkong":
-    case "track_overseas_asia": return ["沙田", "香港", "クランジ"].includes(track);
-    case "track_overseas_dubai": return track === "メイダン";
-    case "track_overseas_europe": return ["ロンシャン", "パリロンシャン", "サンクルー", "アスコット", "ニューマーケット", "エプソム"].includes(track);
-    case "track_overseas_usa": return ["デルマー", "サンシャイン", "チャーチルダウンズ", "サンタアニタ", "ベルモントパーク", "アーリントンパーク"].includes(track);
-    case "track_overseas_all":
-    case "is_overseas": return OVERSEAS_TRACKS.includes(track);
-    case "prob_33": return OVERSEAS_TRACKS.includes(track) && Math.random() < (1 / 3);
-    case "is_local_exchange_series": return !!(raceInfo?.is_local_exchange || raceInfo?.series_type === "地方交流");
+case "track_nakayama": return track.includes("中山");
+case "track_tokyo": return track.includes("東京");
+case "track_kyoto": return track.includes("京都");
+case "track_hanshin": return track.includes("阪神");
+case "track_niigata": return track.includes("新潟");
+case "track_chukyo": return track.includes("中京");
+case "track_kokura": return track.includes("小倉");
+case "track_sapporo": return track.includes("札幌");
+case "track_hakodate": return track.includes("函館");
+case "track_fukushima": return track.includes("福島");
+case "track_local": return ["大井","川崎","船橋","浦和","盛岡","園田","高知","笠松","門別"].some(t => track.includes(t));
+case "track_fukushima_escape": return track.includes("福島") && isEscape;
+case "track_fukushima_not_escape": return track.includes("福島") && !isEscape;
+case "track_overseas_hongkong":
+case "track_overseas_asia": return ["沙田", "香港", "クランジ"].some(t => track.includes(t));
+case "track_overseas_dubai": return track.includes("メイダン");
+case "track_overseas_europe": return ["ロンシャン", "パリロンシャン", "サンクルー", "アスコット", "ニューマーケット", "エプソム"].some(t => track.includes(t));
+case "track_overseas_usa": return ["デルマー", "サンシャイン", "チャーチルダウンズ", "サンタアニタ", "ベルモントパーク", "アーリントンパーク"].some(t => track.includes(t));
+case "track_overseas_all":
+case "is_overseas": return OVERSEAS_TRACKS.some(t => track.includes(t));
+case "prob_33": return OVERSEAS_TRACKS.some(t => track.includes(t)) && Math.random() < (1 / 3);
+case "is_local_exchange_series": return !!(raceInfo?.is_local_exchange || raceInfo?.series_type?.includes("地方交流"));
 
     // 距離判定条件
     case "dist_1200":
