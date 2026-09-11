@@ -294,6 +294,7 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
     case "is_local_exchange_series": 
       return !!(raceInfo?.is_local_exchange || raceInfo?.series_type?.includes("地方交流"));
 
+    case "vs_male_domestic_g1":  
     case "is_female_in_mixed_g1": {
       if (!isFemale || !raceInfo?.race_name) return false;
       const isMixedG1 = JRA_MIXED_G1_RACES.some(g1Name => raceInfo.race_name.includes(g1Name));
