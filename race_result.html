@@ -507,10 +507,44 @@ function setupRace(rIdx) {
   }
   currentTrackConfig = TRACK_DIRECTION_MASTER[turnDir] || TRACK_DIRECTION_MASTER["右回り"];
   
-  activeHorses.forEach((h, i) => {
-    h.index = i;
-    const lvl = h.level || 3;
-    h.tactic_level = lvl;
+  // setupRace や buildRaceGridsFromFirebase 内で出走馬（activeHorses）を生成する際の設定処理
+
+let allyStreak = 0;
+let prevAllyLost = false;
+
+// 過去のシリーズ対戦履歴（seriesHistory）から自軍の連勝・敗北状況を算出
+for (let i = 0; i < seriesHistory.length; i++) {
+  // seriesHistory[i].win は自軍（味方）がそのレースで勝ったかどうか
+  if (seriesHistory[i].win) {
+    allyStreak++;
+    prevAllyLost = false;
+  } else {
+    allyStreak = 0;
+    prevAllyLost = true;
+  }
+}
+
+// レース番号（1から始まる現在のレース数）
+const currentRaceNumber = seriesHistory.length + 1;
+
+// 出走馬オブジェクトへデータを注入
+activeHorses.forEach(h => {
+  // 自軍（プレイヤー側）の馬へセット
+  if (h.isPlayer) {
+    h.ally_win_streak = allyStreak;      // 連勝数（自軍）
+    h.prev_ally_race_lost = prevAllyLost; // 前戦敗北フラグ（自軍）
+  }
+});
+
+// runRaceLogic 呼び出し時の raceInfo に現在のレース数を渡す
+const raceInfo = {
+  race_name: currentRace.name,
+  race_number: currentRaceNumber, // ★ レース回数（1, 2, 3...）を渡す
+  surface: currentRace.surface,
+  distance: currentRace.distance,
+  track: currentRace.track
+};
+
 
     // 作戦マスターから該当する作戦データを検索
     let matchedStrat = null;
