@@ -254,10 +254,8 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
 
     case "ground_yielding": return trackCondition === "稍重";
     case "ground_heavy_bad": return trackCondition === "重" || trackCondition === "不良";
-    // -------------------------------------------------------------
-    // ★ ここから貼り付け（既存の is_female_in_mixed_g1 と差し替え・追加）
-    // -------------------------------------------------------------
-        // ▼ 男勝り（牝馬かつ中央混合G1レース時＋対戦相手が牡馬/セン馬）
+
+    // 男勝り（牝馬かつ中央混合G1レース時＋対戦相手が牡馬/セン馬）
     case "is_female_in_mixed_g1": {
       if (!isFemale || !raceInfo?.race_name) return false;
       const isMixedG1 = JRA_MIXED_G1_RACES.some(g1Name => raceInfo.race_name.includes(g1Name));
@@ -276,25 +274,16 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
       return false;
     }
 
-
-    
-        // -------------------------------------------------------------
-    // ★ 連勝街道 ＆ 青天の霹靂（自軍判定 / レース数制限対応）
-    // -------------------------------------------------------------
-    // race_calculator.js 内
-case "streak_2_or_more": {
-  // 連勝数が2以上であれば、物理的に必ず3レース目以降となるため連勝数のみで判定
-  return (horse.ally_win_streak || 0) >= 2;
-}
-
-    // ▼ 青天の霹靂（2レース目以降 ＆ 直前のレースで自軍が敗北）
-    case "prev_ally_race_loss": {
-      const raceNum = raceInfo?.race_number || raceInfo?.race_index || 1;
-      // 2レース目以降かつ直前レースで自軍が敗北
-      return (raceNum >= 2) && !!horse.prev_ally_race_lost;
+    // 連勝街道
+    case "streak_2_or_more": {
+      return (horse.ally_win_streak || 0) >= 2;
     }
 
-    // -------------------------------------------------------------
+    // 青天の霹靂（2レース目以降 ＆ 直前のレースで自軍が敗北）
+    case "prev_ally_race_loss": {
+      const raceNum = raceInfo?.race_number || raceInfo?.race_index || 1;
+      return (raceNum >= 2) && !!horse.prev_ally_race_lost;
+    }
 
     case "pace_high": return racePace.includes("ハイ");
     case "pace_super_high": return racePace.includes("超ハイ");
@@ -371,38 +360,36 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
   horse.ability.forEach(abilityName => {
 
     // 荒ぶる魂 仕様
-if (abilityName === "荒ぶる魂") {
-  horse.popup_messages = horse.popup_messages || {};
-  const rand = Math.random();
-  let buff = 0;
-  if (rand < 0.25) {
-    buff = 2;
-    horse.popup_messages["荒ぶる魂"] = "荒ぶる魂発動"; // ★成功時の表示名
-  } else {
-    buff = -1;
-    horse.popup_messages["荒ぶる魂"] = "荒ぶる魂不発"; // ★不発時の表示名
-  }
-  
-  applyAllStatsBuff(horse, buff);
-  if (!horse.activated_abilities.includes(abilityName)) horse.activated_abilities.push(abilityName);
-  return;
-}
+    if (abilityName === "荒ぶる魂") {
+      horse.popup_messages = horse.popup_messages || {};
+      const rand = Math.random();
+      let buff = 0;
+      if (rand < 0.25) {
+        buff = 2;
+        horse.popup_messages["荒ぶる魂"] = "荒ぶる魂発動";
+      } else {
+        buff = -1;
+        horse.popup_messages["荒ぶる魂"] = "荒ぶる魂不発";
+      }
+      
+      applyAllStatsBuff(horse, buff);
+      if (!horse.activated_abilities.includes(abilityName)) horse.activated_abilities.push(abilityName);
+      return;
+    }
 
-// ゲートバカラ (ゲートパカ) 仕様
-if (abilityName === "ゲートバカラ") {
-  horse.popup_messages = horse.popup_messages || {};
-  const gate = horse.gate_number || 0;
-  const isEven = (gate % 2 === 0);
-  const buffVal = isEven ? 1 : -1;
+    // ゲートバカラ 仕様
+    if (abilityName === "ゲートバカラ") {
+      horse.popup_messages = horse.popup_messages || {};
+      const gate = horse.gate_number || 0;
+      const isEven = (gate % 2 === 0);
+      const buffVal = isEven ? 1 : -1;
 
-  // ★ 偶数（成功・アップ）と奇数（不発/ダウン）で表示を分岐
-  horse.popup_messages["ゲートバカラ"] = isEven ? "ゲートバカラ(UP)" : "ゲートバカラ(DOWN)";
+      horse.popup_messages["ゲートバカラ"] = isEven ? "ゲートバカラ(UP)" : "ゲートバカラ(DOWN)";
 
-  applyAllStatsBuff(horse, buffVal);
-  if (!horse.activated_abilities.includes(abilityName)) horse.activated_abilities.push(abilityName);
-  return;
-}
-
+      applyAllStatsBuff(horse, buffVal);
+      if (!horse.activated_abilities.includes(abilityName)) horse.activated_abilities.push(abilityName);
+      return;
+    }
 
     const masterAbility = getAbilityMasterData(abilityName, abilityMasterData);
     if (!masterAbility || !masterAbility.effects) return;
@@ -418,10 +405,9 @@ if (abilityName === "ゲートバカラ") {
         }
 
         if (effect.popup_name) {
-  horse.popup_messages = horse.popup_messages || {};
-  horse.popup_messages[abilityName] = effect.popup_name;
-}
-
+          horse.popup_messages = horse.popup_messages || {};
+          horse.popup_messages[abilityName] = effect.popup_name;
+        }
 
         if (!horse.activated_abilities.includes(abilityName)) {
           horse.activated_abilities.push(abilityName);
@@ -586,18 +572,16 @@ function applyRankSwapAbilities(resultList) {
       resultList[targetIdx] = resultList[currentIdx];
       resultList[currentIdx] = temp;
 
-            if (!horse.activated_abilities) horse.activated_abilities = [];
+      if (!horse.activated_abilities) horse.activated_abilities = [];
       const activeName = hasNameWakiyaku ? "名脇役" : "ジェントルマン";
       if (!horse.activated_abilities.includes(activeName)) {
         horse.activated_abilities.push(activeName);
       }
 
-      // ★追加: 直線でのポップアップ発動用フラグを保持
       horse.rank_swap_trigger = activeName;
     }
   });
 }
-
 
 // ============================================================================
 // メイン処理エクスポート関数: runRaceLogic
@@ -649,7 +633,8 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       styleCalcPt = tacticStylePt + 20;
     } else if (horseStyle.includes("追込")) {
       styleCalcPt = tacticStylePt + 10;
-    } else {styleCalcPt = tacticStylePt + 20;
+    } else {
+      styleCalcPt = tacticStylePt + 20;
     }
 
     const horseSpeed = h.calc_speed || 0;
@@ -696,9 +681,9 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     const stratPot = (h.level || 1) * 2;
     const horseBasePot = h.potential || 0;
     
-        // --- 【修正箇所】「力比べ」判定時の計算倍率設定 ---
+    // 「力比べ」判定時の計算倍率設定
     const isChikaraKurabe = selectedBranch.name === "力比べ" || selectedBranch.name.includes("力比べ");
-    const potMultiplier = isChikaraKurabe ? 3 : 1; // 力比べなら3倍、それ以外は1倍
+    const potMultiplier = isChikaraKurabe ? 3 : 1;
 
     const basePotVal = h.calc_potential ?? horseBasePot;
     const stratPotBase = (h.level || 1) * 2;
@@ -744,7 +729,6 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       statScore = (spdBase + spdStrat) + (stmBase + stmStrat);
     }
 
-
     const tacticStyle = h.style || h.tactic_style || h.target_style || h.tactic || "";
     
     if (selectedBranch.style_bonus) {
@@ -774,7 +758,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     
     let detailPartsList = [];
 
-        if (selectedBranch.formula) {
+    if (selectedBranch.formula) {
       detailPartsList.push(`【能力算定】${formulaFormulaDetail} = ${statScore}pt`);
     } else if (selectedBranch.key_stats && selectedBranch.key_stats.length > 0) {
       let statDetails = [];
@@ -849,4 +833,4 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     branch: selectedBranch,
     commentary: commentaryData
   };
-}
+ }
