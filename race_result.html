@@ -507,73 +507,63 @@ function setupRace(rIdx) {
     turnDir = "直線"; 
   }
   currentTrackConfig = TRACK_DIRECTION_MASTER[turnDir] || TRACK_DIRECTION_MASTER["右回り"];
-  
-  // setupRace や buildRaceGridsFromFirebase 内で出走馬（activeHorses）を生成する際の設定処理
 
-let allyStreak = 0;
-let prevAllyLost = false;
+  // 過去成績から自軍の連勝・前戦敗北フラグを計算
+  let allyStreak = 0;
+  let prevAllyLost = false;
 
-// 過去のシリーズ対戦履歴（seriesHistory）から自軍の連勝・敗北状況を算出
-for (let i = 0; i < seriesHistory.length; i++) {
-  // seriesHistory[i].win は自軍（味方）がそのレースで勝ったかどうか
-  if (seriesHistory[i].win) {
-    allyStreak++;
-    prevAllyLost = false;
-  } else {
-    allyStreak = 0;
-    prevAllyLost = true;
-  }
-}
-
-// レース番号（1から始まる現在のレース数）
-const currentRaceNumber = seriesHistory.length + 1;
-
-
-// 出走馬オブジェクトへデータを注入
-activeHorses.forEach(h => {
-  // 自軍（プレイヤー側）の馬へセット
-  if (h.isPlayer) {
-    h.ally_win_streak = allyStreak;      // 連勝数（自軍）
-    h.prev_ally_race_lost = prevAllyLost; // 前戦敗北フラグ（自軍）
+  for (let i = 0; i < seriesHistory.length; i++) {
+    if (seriesHistory[i].win) {
+      allyStreak++;
+      prevAllyLost = false;
+    } else {
+      allyStreak = 0;
+      prevAllyLost = true;
+    }
   }
 
-  // 作戦マスターから該当する作戦データを検索
-  let matchedStrat = null;
-  if (strategyMasterData && h.tactic) {
-    matchedStrat = strategyMasterData.find(s => s.name === h.tactic || s.tactic === h.tactic);
-  }
+  const currentRaceNumber = seriesHistory.length + 1;
 
-  if (matchedStrat) {
-    h.stratObj = matchedStrat;
-    Object.keys(matchedStrat).forEach(key => {
-      if (typeof matchedStrat[key] === 'number') {
-        h[`strat_${key}`] = matchedStrat[key]; 
-      }
-    });
-  }
+  // 出走馬パラメータ・戦略設定
+  activeHorses.forEach(h => {
+    if (h.isPlayer) {
+      h.ally_win_streak = allyStreak;
+      h.prev_ally_race_lost = prevAllyLost;
+    }
 
-  const lvl = h.level || 1;
-  h.strat_potential = lvl * 2;
-  h.strat_name = matchedStrat ? matchedStrat.name : (h.tactic || "通常");
+    let matchedStrat = null;
+    if (strategyMasterData && h.tactic) {
+      matchedStrat = strategyMasterData.find(s => s.name === h.tactic || s.tactic === h.tactic);
+    }
 
-  const master = HORSES_MASTER[h.horse_id] || {};
-  if (master.ability) {
-    h.ability = master.ability;
-  }
+    if (matchedStrat) {
+      h.stratObj = matchedStrat;
+      Object.keys(matchedStrat).forEach(key => {
+        if (typeof matchedStrat[key] === 'number') {
+          h[`strat_${key}`] = matchedStrat[key]; 
+        }
+      });
+    }
 
-  ensureStats(h);
-}); // ← ここで出走馬ループを確実に閉じる
+    const lvl = h.level || 1;
+    h.strat_potential = lvl * 2;
+    h.strat_name = matchedStrat ? matchedStrat.name : (h.tactic || "通常");
 
-// 出走馬の準備が終わった後に raceInfo を構築（現在のレース数を含む）
-raceInfo = {
-  race_name: currentRaceInfo.race_name,
-  race_number: currentRaceNumber,
-  surface: currentRaceInfo.surface,
-  distance: currentRaceInfo.distance,
-  track: currentRaceInfo.track
-};
+    const master = HORSES_MASTER[h.horse_id] || {};
+    if (master.ability) {
+      h.ability = master.ability;
+    }
 
+    ensureStats(h);
+  });
 
+  raceInfo = {
+    race_name: currentRaceInfo.race_name,
+    race_number: currentRaceNumber,
+    surface: currentRaceInfo.surface,
+    distance: currentRaceInfo.distance,
+    track: currentRaceInfo.track
+  };
 
   const playerObj = activeHorses.find(h => h.isPlayer) || { name: "自馬", tactic: "先行", level: 3 };
   const cpuObj = activeHorses.find(h => h.isCpu) || { name: "敵馬", tactic: "逃げ", level: 3 };
@@ -630,7 +620,6 @@ function renderLanes() {
   let htmlBuffer = "";
   activeHorses.forEach((h, i) => {
     let nameClass = h.isPlayer ? "p1-name" : (h.isCpu ? "p2-name" : "");
-    const gateNum = h.gate_number || (i + 1);
     htmlBuffer += `
       <div class="horse-lane">
         <div class="horse-icon" id="horse-icon-${i}" style="left: ${initialLeftPx}px;">
@@ -724,18 +713,6 @@ function processAbilityQueue() {
   }, 2000);
 }
 
-function queueAbilities(targetHorses) {
-  targetHorses.forEach(h => {
-    if (h.activated_abilities && h.activated_abilities.length > 0) {
-      h.activated_abilities.forEach(abName => {
-        const msg = (h.popup_messages && h.popup_messages[abName]) || abName;
-        abilityQueue.push({ horse: h, abilityName: abName, popupMessage: msg });
-      });
-    }
-  });
-  processAbilityQueue();
-}
-
 // ---------- レース実行メインロジック ----------
 async function startRace() {
   if (raceState !== 'ready') return;
@@ -748,8 +725,8 @@ async function startRace() {
   btn.disabled = true;
   btn.innerText = "🏃 レース進行中...";
 
-  // 変更後（currentRaceInfo を raceInfo に変更）
-const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, raceInfo, abilityMasterData);  calculatedResults = raceResultData.results;
+  const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, raceInfo, abilityMasterData);
+  calculatedResults = raceResultData.results;
   currentRacePace = raceResultData.pace;
   currentRaceBranch = raceResultData.branch.name;
 
@@ -812,7 +789,6 @@ const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition
     if (targetHorses.length > 0) {
       let abilityLogs = [];
       targetHorses.forEach(h => {
-        // 名脇役・ジェントルマン等の入れ替え系アビリティは向正面では除外
         const phase1to3Abilities = h.activated_abilities.filter(ab => ab !== h.rank_swap_trigger);
         if (phase1to3Abilities.length === 0) return;
 
@@ -839,7 +815,6 @@ const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition
     let p2Pos = getPosPointsMap(calculatedResults, 75, 40);
     setPhasePositions(p2Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
   }, 4000);
-
 
   setTimeout(() => {
     updateLog(`<strong>【3コーナー〜展開】</strong> ${comm.phase3}`);
@@ -896,7 +871,6 @@ const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition
           showTelop(`【展開】 ${currentRaceBranch}`, 3500);
         }, 1500);
 
-        // ゴール直前（7000ms時点）で「名脇役」ポップアップを発動
         setTimeout(() => {
           const swapTriggerHorses = calculatedResults.filter(
             h => (h.isPlayer || h.isCpu) && h.rank_swap_trigger
@@ -911,13 +885,12 @@ const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition
             });
             processAbilityQueue();
           }
-        }, 7000); // タイミングを7000ms（ゴール前後のタイミング）に変更
+        }, 7000);
 
         setTimeout(() => {
           updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>${comm.finish}</b></span>`);
         }, 7500); 
 
-        
         setTimeout(() => {
           hideTelop();
           renderResults(calculatedResults);
