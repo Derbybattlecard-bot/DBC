@@ -508,7 +508,6 @@ function setupRace(rIdx) {
   }
   currentTrackConfig = TRACK_DIRECTION_MASTER[turnDir] || TRACK_DIRECTION_MASTER["右回り"];
 
-  // 過去成績から自軍の連勝・前戦敗北フラグを計算
   let allyStreak = 0;
   let prevAllyLost = false;
 
@@ -524,7 +523,6 @@ function setupRace(rIdx) {
 
   const currentRaceNumber = seriesHistory.length + 1;
 
-  // 出走馬パラメータ・戦略設定
   activeHorses.forEach(h => {
     if (h.isPlayer) {
       h.ally_win_streak = allyStreak;
@@ -620,6 +618,7 @@ function renderLanes() {
   let htmlBuffer = "";
   activeHorses.forEach((h, i) => {
     let nameClass = h.isPlayer ? "p1-name" : (h.isCpu ? "p2-name" : "");
+    const gateNum = h.gate_number || (i + 1);
     htmlBuffer += `
       <div class="horse-lane">
         <div class="horse-icon" id="horse-icon-${i}" style="left: ${initialLeftPx}px;">
@@ -673,7 +672,6 @@ window.handleButtonClick = function() {
   }
 };
 
-// アビリティポップアップ再生キュー
 let abilityQueue = [];
 let isShowingAbility = false;
 
@@ -713,7 +711,18 @@ function processAbilityQueue() {
   }, 2000);
 }
 
-// ---------- レース実行メインロジック ----------
+function queueAbilities(targetHorses) {
+  targetHorses.forEach(h => {
+    if (h.activated_abilities && h.activated_abilities.length > 0) {
+      h.activated_abilities.forEach(abName => {
+        const msg = (h.popup_messages && h.popup_messages[abName]) || abName;
+        abilityQueue.push({ horse: h, abilityName: abName, popupMessage: msg });
+      });
+    }
+  });
+  processAbilityQueue();
+}
+
 async function startRace() {
   if (raceState !== 'ready') return;
   raceState = 'running';
@@ -1063,7 +1072,7 @@ window.goToNextSeries = async function() {
 
     window.location.href = 'battle.html';
 
-  } catch (err) {
+ 　} catch (err) {
     console.error("結果保存エラー:", err);
     alert("通信エラーが発生しました。");
     if (btn) {
