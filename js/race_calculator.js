@@ -273,10 +273,6 @@ case "streak_2_or_more": {
   return (horse.ally_win_streak || 0) >= 2;
 }
 
-      // 3レース目以降かつ自軍の連勝数が2以上
-      return (raceNum >= 3) && ((horse.ally_win_streak || 0) >= 2);
-    }
-
     // ▼ 青天の霹靂（2レース目以降 ＆ 直前のレースで自軍が敗北）
     case "prev_ally_race_loss": {
       const raceNum = raceInfo?.race_number || raceInfo?.race_index || 1;
