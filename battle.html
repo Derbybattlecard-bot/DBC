@@ -32,9 +32,24 @@
   .win-loss-text { color: #d32f2f; font-size: 18px; margin: 0 5px; }
 
   .challenge-panel { background-color: var(--panel-bg); border: 2px solid var(--accent-color); border-radius: 8px; padding: 15px 20px; text-align: center; position: relative; }
-  .challenge-label { font-size: 13px; font-weight: bold; color: #d9534f; margin-bottom: 4px; }
+  .challenge-label { font-size: 12px; font-weight: bold; color: #666; margin-bottom: 2px; }
   .match-type-tag { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: #d9534f; color: #fff; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-  .series-title { font-size: 18px; font-weight: bold; color: var(--accent-color); margin-bottom: 10px; margin-top: 10px; }
+  
+  /* シリーズカテゴリ強調スタイル */
+  .series-category-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #2d6a37, #1b4d23);
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 800;
+    padding: 6px 18px;
+    border-radius: 20px;
+    margin: 6px 0 4px 0;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    letter-spacing: 1px;
+    border: 1px solid #d4af37;
+  }
+  .series-title { font-size: 18px; font-weight: bold; color: var(--accent-color); margin-bottom: 10px; margin-top: 4px; }
   
   .limit-info-box { background: var(--limit-bg); border: 1px solid var(--limit-border); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; display: flex; justify-content: center; gap: 15px; font-weight: bold; color: var(--limit-text); }
   .race-list { display: flex; flex-direction: column; gap: 6px; background: #ffffff; border: 1px solid var(--border-color); border-radius: 6px; padding: 10px 12px; text-align: left; }
@@ -99,6 +114,8 @@
   <div class="challenge-panel" id="challengePanel" style="display: none;">
     <div class="match-type-tag" id="matchTypeTag">-回戦マッチ</div>
     <div class="challenge-label">＼ 今回の対戦シリーズはこちら！ ／</div>
+    <!-- シリーズカテゴリ表示部分 -->
+    <div class="series-category-badge" id="seriesCategoryBadge">カテゴリ</div>
     <div class="series-title" id="seriesTitle"></div>
     <div class="limit-info-box">
       <span>上限Pt: <strong id="maxTotalPotentialVal">-</strong></span>｜<span>下限Pt: <strong id="minPotentialVal">-</strong></span>
@@ -376,29 +393,43 @@
     const rewardBox = document.getElementById('rewardBox');
     const cardContainer = document.getElementById('rewardCardContainer');
     
+    // 最多1着回数の更新判定・保存
+    const current1stCount = status.total_1st_places || 0;
+    let newMax1st = globalUserData.max_1st_places || 0;
+    const userUpdateObj = {};
+
+    if (current1stCount > newMax1st) {
+      newMax1st = current1stCount;
+      globalUserData.max_1st_places = newMax1st;
+      userUpdateObj.max_1st_places = newMax1st;
+    }
+
     if (isClear) {
       title.textContent = "🎉 CHALLENGE CLEAR!";
       title.className = "modal-title title-clear";
-      desc.innerHTML = `おめでとうございます！${winCondition}勝を達成しました！<br>（累計1着回数: ${status.total_1st_places || 0}回）`;
+      desc.innerHTML = `おめでとうございます！${winCondition}勝を達成しました！<br>（累計1着回数: ${current1stCount}回）`;
       
       let pool = HORSES_ARRAY;
       const rewardHorse = pool[Math.floor(Math.random() * pool.length)];
 
       rewardBox.style.display = "block";
 
-    // 1. 裏側でデータ保存処理を実行
+      // 裏側でデータ保存処理を実行
       const updatedStatus = { ...status, is_active: false, current_match: null };
       globalUserData.total_wins = (globalUserData.total_wins || 0) + 1;
       globalUserData.cpu_battle_status = updatedStatus;
+
+      userUpdateObj.total_wins = increment(1);
+      userUpdateObj.cpu_battle_status = updatedStatus;
       
       Promise.all([
-        setDoc(doc(db, "users", currentUser.uid), { total_wins: increment(1), cpu_battle_status: updatedStatus }, { merge: true }),
+        setDoc(doc(db, "users", currentUser.uid), userUpdateObj, { merge: true }),
         setDoc(doc(db, `users/${currentUser.uid}/inventory/${rewardHorse.horse_id}`), { count: increment(1), obtained_at: new Date().toISOString() }, { merge: true })
       ]).catch(err => console.error("データ保存エラー:", err));
       
       updateHeaderBadges();
 
-      // 2. ログインボーナス演出（第4コーナーカットイン）を実行
+      // 演出処理
       let rendererObj = null;
       try {
         const { cardRenderer } = await import('./js/card_renderer.js');
@@ -409,14 +440,11 @@
         }
 
         const { playFourthCornerCutIn } = await import('./js/login_bonus.js');
-        
-        // 全画面演出を再生
         await playFourthCornerCutIn(rewardHorse, cardRenderer);
 
       } catch (err) {
         console.warn("カットイン演出の実行中にエラーが発生しましたが、処理を継続します:", err);
       } finally {
-        // 3. 演出終了後にモーダルへカードを描画し、モーダルを表示
         if (cardContainer) {
           if (rendererObj && rendererObj.isLoaded) {
             cardContainer.innerHTML = rendererObj.renderCardUI(rewardHorse, 'large');
@@ -431,13 +459,16 @@
       // 敗北時の処理
       title.textContent = "💥 GAME OVER";
       title.className = "modal-title title-over";
-      desc.textContent = `${winCondition}敗したためチャレンジ終了となりました。`;
+      desc.textContent = `${winCondition}敗したためチャレンジ終了となりました。（累計1着回数: ${current1stCount}回）`;
       rewardBox.style.display = "none";
 
       try {
         const updatedStatus = { ...status, is_active: false, current_match: null };
-        await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: updatedStatus }, { merge: true });
+        userUpdateObj.cpu_battle_status = updatedStatus;
+        
+        await setDoc(doc(db, "users", currentUser.uid), userUpdateObj, { merge: true });
         globalUserData.cpu_battle_status = updatedStatus;
+        updateHeaderBadges();
       } catch (err) {
         console.error("ゲーム終了ステータス保存エラー:", err);
       }
@@ -557,8 +588,12 @@
     const currentSeriesId = status.series_lineup[status.current_round - 1];
     selectedSeries = SERIES_MASTER.find(s => s.series_id === currentSeriesId) || SERIES_MASTER[0];
 
+    // シリーズカテゴリの表示を設定
+    const categoryName = getNormalizedCategory(selectedSeries) || selectedSeries.category || '一般';
+    document.getElementById('seriesCategoryBadge').textContent = `【 ${categoryName} シリーズ 】`;
+
     document.getElementById('matchTypeTag').textContent = `${status.max_rounds || 3}回戦マッチ`;
-    document.getElementById('seriesTitle').textContent = `【第${status.current_round}回戦】${selectedSeries.series_name || '名称未設定'}`;
+    document.getElementById('seriesTitle').textContent = `第${status.current_round}回戦：${selectedSeries.series_name || '名称未設定'}`;
     
     const limits = selectedSeries.potential_limit || { max_total_potential: 95, min_potential_per_race: 15 };
     document.getElementById('maxTotalPotentialVal').textContent = limits.max_total_potential;
