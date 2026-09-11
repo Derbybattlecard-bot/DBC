@@ -192,111 +192,143 @@ function determinePace(horses, raceMaster, trackCondition) {
  * アビリティの条件（condition）に合致するか判定
  */
 function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHorses = [], racePace = "") {
-  const gate = horse.gate_number || 0;
-  const track = raceInfo?.track || "";
-  const dist = raceInfo?.distance || 0;
+  if (!condition) return false;
+
+  // 1. 型の安全確保 (数値化・文字列化)
+  const gate = Number(horse.gate_number || 0);
+  const track = String(raceInfo?.track || "");
+  const dist = Number(raceInfo?.distance || 0);
   const isFemale = ["牝", "牝馬"].includes(horse.sex);
   const isEscape = (horse.style || horse.tactic || "").includes("逃げ");
 
+  // --------------------------------------------------------------------------
+  // A. 競馬場判定の動的処理 (例: "track_中山", "track_nakayama", "track_local")
+  // --------------------------------------------------------------------------
+  if (condition.startsWith("track_")) {
+    const venue = condition.replace("track_", "");
+
+    // 競馬場の特殊・グループ判定
+    if (venue === "fukushima_escape") return track.includes("福島") && isEscape;
+    if (venue === "fukushima_not_escape") return track.includes("福島") && !isEscape;
+    if (venue === "local") return ["大井","川崎","船橋","浦和","盛岡","園田","高知","笠松","門別"].some(t => track.includes(t));
+    if (venue === "overseas_hongkong" || venue === "overseas_asia") return ["沙田", "香港", "クランジ"].some(t => track.includes(t));
+    if (venue === "overseas_dubai") return track.includes("メイダン");
+    if (venue === "overseas_europe") return ["ロンシャン", "パリロンシャン", "サンクルー", "アスコット", "ニューマーケット", "エプソム"].some(t => track.includes(t));
+    if (venue === "overseas_usa") return ["デルマー", "サンシャイン", "チャーチルダウンズ", "サンタアニタ", "ベルモントパーク", "アーリントンパーク"].some(t => track.includes(t));
+    if (venue === "overseas_all") return OVERSEAS_TRACKS.some(t => track.includes(t));
+
+    // ローマ字名から日本語への変換マップ（マスター表記揺れ吸収用）
+    const trackNameMap = {
+      nakayama: "中山", tokyo: "東京", kyoto: "京都", hanshin: "阪神",
+      niigata: "新潟", chukyo: "中京", kokura: "小倉", sapporo: "札幌",
+      hakodate: "函館", fukushima: "福島"
+    };
+
+    const targetTrack = trackNameMap[venue] || venue;
+    return track.includes(targetTrack);
+  }
+
+  // --------------------------------------------------------------------------
+  // B. 距離判定の動的・共通処理 (例: "dist_1600", "dist_1200", "speed_star")
+  // --------------------------------------------------------------------------
+  if (condition.startsWith("dist_") || ["speed_star", "oira_miler", "stamina_monster"].includes(condition)) {
+    // 1200m以下 (スピードスター等)
+    if (condition === "dist_1200" || condition === "dist_lte_1200" || condition === "speed_star") {
+      return dist > 0 && dist <= 1200;
+    }
+    // 1600mぴったり (オイラはマイラー等)
+    if (condition === "dist_1600" || condition === "oira_miler") {
+      return dist === 1600;
+    }
+    // 3000m以上 (体力オバケ等)
+    if (condition === "dist_3000" || condition === "dist_3200" || condition === "dist_gte_3000" || condition === "stamina_monster") {
+      return dist >= 3000;
+    }
+    // 数値直接指定 (例: "dist_2000" -> 2000m判定)
+    const targetDist = Number(condition.replace("dist_", ""));
+    if (!isNaN(targetDist) && targetDist > 0) {
+      return dist === targetDist;
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // C. その他の個別特殊条件
+  // --------------------------------------------------------------------------
   switch (condition) {
-    case "race_start": return true;
-    case "single_escape": return isEscape;
-    case "pace_front_remain": return true;
-    case "gate_odd": return gate % 2 === 1;
-    case "gate_even": return gate % 2 === 0;
-    
-    // 最内一閃 (馬番1, 2)
+    case "race_start":
+    case "always": 
+      return true;
+
+    case "single_escape": 
+      return isEscape;
+
+    case "pace_front_remain": 
+      return true;
+
+    case "gate_odd": 
+      return gate % 2 === 1;
+
+    case "gate_even": 
+      return gate % 2 === 0;
+
     case "gate_1":
     case "inside_slot": 
       return gate === 1 || gate === 2;
-      
-    // 大外大歓迎 (馬番15, 16)
+
     case "gate_8":
     case "outside_slot": 
       return gate === 15 || gate === 16;
 
-    case "track_nakayama": return track === "中山";
-case "track_nakayama": return track.includes("中山");
-case "track_tokyo": return track.includes("東京");
-case "track_kyoto": return track.includes("京都");
-case "track_hanshin": return track.includes("阪神");
-case "track_niigata": return track.includes("新潟");
-case "track_chukyo": return track.includes("中京");
-case "track_kokura": return track.includes("小倉");
-case "track_sapporo": return track.includes("札幌");
-case "track_hakodate": return track.includes("函館");
-case "track_fukushima": return track.includes("福島");
-case "track_local": return ["大井","川崎","船橋","浦和","盛岡","園田","高知","笠松","門別"].some(t => track.includes(t));
-case "track_fukushima_escape": return track.includes("福島") && isEscape;
-case "track_fukushima_not_escape": return track.includes("福島") && !isEscape;
-case "track_overseas_hongkong":
-case "track_overseas_asia": return ["沙田", "香港", "クランジ"].some(t => track.includes(t));
-case "track_overseas_dubai": return track.includes("メイダン");
-case "track_overseas_europe": return ["ロンシャン", "パリロンシャン", "サンクルー", "アスコット", "ニューマーケット", "エプソム"].some(t => track.includes(t));
-case "track_overseas_usa": return ["デルマー", "サンシャイン", "チャーチルダウンズ", "サンタアニタ", "ベルモントパーク", "アーリントンパーク"].some(t => track.includes(t));
-case "track_overseas_all":
-case "is_overseas": return OVERSEAS_TRACKS.some(t => track.includes(t));
-case "prob_33": return OVERSEAS_TRACKS.some(t => track.includes(t)) && Math.random() < (1 / 3);
-case "is_local_exchange_series": return !!(raceInfo?.is_local_exchange || raceInfo?.series_type?.includes("地方交流"));
+    case "ground_yielding": 
+      return trackCondition === "稍重";
 
-    // 距離判定条件
-    case "dist_1200":
-    case "speed_star": 
-      return dist <= 1200; // スピードスター: 1200m以下
+    case "ground_heavy_bad": 
+      return trackCondition === "重" || trackCondition === "不良";
 
-    case "dist_1600":
-    case "oira_miler": 
-      return dist === 1600; // オイラはマイラー: 1600mのみ
+    case "is_overseas": 
+      return OVERSEAS_TRACKS.some(t => track.includes(t));
 
-    case "dist_3000":
-    case "dist_3200":
-    case "stamina_monster": 
-      return dist >= 3000; // 体力オバケ: 3000m以上
+    case "prob_33": 
+      return OVERSEAS_TRACKS.some(t => track.includes(t)) && Math.random() < (1 / 3);
 
-    case "ground_yielding": return trackCondition === "稍重";
-    case "ground_heavy_bad": return trackCondition === "重" || trackCondition === "不良";
+    case "is_local_exchange_series": 
+      return !!(raceInfo?.is_local_exchange || raceInfo?.series_type?.includes("地方交流"));
 
-    // 男勝り（牝馬かつ中央混合G1レース時＋対戦相手が牡馬/セン馬）
     case "is_female_in_mixed_g1": {
       if (!isFemale || !raceInfo?.race_name) return false;
       const isMixedG1 = JRA_MIXED_G1_RACES.some(g1Name => raceInfo.race_name.includes(g1Name));
       if (!isMixedG1) return false;
-
-      // 自馬以外の対戦馬（Player または CPU）を取得
       const opponent = allHorses.find(other => (other.isPlayer || other.isCpu) && other.horse_id !== horse.horse_id);
-      
-      // 対戦相手が牡馬、もしくはセン馬か判定
-      if (opponent) {
-        const oppSex = opponent.sex;
-        if (oppSex === "牡" || oppSex === "牡馬") {
-          return true;
-        }
-      }
-      return false;
+      return opponent ? ["牡", "牡馬"].includes(opponent.sex) : false;
     }
 
-    // 連勝街道
-    case "streak_2_or_more": {
+    case "streak_2_or_more": 
       return (horse.ally_win_streak || 0) >= 2;
-    }
 
-    // 青天の霹靂（2レース目以降 ＆ 直前のレースで自軍が敗北）
     case "prev_ally_race_loss": {
       const raceNum = raceInfo?.race_number || raceInfo?.race_index || 1;
       return (raceNum >= 2) && !!horse.prev_ally_race_lost;
     }
 
-    case "pace_high": return racePace.includes("ハイ");
-    case "pace_super_high": return racePace.includes("超ハイ");
-    case "pace_chaos": return racePace.includes("乱") || racePace.includes("波乱");
+    case "pace_high": 
+      return racePace.includes("ハイ");
+
+    case "pace_super_high": 
+      return racePace.includes("超ハイ");
+
+    case "pace_chaos": 
+      return racePace.includes("乱") || racePace.includes("波乱");
+
     case "pot_highest": {
       const myPot = horse.calc_potential ?? horse.potential ?? 0;
       return allHorses.every(other => (other.calc_potential ?? other.potential ?? 0) <= myPot);
     }
-    case "always": return true;
-    default: return false;
+
+    default: 
+      return false;
   }
 }
+
 
 function processMarkStrategy(resultList) {
   const player = resultList.find(h => h.isPlayer);
