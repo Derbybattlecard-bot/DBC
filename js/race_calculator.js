@@ -671,7 +671,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     }
 
     const horseSpeed = h.calc_speed || 0;
-    const randomVal = Math.floor(Math.random() * 10);
+    const randomVal = Math.floor(Math.random() * 1);
 
     let basePos = styleCalcPt + horseSpeed + randomVal;
     h.positionPoint = applyPhase2Abilities(h, basePos, abilityMasterData);
