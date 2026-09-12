@@ -545,7 +545,7 @@
   }
 
   async function renderBattleSetup(status, totalWins) {
-    const isOngoing = Boolean(status && status.is_active);
+    const isOngoing = status && status.is_active;
 
     const btnMain = document.getElementById('btnMainMode');
     const btnHard = document.getElementById('btnHardMode');
@@ -577,32 +577,54 @@
     btnMain.classList.toggle('active', !selectedHardMode);
     btnHard.classList.toggle('active', selectedHardMode);
 
-    // 未進行時は表示用のデータ生成のみを行い、DBにはまだ is_active: true を保存しない（対戦前を維持する）
-    let currentLineup = status?.series_lineup || [];
-    let currentRound = status?.current_round || 1;
-    let maxRounds = status?.max_rounds || (selectedHardMode ? 3 : (totalWins >= 30 ? 5 : 3));
+    if (!status || !status.series_lineup || status.series_lineup.length === 0) {
+      let modeKey = selectedHardMode ? 'deck1_match3' : (totalWins >= 30 ? 'deck2_match5' : 'deck2_match3');
+      let maxRounds = selectedHardMode ? 3 : (totalWins >= 30 ? 5 : 3);
+      let winCond = selectedHardMode ? 2 : (totalWins >= 30 ? 3 : 2);
 
-    if (!currentLineup || currentLineup.length === 0) {
-      currentLineup = generateSeriesLineup(totalWins, maxRounds);
+      const lineup = generateSeriesLineup(totalWins, maxRounds);
+      status = {
+        is_active: true,
+        match_mode: modeKey,
+        current_round: 1,
+        max_rounds: maxRounds,
+        win_condition: winCond,
+        series_lineup: lineup,
+        selected_series_id: lineup[0] || "",
+        selected_deck_index: 0,
+        series_wins: 0,
+        series_losses: 0,
+        total_1st_places: 0,
+        used_cards_history: [],
+        current_match: null
+      };
+
+      globalUserData.cpu_battle_status = status;
+      if (currentUser) {
+        await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status }, { merge: true });
+      }
+
+      btnMain.disabled = true;
+      btnHard.disabled = true;
     }
 
-    if (typeof status?.selected_deck_index === 'number') {
+    if (typeof status.selected_deck_index === 'number') {
       selectedDeckIndex = status.selected_deck_index;
     }
 
-    document.getElementById('winCount').textContent = status?.series_wins || 0;
-    document.getElementById('lossCount').textContent = status?.series_losses || 0;
-    document.getElementById('winLossHeader').style.display = isOngoing ? 'block' : 'none';
+    document.getElementById('winCount').textContent = status.series_wins || 0;
+    document.getElementById('lossCount').textContent = status.series_losses || 0;
+    document.getElementById('winLossHeader').style.display = 'block';
 
-    const currentSeriesId = currentLineup[currentRound - 1];
+    const currentSeriesId = status.series_lineup[status.current_round - 1];
     selectedSeries = SERIES_MASTER.find(s => s.series_id === currentSeriesId) || SERIES_MASTER[0];
 
     const categoryName = getNormalizedCategory(selectedSeries) || selectedSeries.category || '一般';
     document.getElementById('seriesCategoryBadge').textContent = `【 ${categoryName} シリーズ 】`;
 
-    const hardLabel = (selectedHardMode || status?.match_mode === 'deck1_match3') ? '［1デッキ制限］' : '';
-    document.getElementById('matchTypeTag').textContent = `${maxRounds}回戦マッチ${hardLabel}`;
-    document.getElementById('seriesTitle').textContent = `第${currentRound}回戦：${selectedSeries.series_name || '名称未設定'}`;
+    const hardLabel = (status.match_mode === 'deck1_match3') ? '［1デッキ制限］' : '';
+    document.getElementById('matchTypeTag').textContent = `${status.max_rounds || 3}回戦マッチ${hardLabel}`;
+    document.getElementById('seriesTitle').textContent = `第${status.current_round}回戦：${selectedSeries.series_name || '名称未設定'}`;
     
     const limits = selectedSeries.potential_limit || { max_total_potential: 95, min_potential_per_race: 15 };
     document.getElementById('maxTotalPotentialVal').textContent = limits.max_total_potential;
@@ -637,17 +659,13 @@
       document.getElementById(`deckCount${idx}`).textContent = validCount;
     });
 
-    const isSingleDeckMode = selectedHardMode || (status?.match_mode === 'deck1_match3');
-    
-    if (isOngoing) {
-      document.getElementById('deckCard0').classList.toggle('disabled', selectedDeckIndex !== 0);
-      document.getElementById('deckCard1').classList.toggle('disabled', selectedDeckIndex !== 1);
-      document.getElementById('deckPanelTitle').textContent = "挑戦するデッキ (※対戦中のためデッキ固定)";
-    } else {
-      document.getElementById('deckCard0').classList.remove('disabled');
-      document.getElementById('deckCard1').classList.toggle('disabled', isSingleDeckMode);
-      document.getElementById('deckPanelTitle').textContent = isSingleDeckMode ? "挑戦するデッキ（※このモードは全戦このデッキ固定です）" : "挑戦するデッキを選択 (最大18頭)";
+    const isSingleDeckMode = (status.match_mode === 'deck1_match3');
+    document.getElementById('deckCard1').classList.toggle('disabled', isSingleDeckMode);
+    if (isSingleDeckMode && selectedDeckIndex === 1) {
+      selectedDeckIndex = 0;
     }
+
+    document.getElementById('deckPanelTitle').textContent = isSingleDeckMode ? "挑戦するデッキ（※このモードは全戦このデッキ固定です）" : "挑戦するデッキを選択 (最大18頭)";
 
     document.getElementById('challengePanel').style.display = 'block';
     document.getElementById('deckPanel').style.display = 'flex';
@@ -657,12 +675,7 @@
   }
 
   window.selectDeck = function(idx) {
-    const status = globalUserData.cpu_battle_status;
-    if (status && status.is_active && typeof status.selected_deck_index === 'number') {
-      if (idx !== status.selected_deck_index) return;
-    }
     if (selectedHardMode && idx === 1) return;
-
     selectedDeckIndex = idx;
     document.getElementById('deckCard0').classList.toggle('selected', idx === 0);
     document.getElementById('deckCard1').classList.toggle('selected', idx === 1);
@@ -767,10 +780,36 @@
   window.switchMatchMode = async function(isHard) {
     if (globalUserData.cpu_battle_status && globalUserData.cpu_battle_status.is_active) return;
     selectedHardMode = isHard;
-    renderBattleSetup(globalUserData.cpu_battle_status, globalUserData.total_wins || 0);
+    renderModeButtons();
   };
 
-  // 出走登録へ進むボタンを押したタイミングで初めて DB に is_active: true を保存（対戦開始）
+  function renderModeButtons() {
+    const totalWins = globalUserData.total_wins || 0;
+    const btnMain = document.getElementById('btnMainMode');
+    const btnHard = document.getElementById('btnHardMode');
+
+    if (totalWins < 30) {
+      btnMain.textContent = "2デッキ 3回戦マッチ";
+    } else {
+      btnMain.textContent = "2デッキ 5回戦マッチ";
+    }
+
+    if (totalWins >= 50) {
+      btnHard.disabled = false;
+    } else {
+      btnHard.disabled = true;
+      btnHard.title = "通算50勝でアンロック";
+    }
+
+    btnMain.classList.toggle('active', !selectedHardMode);
+    btnHard.classList.toggle('active', selectedHardMode);
+    
+    document.getElementById('deckCard1').classList.toggle('disabled', selectedHardMode);
+    if (selectedHardMode && selectedDeckIndex === 1) {
+      selectDeck(0);
+    }
+  }
+
   window.goToMatchup = async function() {
     if (!selectedSeries || !currentUser) return;
 
@@ -799,13 +838,11 @@
 
     try {
       const currentStatus = globalUserData.cpu_battle_status || {};
-      const lineup = currentStatus.series_lineup && currentStatus.series_lineup.length > 0 
-                     ? currentStatus.series_lineup 
-                     : generateSeriesLineup(totalWins, maxRounds);
+      const lineup = currentStatus.series_lineup || generateSeriesLineup(totalWins, maxRounds);
 
       const updatedStatus = {
         ...currentStatus,
-        is_active: true, // ★ここで初めて正式に対戦開始フラグを立てる！
+        is_active: true,
         match_mode: modeKey,
         max_rounds: maxRounds,
         win_condition: winCondition,
@@ -815,8 +852,7 @@
         selected_deck_index: selectedDeckIndex,
         current_round: currentStatus.current_round || 1,
         series_wins: currentStatus.series_wins || 0,
-        series_losses: currentStatus.series_losses || 0,
-        used_cards_history: currentStatus.used_cards_history || []
+        series_losses: currentStatus.series_losses || 0
       };
 
       await setDoc(doc(db, "users", currentUser.uid), {
