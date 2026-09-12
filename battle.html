@@ -31,16 +31,30 @@
   .status-header { background-color: var(--panel-bg); border: 2px solid #d4af37; border-radius: 8px; padding: 10px; text-align: center; font-weight: bold; font-size: 15px; color: #b8860b; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
   .win-loss-text { color: #d32f2f; font-size: 18px; margin: 0 5px; }
 
+  /* 状態表示バッジ */
+  .battle-state-indicator {
+    text-align: center; padding: 6px; border-radius: 6px; font-weight: bold; font-size: 12px; margin-bottom: 5px;
+  }
+  .state-idle { background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9; }
+  .state-active { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; animation: pulse 2s infinite; }
+  @keyframes pulse { 0% { opacity: 0.9; } 50% { opacity: 1; } 100% { opacity: 0.9; } }
+
+  /* シリーズ選択・ブラウズ用コントロール */
+  .series-selector-panel { background-color: var(--panel-bg); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 8px; }
+  .select-group { display: flex; gap: 8px; }
+  .select-box { flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 12px; font-weight: bold; background: #fff; }
+
   /* モード選択パネル */
   .mode-select-panel { background-color: var(--panel-bg); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); text-align: center; }
   .mode-select-title { font-weight: bold; color: var(--accent-color); margin-bottom: 8px; font-size: 13px; }
   .mode-btn-group { display: flex; gap: 8px; }
   .btn-mode { flex: 1; padding: 10px 5px; border-radius: 6px; border: 2px solid var(--border-color); background: #fff; color: var(--text-main); font-weight: bold; cursor: pointer; transition: all 0.2s; font-size: 12px; }
   .btn-mode.active { border-color: var(--accent-color); background: #eef7f0; color: var(--accent-color); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-  .btn-mode:disabled { opacity: 0.4; cursor: not-allowed; background: #eee; border-color: #ccc; color: #888; }
+  .btn-mode:disabled { opacity: 0.5; cursor: not-allowed; background: #eee; border-color: #ccc; color: #888; }
   .mode-badge-hard { background: #d32f2f; color: white; padding: 2px 4px; border-radius: 3px; font-size: 9px; margin-left: 3px; }
 
   .challenge-panel { background-color: var(--panel-bg); border: 2px solid var(--accent-color); border-radius: 8px; padding: 15px 20px; text-align: center; position: relative; }
+  .challenge-panel.is-locked { border-color: #d32f2f; background-color: #fff9f9; }
   .challenge-label { font-size: 12px; font-weight: bold; color: #666; margin-bottom: 2px; }
   .match-type-tag { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: #d9534f; color: #fff; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
   
@@ -115,6 +129,11 @@
     </div>
   </div>
 
+  <!-- 対戦状態バッジ -->
+  <div id="battleStateIndicator" class="battle-state-indicator state-idle">
+    💡 対戦未開始：シリーズ条件を確認して対戦準備を行ってください
+  </div>
+
   <div class="status-header" id="winLossHeader" style="display: none;">
     現在の成績： <span class="win-loss-text" id="winCount">0</span>勝 <span class="win-loss-text" id="lossCount">0</span>敗
   </div>
@@ -132,9 +151,18 @@
     </div>
   </div>
 
+  <!-- 未進行時用：シリーズブラウズ・プレビューパネル -->
+  <div class="series-selector-panel" id="seriesSelectorPanel" style="display: none;">
+    <div style="font-weight:bold; color:var(--accent-color);">🔍 解放済みシリーズの事前確認</div>
+    <div class="select-group">
+      <select id="categorySelect" class="select-box" onchange="onCategoryChanged()"></select>
+      <select id="seriesSelect" class="select-box" onchange="onSeriesChanged()"></select>
+    </div>
+  </div>
+
   <div class="challenge-panel" id="challengePanel" style="display: none;">
     <div class="match-type-tag" id="matchTypeTag">-回戦マッチ</div>
-    <div class="challenge-label">＼ 今回の対戦シリーズはこちら！ ／</div>
+    <div class="challenge-label" id="challengeLabel">＼ 今回の対戦シリーズはこちら！ ／</div>
     <div class="series-category-badge" id="seriesCategoryBadge">カテゴリ</div>
     <div class="series-title" id="seriesTitle"></div>
     <div class="limit-info-box">
@@ -173,7 +201,7 @@
     </div>
   </div>
   
-  <button class="btn-start" id="btnStart" style="display: none;" onclick="goToMatchup()">出走登録へ進む</button>
+  <button class="btn-start" id="btnStart" style="display: none;" onclick="goToMatchup()">対戦開始（出走登録へ進む）</button>
 </div>
 
 <!-- バトルリザルト用モーダル -->
@@ -544,12 +572,96 @@
     return lineup;
   }
 
+  /* 未対戦時のシリーズブラウズ（プレビュー）用処理 */
+  function setupSeriesBrowser(totalWins) {
+    const limits = getUnlockedLimits(totalWins);
+    const catSelect = document.getElementById('categorySelect');
+    catSelect.innerHTML = '';
+
+    const unlockedCats = Object.keys(limits).filter(cat => limits[cat] > 0);
+    unlockedCats.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = `${cat} (${limits[cat]}種)`;
+      catSelect.appendChild(opt);
+    });
+
+    onCategoryChanged();
+  }
+
+  window.onCategoryChanged = function() {
+    const totalWins = globalUserData.total_wins || 0;
+    const limits = getUnlockedLimits(totalWins);
+    const cat = document.getElementById('categorySelect').value;
+    const seriesSelect = document.getElementById('seriesSelect');
+    seriesSelect.innerHTML = '';
+
+    const catPool = SERIES_MASTER.filter(s => getNormalizedCategory(s) === cat && getSeriesNo(s) <= limits[cat]);
+    catPool.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.series_id;
+      opt.textContent = `No.${getSeriesNo(s)} ${s.series_name}`;
+      seriesSelect.appendChild(opt);
+    });
+
+    onSeriesChanged();
+  };
+
+  window.onSeriesChanged = function() {
+    const sId = document.getElementById('seriesSelect').value;
+    selectedSeries = SERIES_MASTER.find(s => s.series_id === sId) || SERIES_MASTER[0];
+    renderSeriesDetail(selectedSeries, false);
+  };
+
+  function renderSeriesDetail(series, isOngoing, currentRound = 1, maxRounds = 3) {
+    const categoryName = getNormalizedCategory(series) || series.category || '一般';
+    document.getElementById('seriesCategoryBadge').textContent = `【 ${categoryName} シリーズ 】`;
+
+    const hardLabel = selectedHardMode ? '［1デッキ制限］' : '';
+    document.getElementById('matchTypeTag').textContent = `${maxRounds}回戦マッチ${hardLabel}`;
+    
+    if (isOngoing) {
+      document.getElementById('challengeLabel').textContent = "＼ 現在対戦中のシリーズはこちら！ ／";
+      document.getElementById('seriesTitle').textContent = `第${currentRound}回戦：${series.series_name || '名称未設定'}`;
+    } else {
+      document.getElementById('challengeLabel').textContent = "＼ プレビュー中（条件確認用） ／";
+      document.getElementById('seriesTitle').textContent = `${series.series_name || '名称未設定'}`;
+    }
+    
+    const limits = series.potential_limit || { max_total_potential: 95, min_potential_per_race: 15 };
+    document.getElementById('maxTotalPotentialVal').textContent = limits.max_total_potential;
+    if (limits.min_potential_per_race === null || limits.min_potential_per_race === undefined) {
+      document.getElementById('minPotentialVal').textContent = "出走制限なし";
+    } else {
+      document.getElementById('minPotentialVal').textContent = `${limits.min_potential_per_race}以上`;
+    }
+
+    const rounds = series.rounds || [];
+    const races = (rounds[0] && rounds[0].races) ? rounds[0].races : [];
+    const raceListEl = document.getElementById('raceList');
+    raceListEl.innerHTML = races.map(r => {
+      const surfaceClass = r.surface === '芝' ? 'surface-turf' : 'surface-dirt';
+      return `
+        <div class="race-item">
+          <span class="race-num">第${r.race_num}戦</span>
+          <span class="race-name">${r.race_name}</span>
+          <span class="race-cond">
+            <span class="surface-badge ${surfaceClass}">${r.surface}</span>
+            ${r.track} ${r.distance}m
+          </span>
+        </div>
+      `;
+    }).join('');
+  }
+
   async function renderBattleSetup(status, totalWins) {
     const isOngoing = status && status.is_active;
 
     const btnMain = document.getElementById('btnMainMode');
     const btnHard = document.getElementById('btnHardMode');
     const modeSelectPanel = document.getElementById('modeSelectPanel');
+    const indicator = document.getElementById('battleStateIndicator');
+    const selectorPanel = document.getElementById('seriesSelectorPanel');
 
     modeSelectPanel.style.display = 'block';
 
@@ -567,91 +679,47 @@
     }
 
     if (isOngoing) {
+      // --- 対戦進行中（ロック状態） ---
+      indicator.className = "battle-state-indicator state-active";
+      indicator.innerHTML = "🔥 <strong>対戦モード進行中</strong>（デッキ編集不可・シリーズ固定）";
+      
       selectedHardMode = (status.match_mode === 'deck1_match3');
       btnMain.disabled = true;
       btnHard.disabled = true;
+      selectorPanel.style.display = 'none';
+
+      document.getElementById('challengePanel').classList.add('is-locked');
+      document.getElementById('btnStart').textContent = "出走登録へ進む (第" + status.current_round + "回戦)";
+
+      if (typeof status.selected_deck_index === 'number') {
+        selectedDeckIndex = status.selected_deck_index;
+      }
+
+      document.getElementById('winCount').textContent = status.series_wins || 0;
+      document.getElementById('lossCount').textContent = status.series_losses || 0;
+      document.getElementById('winLossHeader').style.display = 'block';
+
+      const currentSeriesId = status.series_lineup[status.current_round - 1];
+      selectedSeries = SERIES_MASTER.find(s => s.series_id === currentSeriesId) || SERIES_MASTER[0];
+
+      renderSeriesDetail(selectedSeries, true, status.current_round, status.max_rounds);
+
     } else {
+      // --- 対戦未開始（閲覧・準備状態） ---
+      indicator.className = "battle-state-indicator state-idle";
+      indicator.innerHTML = "💡 <strong>対戦未開始</strong>：アンロック済みのシリーズ条件を確認して対戦準備を行ってください";
+
       btnMain.disabled = false;
+      selectorPanel.style.display = 'flex';
+      document.getElementById('challengePanel').classList.remove('is-locked');
+      document.getElementById('winLossHeader').style.display = 'none';
+      document.getElementById('btnStart').textContent = "対戦開始（出走登録へ進む）";
+
+      setupSeriesBrowser(totalWins);
     }
 
     btnMain.classList.toggle('active', !selectedHardMode);
     btnHard.classList.toggle('active', selectedHardMode);
-
-    // 未進行時の初期シリーズ生成・確定処理（未作成のときのみ行う）
-    if (!status || !status.series_lineup || status.series_lineup.length === 0) {
-      let modeKey = selectedHardMode ? 'deck1_match3' : (totalWins >= 30 ? 'deck2_match5' : 'deck2_match3');
-      let maxRounds = selectedHardMode ? 3 : (totalWins >= 30 ? 5 : 3);
-      let winCond = selectedHardMode ? 2 : (totalWins >= 30 ? 3 : 2);
-
-      const lineup = generateSeriesLineup(totalWins, maxRounds);
-      status = {
-        is_active: true, // モード作成時に固定化
-        match_mode: modeKey,
-        current_round: 1,
-        max_rounds: maxRounds,
-        win_condition: winCond,
-        series_lineup: lineup,
-        selected_series_id: lineup[0] || "",
-        selected_deck_index: 0,
-        series_wins: 0,
-        series_losses: 0,
-        total_1st_places: 0,
-        used_cards_history: [],
-        current_match: null
-      };
-
-      globalUserData.cpu_battle_status = status;
-      if (currentUser) {
-        await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status }, { merge: true });
-      }
-
-      // 対戦突入に伴いボタン選択をロックする
-      btnMain.disabled = true;
-      btnHard.disabled = true;
-    }
-
-    if (typeof status.selected_deck_index === 'number') {
-      selectedDeckIndex = status.selected_deck_index;
-    }
-
-    document.getElementById('winCount').textContent = status.series_wins || 0;
-    document.getElementById('lossCount').textContent = status.series_losses || 0;
-    document.getElementById('winLossHeader').style.display = 'block';
-
-    const currentSeriesId = status.series_lineup[status.current_round - 1];
-    selectedSeries = SERIES_MASTER.find(s => s.series_id === currentSeriesId) || SERIES_MASTER[0];
-
-    const categoryName = getNormalizedCategory(selectedSeries) || selectedSeries.category || '一般';
-    document.getElementById('seriesCategoryBadge').textContent = `【 ${categoryName} シリーズ 】`;
-
-    const hardLabel = (status.match_mode === 'deck1_match3') ? '［1デッキ制限］' : '';
-    document.getElementById('matchTypeTag').textContent = `${status.max_rounds || 3}回戦マッチ${hardLabel}`;
-    document.getElementById('seriesTitle').textContent = `第${status.current_round}回戦：${selectedSeries.series_name || '名称未設定'}`;
-    
-    const limits = selectedSeries.potential_limit || { max_total_potential: 95, min_potential_per_race: 15 };
-    document.getElementById('maxTotalPotentialVal').textContent = limits.max_total_potential;
-    if (limits.min_potential_per_race === null || limits.min_potential_per_race === undefined) {
-      document.getElementById('minPotentialVal').textContent = "出走制限なし";
-    } else {
-      document.getElementById('minPotentialVal').textContent = `${limits.min_potential_per_race}以上`;
-    }
-
-    const rounds = selectedSeries.rounds || [];
-    const races = (rounds[0] && rounds[0].races) ? rounds[0].races : [];
-    const raceListEl = document.getElementById('raceList');
-    raceListEl.innerHTML = races.map(r => {
-      const surfaceClass = r.surface === '芝' ? 'surface-turf' : 'surface-dirt';
-      return `
-        <div class="race-item">
-          <span class="race-num">第${r.race_num}戦</span>
-          <span class="race-name">${r.race_name}</span>
-          <span class="race-cond">
-            <span class="surface-badge ${surfaceClass}">${r.surface}</span>
-            ${r.track} ${r.distance}m
-          </span>
-        </div>
-      `;
-    }).join('');
 
     const decks = globalUserData.decks || [];
     [0, 1].forEach(idx => {
@@ -661,7 +729,7 @@
       document.getElementById(`deckCount${idx}`).textContent = validCount;
     });
 
-    const isSingleDeckMode = (status.match_mode === 'deck1_match3');
+    const isSingleDeckMode = isOngoing ? (status.match_mode === 'deck1_match3') : selectedHardMode;
     document.getElementById('deckCard1').classList.toggle('disabled', isSingleDeckMode);
     if (isSingleDeckMode && selectedDeckIndex === 1) {
       selectedDeckIndex = 0;
@@ -779,8 +847,6 @@
     }
   }
 
-  // --- 追加・置換された関数エリア ---
-
   // モード切り替え関数
   window.switchMatchMode = async function(isHard) {
     if (globalUserData.cpu_battle_status && globalUserData.cpu_battle_status.is_active) return;
@@ -816,55 +882,53 @@
     }
   }
 
-  // 出走登録へ進むボタンを押した時にパラメータを確定して保存
+  // 対戦開始ボタンを押した時に初めて対戦状態を確定・保存して進行する
   window.goToMatchup = async function() {
-    if (!selectedSeries || !currentUser) return;
+    if (!currentUser) return;
 
     const totalWins = globalUserData.total_wins || 0;
+    let currentStatus = globalUserData.cpu_battle_status || {};
+
+    // すでに対戦が進行中の場合
+    if (currentStatus && currentStatus.is_active) {
+      currentStatus.selected_deck_index = selectedDeckIndex;
+      await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: currentStatus }, { merge: true });
+      window.location.href = 'matchup.html';
+      return;
+    }
+
+  // 新しく対戦を開始する場合（対戦パラメータの初回生成と確定）
     let maxRounds = 3;
     let winCondition = 2;
     let deckLimit = 2;
     let modeKey = 'deck2_match3';
 
     if (selectedHardMode) {
-      // 50勝以上解放：1デッキ 3回戦 (2勝勝ち抜け)
-      maxRounds = 3;
-      winCondition = 2;
-      deckLimit = 1;
-      modeKey = 'deck1_match3';
+      maxRounds = 3; winCondition = 2; deckLimit = 1; modeKey = 'deck1_match3';
     } else if (totalWins >= 30) {
-      // 30勝以上解放：2デッキ 5回戦 (3勝勝ち抜け)
-      maxRounds = 5;
-      winCondition = 3;
-      deckLimit = 2;
-      modeKey = 'deck2_match5';
+      maxRounds = 5; winCondition = 3; deckLimit = 2; modeKey = 'deck2_match5';
     } else {
-      // 初期状態：2デッキ 3回戦 (2勝勝ち抜け)
-      maxRounds = 3;
-      winCondition = 2;
-      deckLimit = 2;
-      modeKey = 'deck2_match3';
+      maxRounds = 3; winCondition = 2; deckLimit = 2; modeKey = 'deck2_match3';
     }
 
     try {
-      const currentStatus = globalUserData.cpu_battle_status || {};
-      
-      // lineupが未生成の場合の安全策
-      const lineup = currentStatus.series_lineup || generateSeriesLineup(totalWins, maxRounds);
+      const lineup = generateSeriesLineup(totalWins, maxRounds);
 
       const updatedStatus = {
-        ...currentStatus,
-        is_active: true,
+        is_active: true, // ここで対戦モード開始状態を確定
         match_mode: modeKey,
         max_rounds: maxRounds,
         win_condition: winCondition,
         deck_limit: deckLimit,
         series_lineup: lineup,
-        selected_series_id: selectedSeries.series_id,
+        selected_series_id: lineup[0] || "",
         selected_deck_index: selectedDeckIndex,
-        current_round: currentStatus.current_round || 1,
-        series_wins: currentStatus.series_wins || 0,
-        series_losses: currentStatus.series_losses || 0
+        current_round: 1,
+        series_wins: 0,
+        series_losses: 0,
+        total_1st_places: 0,
+        used_cards_history: [],
+        current_match: null
       };
 
       await setDoc(doc(db, "users", currentUser.uid), {
@@ -874,7 +938,7 @@
       globalUserData.cpu_battle_status = updatedStatus;
       window.location.href = 'matchup.html';
     } catch (err) {
-      console.error("ステータス保存エラー:", err);
+      console.error("対戦開始保存エラー:", err);
       alert("通信エラーが発生しました。再度お試しください。");
     }
   };
