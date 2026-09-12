@@ -344,12 +344,12 @@
     await processBattleState(totalWins);
   }
 
-    async function processBattleState(totalWins) {
+  async function processBattleState(totalWins) {
     let status = globalUserData.cpu_battle_status;
 
-    if (status) {
+    if (status && status.is_active) {
       // 1. レース進行中/結果未確認で離脱していた場合は race_result.html に自動リダイレクト
-      if (status.is_active && status.current_match) {
+      if (status.current_match) {
         window.location.href = 'race_result.html';
         return;
       }
@@ -363,11 +363,10 @@
       const maxRounds = status.max_rounds || expectedMaxRounds;
       const winCondition = Math.ceil(maxRounds / 2);
 
-      // ★is_activeがfalseに書き換わっていても、勝ち数が届いていればクリア判定を通す
       if ((status.series_wins || 0) >= winCondition) {
         await handleGameEnd(status, true, winCondition);
         return;
-      } else if (status.is_active && ((status.series_losses || 0) >= winCondition || status.current_round > maxRounds)) {
+      } else if ((status.series_losses || 0) >= winCondition || status.current_round > maxRounds) {
         await handleGameEnd(status, false, winCondition);
         return;
       }
@@ -375,7 +374,6 @@
 
     await initBattle(status, totalWins);
   }
-
 
   function showUnlockAnimation(totalWins, newlyUnlocked) {
     const listHtml = newlyUnlocked.map(item => `・<strong>${item.desc}</strong>`).join('<br>');
@@ -399,7 +397,7 @@
     await processBattleState(totalWins);
   };
 
- /* ─── ゲーム終了 & 報酬獲得演出 ─── */
+  /* ─── ゲーム終了 & 報酬獲得演出 ─── */
   async function handleGameEnd(status, isClear, winCondition) {
     const modal = document.getElementById('resultModal');
     const title = document.getElementById('modalTitle');
@@ -407,7 +405,7 @@
     const rewardBox = document.getElementById('rewardBox');
     const cardContainer = document.getElementById('rewardCardContainer');
     
-    // 最多1着回数の更新判定・保存
+ // 最多1着回数の更新判定・保存
     const current1stCount = status.total_1st_places || 0;
     let newMax1st = globalUserData.max_1st_places || 0;
     const userUpdateObj = {};
@@ -417,6 +415,18 @@
       globalUserData.max_1st_places = newMax1st;
       userUpdateObj.max_1st_places = newMax1st;
     }
+
+    // ★終了時にシリーズの成績データを完全リセット
+    const resetStatus = { 
+      ...status, 
+      is_active: false, 
+      current_match: null,
+      series_wins: 0,
+      series_losses: 0,
+      current_round: 1,
+      total_1st_places: 0,
+      used_cards_history: []
+    };
 
     if (isClear) {
       title.textContent = "🎉 CHALLENGE CLEAR!";
@@ -429,12 +439,11 @@
       rewardBox.style.display = "block";
 
       // 裏側でデータ保存処理を実行
-      const updatedStatus = { ...status, is_active: false, current_match: null };
       globalUserData.total_wins = (globalUserData.total_wins || 0) + 1;
-      globalUserData.cpu_battle_status = updatedStatus;
+      globalUserData.cpu_battle_status = resetStatus;
 
       userUpdateObj.total_wins = increment(1);
-      userUpdateObj.cpu_battle_status = updatedStatus;
+      userUpdateObj.cpu_battle_status = resetStatus;
       
       Promise.all([
         setDoc(doc(db, "users", currentUser.uid), userUpdateObj, { merge: true }),
@@ -477,11 +486,10 @@
       rewardBox.style.display = "none";
 
       try {
-        const updatedStatus = { ...status, is_active: false, current_match: null };
-        userUpdateObj.cpu_battle_status = updatedStatus;
+        userUpdateObj.cpu_battle_status = resetStatus;
         
         await setDoc(doc(db, "users", currentUser.uid), userUpdateObj, { merge: true });
-        globalUserData.cpu_battle_status = updatedStatus;
+        globalUserData.cpu_battle_status = resetStatus;
         updateHeaderBadges();
       } catch (err) {
         console.error("ゲーム終了ステータス保存エラー:", err);
