@@ -245,6 +245,13 @@
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) globalUserData = userDoc.data();
 
+      // ─── レース途中（作戦指示完了・進行中）の自動リダイレクト処理 ───
+      const status = globalUserData?.cpu_battle_status;
+      if (status && status.current_match && status.current_match.full_race_grids) {
+        window.location.href = 'race_result.html';
+        return;
+      }
+
       const [seriesData, horsesData] = await Promise.all([
         fetchJsonSafe('series_master.json'),
         fetchJsonSafe('horses_master.json')
@@ -525,7 +532,6 @@
     }
   }
 
-  // 1〜16番の馬番（枠順）を重複なくランダム抽出する関数
   function generateRandomGates(mobCount = 14) {
     const numbers = Array.from({ length: 16 }, (_, i) => i + 1);
     for (let i = numbers.length - 1; i > 0; i--) {
@@ -553,21 +559,18 @@
       const finalPlayerEntries = [];
       const finalCpuEntries = [...cpuEntries];
       const racesMobGates = {};
-      const fullRaceGrids = {}; // ★ Firestore制約回避のため、2次元配列ではなくオブジェクト化
+      const fullRaceGrids = {};
 
-      // 各レース（全5戦）ごとに馬番を抽選・付与し、枠順順にソートして保存
       for (let rIdx = 0; rIdx < playerEntries.length; rIdx++) {
         const pEntry = playerEntries[rIdx] || {};
         const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
         const gates = generateRandomGates(mobIds.length);
 
-        // 自馬の入力作戦を取得
         const stratSelect = document.getElementById(`selectStrat${rIdx}`);
         const levelSelect = document.getElementById(`selectLevel${rIdx}`);
         const finalStrat = stratSelect ? stratSelect.value : (pEntry.strategy || "先行");
         const finalLevel = levelSelect ? parseInt(levelSelect.value, 10) : (pEntry.strategy_level || 3);
 
-        // 自馬データ作成
         const updatedPlayerEntry = {
           ...pEntry,
           strategy: finalStrat,
@@ -576,7 +579,6 @@
         };
         finalPlayerEntries.push(updatedPlayerEntry);
 
-        // CPU馬データ作成
         let updatedCpuEntry = null;
         if (finalCpuEntries[rIdx]) {
           updatedCpuEntry = {
@@ -586,21 +588,17 @@
           finalCpuEntries[rIdx] = updatedCpuEntry;
         }
 
-        // モブ馬の馬番配列を保存
         racesMobGates[rIdx] = gates.mobGates;
         racesMobGates[String(rIdx)] = gates.mobGates;
 
-        // 16頭の全馬データを1つの配列にまとめ、馬番順（1〜16）にソートする
         const raceGrid = [];
 
-        // 1. 自馬
         raceGrid.push({
           ...updatedPlayerEntry,
           isPlayer: true,
           type: 'player'
         });
 
-        // 2. CPU馬
         if (updatedCpuEntry) {
           raceGrid.push({
             ...updatedCpuEntry,
@@ -609,7 +607,6 @@
           });
         }
 
-         // 3. モブ馬
         mobIds.forEach((mId, mIdx) => {
           raceGrid.push({
             horse_id: mId,
@@ -618,10 +615,8 @@
           });
         });
 
-        // 馬番（gate_number）の昇順（1番枠〜16番枠）にソート
         raceGrid.sort((a, b) => (a.gate_number || 0) - (b.gate_number || 0));
 
-        // インデックスをキーとして保存（2次元配列を回避）
         fullRaceGrids[rIdx] = raceGrid;
         fullRaceGrids[String(rIdx)] = raceGrid;
       }
