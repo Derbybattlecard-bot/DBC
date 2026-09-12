@@ -483,7 +483,6 @@ function applyPhase2Abilities(horse, positionPoint, abilityMasterData) {
   let newPoint = positionPoint;
 
   horse.ability.forEach(abilityName => {
-  
     const master = getAbilityMasterData(abilityName, abilityMasterData);
     if (!master || !master.effects) return;
 
@@ -856,4 +855,4 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     branch: selectedBranch,
     commentary: commentaryData
   };
-               }
+}
