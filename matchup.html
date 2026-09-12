@@ -112,7 +112,7 @@
     border-radius: 6px;
     border: 1px solid var(--border-color);
     background: #ffffff;
-    font-size: 11px; /* フォントサイズを少し小さく変更 */
+    font-size: 11px;
     font-weight: bold;
     color: var(--text-main);
   }
@@ -237,6 +237,13 @@
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) globalUserData = userDoc.data();
 
+      // ─── レース途中（中断時）の自動リダイレクト処理 ───
+      const status = globalUserData?.cpu_battle_status;
+      if (status && status.current_match) {
+        window.location.href = 'race_result.html';
+        return;
+      }
+
       const [seriesData, horsesData] = await Promise.all([
         fetchJsonSafe('series_master.json'),
         fetchJsonSafe('horses_master.json')
@@ -264,10 +271,11 @@
     currentSeries = SERIES_MASTER.find(s => s.series_id === seriesId) || SERIES_MASTER[0];
     
     const currentRound = status.current_round || 1;
+    const maxRounds = status.max_rounds || (status.series_lineup && status.series_lineup.length >= 5 ? 5 : 3);
     const wins = status.series_wins || 0;
     const losses = status.series_losses || 0;
     
-    document.getElementById('seriesRoundDisplay').textContent = `第 ${currentRound} 回戦 (全5回戦)`;
+    document.getElementById('seriesRoundDisplay').textContent = `第 ${currentRound} 回戦 (全${maxRounds}回戦)`;
     document.getElementById('seriesRecordDisplay').textContent = `${wins}勝 ${losses}敗`;
 
     const sexLimit = currentSeries.sex || "各レース指定";
@@ -288,7 +296,6 @@
     return '芝';
   }
 
-  // 対象馬場でのポテンシャル値を取得（誤フォールバックを修正）
   function getHorsePotential(horse, surface) {
     if (!horse) return 0;
     const isTurf = !surface || surface.includes('芝');
@@ -297,16 +304,15 @@
     if (isTurf) {
       if (horse.turf_potential !== undefined && horse.turf_potential !== null) return Number(horse.turf_potential);
       if (horse.aptitude && horse.aptitude.turf_potential !== undefined) return Number(horse.aptitude.turf_potential);
-      return 0; // 芝適性が未設定の場合は0
+      return 0;
     } else if (isDirt) {
       if (horse.dirt_potential !== undefined && horse.dirt_potential !== null) return Number(horse.dirt_potential);
       if (horse.aptitude && horse.aptitude.dirt_potential !== undefined) return Number(horse.aptitude.dirt_potential);
-      return 0; // ダート適性が未設定の場合は0
+      return 0;
     }
     return 0;
   }
 
-  // 馬場適性の出走可否 (ポテンシャル > 0)
   function isValidSurface(horse, surface) {
     if (!horse) return false;
     return getHorsePotential(horse, surface) > 0;
@@ -329,7 +335,6 @@
     return horse.style || horse.running_style || horse.leg_style || horse.strategy || '-';
   }
 
-  // 性別制限判定の強化
   function isValidSex(horseSex, sexLimit) {
     if (!sexLimit || sexLimit === "制限なし" || sexLimit === "なし") return true;
     const sex = horseSex || "牡馬";
@@ -337,8 +342,8 @@
     const isStallion = sex.includes("牡");
 
     if (sexLimit.includes("牝")) {
-      if (sexLimit.includes("牡")) return isMare || isStallion; // 牡牝限定
-      return isMare; // 牝馬限定
+      if (sexLimit.includes("牡")) return isMare || isStallion;
+      return isMare;
     }
     if (sexLimit.includes("牡")) return isStallion;
     return true;
@@ -424,13 +429,11 @@
 
       select.innerHTML = '<option value="">-- 出走馬を選択してください --</option>';
 
-            deckHorses.forEach(horse => {
+      deckHorses.forEach(horse => {
         const horseSex = horse.sex || "牡馬";
         const isChosenElsewhere = selectedEntries.some((id, idx) => idx !== rIdx && id === horse.horse_id);
         
-        // アビリティ「鉄女」「連闘」の判定を追加
         const hasContinuousAbility = Array.isArray(horse.ability) && (horse.ability.includes("鉄女") || horse.ability.includes("連闘"));
-        // アビリティを持つ場合は使用済と判定しない
         const isUsedPrevious = (usedCardsHistory.includes(horse.horse_id) || usedCardsHistory.includes(horse.name)) && !hasContinuousAbility;
 
         const matchesSexLimit = isValidSex(horseSex, raceSexLimit);
@@ -449,7 +452,6 @@
           const opt = document.createElement('option');
           opt.value = horse.horse_id;
           
-          // 表示フォーマット：馬名を先頭、ポテンシャルをその直後、性別を末尾に配置
           const horseInfoText = `${horse.name} (${surfaceLabel}${horsePt} / ${distLabel} / ${legStyle} / ${horseSex})`;
 
           if (isUsedPrevious) {
@@ -594,8 +596,9 @@
 
       globalUserData.cpu_battle_status = updatedStatus;
 
-      if (updatedStatus.series_losses >= 3) {
-        alert("3敗に達したため、シリーズ挑戦失敗（敗退）となります。");
+      const maxLosses = Math.ceil((currentStatus.max_rounds || 3) / 2);
+      if (updatedStatus.series_losses >= maxLosses) {
+        alert(`${maxLosses}敗に達したため、シリーズ挑戦失敗（敗退）となります。`);
       } else {
         alert(`ギブアップしました。(現在 ${updatedStatus.series_losses}敗)\n次の回戦へ進みます。`);
       }
@@ -626,7 +629,6 @@
     }
   }
 
-    // 92年世代以降かどうかを判定するヘルパー関数
   function isFrom1992OrLater(horse) {
     if (!horse) return false;
     const gen = horse.generation || horse.year || horse.birth_year || horse.era;
@@ -640,7 +642,6 @@
     return false;
   }
 
-  // 馬の条件適合チェック（適性・距離・性別・Pt・世代）
   function isEligibleHorse(horse, race, raceSexLimit, minPt, maxPt, usedIdsSet, checkGeneration = false) {
     if (!horse) return false;
     const hId = String(horse.horse_id);
@@ -660,7 +661,6 @@
     return true;
   }
 
-  // 対戦馬（CPU＋モブ馬）の生成メイン関数
   function generateCpuAndMobEntries(races) {
     const limits = currentSeries?.potential_limit || { max_total_potential: 95 };
     const maxTotalPt = limits.max_total_potential || 95;
@@ -671,7 +671,6 @@
 
     const allHorses = Object.values(HORSES_MASTER);
 
-    // 自チームの選択馬IDをセット化
     const playerChosenIds = new Set(selectedEntries.map(id => String(id)));
 
     const cpuEntries = [];
@@ -691,19 +690,16 @@
         ...cpuEntries.map(c => String(c.horse_id))
       ]);
 
-      // 抽出1: 理想条件（92世代以降）
       let eligibleCpu = allHorses.filter(h => 
         isEligibleHorse(h, race, raceSexLimit, currentMinPt, currentMaxPt, cpuUsedIds, true)
       );
 
-      // 抽出2: 世代制限緩和
       if (eligibleCpu.length === 0) {
         eligibleCpu = allHorses.filter(h => 
           isEligibleHorse(h, race, raceSexLimit, currentMinPt, currentMaxPt, cpuUsedIds, false)
         );
       }
 
-      // 抽出3: Pt制限緩和
       if (eligibleCpu.length === 0) {
         eligibleCpu = allHorses.filter(h => {
           const hId = String(h.horse_id);
@@ -728,7 +724,6 @@
         strategy_level: Math.floor(Math.random() * 3) + 2
       });
 
-      // モブ馬（14頭）の抽出
       const raceUsedIds = new Set([...playerChosenIds, cpuId]);
 
       let mobPool = allHorses.filter(h => 
@@ -779,7 +774,6 @@
 
     return { cpuEntries, racesMobIds };
   }
-
 
   window.startMatch = async function() {
     if (!currentUser) return;
