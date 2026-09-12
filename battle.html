@@ -676,14 +676,6 @@
     selectDeck(selectedDeckIndex);
   }
 
-  // 対戦が進行中（または一度確定済み）の場合はモード変更を不可にする
-  window.switchMatchMode = async function(isHard) {
-    if (globalUserData.cpu_battle_status && globalUserData.cpu_battle_status.is_active) return;
-    selectedHardMode = isHard;
-    const totalWins = globalUserData.total_wins || 0;
-    await renderBattleSetup(null, totalWins);
-  };
-
   window.selectDeck = function(idx) {
     if (selectedHardMode && idx === 1) return;
     selectedDeckIndex = idx;
@@ -787,17 +779,92 @@
     }
   }
 
+  // --- 追加・置換された関数エリア ---
+
+  // モード切り替え関数
+  window.switchMatchMode = async function(isHard) {
+    if (globalUserData.cpu_battle_status && globalUserData.cpu_battle_status.is_active) return;
+    selectedHardMode = isHard;
+    renderModeButtons();
+  };
+
+  function renderModeButtons() {
+    const totalWins = globalUserData.total_wins || 0;
+    const btnMain = document.getElementById('btnMainMode');
+    const btnHard = document.getElementById('btnHardMode');
+
+    if (totalWins < 30) {
+      btnMain.textContent = "2デッキ 3回戦マッチ";
+    } else {
+      btnMain.textContent = "2デッキ 5回戦マッチ";
+    }
+
+    if (totalWins >= 50) {
+      btnHard.disabled = false;
+    } else {
+      btnHard.disabled = true;
+      btnHard.title = "通算50勝でアンロック";
+    }
+
+    btnMain.classList.toggle('active', !selectedHardMode);
+    btnHard.classList.toggle('active', selectedHardMode);
+    
+    // HARDモード時の2デッキ目無効化
+    document.getElementById('deckCard1').classList.toggle('disabled', selectedHardMode);
+    if (selectedHardMode && selectedDeckIndex === 1) {
+      selectDeck(0);
+    }
+  }
+
+  // 出走登録へ進むボタンを押した時にパラメータを確定して保存
   window.goToMatchup = async function() {
     if (!selectedSeries || !currentUser) return;
+
+    const totalWins = globalUserData.total_wins || 0;
+    let maxRounds = 3;
+    let winCondition = 2;
+    let deckLimit = 2;
+    let modeKey = 'deck2_match3';
+
+    if (selectedHardMode) {
+      // 50勝以上解放：1デッキ 3回戦 (2勝勝ち抜け)
+      maxRounds = 3;
+      winCondition = 2;
+      deckLimit = 1;
+      modeKey = 'deck1_match3';
+    } else if (totalWins >= 30) {
+      // 30勝以上解放：2デッキ 5回戦 (3勝勝ち抜け)
+      maxRounds = 5;
+      winCondition = 3;
+      deckLimit = 2;
+      modeKey = 'deck2_match5';
+    } else {
+      // 初期状態：2デッキ 3回戦 (2勝勝ち抜け)
+      maxRounds = 3;
+      winCondition = 2;
+      deckLimit = 2;
+      modeKey = 'deck2_match3';
+    }
 
     try {
       const currentStatus = globalUserData.cpu_battle_status || {};
       
+      // lineupが未生成の場合の安全策
+      const lineup = currentStatus.series_lineup || generateSeriesLineup(totalWins, maxRounds);
+
       const updatedStatus = {
         ...currentStatus,
         is_active: true,
+        match_mode: modeKey,
+        max_rounds: maxRounds,
+        win_condition: winCondition,
+        deck_limit: deckLimit,
+        series_lineup: lineup,
         selected_series_id: selectedSeries.series_id,
-        selected_deck_index: selectedDeckIndex
+        selected_deck_index: selectedDeckIndex,
+        current_round: currentStatus.current_round || 1,
+        series_wins: currentStatus.series_wins || 0,
+        series_losses: currentStatus.series_losses || 0
       };
 
       await setDoc(doc(db, "users", currentUser.uid), {
