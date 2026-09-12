@@ -348,7 +348,27 @@
     let status = globalUserData.cpu_battle_status;
 
     if (status && status.is_active) {
-      const maxRounds = status.max_rounds || 3;
+      // 1. レース進行中/結果未確認で離脱していた場合は race_result.html に自動リダイレクト
+      if (status.current_match) {
+        window.location.href = 'race_result.html';
+        return;
+      }
+
+      // 2. max_rounds の自動修復（他画面でのデータ消失・上書き対策）
+      let expectedMaxRounds = (totalWins >= 30) ? 5 : 3;
+      if (Array.isArray(status.series_lineup) && status.series_lineup.length >= 5) {
+        expectedMaxRounds = 5;
+      }
+
+      if (!status.max_rounds || status.max_rounds !== expectedMaxRounds) {
+        status.max_rounds = expectedMaxRounds;
+        // 修復データを即座にFirestoreへ保存
+        await setDoc(doc(db, "users", currentUser.uid), {
+          cpu_battle_status: { max_rounds: expectedMaxRounds }
+        }, { merge: true });
+      }
+
+      const maxRounds = status.max_rounds;
       const winCondition = Math.ceil(maxRounds / 2);
 
       if (status.series_wins >= winCondition) {
@@ -385,7 +405,7 @@
     await processBattleState(totalWins);
   };
 
-  /* ─── ゲーム終了 & 報酬獲得演出 ─── */
+ /* ─── ゲーム終了 & 報酬獲得演出 ─── */
   async function handleGameEnd(status, isClear, winCondition) {
     const modal = document.getElementById('resultModal');
     const title = document.getElementById('modalTitle');
@@ -480,7 +500,7 @@
   // ★各回戦（1試合）の勝敗時に呼び出す連勝保存関数
   window.recordMatchResult = async function(isWin) {
     if (!currentUser) return;
-    const userRef = doc(db, "users", currentUser.uid);
+    const userRef = doc(doc, "users", currentUser.uid);
 
     let newCurrentStreak = 0;
     let newMaxStreak = globalUserData.max_streak || 0;
@@ -574,6 +594,12 @@
         console.error("初期データ保存エラー:", err);
         alert("初期データの作成に失敗しました。再読み込みしてください。");
         return;
+      }
+    } else {
+      // 進行中バトルの max_rounds 保証
+      const expectedMaxRounds = (totalWins >= 30 || (status.series_lineup && status.series_lineup.length >= 5)) ? 5 : 3;
+      if (!status.max_rounds || status.max_rounds !== expectedMaxRounds) {
+        status.max_rounds = expectedMaxRounds;
       }
     }
 
