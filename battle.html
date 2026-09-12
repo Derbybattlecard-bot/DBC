@@ -40,13 +40,10 @@
   .category-summary { font-weight: bold; color: var(--text-main); cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
   .category-status-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
   .status-unlocked { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
-  .status-locked { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
 
   .series-item-list { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ccc; display: flex; flex-direction: column; gap: 6px; }
   .series-item { background: #ffffff; border: 1px solid #ddd; padding: 6px 8px; border-radius: 4px; font-size: 11px; }
-  .series-item.locked { background: #f5f5f5; color: #888; border-color: #eee; }
   .series-item-title { font-weight: bold; color: var(--accent-color); margin-bottom: 2px; }
-  .series-item.locked .series-item-title { color: #888; }
   .series-item-info { font-size: 10px; color: #666; display: flex; gap: 8px; flex-wrap: wrap; }
 
   .status-header { background-color: var(--panel-bg); border: 2px solid #d4af37; border-radius: 8px; padding: 10px; text-align: center; font-weight: bold; font-size: 15px; color: #b8860b; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -104,7 +101,6 @@
   
   .modal-title { font-size: 22px; font-weight: 900; margin-bottom: 10px; }
   .title-clear { color: #d4af37; }
-  .title-over { color: #d9534f; }
   .modal-desc { font-size: 14px; color: #444; margin-bottom: 15px; line-height: 1.5; }
   
   .reward-box { background: #fff8e1; border: 2px solid #ffe082; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
@@ -126,7 +122,7 @@
     </div>
   </div>
 
-  <!-- 未対戦時に表示されるスタート＆解放シリーズ確認パネル -->
+  <!-- 未開始状態・解放シリーズ確認パネル -->
   <div class="start-battle-panel" id="startBattlePanel" style="display: none;">
     <div class="start-battle-title">🎮 CPU対戦（マッチ戦）</div>
     <div class="start-battle-desc">
@@ -134,11 +130,11 @@
       デッキの準備を整えてから「新しい対戦を始める」を押してください！
     </div>
 
-    <!-- 開放シリーズカタログ -->
+    <!-- 解放シリーズカタログ -->
     <div class="series-catalog-box">
       <div class="catalog-header">
         <span>🏆 解放済みシリーズ一覧</span>
-        <span id="unlockedCountBadge" style="font-size: 11px; color: #d81b60;">-</span>
+        <span id="unlockedCountBadge" style="font-size: 11px; color: #2e7d32;">-</span>
       </div>
       <div id="categoryCatalogList"></div>
     </div>
@@ -357,7 +353,6 @@
         throw new Error("馬データの形式が不正です");
       }
 
-      // ユーザーデッキの読み込み
       const deckDoc = await getDoc(doc(db, "users", user.uid, "decks", "main"));
       if (deckDoc.exists()) {
         const data = deckDoc.data();
@@ -421,39 +416,39 @@
       const catSeriesList = SERIES_MASTER.filter(s => getNormalizedCategory(s) === cat);
       if (catSeriesList.length === 0) return;
 
+      // 1つも解放されていないカテゴリは完全に非表示
+      if (unlockedMax === 0) return;
+
+      // 解放されているシリーズのみ抽出
+      const unlockedSeriesList = catSeriesList.filter(s => getSeriesNo(s) <= unlockedMax);
+      if (unlockedSeriesList.length === 0) return;
+
+      totalUnlockedCount += unlockedSeriesList.length;
+
       const details = document.createElement('details');
       details.className = 'category-detail';
 
       const summary = document.createElement('summary');
       summary.className = 'category-summary';
-      
-      const isCatUnlocked = unlockedMax > 0;
-      const unlockedInCat = catSeriesList.filter(s => getSeriesNo(s) <= unlockedMax).length;
-      totalUnlockedCount += unlockedInCat;
-
       summary.innerHTML = `
-        <span>${cat} (${unlockedInCat}/${catSeriesList.length})</span>
-        <span class="category-status-badge ${isCatUnlocked ? 'status-unlocked' : 'status-locked'}">
-          ${isCatUnlocked ? '解放中' : '未解放'}
-        </span>
+        <span>${cat} (${unlockedSeriesList.length}/${catSeriesList.length})</span>
+        <span class="category-status-badge status-unlocked">解放中</span>
       `;
       details.appendChild(summary);
 
       const itemList = document.createElement('div');
       itemList.className = 'series-item-list';
 
-      catSeriesList.forEach(s => {
+      unlockedSeriesList.forEach(s => {
         const sNo = getSeriesNo(s);
-        const isUnlocked = sNo <= unlockedMax;
-        
         const item = document.createElement('div');
-        item.className = `series-item ${isUnlocked ? '' : 'locked'}`;
+        item.className = 'series-item';
         
         const races = s.rounds?.[0]?.races || [];
         const limitInfo = s.potential_limit || {};
 
         item.innerHTML = `
-          <div class="series-item-title">${isUnlocked ? '🔓' : '🔒'} NO.${sNo} ${s.series_name}</div>
+          <div class="series-item-title">🔓 NO.${sNo} ${s.series_name}</div>
           <div class="series-item-info">
             <span>全${races.length}戦</span>
             <span>上限: ${limitInfo.max_total_potential || '-'}Pt</span>
