@@ -70,7 +70,6 @@
   .surface-turf { background-color: var(--turf-color); }
   .surface-dirt { background-color: var(--dirt-color); }
 
-  /* デッキ表示エリア（初期状態非表示） */
   .deck-select-panel { background-color: var(--panel-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; }
   .deck-options { display: flex; gap: 10px; }
   .deck-card { flex: 1; background: #fff; border: 2px solid var(--border-color); border-radius: 6px; padding: 10px; cursor: pointer; text-align: center; transition: all 0.2s; }
@@ -144,7 +143,6 @@
     <div class="race-list" id="raceList"></div>
   </div>
 
-  <!-- デッキ選択パネル（対戦開始前閲覧モードのため非表示に設定） -->
   <div class="deck-select-panel" id="deckPanel" style="display: none;">
     <h3 style="margin:0; text-align: center; color: var(--accent-color);" id="deckPanelTitle">挑戦するデッキを選択 (最大18頭)</h3>
     <div class="deck-options">
@@ -547,7 +545,7 @@
   }
 
   async function renderBattleSetup(status, totalWins) {
-    const isOngoing = status && status.is_active;
+    const isOngoing = Boolean(status && status.is_active);
 
     const btnMain = document.getElementById('btnMainMode');
     const btnHard = document.getElementById('btnHardMode');
@@ -587,7 +585,7 @@
 
       const lineup = generateSeriesLineup(totalWins, maxRounds);
       status = {
-        is_active: true,
+        is_active: true, // モード作成時に固定化
         match_mode: modeKey,
         current_round: 1,
         max_rounds: maxRounds,
@@ -607,7 +605,7 @@
         await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status }, { merge: true });
       }
 
-      // 対戦突入に伴いボタン選択をロック
+      // 対戦突入に伴いボタン選択をロックする
       btnMain.disabled = true;
       btnHard.disabled = true;
     }
@@ -655,12 +653,141 @@
       `;
     }).join('');
 
+    const decks = globalUserData.decks || [];
+    [0, 1].forEach(idx => {
+      const deck = decks[idx] || { deck_name: `メインデッキ ${idx + 1}`, horse_ids: [] };
+      const validCount = (deck.horse_ids || []).filter(id => id !== null && id !== undefined).length;
+      document.getElementById(`deckName${idx}`).textContent = deck.deck_name || `メインデッキ ${idx + 1}`;
+      document.getElementById(`deckCount${idx}`).textContent = validCount;
+    });
+
+    const isSingleDeckMode = (status.match_mode === 'deck1_match3');
+    
+    // 対戦中はデッキ切り替えをロックする
+    if (isOngoing) {
+      document.getElementById('deckCard0').classList.toggle('disabled', selectedDeckIndex !== 0);
+      document.getElementById('deckCard1').classList.toggle('disabled', selectedDeckIndex !== 1);
+      document.getElementById('deckPanelTitle').textContent = "挑戦するデッキ (※対戦中のためデッキ固定)";
+    } else {
+      document.getElementById('deckCard0').classList.remove('disabled');
+      document.getElementById('deckCard1').classList.toggle('disabled', isSingleDeckMode);
+      document.getElementById('deckPanelTitle').textContent = isSingleDeckMode ? "挑戦するデッキ（※このモードは全戦このデッキ固定です）" : "挑戦するデッキを選択 (最大18頭)";
+    }
+
     document.getElementById('challengePanel').style.display = 'block';
-    
-    // 対戦開始前の閲覧モードではデッキパネルは非表示のまま
-    document.getElementById('deckPanel').style.display = 'none';
-    
+    document.getElementById('deckPanel').style.display = 'flex';
     document.getElementById('btnStart').style.display = 'block';
+    
+    selectDeck(selectedDeckIndex);
+  }
+
+  window.selectDeck = function(idx) {
+    const status = globalUserData.cpu_battle_status;
+    // 対戦進行中の場合はデッキ切り替えを不可にする
+    if (status && status.is_active && typeof status.selected_deck_index === 'number') {
+      if (idx !== status.selected_deck_index) return;
+    }
+    if (selectedHardMode && idx === 1) return;
+
+    selectedDeckIndex = idx;
+    document.getElementById('deckCard0').classList.toggle('selected', idx === 0);
+    document.getElementById('deckCard1').classList.toggle('selected', idx === 1);
+    renderDeckTable();
+  };
+
+  function getTurfVal(horse) {
+    if (!horse) return 0;
+    if (horse.turf_potential !== undefined && horse.turf_potential !== null) return Number(horse.turf_potential) || 0;
+    if (typeof horse.turf === 'number') return horse.turf;
+    if (typeof horse.turf === 'boolean') return horse.turf ? 1 : 0;
+    return 0;
+  }
+
+  function getDirtVal(horse) {
+    if (!horse) return 0;
+    if (horse.dirt_potential !== undefined && horse.dirt_potential !== null) return Number(horse.dirt_potential) || 0;
+    if (typeof horse.dirt === 'number') return horse.dirt;
+    if (typeof horse.dirt === 'boolean') return horse.dirt ? 1 : 0;
+    return 0;
+  }
+
+  function getSurfaceText(horse) {
+    if (!horse) return '-';
+    const t = getTurfVal(horse);
+    const d = getDirtVal(horse);
+    if (t > 0 && d > 0) return `芝${t}/ダ${d}`;
+    if (t > 0) return `芝${t}`;
+    if (d > 0) return `ダ${d}`;
+    if (horse.surface) return horse.surface;
+    return '-';
+  }
+
+  function getDistanceText(horse) {
+    if (!horse) return '-';
+    let minD = horse.min_distance ?? horse.distance_min ?? horse.aptitude?.min_distance;
+    let maxD = horse.max_distance ?? horse.distance_max ?? horse.aptitude?.max_distance;
+    if (minD !== undefined && maxD !== undefined && minD !== null && maxD !== null && minD !== '' && maxD !== '') {
+      minD = Number(minD); maxD = Number(maxD);
+      if (!isNaN(minD) && !isNaN(maxD)) return minD === maxD ? `${minD}m` : `${minD}-${maxD}m`;
+    }
+    const distVal = horse.distance ?? horse.dist;
+    if (distVal !== undefined && distVal !== null && distVal !== '') {
+      if (Array.isArray(distVal)) {
+        if (distVal.length === 0) return '-';
+        const min = Math.min(...distVal); const max = Math.max(...distVal);
+        return min === max ? `${min}m` : `${min}-${max}m`;
+      }
+      const distStr = String(distVal).trim();
+      if (distStr.endsWith('m')) return distStr;
+      return `${distStr}m`;
+    }
+    return '-';
+  }
+
+  function getHorseLegStyle(horse) {
+    if (!horse) return '-';
+    return horse.style || horse.running_style || horse.leg_style || horse.strategy || '-';
+  }
+
+  function renderDeckTable() {
+    const tbody = document.getElementById('deckHorseList');
+    tbody.innerHTML = '';
+    const usedCards = globalUserData.cpu_battle_status?.used_cards_history || [];
+    const deck = (globalUserData.decks || [])[selectedDeckIndex] || { horse_ids: [] };
+
+    for (let i = 0; i < 18; i++) {
+      const horse = HORSES_MASTER[deck.horse_ids[i]];
+      const tr = document.createElement('tr');
+      const frameNum = i + 1;
+
+      if (horse) {
+        const hasContinuousAbility = Array.isArray(horse.ability) && (horse.ability.includes("鉄女") || horse.ability.includes("連闘"));
+        const isUsed = (usedCards.includes(horse.horse_id) || usedCards.includes(horse.name)) && !hasContinuousAbility;
+        
+        if (isUsed) {
+          tr.className = 'used-row';
+          tr.style.opacity = '0.4';
+        }
+
+        const sex = horse.sex || '牡馬';
+        const surface = getSurfaceText(horse);
+        const dist = getDistanceText(horse);
+        const leg = getHorseLegStyle(horse);
+
+        tr.innerHTML = `
+          <td>${frameNum}</td>
+          <td class="horse-name-cell">${horse.name}</td>
+          <td>${sex}</td>
+          <td>${surface}</td>
+          <td>${dist}</td>
+          <td>${leg}</td>
+          <td>${isUsed ? '出走済' : '可'}</td>
+        `;
+      } else {
+        tr.innerHTML = `<td>${frameNum}</td><td colspan="6" style="color:#aaa;">(未設定)</td>`;
+      }
+      tbody.appendChild(tr);
+    }
   }
 
   // モード切り替え関数
@@ -690,6 +817,12 @@
 
     btnMain.classList.toggle('active', !selectedHardMode);
     btnHard.classList.toggle('active', selectedHardMode);
+    
+    // HARDモード時の2デッキ目無効化
+    document.getElementById('deckCard1').classList.toggle('disabled', selectedHardMode);
+    if (selectedHardMode && selectedDeckIndex === 1) {
+      selectDeck(0);
+    }
   }
 
   // 出走登録へ進むボタンを押した時にパラメータを確定して保存
@@ -703,16 +836,19 @@
     let modeKey = 'deck2_match3';
 
     if (selectedHardMode) {
+      // 50勝以上解放：1デッキ 3回戦 (2勝勝ち抜け)
       maxRounds = 3;
       winCondition = 2;
       deckLimit = 1;
       modeKey = 'deck1_match3';
     } else if (totalWins >= 30) {
+      // 30勝以上解放：2デッキ 5回戦 (3勝勝ち抜け)
       maxRounds = 5;
       winCondition = 3;
       deckLimit = 2;
       modeKey = 'deck2_match5';
     } else {
+      // 初期状態：2デッキ 3回戦 (2勝勝ち抜け)
       maxRounds = 3;
       winCondition = 2;
       deckLimit = 2;
@@ -721,6 +857,8 @@
 
     try {
       const currentStatus = globalUserData.cpu_battle_status || {};
+      
+      // lineupが未生成の場合の安全策
       const lineup = currentStatus.series_lineup || generateSeriesLineup(totalWins, maxRounds);
 
       const updatedStatus = {
