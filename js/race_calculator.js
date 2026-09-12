@@ -537,16 +537,6 @@ function applyPhase3Abilities(resultList, raceInfo, trackCondition, racePace) {
         }
       }
     }
-
-    // 1人旅 (一人旅): single_escape条件判定を呼び出し
-    if (abilityName === "1人旅" || abilityName === "一人旅") {
-      if (evalAbilityCondition("single_escape", firstHorse, raceInfo, trackCondition, resultList, racePace)) {
-        applyAllStatsBuff(firstHorse, 2);
-        if (!firstHorse.activated_abilities.includes(abilityName)) {
-          firstHorse.activated_abilities.push(abilityName);
-        }
-      }
-    }
   });
 }
 
