@@ -375,8 +375,13 @@ async function loadMasterData() {
     strategyMasterData = stratRes;
     abilityMasterData = abilityRes; 
     
-    HORSES_ARRAY = horseRes;
-    HORSES_ARRAY.forEach(h => HORSES_MASTER[h.horse_id] = h);
+    if (Array.isArray(horseRes)) {
+      HORSES_ARRAY = horseRes;
+      HORSES_ARRAY.forEach(h => { HORSES_MASTER[h.horse_id] = h; });
+    } else if (typeof horseRes === 'object' && horseRes !== null) {
+      HORSES_MASTER = horseRes;
+      HORSES_ARRAY = Object.values(horseRes);
+    }
   } catch (error) {
     console.error("マスターデータの読み込み失敗:", error);
     alert("マスターデータの読み込みに失敗しました。");
@@ -854,9 +859,8 @@ async function startRace() {
       
       setHorseDirection(currentTrackConfig.phase4_dir);
 
-// 【修正後】位置取りポイント（positionPoint）通りに直線入口の初期位置を設定（先頭: 35%, 最後方: 10%）
-let p4StartPos = getPosPointsMap(calculatedResults, 27, 2);
-setPhasePositions(p4StartPos, 0, "linear", currentTrackConfig.phase4_dir);
+      let p4StartPos = getPosPointsMap(calculatedResults, 27, 2);
+      setPhasePositions(p4StartPos, 0, "linear", currentTrackConfig.phase4_dir);
     }, 800);
 
     setTimeout(() => {
@@ -1069,7 +1073,7 @@ window.goToNextSeries = async function() {
 
     window.location.href = 'battle.html';
 
- 　} catch (err) {
+  } catch (err) {
     console.error("結果保存エラー:", err);
     alert("通信エラーが発生しました。");
     if (btn) {
