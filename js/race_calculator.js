@@ -518,25 +518,7 @@ function applyPhase3Abilities(resultList, raceInfo, trackCondition, racePace) {
   firstHorse.activated_abilities = firstHorse.activated_abilities || [];
 
   firstHorse.ability.forEach(abilityName => {
-    // ロケットスタート: 先頭で逃げた時に全てパラメータ+1
-    if (abilityName === "ロケットスタート") {
-      applyAllStatsBuff(firstHorse, 1);
-      if (!firstHorse.activated_abilities.includes(abilityName)) {
-        firstHorse.activated_abilities.push(abilityName);
-      }
-    }
-
-    // 大逃亡: 先頭に立ち、2番手と位置取りPt差が20以上の時に全てパラメータ+2
-    if (abilityName === "大逃亡") {
-      const secondHorse = resultList.find(h => h.positionRank === 2);
-      const gap = secondHorse ? (firstHorse.positionPoint - secondHorse.positionPoint) : 20;
-      if (gap >= 20) {
-        applyAllStatsBuff(firstHorse, 1);
-        if (!firstHorse.activated_abilities.includes(abilityName)) {
-          firstHorse.activated_abilities.push(abilityName);
-        }
-      }
-    }
+    
   });
 }
 
