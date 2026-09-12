@@ -483,14 +483,7 @@ function applyPhase2Abilities(horse, positionPoint, abilityMasterData) {
   let newPoint = positionPoint;
 
   horse.ability.forEach(abilityName => {
-    // ロケットスタート / 大逃亡: 位置取りポイント+20
-    if (abilityName === "ロケットスタート" || abilityName === "大逃亡") {
-      newPoint += 20;
-      if (!horse.activated_abilities.includes(abilityName)) {
-        horse.activated_abilities.push(abilityName);
-      }
-    }
-
+  
     const master = getAbilityMasterData(abilityName, abilityMasterData);
     if (!master || !master.effects) return;
 
