@@ -344,12 +344,12 @@
     await processBattleState(totalWins);
   }
 
-  async function processBattleState(totalWins) {
+    async function processBattleState(totalWins) {
     let status = globalUserData.cpu_battle_status;
 
-    if (status && status.is_active) {
+    if (status) {
       // 1. レース進行中/結果未確認で離脱していた場合は race_result.html に自動リダイレクト
-      if (status.current_match) {
+      if (status.is_active && status.current_match) {
         window.location.href = 'race_result.html';
         return;
       }
@@ -360,21 +360,14 @@
         expectedMaxRounds = 5;
       }
 
-      if (!status.max_rounds || status.max_rounds !== expectedMaxRounds) {
-        status.max_rounds = expectedMaxRounds;
-        // 修復データを即座にFirestoreへ保存
-        await setDoc(doc(db, "users", currentUser.uid), {
-          cpu_battle_status: { max_rounds: expectedMaxRounds }
-        }, { merge: true });
-      }
-
-      const maxRounds = status.max_rounds;
+      const maxRounds = status.max_rounds || expectedMaxRounds;
       const winCondition = Math.ceil(maxRounds / 2);
 
-      if (status.series_wins >= winCondition) {
+      // ★is_activeがfalseに書き換わっていても、勝ち数が届いていればクリア判定を通す
+      if ((status.series_wins || 0) >= winCondition) {
         await handleGameEnd(status, true, winCondition);
         return;
-      } else if (status.series_losses >= winCondition || status.current_round > maxRounds) {
+      } else if (status.is_active && ((status.series_losses || 0) >= winCondition || status.current_round > maxRounds)) {
         await handleGameEnd(status, false, winCondition);
         return;
       }
@@ -382,6 +375,7 @@
 
     await initBattle(status, totalWins);
   }
+
 
   function showUnlockAnimation(totalWins, newlyUnlocked) {
     const listHtml = newlyUnlocked.map(item => `・<strong>${item.desc}</strong>`).join('<br>');
