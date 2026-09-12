@@ -119,7 +119,7 @@
     現在の成績： <span class="win-loss-text" id="winCount">0</span>勝 <span class="win-loss-text" id="lossCount">0</span>敗
   </div>
 
-  <!-- モード選択領域（未進行時のみ操作可） -->
+  <!-- モード選択パネル -->
   <div class="mode-select-panel" id="modeSelectPanel" style="display: none;">
     <div class="mode-select-title">チャレンジモードの選択</div>
     <div class="mode-btn-group">
@@ -214,9 +214,8 @@
   let HORSES_ARRAY = [];
   let selectedSeries = null;
   let selectedDeckIndex = 0;
-  let selectedHardMode = false; // ワンデッキハードモードフラグ
+  let selectedHardMode = false;
 
-  // ─── ロック解除ステージ定義 ───
   const UNLOCK_STAGES = [
     { wins: 0, cat: "古馬東西", no: 1, desc: "初期カテゴリ（古馬東西 NO.1）" },
     { wins: 0, cat: "地方交流", no: 1, desc: "初期カテゴリ（地方交流 NO.1）" },
@@ -364,7 +363,6 @@
   async function processBattleState(totalWins) {
     let status = globalUserData.cpu_battle_status;
 
-    // 対戦進行中の場合
     if (status && status.is_active) {
       if (status.current_match) {
         window.location.href = 'race_result.html';
@@ -383,7 +381,6 @@
       }
     }
 
-    // チャレンジ未開始または再選択時の初期化
     await renderBattleSetup(status, totalWins);
   }
 
@@ -409,7 +406,6 @@
     await processBattleState(totalWins);
   };
 
-  /* ─── ゲーム終了 & 報酬獲得演出 ─── */
   async function handleGameEnd(status, isClear, winCondition) {
     const modal = document.getElementById('resultModal');
     const title = document.getElementById('modalTitle');
@@ -474,7 +470,7 @@
         await playFourthCornerCutIn(rewardHorse, cardRenderer);
 
       } catch (err) {
-        console.warn("カットイン演出の実行中にエラーが発生しましたが、処理を継続します:", err);
+        console.warn("カットイン演出のエラー:", err);
       } finally {
         if (cardContainer) {
           if (rendererObj && rendererObj.isLoaded) {
@@ -548,11 +544,9 @@
     return lineup;
   }
 
-  /* ─── モード設定＆画面初期構築 ─── */
   async function renderBattleSetup(status, totalWins) {
     const isOngoing = status && status.is_active;
 
-    // モードボタンの制御
     const btnMain = document.getElementById('btnMainMode');
     const btnHard = document.getElementById('btnHardMode');
     const modeSelectPanel = document.getElementById('modeSelectPanel');
@@ -573,7 +567,6 @@
     }
 
     if (isOngoing) {
-      // 進行中なら設定済みモードを適用し、モード切り替えボタンをロック
       selectedHardMode = (status.match_mode === 'deck1_match3');
       btnMain.disabled = true;
       btnHard.disabled = true;
@@ -584,31 +577,15 @@
     btnMain.classList.toggle('active', !selectedHardMode);
     btnHard.classList.toggle('active', selectedHardMode);
 
-    // 進行中でない場合のみ、新規の対戦ステータスを一時適用（出走登録ボタンを押して確定保存）
-    if (!isOngoing) {
-      let modeKey = "";
-      let maxRounds = 3;
-      let winCond = 2;
-
-      if (selectedHardMode) {
-        modeKey = 'deck1_match3';
-        maxRounds = 3;
-        winCond = 2;
-      } else {
-        if (totalWins >= 30) {
-          modeKey = 'deck2_match5';
-          maxRounds = 5;
-          winCond = 3;
-        } else {
-          modeKey = 'deck2_match3';
-          maxRounds = 3;
-          winCond = 2;
-        }
-      }
+    // 未進行時の初期シリーズ生成・確定処理（未作成のときのみ行う）
+    if (!status || !status.series_lineup || status.series_lineup.length === 0) {
+      let modeKey = selectedHardMode ? 'deck1_match3' : (totalWins >= 30 ? 'deck2_match5' : 'deck2_match3');
+      let maxRounds = selectedHardMode ? 3 : (totalWins >= 30 ? 5 : 3);
+      let winCond = selectedHardMode ? 2 : (totalWins >= 30 ? 3 : 2);
 
       const lineup = generateSeriesLineup(totalWins, maxRounds);
       status = {
-        is_active: false, // 確定前
+        is_active: true, // モード作成時に固定化
         match_mode: modeKey,
         current_round: 1,
         max_rounds: maxRounds,
@@ -622,7 +599,15 @@
         used_cards_history: [],
         current_match: null
       };
+
       globalUserData.cpu_battle_status = status;
+      if (currentUser) {
+        await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: status }, { merge: true });
+      }
+
+      // 対戦突入に伴いボタン選択をロックする
+      btnMain.disabled = true;
+      btnHard.disabled = true;
     }
 
     if (typeof status.selected_deck_index === 'number') {
@@ -676,7 +661,6 @@
       document.getElementById(`deckCount${idx}`).textContent = validCount;
     });
 
-    // 1デッキ制限モードの場合、デッキ切り替えを無効化
     const isSingleDeckMode = (status.match_mode === 'deck1_match3');
     document.getElementById('deckCard1').classList.toggle('disabled', isSingleDeckMode);
     if (isSingleDeckMode && selectedDeckIndex === 1) {
@@ -692,15 +676,16 @@
     selectDeck(selectedDeckIndex);
   }
 
-  window.switchMatchMode = function(isHard) {
+  // 対戦が進行中（または一度確定済み）の場合はモード変更を不可にする
+  window.switchMatchMode = async function(isHard) {
     if (globalUserData.cpu_battle_status && globalUserData.cpu_battle_status.is_active) return;
     selectedHardMode = isHard;
     const totalWins = globalUserData.total_wins || 0;
-    renderBattleSetup(globalUserData.cpu_battle_status, totalWins);
+    await renderBattleSetup(null, totalWins);
   };
 
   window.selectDeck = function(idx) {
-    if (selectedHardMode && idx === 1) return; // 1デッキモードは1固定
+    if (selectedHardMode && idx === 1) return;
     selectedDeckIndex = idx;
     document.getElementById('deckCard0').classList.toggle('selected', idx === 0);
     document.getElementById('deckCard1').classList.toggle('selected', idx === 1);
@@ -808,7 +793,6 @@
     try {
       const currentStatus = globalUserData.cpu_battle_status || {};
       
-      // ボタンを押したタイミングでアトミックにアクティブ化（進行中化）して保存
       const updatedStatus = {
         ...currentStatus,
         is_active: true,
