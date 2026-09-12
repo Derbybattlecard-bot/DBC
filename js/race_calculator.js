@@ -631,23 +631,54 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     applyPhase1Abilities(copy, raceInfo, trackCondition, resultList, abilityMasterData);
   });
 
-  // STEP 1: 位置取り計算
+   // STEP 1: 位置取り計算
   resultList.forEach((h) => {
-    const tacticStyle = h.style || h.tactic_style || h.target_style || h.tactic || "";
-    let tacticStylePt = 40;
-    if (tacticStyle.includes("逃げ")) tacticStylePt = 90;
-    else if (tacticStyle.includes("先行")) tacticStylePt = 70;
-    else if (tacticStyle.includes("差し")) tacticStylePt = 40;
-    else if (tacticStyle.includes("追込")) tacticStylePt = 20;
+    // ------------------------------------------------------------------------
+    // A. 作戦の脚質判定（4種類のみ: 逃げ / 先行 / 差し / 追込）
+    // ------------------------------------------------------------------------
+    let tacticCategory = "";
 
-    const horseStyle = h.running_style || h.horse_style || "";
+    // 作戦がオブジェクトで渡された場合は master の style を直接参照
+    if (typeof h.tactic === "object" && h.tactic !== null) {
+      tacticCategory = h.tactic.style || "";
+    } else {
+      // 文字列の場合は作戦マスターの 4 種類へ厳密に分類
+      const tacticStr = String(h.tactic_style || h.target_style || h.tactic || "");
+      if (tacticStr.includes("逃げ") || tacticStr.includes("ハナ")) {
+        tacticCategory = "逃げ";
+      } else if (tacticStr.includes("先行") || tacticStr.includes("4角") || tacticStr.includes("好位")) {
+        tacticCategory = "先行";
+      } else if (tacticStr.includes("差し") || tacticStr.includes("スパート") || tacticStr.includes("マーク")) {
+        tacticCategory = "差し";
+      } else if (tacticStr.includes("追込") || tacticStr.includes("まくり") || tacticStr.includes("死んだふり")) {
+        tacticCategory = "追込";
+      }
+    }
+
+    // 作戦脚質による基礎ポイント（4種類固定）
+    let tacticStylePt = 40; // デフォルト（差し）
+    if (tacticCategory === "逃げ") {
+      tacticStylePt = 90;
+    } else if (tacticCategory === "先行") {
+      tacticStylePt = 70;
+    } else if (tacticCategory === "差し") {
+      tacticStylePt = 40;
+    } else if (tacticCategory === "追込") {
+      tacticStylePt = 20;
+    }
+
+    // ------------------------------------------------------------------------
+    // B. 馬の元脚質判定（細分化脚質: 大逃 / 好位 / 自在 / 逃追 など）
+    // ------------------------------------------------------------------------
+    const horseStyle = String(h.style || h.running_style || h.horse_style || "");
     let styleCalcPt = 0;
 
+    // 「大逃」と「逃げ」を完全区別。馬独自の「好位」も先行加算（+30pt）に割り当て
     if (horseStyle.includes("自在") || horseStyle.includes("逃追")) {
       styleCalcPt = tacticStylePt * 2;
     } else if (horseStyle.includes("大逃")) {
       styleCalcPt = tacticStylePt + 50;
-    } else if (horseStyle.includes("逃げ")) {
+    } else if (horseStyle.includes("逃げ") || horseStyle === "逃") {
       styleCalcPt = tacticStylePt + 40;
     } else if (horseStyle.includes("先行") || horseStyle.includes("好位")) {
       styleCalcPt = tacticStylePt + 30;
@@ -659,12 +690,16 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       styleCalcPt = tacticStylePt + 20;
     }
 
+    // ------------------------------------------------------------------------
+    // C. 位置取りポイント算出
+    // ------------------------------------------------------------------------
     const horseSpeed = h.calc_speed || 0;
     const randomVal = Math.floor(Math.random() * 5);
 
     let basePos = styleCalcPt + horseSpeed + randomVal;
     h.positionPoint = applyPhase2Abilities(h, basePos, abilityMasterData);
   });
+
 
   const posSorted = [...resultList].sort((a, b) => {
     if (b.positionPoint !== a.positionPoint) {
@@ -751,15 +786,26 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       statScore = (spdBase + spdStrat) + (stmBase + stmStrat);
     }
 
-    const tacticStyle = h.style || h.tactic_style || h.target_style || h.tactic || "";
-    
+        // STEP 3 内の脚質ボーナス計算部分
+    let currentTacticStyle = "";
+    if (typeof h.tactic === "object" && h.tactic !== null) {
+      currentTacticStyle = h.tactic.style || "";
+    } else {
+      const tStr = String(h.tactic_style || h.target_style || h.tactic || "");
+      if (tStr.includes("逃げ")) currentTacticStyle = "逃げ";
+      else if (tStr.includes("先行")) currentTacticStyle = "先行";
+      else if (tStr.includes("差し")) currentTacticStyle = "差し";
+      else if (tStr.includes("追込")) currentTacticStyle = "追込";
+    }
+
     if (selectedBranch.style_bonus) {
       Object.keys(selectedBranch.style_bonus).forEach(bonusStyle => {
-        if (tacticStyle.includes(bonusStyle)) {
+        if (currentTacticStyle.includes(bonusStyle)) {
           styleBonusPt = selectedBranch.style_bonus[bonusStyle] || 0;
         }
       });
     }
+
 
     if (selectedBranch.position_bonus_type === "direct_asc") {
       posAddPt = h.positionRank;
