@@ -259,8 +259,32 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
     case "always": 
       return true;
 
-    case "single_escape": 
-      return isEscape;
+    case "single_escape": {
+      // レース内の「逃げ」馬を抽出
+      const leadHorses = allHorses.filter(h => {
+        const style = h.style || h.running_style || "";
+        const tactic = h.tactic || "";
+        return style === "逃げ" || tactic.includes("逃げ") || tactic === "ハナにこだわる";
+      });
+
+      // ① 逃げ馬が1頭のみ（単騎）でない場合は不成立
+      if (leadHorses.length !== 1) return false;
+
+      // ② 該当する馬が唯一の逃げ馬であるかチェック
+      const soleLead = leadHorses[0];
+      const isTheSoleLeadHorse = (horse.index !== undefined && soleLead.index !== undefined)
+        ? horse.index === soleLead.index
+        : (horse.horse_id === soleLead.horse_id || horse.name === soleLead.name);
+
+      if (!isTheSoleLeadHorse) return false;
+
+      // ③ 位置取り判定が済んでいる場合、先頭（1番手）でなければ不成立
+      if (horse.positionRank !== undefined && horse.positionRank !== 1) {
+        return false;
+      }
+
+      return true;
+    }
 
     case "pace_front_remain": 
       return true;
@@ -483,7 +507,7 @@ function applyPhase2Abilities(horse, positionPoint, abilityMasterData) {
   return newPoint;
 }
 
-function applyPhase3Abilities(resultList, leadCount) {
+function applyPhase3Abilities(resultList, raceInfo, trackCondition, racePace) {
   if (resultList.length === 0) return;
 
   const firstHorse = resultList.find(h => h.positionRank === 1);
@@ -514,33 +538,17 @@ function applyPhase3Abilities(resultList, leadCount) {
       }
     }
 
-       case "single_escape": {
-      // レース内の「逃げ」馬を抽出
-      const leadHorses = allHorses.filter(h => {
-        const style = h.style || h.running_style || "";
-        const tactic = h.tactic || "";
-        return style === "逃げ" || tactic.includes("逃げ") || tactic === "ハナにこだわる";
-      });
-
-      // ① 逃げ馬が1頭のみ（単騎）でない場合は不成立（複数逃げがいる場合は発動しない）
-      if (leadHorses.length !== 1) return false;
-
-      // ② 該当する馬が唯一の逃げ馬であるかチェック
-      const soleLead = leadHorses[0];
-      const isTheSoleLeadHorse = (horse.index !== undefined && soleLead.index !== undefined)
-        ? horse.index === soleLead.index
-        : (horse.horse_id === soleLead.horse_id || horse.name === soleLead.name);
-
-      if (!isTheSoleLeadHorse) return false;
-
-      // ③ 位置取り判定が済んでいる場合、先頭（1番手）でなければ不成立
-      if (horse.positionRank !== undefined && horse.positionRank !== 1) {
-        return false;
+    // 1人旅 (一人旅): single_escape条件判定を呼び出し
+    if (abilityName === "1人旅" || abilityName === "一人旅") {
+      if (evalAbilityCondition("single_escape", firstHorse, raceInfo, trackCondition, resultList, racePace)) {
+        applyAllStatsBuff(firstHorse, 2);
+        if (!firstHorse.activated_abilities.includes(abilityName)) {
+          firstHorse.activated_abilities.push(abilityName);
+        }
       }
-
-      return true;
     }
-
+  });
+}
 
 function applyPhase4Abilities(horse, pace, branchName) {
   if (!isEligibleForAbility(horse)) return 0;
@@ -611,7 +619,7 @@ function applyRankSwapAbilities(resultList) {
     if (currentRank >= 4 && currentRank <= 6) {
       targetRank = 3;
     } else if (currentRank >= 7 && currentRank <= 10) {
-      targetRank =5;
+      targetRank = 5;
     }
 
     if (targetRank && targetRank < currentRank) {
@@ -708,7 +716,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     if (target) target.positionRank = rank + 1;
   });
 
-  applyPhase3Abilities(resultList, leadCount);
+  applyPhase3Abilities(resultList, raceInfo, trackCondition, selectedPace);
 
   // STEP 2: 展開分岐選択
   let availableBranches = raceMaster?.branches_by_pace?.[selectedPace];
@@ -883,4 +891,4 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     branch: selectedBranch,
     commentary: commentaryData
   };
- }
+               }
