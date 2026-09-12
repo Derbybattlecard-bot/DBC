@@ -514,17 +514,33 @@ function applyPhase3Abilities(resultList, leadCount) {
       }
     }
 
-    // 1人旅 (一人旅): 単騎逃げ（逃げ1頭）の時に全てパラメータ+2
-    if (abilityName === "1人旅" || abilityName === "一人旅") {
-      if (leadCount === 1) {
-        applyAllStatsBuff(firstHorse, 1);
-        if (!firstHorse.activated_abilities.includes(abilityName)) {
-          firstHorse.activated_abilities.push(abilityName);
-        }
+       case "single_escape": {
+      // レース内の「逃げ」馬を抽出
+      const leadHorses = allHorses.filter(h => {
+        const style = h.style || h.running_style || "";
+        const tactic = h.tactic || "";
+        return style === "逃げ" || tactic.includes("逃げ") || tactic === "ハナにこだわる";
+      });
+
+      // ① 逃げ馬が1頭のみ（単騎）でない場合は不成立（複数逃げがいる場合は発動しない）
+      if (leadHorses.length !== 1) return false;
+
+      // ② 該当する馬が唯一の逃げ馬であるかチェック
+      const soleLead = leadHorses[0];
+      const isTheSoleLeadHorse = (horse.index !== undefined && soleLead.index !== undefined)
+        ? horse.index === soleLead.index
+        : (horse.horse_id === soleLead.horse_id || horse.name === soleLead.name);
+
+      if (!isTheSoleLeadHorse) return false;
+
+      // ③ 位置取り判定が済んでいる場合、先頭（1番手）でなければ不成立
+      if (horse.positionRank !== undefined && horse.positionRank !== 1) {
+        return false;
       }
+
+      return true;
     }
-  });
-}
+
 
 function applyPhase4Abilities(horse, pace, branchName) {
   if (!isEligibleForAbility(horse)) return 0;
