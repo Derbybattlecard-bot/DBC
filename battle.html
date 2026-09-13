@@ -202,8 +202,6 @@
   </div>
 </div>
 
-    
-  
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
@@ -371,11 +369,13 @@
       const wins = status.series_wins || 0;
       const losses = status.series_losses || 0;
 
-      // ★追加：すでに3勝または3敗（または規定勝利・敗戦数）に達している場合は強制的に終了・精算する
+      // 【安全装置・最優先判定】すでに規定の勝利数・敗北数に達している場合は即座に終了・精算へ
       if (wins >= winCondition) {
         await handleGameEnd(status, true, winCondition);
         return;
-      } else if (losses >= winCondition || status.current_round > maxRounds) {
+      } 
+      
+      if (losses >= winCondition || (status.current_round > maxRounds)) {
         await handleGameEnd(status, false, winCondition);
         return;
       }
@@ -714,7 +714,7 @@
     return '-';
   }
 
-function getDistanceText(horse) {
+  function getDistanceText(horse) {
     if (!horse) return '-';
     let minD = horse.min_distance ?? horse.distance_min ?? horse.aptitude?.min_distance;
     let maxD = horse.max_distance ?? horse.distance_max ?? horse.aptitude?.max_distance;
@@ -873,6 +873,5 @@ function getDistanceText(horse) {
   };
 </script>
 
-      
 </body>
 </html>
