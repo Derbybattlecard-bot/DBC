@@ -891,181 +891,191 @@ async function startRace() {
 function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear", moveDir = "left_to_right") {
   const trackContainer = document.getElementById('track-container');
   if (!trackContainer) return;
-  const trackWidth = trackContainer.clientWidth - 20;
-  
+  const trackWidth = trackContainer.clientWidth - 70;
+
   positionsArray.forEach((pos, i) => {
     const el = document.getElementById(`horse-icon-${i}`);
     if (el) {
-      let validPos = (typeof pos === 'number' && !isNaN(pos)) ? pos : 0;
+      let validPos = (pos !== undefined && pos !== null) ? pos : 0;
+      let leftPx;
+      if (moveDir === "right_to_left") {
+        leftPx = 10 + (trackWidth * (1 - validPos / 100));
+      } else {
+        leftPx = 10 + (trackWidth * (validPos / 100));
+      }
       el.style.transition = `left ${durationSec}s ${timing}`;
-      let actualPos = (moveDir === "right_to_left") ? (100 - validPos) : validPos;
-      el.style.left = (10 + (trackWidth * (actualPos / 100))) + "px";
+      el.style.left = `${leftPx}px`;
     }
   });
 }
 
-function updateLog(text) { document.getElementById('log-content').innerHTML = text; }
-function showTelop(text, durationMs = 1500) {
+function updateLog(msg) {
+  const logContent = document.getElementById('log-content');
+  if (logContent) {
+    logContent.innerHTML = msg;
+  }
+}
+
+function showTelop(text, duration = 3000) {
   const telop = document.getElementById('race-telop');
-  telop.innerHTML = text; telop.classList.add('show');
-  setTimeout(() => { hideTelop(); }, durationMs);
-}
-function hideTelop() { document.getElementById('race-telop').classList.remove('show'); }
-
-function renderResults(scoredList) {
-  document.getElementById('summary-pace-branch').textContent = `${currentRacePace} 【${currentRaceBranch}】`;
-  document.getElementById('summary-formula').textContent = `${currentRaceFormulaStr} (+ Lv補正 & ランダム差)`;
-
-  const tbody = document.getElementById('result-body');
-  tbody.innerHTML = "";
-  
-  scoredList.forEach((item, r) => {
-    let typeLabel = "MOB";
-    let nameClass = "";
-    if (item.isPlayer) {
-      typeLabel = '<span class="p1-name">YOU</span>';
-      nameClass = "p1-name";
-    } else if (item.isCpu) {
-      typeLabel = '<span class="p2-name">CPU</span>';
-      nameClass = "p2-name";
+  if (telop) {
+    telop.innerHTML = text;
+    telop.classList.add('show');
+    if (duration > 0) {
+      setTimeout(() => {
+        hideTelop();
+      }, duration);
     }
-
-    const horseStyle = item.style || item.running_style || "自在";
-    const tacticName = item.tactic || "通常";
-    const tacticStyle = item.tactic_style || item.target_style || item.tactic || "自在";
-    const tacticLevel = item.level || 1;
-    let detailText = item.detailText || "算定詳細なし";
-
-    tbody.innerHTML += `
-      <tr>
-        <td><strong>${r + 1}着</strong></td>
-        <td>${item.positionRank}番手</td>
-        <td><strong>${item.positionPoint}</strong></td>
-        <td>${typeLabel}</td>
-        <td style="text-align:left;"><span class="${nameClass}">${item.name}</span></td>
-        <td style="text-align:left; white-space: nowrap;">
-          <strong>[${horseStyle}]</strong> ${tacticName} <span style="color: #aaa; font-size: 0.9em;">(${tacticStyle} / Lv.${tacticLevel})</span>
-        </td>
-        <td style="text-align:left; font-family: monospace; font-size: 0.85em; color: #ffcc00; white-space: nowrap;">${detailText}</td>
-        <td><strong>${Math.floor(item.finalScore)}</strong></td>
-      </tr>`;
-  });
-
-  document.getElementById('result-container').style.display = "block";
+  }
 }
 
-function recordHistory(scoredList) {
-  const pRank = scoredList.findIndex(item => item.isPlayer) + 1;
-  const cRank = scoredList.findIndex(item => item.isCpu) + 1;
-  seriesHistory.push({ raceNum: currentRaceIndex + 1, pRank: pRank, cRank: cRank, win: pRank < cRank });
+function hideTelop() {
+  const telop = document.getElementById('race-telop');
+  if (telop) {
+    telop.classList.remove('show');
+  }
 }
 
-function showFinalSeriesResult() {
-  const status = globalUserData?.cpu_battle_status || {};
-  const maxRounds = status.max_rounds || 3;
-  const winCondition = status.win_condition || Math.ceil(maxRounds / 2);
+function recordHistory(results) {
+  const playerRes = results.find(r => r.isPlayer);
+  const cpuRes = results.find(r => r.isCpu);
+  const pRank = playerRes ? playerRes.rank : 99;
+  const cRank = cpuRes ? cpuRes.rank : 99;
+  const isPlayerWin = pRank < cRank;
 
-  let playerWins = seriesHistory.filter(h => h.win).length;
-  let cpuWins = seriesHistory.length - playerWins;
-  
-  const titleEl = document.getElementById('series-result-title');
-  if (playerWins >= winCondition) {
-    titleEl.innerHTML = `🎉 あなたの勝利！！<br><span style="font-size:0.7em; color:#fff;">シリーズを制覇しました！</span>`;
-  } else {
-    titleEl.innerHTML = `💀 CPUの勝利...<br><span style="font-size:0.7em; color:#fff;">悔しさを胸に次回へ挑戦！</span>`;
-  }
-  
-  document.getElementById('series-score-detail').innerHTML = `
-    <span style="color:var(--player-color)">あなた ${playerWins}勝</span> - <span style="color:var(--cpu-color)">CPU ${cpuWins}勝</span>
-  `;
-
-  const tbody = document.getElementById('series-history-body');
-  tbody.innerHTML = "";
-  seriesHistory.forEach(h => {
-    const winnerText = h.win ? `<span class="p1-name">あなた</span>` : `<span class="p2-name">CPU</span>`;
-    tbody.innerHTML += `
-      <tr>
-        <td>第${h.raceNum}戦</td>
-        <td>${h.pRank}着</td>
-        <td>${h.cRank}着</td>
-        <td>${winnerText}</td>
-      </tr>`;
-  });
-
-  const histTitle = document.getElementById('series-history-title');
-  if (histTitle) histTitle.textContent = `📜 全${maxRounds}戦 対戦成績`;
-
-  const isPlayerRoundWin = playerWins >= winCondition;
-  const newWins = (status.series_wins || 0) + (isPlayerRoundWin ? 1 : 0);
-  const newLosses = (status.series_losses || 0) + (isPlayerRoundWin ? 0 : 1);
-  const newRound = (status.current_round || 1) + 1;
-
-  const isFinished = (newWins >= winCondition) || (newLosses >= winCondition) || (newRound > maxRounds);
-
-  const modalBtn = document.getElementById('modalNextBtn');
-  if (modalBtn) {
-    modalBtn.textContent = isFinished ? "🏠 ホーム画面へ戻る" : "🔄 次のシリーズへ";
-  }
-
-  document.getElementById('final-series-modal').style.display = "block";
-}
-
-window.goToNextSeries = async function() {
-  if (!currentUser) return;
-
-  const btn = document.getElementById('modalNextBtn');
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = "データ更新中...";
-  }
-
-  const status = globalUserData?.cpu_battle_status || {};
-  const maxRounds = status.max_rounds || 3;
-  const winCondition = status.win_condition || Math.ceil(maxRounds / 2);
-
-  const playerWins = seriesHistory.filter(h => h.win).length;
-  const isPlayerRoundWin = playerWins >= winCondition;
-
-  const currentMatchEntries = status.current_match?.player_entries || [];
-  const usedIds = currentMatchEntries.map(e => e.horse_id).filter(Boolean);
-
-  const updatedUsedCards = Array.from(new Set([...(status.used_cards_history || []), ...usedIds]));
-
-  const newWins = (status.series_wins || 0) + (isPlayerRoundWin ? 1 : 0);
-  const newLosses = (status.series_losses || 0) + (isPlayerRoundWin ? 0 : 1);
-  const newRound = (status.current_round || 1) + 1;
-
-  const p1stCount = seriesHistory.filter(h => h.pRank === 1).length;
-  const updatedTotal1st = (status.total_1st_places || 0) + p1stCount;
-
-  const isChallengeFinished = (newWins >= winCondition || newLosses >= winCondition || newRound > maxRounds);
-
-  const updatedCpuBattleStatus = {
-    ...status,
-    is_active: !isChallengeFinished,
-    series_wins: newWins,
-    series_losses: newLosses,
-    current_round: newRound,
-    total_1st_places: updatedTotal1st,
-    used_cards_history: updatedUsedCards,
-    current_match: null
+  const rec = {
+    race: currentRaceIndex + 1,
+    playerRank: pRank,
+    cpuRank: cRank,
+    win: isPlayerWin,
+    winner: isPlayerWin ? "あなた" : (cRank < pRank ? "CPU" : "引き分け")
   };
+  seriesHistory.push(rec);
+}
 
-  try {
-    await setDoc(doc(db, "users", currentUser.uid), {
-      cpu_battle_status: updatedCpuBattleStatus
-    }, { merge: true });
+function renderResults(results) {
+  const resContainer = document.getElementById('result-container');
+  const resBody = document.getElementById('result-body');
+  const summaryPaceBranch = document.getElementById('summary-pace-branch');
+  const summaryFormula = document.getElementById('summary-formula');
 
-    window.location.href = 'battle.html';
+  if (summaryPaceBranch) {
+    summaryPaceBranch.textContent = `${currentRacePace}ペース / ${currentRaceBranch}`;
+  }
+  if (summaryFormula) {
+    summaryFormula.textContent = currentRaceFormulaStr;
+  }
 
-  } catch (err) {
-    console.error("結果保存エラー:", err);
-    alert("通信エラーが発生しました。");
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = "次へ進む";
+  if (resBody) {
+    resBody.innerHTML = results.map((r, idx) => {
+      const isP = r.isPlayer;
+      const isC = r.isCpu;
+      const rowStyle = isP ? 'style="background: rgba(51,153,255,0.15); font-weight:bold;"' : (isC ? 'style="background: rgba(255,68,68,0.15); font-weight:bold;"' : '');
+      const tag = isP ? '★[YOUR]' : (isC ? '[CPU]' : '');
+      const breakdown = r.score_details || r.breakdown || '-';
+      const evalPt = (r.total_score !== undefined) ? r.total_score.toFixed(1) : (r.evaluation_point !== undefined ? r.evaluation_point.toFixed(1) : '-');
+      
+      return `
+        <tr ${rowStyle}>
+          <td>${r.rank}</td>
+          <td>${r.gate_number || (idx + 1)}</td>
+          <td>${r.positionPoint !== undefined ? r.positionPoint.toFixed(1) : '-'}</td>
+          <td>${tag || 'MOB'}</td>
+          <td>${r.name}</td>
+          <td>${r.style || r.tactic || '-'}: ${r.tactic || '-'} (Lv.${r.level || 1})</td>
+          <td style="text-align:left; font-size:0.9em;">${breakdown}</td>
+          <td><strong>${evalPt}</strong></td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  if (resContainer) {
+    resContainer.style.display = "block";
+  }
+}
+
+async function showFinalSeriesResult() {
+  const modal = document.getElementById('final-series-modal');
+  const titleEl = document.getElementById('series-result-title');
+  const scoreEl = document.getElementById('series-score-detail');
+  const historyBody = document.getElementById('series-history-body');
+
+  let pWins = seriesHistory.filter(h => h.win).length;
+  let cWins = seriesHistory.filter(h => !h.win && h.cpuRank < h.playerRank).length;
+
+  if (scoreEl) {
+    scoreEl.textContent = `あなた ${pWins} 勝 - ${cWins} 勝 CPU`;
+  }
+
+  if (historyBody) {
+    let historyHtml = seriesHistory.map(h => `
+      <tr>
+        <td>${h.race}</td>
+        <td style="color:${h.win ? 'var(--player-color)' : '#fff'}; font-weight:bold;">${h.playerRank}着</td>
+        <td style="color:${!h.win ? 'var(--cpu-color)' : '#fff'}; font-weight:bold;">${h.cpuRank}着</td>
+        <td>${h.winner}</td>
+      </tr>
+    `).join('');
+    historyBody.innerHTML = historyHtml;
+  }
+
+  const isSeriesClear = pWins > cWins;
+  if (titleEl) {
+    if (isSeriesClear) {
+      titleEl.textContent = "🏆 シリーズ勝ち越し達成！";
+      titleEl.style.color = "var(--gold-color)";
+    } else {
+      titleEl.textContent = "💔 シリーズ敗北...";
+      titleEl.style.color = "var(--cpu-color)";
     }
   }
+
+  let player1stCount = seriesHistory.filter(h => h.playerRank === 1).length;
+
+  if (currentUser) {
+    try {
+      const status = globalUserData?.cpu_battle_status || {};
+      const newWins = (status.series_wins || 0) + (isSeriesClear ? 1 : 0);
+      const newLosses = (status.series_losses || 0) + (!isSeriesClear ? 1 : 0);
+      const newTotal1st = (status.total_1st_places || 0) + player1stCount;
+
+      const currentMatch = status.current_match || {};
+      const playerEntries = currentMatch.player_entries || [];
+      const usedHistory = status.used_cards_history || [];
+      playerEntries.forEach(pe => {
+        if (pe.horse_id && !usedHistory.includes(pe.horse_id)) {
+          usedHistory.push(pe.horse_id);
+        }
+      });
+
+      const nextRound = (status.current_round || 1) + 1;
+      
+      const updatedStatus = {
+        ...status,
+        current_round: nextRound,
+        series_wins: newWins,
+        series_losses: newLosses,
+        total_1st_places: newTotal1st,
+        used_cards_history: usedHistory,
+        current_match: null
+      };
+
+      await setDoc(doc(db, "users", currentUser.uid), {
+        cpu_battle_status: updatedStatus
+      }, { merge: true });
+
+      globalUserData.cpu_battle_status = updatedStatus;
+    } catch (err) {
+      console.error("シリーズ結果の保存に失敗しました:", err);
+    }
+  }
+
+  if (modal) modal.style.display = "block";
+}
+
+window.goToNextSeries = function() {
+  window.location.href = 'battle.html';
 };
 </script>
 </body>
