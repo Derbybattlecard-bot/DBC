@@ -31,33 +31,33 @@
   .status-header { background-color: var(--panel-bg); border: 2px solid #d4af37; border-radius: 8px; padding: 10px; text-align: center; font-weight: bold; font-size: 15px; color: #b8860b; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
   .win-loss-text { color: #d32f2f; font-size: 18px; margin: 0 5px; }
 
-  /* モード選択パネル */
+  /* モード選択パネルの修正 */
   .mode-select-panel { background-color: var(--panel-bg); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); text-align: center; }
   .mode-select-title { font-weight: bold; color: var(--accent-color); margin-bottom: 8px; font-size: 13px; }
-  .mode-btn-group { display: flex; gap: 8px; }
-  .btn-mode { flex: 1; padding: 10px 5px; border-radius: 6px; border: 2px solid var(--border-color); background: #fff; color: var(--text-main); font-weight: bold; cursor: pointer; transition: all 0.2s; font-size: 12px; }
+  .mode-btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-mode { flex: 1; min-width: 140px; padding: 8px 6px; border-radius: 6px; border: 2px solid var(--border-color); background: #fff; color: var(--text-main); font-weight: bold; cursor: pointer; transition: all 0.2s; font-size: 11.5px; box-sizing: border-box; }
   .btn-mode.active { border-color: var(--accent-color); background: #eef7f0; color: var(--accent-color); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
   .btn-mode:disabled { opacity: 0.4; cursor: not-allowed; background: #eee; border-color: #ccc; color: #888; }
   .mode-badge-hard { background: #d32f2f; color: white; padding: 2px 4px; border-radius: 3px; font-size: 9px; margin-left: 3px; }
 
-  .challenge-panel { background-color: var(--panel-bg); border: 2px solid var(--accent-color); border-radius: 8px; padding: 15px 20px; text-align: center; position: relative; }
+  .challenge-panel { background-color: var(--panel-bg); border: 2px solid var(--accent-color); border-radius: 8px; padding: 15px 20px; text-align: center; position: relative; margin-top: 5px; }
   .challenge-label { font-size: 12px; font-weight: bold; color: #666; margin-bottom: 2px; }
-  .match-type-tag { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: #d9534f; color: #fff; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+  .match-type-tag { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: #d9534f; color: #fff; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); white-space: nowrap; }
   
   .series-category-badge {
     display: inline-block;
     background: linear-gradient(135deg, #2d6a37, #1b4d23);
     color: #ffffff;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 800;
-    padding: 6px 18px;
+    padding: 5px 15px;
     border-radius: 20px;
-    margin: 6px 0 4px 0;
+    margin: 8px 0 4px 0;
     box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     letter-spacing: 1px;
     border: 1px solid #d4af37;
   }
-  .series-title { font-size: 18px; font-weight: bold; color: var(--accent-color); margin-bottom: 10px; margin-top: 4px; }
+  .series-title { font-size: 16px; font-weight: bold; color: var(--accent-color); margin-bottom: 10px; margin-top: 4px; }
   
   .limit-info-box { background: var(--limit-bg); border: 1px solid var(--limit-border); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; display: flex; justify-content: center; gap: 15px; font-weight: bold; color: var(--limit-text); }
   .race-list { display: flex; flex-direction: column; gap: 6px; background: #ffffff; border: 1px solid var(--border-color); border-radius: 6px; padding: 10px 12px; text-align: left; }
@@ -65,7 +65,7 @@
   .race-item:last-child { border-bottom: none; padding-bottom: 0; }
   .race-num { font-weight: bold; color: var(--text-sub); width: 50px; }
   .race-name { flex: 1; font-weight: bold; color: var(--text-main); }
-  .race-cond { font-size: 11px; color: #555; }
+  .race-cond { font-size: 11px; color: #555; white-space: nowrap; }
   .surface-badge { padding: 2px 5px; border-radius: 3px; color: #fff; font-size: 10px; font-weight: bold; margin-right: 4px; }
   .surface-turf { background-color: var(--turf-color); }
   .surface-dirt { background-color: var(--dirt-color); }
@@ -369,13 +369,10 @@
       const wins = status.series_wins || 0;
       const losses = status.series_losses || 0;
 
-      // 【安全装置・最優先判定】すでに規定の勝利数・敗北数に達している場合は即座に終了・精算へ
       if (wins >= winCondition) {
         await handleGameEnd(status, true, winCondition);
         return;
-      } 
-      
-      if (losses >= winCondition || (status.current_round > maxRounds)) {
+      } else if (losses >= winCondition || status.current_round > maxRounds) {
         await handleGameEnd(status, false, winCondition);
         return;
       }
@@ -872,6 +869,5 @@
     }
   };
 </script>
-
 </body>
 </html>
