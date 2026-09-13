@@ -37,7 +37,6 @@
   .challenge-label { font-size: 12px; font-weight: bold; color: #666; margin-bottom: 2px; }
   .match-type-tag { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: #d9534f; color: #fff; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
   
-  /* シリーズカテゴリ強調スタイル */
   .series-category-badge {
     display: inline-block;
     background: linear-gradient(135deg, #2d6a37, #1b4d23);
@@ -92,7 +91,6 @@
   .reward-box { background: #fff8e1; border: 2px solid #ffe082; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
   .modal-btn { background: var(--accent-color); color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-weight: bold; font-size: 14px; cursor: pointer; }
 
-  /* アンロック専用スタイル */
   .unlock-border { border: 4px solid #d4af37; }
   .unlock-list { text-align: left; background: #fdfaf0; padding: 10px; border-radius: 6px; font-size: 13px; margin: 15px 0; border: 1px dashed #d4af37; }
 </style>
@@ -117,7 +115,6 @@
   <div class="challenge-panel" id="challengePanel" style="display: none;">
     <div class="match-type-tag" id="matchTypeTag">-回戦マッチ</div>
     <div class="challenge-label">＼ 今回の対戦シリーズはこちら！ ／</div>
-    <!-- シリーズカテゴリ表示部分 -->
     <div class="series-category-badge" id="seriesCategoryBadge">カテゴリ</div>
     <div class="series-title" id="seriesTitle"></div>
     <div class="limit-info-box">
@@ -199,7 +196,6 @@
   let selectedSeries = null;
   let selectedDeckIndex = 0;
 
-  // ─── ロック解除ステージ定義 ───
   const UNLOCK_STAGES = [
     { wins: 0, cat: "古馬東西", no: 1, desc: "初期カテゴリ（古馬東西 NO.1）" },
     { wins: 0, cat: "地方交流", no: 1, desc: "初期カテゴリ（地方交流 NO.1）" },
@@ -347,34 +343,25 @@
     await processBattleState(totalWins);
   }
 
-
-
-
-
   async function processBattleState(totalWins) {
     let status = globalUserData.cpu_battle_status;
 
-    // 1. アクティブな対戦データがある場合のみ、各種判定を行う
     if (status && status.is_active) {
-      
-      // 【判定A】レース進行中に離脱した場合は、結果確認画面へ強制送還
       if (status.current_match) {
         window.location.href = 'race_result.html';
         return;
       }
 
-      // 【判定B】最大ラウンド数と勝利条件（過半数）の計算
       let maxRounds = 3;
       if (totalWins >= 30 || (Array.isArray(status.series_lineup) && status.series_lineup.length >= 5)) {
         maxRounds = 5;
       }
-      maxRounds = status.max_rounds || maxRounds; // 保存データがあれば優先
+      maxRounds = status.max_rounds || maxRounds;
       
-      const winCondition = Math.ceil(maxRounds / 2); // 3回戦なら2、5回戦なら3
+      const winCondition = Math.ceil(maxRounds / 2);
       const currentWins = status.series_wins || 0;
       const currentLosses = status.series_losses || 0;
 
-      // 【判定C：最重要】勝敗判定（規定数に達していれば、即座に報酬/敗北処理へ進み関数を終了する）
       if (currentWins >= winCondition) {
         await handleGameEnd(status, true, winCondition);
         return; 
@@ -384,7 +371,6 @@
         return; 
       }
 
-      // 【判定D】セーフティネット（勝敗未決着にもかかわらずラウンド数がオーバーしている異常データ）
       if (status.current_round > maxRounds) {
         console.warn("異常な対戦データを検知したため、初期化します。");
         const emptyStatus = { is_active: false };
@@ -394,17 +380,9 @@
       }
     }
 
-    // 2. 進行中（1勝1敗など）、または新規開始（is_active: false）の場合はUI構築へ進む
     await initBattle(status, totalWins);
   }
 
-
-
-  
-  
-      
-
-// 手動での対戦データ初期化関数
   window.manualResetBattleData = async function() {
     if (!confirm("現在の対戦データを初期化して、新しい対戦を開始しますか？")) return;
     try {
@@ -423,7 +401,7 @@
     document.getElementById('unlockWinsVal').textContent = totalWins;
     document.getElementById('unlockListArea').innerHTML = listHtml;
     
-   if(totalWins >= 200) {
+    if(totalWins >= 200) {
       document.getElementById('unlockTitle').textContent = "🎉 GRAND SLAM!";
     } else if (totalWins === 30) {
       document.getElementById('unlockTitle').textContent = "⭐️ RANK UP!";
@@ -440,7 +418,6 @@
     await processBattleState(totalWins);
   };
 
-  /* ─── ゲーム終了 & 報酬獲得演出 ─── */
   async function handleGameEnd(status, isClear, winCondition) {
     const modal = document.getElementById('resultModal');
     const title = document.getElementById('modalTitle');
@@ -514,7 +491,6 @@
       rewardBox.style.display = "none";
 
       try {
-        // ★ここが重要：敗北時でも確実に is_active を false にリセットします
         const updatedStatus = { ...status, is_active: false, current_match: null };
         globalUserData.cpu_battle_status = updatedStatus;
         userUpdateObj.cpu_battle_status = updatedStatus;
@@ -531,7 +507,6 @@
 
   window.closeModalAndReset = async function() {
     try {
-      // 画面移動前に強制的に状態を初期化（最強のループ対策）
       const emptyStatus = { is_active: false };
       await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: emptyStatus }, { merge: true });
     } catch(e) {
@@ -796,4 +771,4 @@
 </script>
 
 </body>
-</html> 
+</html>
