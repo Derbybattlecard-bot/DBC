@@ -508,11 +508,12 @@
       rewardBox.style.display = "none";
 
       try {
+        // ★ここが重要：敗北時でも確実に is_active を false にリセットします
         const updatedStatus = { ...status, is_active: false, current_match: null };
+        globalUserData.cpu_battle_status = updatedStatus;
         userUpdateObj.cpu_battle_status = updatedStatus;
         
         await setDoc(doc(db, "users", currentUser.uid), userUpdateObj, { merge: true });
-        globalUserData.cpu_battle_status = updatedStatus;
         updateHeaderBadges();
       } catch (err) {
         console.error("ゲーム終了ステータス保存エラー:", err);
@@ -521,6 +522,7 @@
       modal.style.display = "flex";
     }
   }
+
 
   window.closeModalAndReset = function() {
     window.location.href = 'index.html'; 
