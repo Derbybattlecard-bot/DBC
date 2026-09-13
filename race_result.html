@@ -309,10 +309,18 @@ onAuthStateChanged(auth, async (user) => {
     if (userDoc.exists()) globalUserData = userDoc.data();
 
     await loadMasterData();
-    buildRaceGridsFromFirebase();
 
     const status = globalUserData?.cpu_battle_status || {};
-    const currentMatch = status.current_match || {};
+    const currentMatch = status.current_match;
+
+    // もし対戦データが存在しない（完了済みなど）場合は選出画面に戻る
+    if (!currentMatch) {
+      window.location.href = 'battle.html';
+      return;
+    }
+
+    buildRaceGridsFromFirebase();
+
     const maxRounds = status.max_rounds || 3;
     
     if (typeof currentMatch.current_race_index === 'number') {
@@ -507,7 +515,7 @@ function setupRace(rIdx) {
     }
   }
 
-  const currentRaceNumber = seriesHistory.length + 1;
+  const currentRaceNumber = rIdx + 1;
 
   activeHorses.forEach(h => {
     if (h.isPlayer) {
@@ -645,15 +653,37 @@ function getPosPointsMap(horses, leadPos, trailPos) {
   return positions;
 }
 
-window.handleButtonClick = function() {
+window.handleButtonClick = async function() {
   const status = globalUserData?.cpu_battle_status || {};
   const maxRounds = status.max_rounds || 3;
 
-  if (raceState === 'ready') startRace();
-  else if (raceState === 'finished') {
+  if (raceState === 'ready') {
+    startRace();
+  } else if (raceState === 'finished') {
     currentRaceIndex++;
-    if (currentRaceIndex < maxRounds) setupRace(currentRaceIndex);
-    else showFinalSeriesResult();
+
+    // Firestore へ次のレースインデックスを反映
+    if (currentUser) {
+      const currentMatch = status.current_match || {};
+      const updatedMatch = {
+        ...currentMatch,
+        current_race_index: currentRaceIndex,
+        series_history: seriesHistory
+      };
+      try {
+        await setDoc(doc(db, "users", currentUser.uid), {
+          cpu_battle_status: { ...status, current_match: updatedMatch }
+        }, { merge: true });
+      } catch (e) {
+        console.error("進捗保存エラー:", e);
+      }
+    }
+
+    if (currentRaceIndex < maxRounds) {
+      setupRace(currentRaceIndex);
+    } else {
+      showFinalSeriesResult();
+    }
   }
 };
 
@@ -737,28 +767,8 @@ async function startRace() {
     currentRaceFormulaStr += " ＋ 脚質ボーナス";
   }
 
+  // レース結果を履歴配列に保存 (重複対策済み)
   recordHistory(calculatedResults);
-  const nextRaceIdx = currentRaceIndex + 1;
-
-  if (currentUser) {
-    try {
-      const status = globalUserData?.cpu_battle_status || {};
-      const currentMatch = status.current_match || {};
-      const updatedMatch = {
-        ...currentMatch,
-        current_race_index: nextRaceIdx,
-        series_history: seriesHistory
-      };
-      await setDoc(doc(db, "users", currentUser.uid), {
-        cpu_battle_status: {
-          ...status,
-          current_match: updatedMatch
-        }
-      }, { merge: true });
-    } catch (err) {
-      console.error("進捗即時保存エラー:", err);
-    }
-  }
 
   updateLog(`<strong>【スタート】</strong> ${comm.phase1}`);
   
@@ -877,6 +887,19 @@ async function startRace() {
           const status = globalUserData?.cpu_battle_status || {};
           const maxRounds = status.max_rounds || 3;
 
+          // レース完了時にDBへ記録を同期
+          if (currentUser) {
+            const currentMatch = status.current_match || {};
+            const updatedMatch = {
+              ...currentMatch,
+              current_race_index: currentRaceIndex,
+              series_history: seriesHistory
+            };
+            setDoc(doc(db, "users", currentUser.uid), {
+              cpu_battle_status: { ...status, current_match: updatedMatch }
+            }, { merge: true }).catch(err => console.error("成績同期エラー:", err));
+          }
+
           const btn = document.getElementById('nextBtn');
           btn.disabled = false; 
           btn.innerText = (currentRaceIndex < maxRounds - 1) 
@@ -937,20 +960,28 @@ function hideTelop() {
 }
 
 function recordHistory(results) {
-  const playerRes = results.find(r => r.isPlayer);
-  const cpuRes = results.find(r => r.isCpu);
+  const playerRes = results.find(r => r.isPlayer || r.is_player);
+  const cpuRes = results.find(r => r.isCpu || r.is_cpu);
   const pRank = playerRes ? playerRes.rank : 99;
   const cRank = cpuRes ? cpuRes.rank : 99;
   const isPlayerWin = pRank < cRank;
 
+  const raceNum = currentRaceIndex + 1;
   const rec = {
-    race: currentRaceIndex + 1,
+    race: raceNum,
     playerRank: pRank,
     cpuRank: cRank,
     win: isPlayerWin,
     winner: isPlayerWin ? "あなた" : (cRank < pRank ? "CPU" : "引き分け")
   };
-  seriesHistory.push(rec);
+
+  // 同一レースの重複登録を防止（既存のレース記録があれば置換、なければ追加）
+  const existingIdx = seriesHistory.findIndex(h => h.race === raceNum);
+  if (existingIdx >= 0) {
+    seriesHistory[existingIdx] = rec;
+  } else {
+    seriesHistory.push(rec);
+  }
 }
 
 function renderResults(results) {
@@ -968,8 +999,8 @@ function renderResults(results) {
 
   if (resBody) {
     resBody.innerHTML = results.map((r, idx) => {
-      const isP = r.isPlayer;
-      const isC = r.isCpu;
+      const isP = r.isPlayer || r.is_player;
+      const isC = r.isCpu || r.is_cpu;
       const rowStyle = isP ? 'style="background: rgba(51,153,255,0.15); font-weight:bold;"' : (isC ? 'style="background: rgba(255,68,68,0.15); font-weight:bold;"' : '');
       const tag = isP ? '★[YOUR]' : (isC ? '[CPU]' : '');
       const breakdown = r.score_details || r.breakdown || '-';
@@ -1009,14 +1040,20 @@ async function showFinalSeriesResult() {
   }
 
   if (historyBody) {
-    let historyHtml = seriesHistory.map(h => `
-      <tr>
-        <td>${h.race}</td>
-        <td style="color:${h.win ? 'var(--player-color)' : '#fff'}; font-weight:bold;">${h.playerRank}着</td>
-        <td style="color:${!h.win ? 'var(--cpu-color)' : '#fff'}; font-weight:bold;">${h.cpuRank}着</td>
-        <td>${h.winner}</td>
-      </tr>
-    `).join('');
+    let historyHtml = seriesHistory.map(h => {
+      const isPWin = h.win;
+      const isCWin = !h.win && h.cpuRank < h.playerRank;
+      const pColor = isPWin ? 'var(--player-color)' : '#fff';
+      const cColor = isCWin ? 'var(--cpu-color)' : '#fff';
+      return `
+        <tr>
+          <td>${h.race}</td>
+          <td style="color:${pColor}; font-weight:bold;">${h.playerRank}着</td>
+          <td style="color:${cColor}; font-weight:bold;">${h.cpuRank}着</td>
+          <td>${h.winner}</td>
+        </tr>
+      `;
+    }).join('');
     historyBody.innerHTML = historyHtml;
   }
 
@@ -1031,18 +1068,31 @@ async function showFinalSeriesResult() {
     }
   }
 
-  let player1stCount = seriesHistory.filter(h => h.playerRank === 1).length;
+  if (modal) modal.style.display = "block";
+}
+
+window.goToNextSeries = async function() {
+  const modalBtn = document.getElementById('modalNextBtn');
+  if (modalBtn) {
+    modalBtn.disabled = true;
+    modalBtn.innerText = "保存中...";
+  }
 
   if (currentUser) {
     try {
       const status = globalUserData?.cpu_battle_status || {};
+      let pWins = seriesHistory.filter(h => h.win).length;
+      let cWins = seriesHistory.filter(h => !h.win && h.cpuRank < h.playerRank).length;
+      const isSeriesClear = pWins > cWins;
+      let player1stCount = seriesHistory.filter(h => h.playerRank === 1).length;
+
       const newWins = (status.series_wins || 0) + (isSeriesClear ? 1 : 0);
       const newLosses = (status.series_losses || 0) + (!isSeriesClear ? 1 : 0);
       const newTotal1st = (status.total_1st_places || 0) + player1stCount;
 
       const currentMatch = status.current_match || {};
       const playerEntries = currentMatch.player_entries || [];
-      const usedHistory = status.used_cards_history || [];
+      const usedHistory = [...(status.used_cards_history || [])];
       playerEntries.forEach(pe => {
         if (pe.horse_id && !usedHistory.includes(pe.horse_id)) {
           usedHistory.push(pe.horse_id);
@@ -1064,17 +1114,11 @@ async function showFinalSeriesResult() {
       await setDoc(doc(db, "users", currentUser.uid), {
         cpu_battle_status: updatedStatus
       }, { merge: true });
-
-      globalUserData.cpu_battle_status = updatedStatus;
     } catch (err) {
       console.error("シリーズ結果の保存に失敗しました:", err);
     }
   }
 
-  if (modal) modal.style.display = "block";
-}
-
-window.goToNextSeries = function() {
   window.location.href = 'battle.html';
 };
 </script>
