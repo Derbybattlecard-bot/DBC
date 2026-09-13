@@ -347,13 +347,13 @@
     await processBattleState(totalWins);
   }
 
-    async function processBattleState(totalWins) {
+      async function processBattleState(totalWins) {
     let status = globalUserData.cpu_battle_status;
 
     if (status) {
-      // 異常値セーフティネット：ラウンド数が最大値を超えていたら強制的にデータをクリアして初期化
-      const maxRounds = status.max_rounds || (totalWins >= 30 ? 5 : 3);
-      if (status.current_round > maxRounds && !status.is_active) {
+      // 異常値セーフティネット：ラウンド数が最大値を超えていたらデータをクリアして初期化
+      const maxRoundsVal = status.max_rounds || (totalWins >= 30 ? 5 : 3);
+      if (status.current_round > maxRoundsVal && !status.is_active) {
         const emptyStatus = { is_active: false };
         await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: emptyStatus }, { merge: true });
         globalUserData.cpu_battle_status = emptyStatus;
@@ -365,7 +365,6 @@
         window.location.href = 'race_result.html';
         return;
       }
-
 
       // 2. max_rounds の自動修復
       let expectedMaxRounds = (totalWins >= 30) ? 5 : 3;
@@ -379,14 +378,13 @@
       const currentSeriesWins = status.series_wins || 0;
       const currentSeriesLosses = status.series_losses || 0;
 
-            // 規定勝利数に達した場合はクリア（報酬あり）
+      // 規定勝利数達成の場合はクリア（報酬あり）
       if (currentSeriesWins >= winCondition) {
         await handleGameEnd(status, true, winCondition);
         return;
       } 
-      // 規定敗北数に達した場合、または全ラウンドが終わって勝利数に届かなかった場合はゲームオーバー
+      // 規定敗北数に達した場合、または全ラウンドが終わって勝利数に届かなかった場合
       else if (currentSeriesLosses >= winCondition || (status.is_active && status.current_round > maxRounds)) {
-        // 全ラウンド終了時点で勝利数が足りていない場合の安全処理
         if (currentSeriesWins < winCondition && currentSeriesLosses < winCondition) {
           await handleGameEnd(status, false, winCondition);
         } else {
@@ -394,11 +392,11 @@
         }
         return;
       }
-
     }
 
     await initBattle(status, totalWins);
   }
+
 
   // 手動での対戦データ初期化関数
   window.manualResetBattleData = async function() {
