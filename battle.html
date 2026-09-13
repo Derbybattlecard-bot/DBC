@@ -369,16 +369,22 @@
       const currentSeriesWins = status.series_wins || 0;
       const currentSeriesLosses = status.series_losses || 0;
 
-      // 3勝以上（あるいは規定勝利数達成）の場合はクリア（報酬あり）
-      if (currentSeriesWins >= 3 || currentSeriesWins >= winCondition) {
+            // 規定勝利数に達した場合はクリア（報酬あり）
+      if (currentSeriesWins >= winCondition) {
         await handleGameEnd(status, true, winCondition);
         return;
       } 
-      // 3敗以上（あるいは規定敗北数に達した、ラウンド超過）の場合はゲームオーバー（敗退画面）
-      else if (currentSeriesLosses >= 3 || (status.is_active && (currentSeriesLosses >= winCondition || status.current_round > maxRounds))) {
-        await handleGameEnd(status, false, winCondition);
+      // 規定敗北数に達した場合、または全ラウンドが終わって勝利数に届かなかった場合はゲームオーバー
+      else if (currentSeriesLosses >= winCondition || (status.is_active && status.current_round > maxRounds)) {
+        // 全ラウンド終了時点で勝利数が足りていない場合の安全処理
+        if (currentSeriesWins < winCondition && currentSeriesLosses < winCondition) {
+          await handleGameEnd(status, false, winCondition);
+        } else {
+          await handleGameEnd(status, currentSeriesWins >= winCondition, winCondition);
+        }
         return;
       }
+
     }
 
     await initBattle(status, totalWins);
