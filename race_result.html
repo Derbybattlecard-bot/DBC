@@ -313,7 +313,6 @@ onAuthStateChanged(auth, async (user) => {
     const status = globalUserData?.cpu_battle_status || {};
     const currentMatch = status.current_match;
 
-    // もし対戦データが存在しない（完了済みなど）場合は選出画面に戻る
     if (!currentMatch) {
       window.location.href = 'battle.html';
       return;
@@ -662,7 +661,6 @@ window.handleButtonClick = async function() {
   } else if (raceState === 'finished') {
     currentRaceIndex++;
 
-    // Firestore へ次のレースインデックスを反映
     if (currentUser) {
       const currentMatch = status.current_match || {};
       const updatedMatch = {
@@ -738,7 +736,15 @@ async function startRace() {
   btn.innerText = "🏃 レース進行中...";
 
   const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, raceInfo, abilityMasterData);
-  calculatedResults = raceResultData.results;
+  let rawResults = raceResultData.results || [];
+  
+  // 1. 各馬の rank (着順) が欠損しないよう評価順に再割当て
+  rawResults.sort((a, b) => (b.total_score ?? b.evaluation_point ?? 0) - (a.total_score ?? a.evaluation_point ?? 0));
+  calculatedResults = rawResults.map((item, index) => ({
+    ...item,
+    rank: index + 1
+  }));
+
   currentRacePace = raceResultData.pace;
   currentRaceBranch = raceResultData.branch.name;
 
@@ -767,7 +773,7 @@ async function startRace() {
     currentRaceFormulaStr += " ＋ 脚質ボーナス";
   }
 
-  // レース結果を履歴配列に保存 (重複対策済み)
+  // 2. 正確な着順をもとに履歴（seriesHistory）に記録
   recordHistory(calculatedResults);
 
   updateLog(`<strong>【スタート】</strong> ${comm.phase1}`);
@@ -775,6 +781,7 @@ async function startRace() {
   let p1Pos = getPosPointsMap(calculatedResults, 40, 22);
   setPhasePositions(p1Pos, 4.0, "linear", currentTrackConfig.phase1_3_dir); 
 
+  // 向正面
   setTimeout(() => {
     const targetHorses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.activated_abilities && h.activated_abilities.length > 0);
     
@@ -808,6 +815,7 @@ async function startRace() {
     setPhasePositions(p2Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
   }, 4000);
 
+  // 3コーナー〜展開
   setTimeout(() => {
     updateLog(`<strong>【3コーナー〜展開】</strong> ${comm.phase3}`);
     showTelop(`【ペース】 ${currentRacePace}`, 3000);
@@ -816,6 +824,7 @@ async function startRace() {
     setPhasePositions(p3Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
   }, 8300); 
 
+  // 4コーナーワイプ＆直線スタート
   setTimeout(() => {
     const wipe = document.getElementById('wipe-overlay');
     wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
@@ -843,12 +852,14 @@ async function startRace() {
 
     setTimeout(() => {
       wipe.style.left = "100%"; 
+
       setTimeout(() => {
+        // 3. 最後の直線の走行（10秒間かけて移動）
         let finalPositions = new Array(activeHorses.length);
         
-        calculatedResults.forEach((item, rank) => {
-          let posVal = 110 - (rank * 2.5);
-          let horseIdx = (typeof item.index === 'number') ? item.index : rank;
+        calculatedResults.forEach((item) => {
+          let posVal = 108 - ((item.rank - 1) * 2.5);
+          let horseIdx = (typeof item.index === 'number') ? item.index : (item.rank - 1);
           finalPositions[horseIdx] = posVal;
         });
         
@@ -859,6 +870,7 @@ async function startRace() {
           showTelop(`【展開】 ${currentRaceBranch}`, 3500);
         }, 1500);
 
+        // 逆転アビリティの発動
         setTimeout(() => {
           const swapTriggerHorses = calculatedResults.filter(
             h => (h.isPlayer || h.isCpu) && h.rank_swap_trigger
@@ -873,12 +885,14 @@ async function startRace() {
             });
             processAbilityQueue();
           }
-        }, 7000);
+        }, 6000);
 
+        // ゴール直前（9.8秒後）：ゴールイン実況を表示
         setTimeout(() => {
           updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>${comm.finish}</b></span>`);
-        }, 7500); 
+        }, 9800); 
 
+        // 走行完了（10.5秒後）：結果描画、ボタン解除、DB保存
         setTimeout(() => {
           hideTelop();
           renderResults(calculatedResults);
@@ -887,7 +901,6 @@ async function startRace() {
           const status = globalUserData?.cpu_battle_status || {};
           const maxRounds = status.max_rounds || 3;
 
-          // レース完了時にDBへ記録を同期
           if (currentUser) {
             const currentMatch = status.current_match || {};
             const updatedMatch = {
@@ -975,7 +988,6 @@ function recordHistory(results) {
     winner: isPlayerWin ? "あなた" : (cRank < pRank ? "CPU" : "引き分け")
   };
 
-  // 同一レースの重複登録を防止（既存のレース記録があれば置換、なければ追加）
   const existingIdx = seriesHistory.findIndex(h => h.race === raceNum);
   if (existingIdx >= 0) {
     seriesHistory[existingIdx] = rec;
