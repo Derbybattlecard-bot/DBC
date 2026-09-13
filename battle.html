@@ -347,44 +347,46 @@
     await processBattleState(totalWins);
   }
 
+
+
+
+
   async function processBattleState(totalWins) {
     let status = globalUserData.cpu_battle_status;
 
-    // ★【最重要修正】is_active が true のとき（対戦中のとき）のみ勝敗判定を行う
+    // 1. アクティブな対戦データがある場合のみ、各種判定を行う
     if (status && status.is_active) {
-       async function processBattleState(totalWins) {
-    let status = globalUserData.cpu_battle_status;
-
-    if (status && status.is_active) {
-      // 1. レース進行中/結果未確認で離脱していた場合は race_result.html に自動リダイレクト
+      
+      // 【判定A】レース進行中に離脱した場合は、結果確認画面へ強制送還
       if (status.current_match) {
         window.location.href = 'race_result.html';
         return;
       }
 
-      // 2. 正確な maxRounds と 規定勝利数(winCondition) を算出
-      let expectedMaxRounds = 3;
+      // 【判定B】最大ラウンド数と勝利条件（過半数）の計算
+      let maxRounds = 3;
       if (totalWins >= 30 || (Array.isArray(status.series_lineup) && status.series_lineup.length >= 5)) {
-        expectedMaxRounds = 5;
+        maxRounds = 5;
       }
-      const maxRounds = status.max_rounds || expectedMaxRounds;
-      const winCondition = Math.ceil(maxRounds / 2); // 3回戦なら2勝、5回戦なら3勝
+      maxRounds = status.max_rounds || maxRounds; // 保存データがあれば優先
+      
+      const winCondition = Math.ceil(maxRounds / 2); // 3回戦なら2、5回戦なら3
+      const currentWins = status.series_wins || 0;
+      const currentLosses = status.series_losses || 0;
 
-      const currentSeriesWins = status.series_wins || 0;
-      const currentSeriesLosses = status.series_losses || 0;
-
-      // ★【最優先】まず勝敗判定を行う（3勝していたら確実にクリア処理へ進む）
-      if (currentSeriesWins >= winCondition) {
+      // 【判定C：最重要】勝敗判定（規定数に達していれば、即座に報酬/敗北処理へ進み関数を終了する）
+      if (currentWins >= winCondition) {
         await handleGameEnd(status, true, winCondition);
-        return;
+        return; 
       } 
-      else if (currentSeriesLosses >= winCondition) {
+      if (currentLosses >= winCondition) {
         await handleGameEnd(status, false, winCondition);
-        return;
+        return; 
       }
 
-      // ★【セーフティネット】勝敗がついていないにもかかわらずラウンド数が超過している場合のみ初期化
+      // 【判定D】セーフティネット（勝敗未決着にもかかわらずラウンド数がオーバーしている異常データ）
       if (status.current_round > maxRounds) {
+        console.warn("異常な対戦データを検知したため、初期化します。");
         const emptyStatus = { is_active: false };
         await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: emptyStatus }, { merge: true });
         globalUserData.cpu_battle_status = emptyStatus;
@@ -392,46 +394,15 @@
       }
     }
 
-    // 対戦データが存在しない、または終了済みの場合は新規対戦を作成
+    // 2. 進行中（1勝1敗など）、または新規開始（is_active: false）の場合はUI構築へ進む
     await initBattle(status, totalWins);
   }
 
 
-      // 1. レース進行中/結果未確認で離脱していた場合は race_result.html に自動リダイレクト
-      if (status.is_active && status.current_match) {
-        window.location.href = 'race_result.html';
-        return;
-      }
 
-      // 2. 勝敗判定
-      let expectedMaxRounds = (totalWins >= 30) ? 5 : 3;
-      if (Array.isArray(status.series_lineup) && status.series_lineup.length >= 5) {
-        expectedMaxRounds = 5;
-      }
-
-      const maxRounds = status.max_rounds || expectedMaxRounds;
-      const winCondition = Math.ceil(maxRounds / 2); // 3回戦なら2勝、5回戦なら3勝
-
-      const currentSeriesWins = status.series_wins || 0;
-      const currentSeriesLosses = status.series_losses || 0;
-
-      // 規定勝利数達成の場合はクリア（報酬あり）
-      if (currentSeriesWins >= winCondition) {
-        await handleGameEnd(status, true, winCondition);
-        return;
-      } 
-      // 規定敗北数に達した場合
-      else if (currentSeriesLosses >= winCondition) {
-        await handleGameEnd(status, false, winCondition);
-        return;
-      }
-    }
-
-    // ★ここがループ脱出の鍵：
-    // statusが存在しない、または is_active: false (終了済み) の場合は
-    // 過去の勝敗履歴を一切無視して、新しく綺麗な状態の対戦(initBattle)を生成します。
-    await initBattle(status, totalWins);
-  }
+  
+  
+      
 
 // 手動での対戦データ初期化関数
   window.manualResetBattleData = async function() {
