@@ -413,11 +413,28 @@
           </select>
           <select id="distanceFilter" class="filter-select">
             <option value="ALL">距離: すべて</option>
+            <option value="1000">1000m</option>
             <option value="1200">1200m</option>
+            <option value="1400">1400m</option>
             <option value="1600">1600m</option>
+            <option value="1800">1800m</option>
             <option value="2000">2000m</option>
+            <option value="2200">2200m</option>
+            <option value="2400">2400m</option>
             <option value="2500">2500m</option>
+            <option value="3000">3000m</option>
             <option value="3200">3200m</option>
+          </select>
+          <select id="potentialFilter" class="filter-select">
+            <option value="ALL">ポテンシャル: すべて</option>
+            <option value="14">PT 14</option>
+            <option value="15">PT 15</option>
+            <option value="16">PT 16</option>
+            <option value="17">PT 17</option>
+            <option value="18">PT 18</option>
+            <option value="19">PT 19</option>
+            <option value="20">PT 20</option>
+            <option value="21">PT 21</option>
           </select>
         </div>
         <div class="filter-row">
@@ -841,6 +858,7 @@
     const searchText = document.getElementById('searchInput').value.toLowerCase();
     const surfaceVal = document.getElementById('surfaceFilter').value;
     const distanceVal = document.getElementById('distanceFilter').value;
+    const potentialVal = document.getElementById('potentialFilter').value;
     const sortKey = document.getElementById('sortKey').value;
     const sortOrder = document.getElementById('sortOrder').value;
     const inventory = globalUserData.cards || {};
@@ -881,6 +899,11 @@
           if (minD !== undefined && maxD !== undefined && !isNaN(minD) && !isNaN(maxD)) {
             if (targetDist < minD || targetDist > maxD) continue;
           }
+        }
+        if (potentialVal !== 'ALL') {
+          const targetPot = parseInt(potentialVal, 10);
+          const horsePot = Number(horse.total_potential ?? horse.potential) || 0;
+          if (horsePot !== targetPot) continue;
         }
         if (selectedKana !== 'ALL') {
           const rowGroup = getKanaRowGroup(horse.name);
@@ -965,6 +988,7 @@
   document.getElementById('searchInput').addEventListener('input', renderPool);
   document.getElementById('surfaceFilter').addEventListener('change', renderPool);
   document.getElementById('distanceFilter').addEventListener('change', renderPool);
+  document.getElementById('potentialFilter').addEventListener('change', renderPool);
   document.getElementById('sortKey').addEventListener('change', renderPool);
   document.getElementById('sortOrder').addEventListener('change', renderPool);
   document.querySelectorAll('.kana-chip').forEach(chip => {
