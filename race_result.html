@@ -738,7 +738,6 @@ async function startRace() {
   const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, raceInfo, abilityMasterData);
   let rawResults = raceResultData.results || [];
   
-  // 1. 各馬の rank (着順) が欠損しないよう評価順に再割当て
   rawResults.sort((a, b) => (b.total_score ?? b.evaluation_point ?? 0) - (a.total_score ?? a.evaluation_point ?? 0));
   calculatedResults = rawResults.map((item, index) => ({
     ...item,
@@ -773,7 +772,6 @@ async function startRace() {
     currentRaceFormulaStr += " ＋ 脚質ボーナス";
   }
 
-  // 2. 正確な着順をもとに履歴（seriesHistory）に記録
   recordHistory(calculatedResults);
 
   updateLog(`<strong>【スタート】</strong> ${comm.phase1}`);
@@ -781,7 +779,6 @@ async function startRace() {
   let p1Pos = getPosPointsMap(calculatedResults, 40, 22);
   setPhasePositions(p1Pos, 4.0, "linear", currentTrackConfig.phase1_3_dir); 
 
-  // 向正面
   setTimeout(() => {
     const targetHorses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.activated_abilities && h.activated_abilities.length > 0);
     
@@ -815,7 +812,6 @@ async function startRace() {
     setPhasePositions(p2Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
   }, 4000);
 
-  // 3コーナー〜展開
   setTimeout(() => {
     updateLog(`<strong>【3コーナー〜展開】</strong> ${comm.phase3}`);
     showTelop(`【ペース】 ${currentRacePace}`, 3000);
@@ -824,7 +820,6 @@ async function startRace() {
     setPhasePositions(p3Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
   }, 8300); 
 
-  // 4コーナーワイプ＆直線スタート
   setTimeout(() => {
     const wipe = document.getElementById('wipe-overlay');
     wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
@@ -854,7 +849,6 @@ async function startRace() {
       wipe.style.left = "100%"; 
 
       setTimeout(() => {
-        // 3. 最後の直線の走行（10秒間かけて移動）
         let finalPositions = new Array(activeHorses.length);
         
         calculatedResults.forEach((item) => {
@@ -870,7 +864,6 @@ async function startRace() {
           showTelop(`【展開】 ${currentRaceBranch}`, 3500);
         }, 1500);
 
-        // 逆転アビリティの発動
         setTimeout(() => {
           const swapTriggerHorses = calculatedResults.filter(
             h => (h.isPlayer || h.isCpu) && h.rank_swap_trigger
@@ -887,12 +880,10 @@ async function startRace() {
           }
         }, 6000);
 
-        // ゴール直前（9.8秒後）：ゴールイン実況を表示
         setTimeout(() => {
           updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>${comm.finish}</b></span>`);
         }, 9800); 
 
-        // 走行完了（10.5秒後）：結果描画、ボタン解除、DB保存
         setTimeout(() => {
           hideTelop();
           renderResults(calculatedResults);
@@ -1126,13 +1117,21 @@ window.goToNextSeries = async function() {
       await setDoc(doc(db, "users", currentUser.uid), {
         cpu_battle_status: updatedStatus
       }, { merge: true });
-    } catch (err) {
-      console.error("シリーズ結果の保存に失敗しました:", err);
-    }
-  }
 
-  window.location.href = 'battle.html';
+      window.location.href = 'battle.html';
+    } catch (err) {
+      console.error("データ保存エラー:", err);
+      alert("通信エラーが発生しました。");
+      if (modalBtn) {
+        modalBtn.disabled = false;
+        modalBtn.innerText = "🔄 次のシリーズへ進む";
+      }
+    }
+  } else {
+    window.location.href = 'battle.html';
+  }
 };
 </script>
+
 </body>
 </html>
