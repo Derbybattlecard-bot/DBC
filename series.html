@@ -7,7 +7,7 @@
   <style>
     :root {
       --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%);
-      --card-bg: rgba(255, 255, 255, 0.92);
+      --card-bg: rgba(255, 255, 255, 0.94);
       --card-inner-bg: #f2f8f3;
       --accent-gold: #c29b1d;
       --text-color: #1a2e1d;
@@ -16,6 +16,8 @@
       --border-green: #b2d4b6;
       --cleared-gold: #fff8d6;
       --cleared-border: #d4af37;
+      --limit-bg: #e8f3e9;
+      --limit-text: #1b4d23;
     }
     
     body {
@@ -44,7 +46,6 @@
       background: rgba(255, 255, 255, 0.95);
       border-bottom: 3px solid var(--header-green);
       border-radius: 8px 8px 0 0;
-      position: relative;
     }
     .header h1 {
       margin: 0;
@@ -104,14 +105,29 @@
       padding-right: 8px;
     }
 
+    .header-top-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 3px;
+    }
+
     .group-badge {
-      display: inline-block;
       font-size: 9px;
       background: #2d6a37;
       color: #fff;
       padding: 1px 6px;
       border-radius: 10px;
-      margin-bottom: 3px;
+      font-weight: bold;
+    }
+
+    .limit-badge-inline {
+      font-size: 9px;
+      background: var(--limit-bg);
+      color: var(--limit-text);
+      border: 1px solid var(--border-green);
+      padding: 1px 6px;
+      border-radius: 4px;
       font-weight: bold;
     }
 
@@ -157,11 +173,46 @@
       display: block;
     }
 
+    /* ポテンシャル制限エリア */
+    .potential-limit-box {
+      margin: 10px 0 8px 0;
+      padding: 8px 10px;
+      background: #ffffff;
+      border: 1px solid var(--border-green);
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .limit-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+    }
+
+    .limit-item:first-child {
+      border-right: 1px solid #ebf4ec;
+    }
+
+    .limit-title {
+      font-size: 10px;
+      color: var(--sub-text);
+      margin-bottom: 2px;
+    }
+
+    .limit-val {
+      font-size: 14px;
+      font-weight: bold;
+      color: var(--header-green);
+    }
+
     .round-title {
       font-size: 11px;
       color: var(--sub-text);
       font-weight: bold;
-      margin: 8px 0 6px 0;
+      margin: 6px 0;
       line-height: 1.3;
     }
 
@@ -220,12 +271,12 @@
 
   <div class="overall-stats">
     <div class="stat-box">
-      <span class="stat-label">制覇シリーズ</span>
-      <span class="stat-val gold" id="clearedCount">0 / 0</span>
+      <span class="stat-label">解放済シリーズ</span>
+      <span class="stat-val" id="unlockedCount">0 / 0</span>
     </div>
     <div class="stat-box">
-      <span class="stat-label">コンプリート率</span>
-      <span class="stat-val" id="completionRate">0.0%</span>
+      <span class="stat-label">制覇済み</span>
+      <span class="stat-val gold" id="clearedCount">0</span>
     </div>
   </div>
 
@@ -286,18 +337,34 @@
 
   function renderSeriesEncyclopedia() {
     const clearedSeriesSet = new Set(globalUserData?.cleared_series_ids || []);
+    // 解放判定（unlocked_series_idsが存在しない場合はクリア済みIDを解放済みとして扱うフォールバック機能付き）
+    const unlockedSeriesSet = new Set(globalUserData?.unlocked_series_ids || globalUserData?.cleared_series_ids || []);
+
     const container = document.getElementById('seriesContainer');
     container.innerHTML = '';
 
-    let clearedCount = 0;
-    const totalCount = seriesMasterData.length;
+    // 解放済みのシリーズのみにフィルタリング
+    const unlockedSeriesList = seriesMasterData.filter(series => unlockedSeriesSet.has(series.series_id));
 
-    seriesMasterData.forEach((series, index) => {
+    if (unlockedSeriesList.length === 0) {
+      container.innerHTML = '<div style="text-align: center; padding: 30px; color: var(--sub-text);">現在解放されているシリーズはありません。</div>';
+      document.getElementById('unlockedCount').textContent = `0 / ${seriesMasterData.length}`;
+      document.getElementById('clearedCount').textContent = `0`;
+      return;
+    }
+
+    let clearedCount = 0;
+
+    unlockedSeriesList.forEach((series) => {
       const isCleared = clearedSeriesSet.has(series.series_id);
       if (isCleared) clearedCount++;
 
       const roundInfo = series.rounds && series.rounds[0] ? series.rounds[0] : { races: [] };
       
+      // ポテンシャル制限値の取得（JSON構造に合わせて取得。未設定時のデフォルト値を設定）
+      const totalLimit = series.total_potential_limit ?? series.max_potential_total ?? '無制限';
+      const singleLimit = series.single_potential_limit ?? series.max_potential_per_deck ?? '無制限';
+
       const cardEl = document.createElement('div');
       cardEl.className = `series-card ${isCleared ? 'cleared' : ''}`;
       
@@ -314,7 +381,10 @@
       cardEl.innerHTML = `
         <div class="series-header" onclick="toggleCard(this)">
           <div class="series-title-area">
-            <span class="group-badge">${series.group || 'シリーズ'}</span>
+            <div class="header-top-row">
+              <span class="group-badge">${series.group || 'シリーズ'}</span>
+              <span class="limit-badge-inline">制限: ${totalLimit} / 単体: ${singleLimit}</span>
+            </div>
             <div class="series-name">
               ${series.series_name}
               ${isCleared ? '<span class="clear-badge">🏆 CLEARED</span>' : ''}
@@ -323,6 +393,16 @@
           <div class="toggle-icon">▼</div>
         </div>
         <div class="series-detail">
+          <div class="potential-limit-box">
+            <div class="limit-item">
+              <span class="limit-title">制限ポテンシャル合計</span>
+              <span class="limit-val">${totalLimit}</span>
+            </div>
+            <div class="limit-item">
+              <span class="limit-title">出走可能上限（単体）</span>
+              <span class="limit-val">${singleLimit}</span>
+            </div>
+          </div>
           <div class="round-title">【テーマ】 ${roundInfo.round_title || ''}</div>
           <table class="race-table">
             <thead>
@@ -344,13 +424,12 @@
       container.appendChild(cardEl);
     });
 
-    // 全体進行の更新
-    document.getElementById('clearedCount').textContent = `${clearedCount} / ${totalCount}`;
-    const rate = totalCount > 0 ? ((clearedCount / totalCount) * 100).toFixed(1) : "0.0";
-    document.getElementById('completionRate').textContent = `${rate}%`;
+    // ステータス表示の更新
+    document.getElementById('unlockedCount').textContent = `${unlockedSeriesList.length} / ${seriesMasterData.length}`;
+    document.getElementById('clearedCount').textContent = `${clearedCount}`;
   }
 
-  // アコーディオントグル用グローバル関数
+  // アコーディオントグル用
   window.toggleCard = function(headerEl) {
     const card = headerEl.parentElement;
     card.classList.toggle('open');
