@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Derby Battle Card - シリーズ図鑑</title>
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%);
+      --card-bg: rgba(255, 255, 255, 0.92);
+      --card-inner-bg: #f2f8f3;
+      --accent-gold: #c29b1d;
+      --text-color: #1a2e1d;
+      --sub-text: #4e6b52;
+      --header-green: #0d4220;
+      --border-green: #b2d4b6;
+      --cleared-gold: #fff8d6;
+      --cleared-border: #d4af37;
+    }
+    
+    body {
+      margin: 0;
+      padding: 10px;
+      background: var(--bg-gradient);
+      background-attachment: fixed;
+      color: var(--text-color);
+      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* ヘッダー */
+    .header {
+      text-align: center;
+      padding: 12px 8px;
+      background: rgba(255, 255, 255, 0.95);
+      border-bottom: 3px solid var(--header-green);
+      border-radius: 8px 8px 0 0;
+      position: relative;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 18px;
+      color: var(--header-green);
+      letter-spacing: 1px;
+      font-weight: 900;
+    }
+
+    /* 全体進行ステータス */
+    .overall-stats {
+      background: var(--card-bg);
+      border: 1px solid var(--border-green);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+    }
+    .stat-box { text-align: center; }
+    .stat-label { font-size: 10px; color: var(--sub-text); display: block; margin-bottom: 2px; }
+    .stat-val { font-size: 16px; font-weight: bold; color: var(--text-color); }
+    .stat-val.gold { color: var(--accent-gold); }
+
+    /* シリーズリスト */
+    .series-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .series-card {
+      background: var(--card-bg);
+      border: 2px solid var(--border-green);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      transition: all 0.2s ease;
+    }
+
+    .series-card.cleared {
+      border-color: var(--cleared-border);
+      background: linear-gradient(180deg, #ffffff 0%, var(--cleared-gold) 100%);
+    }
+
+    .series-header {
+      padding: 10px 12px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+
+    .series-title-area {
+      flex: 1;
+      padding-right: 8px;
+    }
+
+    .group-badge {
+      display: inline-block;
+      font-size: 9px;
+      background: #2d6a37;
+      color: #fff;
+      padding: 1px 6px;
+      border-radius: 10px;
+      margin-bottom: 3px;
+      font-weight: bold;
+    }
+
+    .series-name {
+      font-size: 14px;
+      font-weight: bold;
+      color: var(--header-green);
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .clear-badge {
+      font-size: 10px;
+      background: linear-gradient(135deg, #d4af37, #aa820a);
+      color: #fff;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+
+    .toggle-icon {
+      font-size: 14px;
+      color: var(--sub-text);
+      transition: transform 0.3s ease;
+    }
+
+    .series-card.open .toggle-icon {
+      transform: rotate(180deg);
+    }
+
+    /* アコーディオン展開コンテンツ */
+    .series-detail {
+      display: none;
+      padding: 0 12px 12px 12px;
+      border-top: 1px dashed var(--border-green);
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    .series-card.open .series-detail {
+      display: block;
+    }
+
+    .round-title {
+      font-size: 11px;
+      color: var(--sub-text);
+      font-weight: bold;
+      margin: 8px 0 6px 0;
+      line-height: 1.3;
+    }
+
+    .race-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      background: #fff;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid var(--border-green);
+    }
+
+    .race-table th {
+      background: #2d6a37;
+      color: #ffffff;
+      padding: 4px;
+      font-weight: bold;
+      font-size: 10px;
+    }
+
+    .race-table td {
+      padding: 5px 4px;
+      border-bottom: 1px solid #ebf4ec;
+      text-align: center;
+    }
+
+    .race-table tr:last-child td { border-bottom: none; }
+    .race-name { text-align: left !important; font-weight: bold; }
+    .tag-turf { color: #008800; font-weight: bold; }
+    .tag-dirt { color: #8b4513; font-weight: bold; }
+
+    /* 下部ナビゲーション */
+    .footer-nav {
+      margin-top: 5px;
+    }
+    .btn-back {
+      width: 100%;
+      background: linear-gradient(135deg, #2d6a37, #1b4d23);
+      border: 1px solid #143b1a;
+      color: #ffffff;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>🏆 シリーズ図鑑 MODE</h1>
+  </div>
+
+  <div class="overall-stats">
+    <div class="stat-box">
+      <span class="stat-label">制覇シリーズ</span>
+      <span class="stat-val gold" id="clearedCount">0 / 0</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-label">コンプリート率</span>
+      <span class="stat-val" id="completionRate">0.0%</span>
+    </div>
+  </div>
+
+  <div class="series-list" id="seriesContainer">
+    <div style="text-align: center; padding: 20px; color: var(--sub-text);">シリーズデータを読み込み中...</div>
+  </div>
+
+  <div class="footer-nav">
+    <button class="btn-back" onclick="location.href='index_2.html'">🏠 マイページへ戻る</button>
+  </div>
+</div>
+
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  let currentUser = null;
+  let globalUserData = null;
+  let seriesMasterData = [];
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.href = 'auth.html';
+      return;
+    }
+    currentUser = user;
+
+    try {
+      const [userDoc, seriesRes] = await Promise.all([
+        getDoc(doc(db, "users", user.uid)),
+        fetchJsonWithFallback('series_master_4.json')
+      ]);
+
+      if (userDoc.exists()) {
+        globalUserData = userDoc.data();
+      }
+      seriesMasterData = seriesRes;
+
+      renderSeriesEncyclopedia();
+    } catch (err) {
+      console.error("図鑑データの読み込みエラー:", err);
+      document.getElementById('seriesContainer').innerHTML = 
+        '<div style="text-align:center; padding:20px; color:#c00;">⚠️ データの読み込みに失敗しました</div>';
+    }
+  });
+
+  async function fetchJsonWithFallback(filename) {
+    const paths = [`data/${filename}`, `./data/${filename}`, `./${filename}`, `../data/${filename}`];
+    for (const path of paths) {
+      try {
+        const res = await fetch(path);
+        if (res.ok) return await res.json();
+      } catch (e) { }
+    }
+    throw new Error(`Failed to load ${filename}`);
+  }
+
+  function renderSeriesEncyclopedia() {
+    const clearedSeriesSet = new Set(globalUserData?.cleared_series_ids || []);
+    const container = document.getElementById('seriesContainer');
+    container.innerHTML = '';
+
+    let clearedCount = 0;
+    const totalCount = seriesMasterData.length;
+
+    seriesMasterData.forEach((series, index) => {
+      const isCleared = clearedSeriesSet.has(series.series_id);
+      if (isCleared) clearedCount++;
+
+      const roundInfo = series.rounds && series.rounds[0] ? series.rounds[0] : { races: [] };
+      
+      const cardEl = document.createElement('div');
+      cardEl.className = `series-card ${isCleared ? 'cleared' : ''}`;
+      
+      let racesRowsHtml = roundInfo.races.map(r => `
+        <tr>
+          <td>R${r.race_num}</td>
+          <td class="race-name">${r.race_name}</td>
+          <td>${r.track}</td>
+          <td class="${r.surface === '芝' ? 'tag-turf' : 'tag-dirt'}">${r.surface}</td>
+          <td>${r.distance}m</td>
+        </tr>
+      `).join('');
+
+      cardEl.innerHTML = `
+        <div class="series-header" onclick="toggleCard(this)">
+          <div class="series-title-area">
+            <span class="group-badge">${series.group || 'シリーズ'}</span>
+            <div class="series-name">
+              ${series.series_name}
+              ${isCleared ? '<span class="clear-badge">🏆 CLEARED</span>' : ''}
+            </div>
+          </div>
+          <div class="toggle-icon">▼</div>
+        </div>
+        <div class="series-detail">
+          <div class="round-title">【テーマ】 ${roundInfo.round_title || ''}</div>
+          <table class="race-table">
+            <thead>
+              <tr>
+                <th style="width: 12%;">R</th>
+                <th style="width: 40%; text-align: left;">レース名</th>
+                <th style="width: 18%;">競馬場</th>
+                <th style="width: 14%;">馬場</th>
+                <th style="width: 16%;">距離</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${racesRowsHtml}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      container.appendChild(cardEl);
+    });
+
+    // 全体進行の更新
+    document.getElementById('clearedCount').textContent = `${clearedCount} / ${totalCount}`;
+    const rate = totalCount > 0 ? ((clearedCount / totalCount) * 100).toFixed(1) : "0.0";
+    document.getElementById('completionRate').textContent = `${rate}%`;
+  }
+
+  // アコーディオントグル用グローバル関数
+  window.toggleCard = function(headerEl) {
+    const card = headerEl.parentElement;
+    card.classList.toggle('open');
+  };
+</script>
+
+</body>
+</html>
