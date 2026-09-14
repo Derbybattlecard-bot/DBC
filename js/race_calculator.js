@@ -856,7 +856,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
         ? ` (${h.activated_abilities.join(", ")})` 
         : "";
       const signStr = h.ability_buff > 0 ? `+${h.ability_buff}` : `${h.ability_buff}`;
-      detailPartsList.push(`【環境バフ】${signStr}pt${activeList}`);
+      detailPartsList.push(`【アビリティ】${signStr}pt${activeList}`);
     }
 
     detailPartsList.push(`【乱数】+${randomBonus.toFixed(1)}`);
