@@ -271,12 +271,16 @@
 
   <div class="overall-stats">
     <div class="stat-box">
-      <span class="stat-label">解放済シリーズ</span>
-      <span class="stat-val" id="unlockedCount">0 / 0</span>
+      <span class="stat-label">解禁シリーズ数</span>
+      <span class="stat-val" id="unlockedCount">0</span>
     </div>
     <div class="stat-box">
       <span class="stat-label">制覇済み</span>
       <span class="stat-val gold" id="clearedCount">0</span>
+    </div>
+    <div class="stat-box" id="rateBox" style="display: none;">
+      <span class="stat-label">コンプリート率</span>
+      <span class="stat-val gold" id="completionRate">0.0%</span>
     </div>
   </div>
 
@@ -294,9 +298,82 @@
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+  const UNLOCK_STAGES = [
+    { wins: 0, cat: "古馬東西", no: 1 },
+    { wins: 0, cat: "地方交流", no: 1 },
+    { wins: 0, cat: "クラシック", no: 1 },
+    { wins: 5, cat: "古馬東西", no: 2 },
+    { wins: 10, cat: "地方交流", no: 2 },
+    { wins: 15, cat: "古馬王道", no: 1 },
+    { wins: 20, cat: "ローカル", no: 1 },
+    { wins: 25, cat: "クラシック", no: 2 },
+    { wins: 30, cat: "古馬東西", no: 3 },
+    { wins: 35, cat: "古馬王道", no: 2 },
+    { wins: 40, cat: "ローカル", no: 2 },
+    { wins: 45, cat: "古馬東西", no: 4 },
+    { wins: 50, cat: "海外チャレンジ", no: 1 },
+    { wins: 55, cat: "地方交流", no: 3 },
+    { wins: 60, cat: "クラシック", no: 3 },
+    { wins: 65, cat: "海外チャレンジ", no: 2 },
+    { wins: 70, cat: "古馬王道", no: 3 },
+    { wins: 75, cat: "ローカル", no: 3 },
+    { wins: 80, cat: "古馬東西", no: 5 },
+    { wins: 85, cat: "海外チャレンジ", no: 3 },
+    { wins: 90, cat: "クラシック", no: 4 },
+    { wins: 95, cat: "地方交流", no: 4 },
+    { wins: 100, cat: "海外単独", no: 1 },
+    { wins: 105, cat: "古馬東西", no: 6 },
+    { wins: 110, cat: "ローカル", no: 4 },
+    { wins: 115, cat: "古馬王道", no: 4 },
+    { wins: 120, cat: "ローカル", no: 5 },
+    { wins: 125, cat: "クラシック", no: 5 },
+    { wins: 130, cat: "海外単独", no: 2 },
+    { wins: 135, cat: "海外チャレンジ", no: 4 },
+    { wins: 140, cat: "海外単独", no: 3 },
+    { wins: 145, cat: "海外単独", no: 4 },
+    { wins: 150, cat: "トリビュート", no: 1 },
+    { wins: 155, cat: "海外単独", no: 5 },
+    { wins: 160, cat: "トリビュート", no: 2 },
+    { wins: 165, cat: "海外単独", no: 6 },
+    { wins: 170, cat: "トリビュート", no: 3 },
+    { wins: 180, cat: "トリビュート", no: 4 },
+    { wins: 190, cat: "トリビュート", no: 5 },
+    { wins: 200, cat: "トリビュート", no: 6 }
+  ];
+
   let currentUser = null;
   let globalUserData = null;
   let seriesMasterData = [];
+
+  function getNormalizedCategory(s) {
+    if (!s) return "";
+    const c = String(s.group || s.category || s.category_name || "");
+    if (c.includes("東西")) return "古馬東西";
+    if (c.includes("地方")) return "地方交流";
+    if (c.includes("クラシック")) return "クラシック";
+    if (c.includes("王道")) return "古馬王道";
+    if (c.includes("ローカル")) return "ローカル";
+    if (c.includes("海外単独")) return "海外単独";
+    if (c.includes("海外チャレンジ")) return "海外チャレンジ";
+    if (c.includes("トリビュート") || c.includes("メモリアル")) return "トリビュート";
+    return c;
+  }
+
+  function getSeriesNo(s) {
+    if (!s) return 1;
+    if (s.series_no) return parseInt(s.series_no, 10) || 1;
+    if (s.no) return parseInt(s.no, 10) || 1;
+    const match = String(s.series_id || "").match(/\d+/);
+    return match ? (parseInt(match[0], 10) || 1) : 1;
+  }
+
+  function getUnlockedLimits(totalWins) {
+    const limits = { "古馬東西": 0, "地方交流": 0, "クラシック": 0, "古馬王道": 0, "ローカル": 0, "海外チャレンジ": 0, "海外単独": 0, "トリビュート": 0 };
+    UNLOCK_STAGES.forEach(item => {
+      if (totalWins >= item.wins && item.no > limits[item.cat]) { limits[item.cat] = item.no; }
+    });
+    return limits;
+  }
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
@@ -315,6 +392,14 @@
         globalUserData = userDoc.data();
       }
       seriesMasterData = seriesRes;
+
+      const catCounters = {};
+      seriesMasterData.forEach(s => {
+        const cat = getNormalizedCategory(s);
+        if (!catCounters[cat]) catCounters[cat] = 0;
+        catCounters[cat]++;
+        s.series_no = catCounters[cat];
+      });
 
       renderSeriesEncyclopedia();
     } catch (err) {
@@ -336,19 +421,25 @@
   }
 
   function renderSeriesEncyclopedia() {
+    const totalWins = globalUserData?.total_wins || 0;
+    const limits = getUnlockedLimits(totalWins);
     const clearedSeriesSet = new Set(globalUserData?.cleared_series_ids || []);
-    // 解放判定（unlocked_series_idsが存在しない場合はクリア済みIDを解放済みとして扱うフォールバック機能付き）
-    const unlockedSeriesSet = new Set(globalUserData?.unlocked_series_ids || globalUserData?.cleared_series_ids || []);
 
     const container = document.getElementById('seriesContainer');
     container.innerHTML = '';
 
-    // 解放済みのシリーズのみにフィルタリング
-    const unlockedSeriesList = seriesMasterData.filter(series => unlockedSeriesSet.has(series.series_id));
+    const unlockedSeriesList = seriesMasterData.filter(s => {
+      const cat = getNormalizedCategory(s);
+      const no = getSeriesNo(s);
+      return limits[cat] && no <= limits[cat];
+    });
 
-    if (unlockedSeriesList.length === 0) {
+    const totalMasterCount = seriesMasterData.length;
+    const unlockedCount = unlockedSeriesList.length;
+
+    if (unlockedCount === 0) {
       container.innerHTML = '<div style="text-align: center; padding: 30px; color: var(--sub-text);">現在解放されているシリーズはありません。</div>';
-      document.getElementById('unlockedCount').textContent = `0 / ${seriesMasterData.length}`;
+      document.getElementById('unlockedCount').textContent = `0`;
       document.getElementById('clearedCount').textContent = `0`;
       return;
     }
@@ -361,9 +452,10 @@
 
       const roundInfo = series.rounds && series.rounds[0] ? series.rounds[0] : { races: [] };
       
-      // ポテンシャル制限値の取得（JSON構造に合わせて取得。未設定時のデフォルト値を設定）
-      const totalLimit = series.total_potential_limit ?? series.max_potential_total ?? '無制限';
-      const singleLimit = series.single_potential_limit ?? series.max_potential_per_deck ?? '無制限';
+      const potLimit = series.potential_limit || {};
+      const totalLimit = series.total_potential_limit ?? potLimit.max_total_potential ?? '無制限';
+      const singleLimit = series.single_potential_limit ?? potLimit.min_potential_per_race ?? '無制限';
+      const singleText = typeof singleLimit === 'number' ? `${singleLimit}以上` : singleLimit;
 
       const cardEl = document.createElement('div');
       cardEl.className = `series-card ${isCleared ? 'cleared' : ''}`;
@@ -383,7 +475,7 @@
           <div class="series-title-area">
             <div class="header-top-row">
               <span class="group-badge">${series.group || 'シリーズ'}</span>
-              <span class="limit-badge-inline">制限: ${totalLimit} / 単体: ${singleLimit}</span>
+              <span class="limit-badge-inline">上限: ${totalLimit} / 下限: ${singleText}</span>
             </div>
             <div class="series-name">
               ${series.series_name}
@@ -399,8 +491,8 @@
               <span class="limit-val">${totalLimit}</span>
             </div>
             <div class="limit-item">
-              <span class="limit-title">出走可能上限（単体）</span>
-              <span class="limit-val">${singleLimit}</span>
+              <span class="limit-title">出走可能下限/上限</span>
+              <span class="limit-val">${singleText}</span>
             </div>
           </div>
           <div class="round-title">【テーマ】 ${roundInfo.round_title || ''}</div>
@@ -424,12 +516,19 @@
       container.appendChild(cardEl);
     });
 
-    // ステータス表示の更新
-    document.getElementById('unlockedCount').textContent = `${unlockedSeriesList.length} / ${seriesMasterData.length}`;
+    document.getElementById('unlockedCount').textContent = `${unlockedCount}`;
     document.getElementById('clearedCount').textContent = `${clearedCount}`;
+
+    const rate = totalMasterCount > 0 ? (clearedCount / totalMasterCount) * 100 : 0;
+    const rateBox = document.getElementById('rateBox');
+    if (rate >= 50) {
+      rateBox.style.display = 'block';
+      document.getElementById('completionRate').textContent = `${rate.toFixed(1)}%`;
+    } else {
+      rateBox.style.display = 'none';
+    }
   }
 
-  // アコーディオントグル用
   window.toggleCard = function(headerEl) {
     const card = headerEl.parentElement;
     card.classList.toggle('open');
