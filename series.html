@@ -43,28 +43,29 @@
     .header {
       position: relative;
       text-align: center;
-      padding: 12px 40px;
+      padding: 12px 60px 12px 75px;
       background: rgba(255, 255, 255, 0.95);
       border-bottom: 3px solid var(--header-green);
       border-radius: 8px;
     }
     
+    /* 丸型ホームボタン */
     .btn-icon-back {
       position: absolute;
-      left: 10px;
+      left: 8px;
       top: 50%;
       transform: translateY(-50%);
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
+      height: 30px;
+      padding: 0 10px 0 8px;
+      border-radius: 15px;
       background: var(--header-green);
       color: #fff;
       border: none;
-      font-size: 16px;
+      font-size: 11px;
       font-weight: bold;
       display: flex;
       align-items: center;
-      justify-content: center;
+      gap: 4px;
       cursor: pointer;
       text-decoration: none;
       box-shadow: 0 2px 4px rgba(0,0,0,0.15);
@@ -75,10 +76,11 @@
 
     .header h1 {
       margin: 0;
-      font-size: 18px;
+      font-size: 17px;
       color: var(--header-green);
-      letter-spacing: 1px;
+      letter-spacing: 0.5px;
       font-weight: 900;
+      white-space: nowrap;
     }
 
     /* 全体進行ステータス */
@@ -94,7 +96,6 @@
     .stat-box { text-align: center; }
     .stat-label { font-size: 11px; color: var(--sub-text); display: block; margin-bottom: 2px; }
     .stat-val { font-size: 18px; font-weight: bold; color: var(--text-color); }
-    .stat-val.gold { color: var(--accent-gold); }
 
     /* シリーズリスト */
     .series-list {
@@ -241,18 +242,18 @@
 
 <div class="container">
   <div class="header">
-    <button class="btn-icon-back" onclick="location.href='index.html'">←</button>
+    <button class="btn-icon-back" onclick="location.href='index.html'">🏠 ホーム</button>
     <h1>🏆 シリーズ図鑑 MODE</h1>
   </div>
 
   <div class="overall-stats">
     <div class="stat-box">
-      <span class="stat-label">解禁シリーズ数</span>
+      <span class="stat-label">解放済シリーズ数</span>
       <span class="stat-val" id="unlockedCount">0</span>
     </div>
-    <div class="stat-box" id="rateBox" style="display: none;">
-      <span class="stat-label">コンプリート率</span>
-      <span class="stat-val gold" id="completionRate">0.0%</span>
+    <div class="stat-box">
+      <span class="stat-label">解放済カテゴリ数</span>
+      <span class="stat-val" id="unlockedCatCount">0</span>
     </div>
   </div>
 
@@ -402,21 +403,20 @@
       return limits[cat] && no <= limits[cat];
     });
 
-    const totalMasterCount = seriesMasterData.length;
     const unlockedCount = unlockedSeriesList.length;
 
     if (unlockedCount === 0) {
       container.innerHTML = '<div style="text-align: center; padding: 30px; color: var(--sub-text);">現在解放されているシリーズはありません。</div>';
       document.getElementById('unlockedCount').textContent = `0`;
+      document.getElementById('unlockedCatCount').textContent = `0`;
       return;
     }
 
-    let clearedCount = 0;
+    // 解放されているカテゴリの種類の数を算出
+    const unlockedCatSet = new Set(unlockedSeriesList.map(s => getNormalizedCategory(s)));
 
     unlockedSeriesList.forEach((series) => {
       const isCleared = clearedSeriesSet.has(series.series_id);
-      if (isCleared) clearedCount++;
-
       const roundInfo = series.rounds && series.rounds[0] ? series.rounds[0] : { races: [] };
       
       const potLimit = series.potential_limit || {};
@@ -474,15 +474,7 @@
     });
 
     document.getElementById('unlockedCount').textContent = `${unlockedCount}`;
-
-    const rate = totalMasterCount > 0 ? (clearedCount / totalMasterCount) * 100 : 0;
-    const rateBox = document.getElementById('rateBox');
-    if (rate >= 50) {
-      rateBox.style.display = 'block';
-      document.getElementById('completionRate').textContent = `${rate.toFixed(1)}%`;
-    } else {
-      rateBox.style.display = 'none';
-    }
+    document.getElementById('unlockedCatCount').textContent = `${unlockedCatSet.size}`;
   }
 
   window.toggleCard = function(headerEl) {
