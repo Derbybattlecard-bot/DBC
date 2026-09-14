@@ -41,12 +41,38 @@
 
     /* ヘッダー */
     .header {
+      position: relative;
       text-align: center;
-      padding: 12px 8px;
+      padding: 12px 40px;
       background: rgba(255, 255, 255, 0.95);
       border-bottom: 3px solid var(--header-green);
-      border-radius: 8px 8px 0 0;
+      border-radius: 8px;
     }
+    
+    .btn-icon-back {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--header-green);
+      color: #fff;
+      border: none;
+      font-size: 16px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+    .btn-icon-back:active {
+      transform: translateY(-50%) scale(0.95);
+    }
+
     .header h1 {
       margin: 0;
       font-size: 18px;
@@ -66,8 +92,8 @@
       align-items: center;
     }
     .stat-box { text-align: center; }
-    .stat-label { font-size: 10px; color: var(--sub-text); display: block; margin-bottom: 2px; }
-    .stat-val { font-size: 16px; font-weight: bold; color: var(--text-color); }
+    .stat-label { font-size: 11px; color: var(--sub-text); display: block; margin-bottom: 2px; }
+    .stat-val { font-size: 18px; font-weight: bold; color: var(--text-color); }
     .stat-val.gold { color: var(--accent-gold); }
 
     /* シリーズリスト */
@@ -164,7 +190,7 @@
     /* アコーディオン展開コンテンツ */
     .series-detail {
       display: none;
-      padding: 0 12px 12px 12px;
+      padding: 10px 12px 12px 12px;
       border-top: 1px dashed var(--border-green);
       background: rgba(255, 255, 255, 0.5);
     }
@@ -173,46 +199,11 @@
       display: block;
     }
 
-    /* ポテンシャル制限エリア */
-    .potential-limit-box {
-      margin: 10px 0 8px 0;
-      padding: 8px 10px;
-      background: #ffffff;
-      border: 1px solid var(--border-green);
-      border-radius: 6px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .limit-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      flex: 1;
-    }
-
-    .limit-item:first-child {
-      border-right: 1px solid #ebf4ec;
-    }
-
-    .limit-title {
-      font-size: 10px;
-      color: var(--sub-text);
-      margin-bottom: 2px;
-    }
-
-    .limit-val {
-      font-size: 14px;
-      font-weight: bold;
-      color: var(--header-green);
-    }
-
     .round-title {
       font-size: 11px;
       color: var(--sub-text);
       font-weight: bold;
-      margin: 6px 0;
+      margin-bottom: 6px;
       line-height: 1.3;
     }
 
@@ -244,28 +235,13 @@
     .race-name { text-align: left !important; font-weight: bold; }
     .tag-turf { color: #008800; font-weight: bold; }
     .tag-dirt { color: #8b4513; font-weight: bold; }
-
-    /* 下部ナビゲーション */
-    .footer-nav {
-      margin-top: 5px;
-    }
-    .btn-back {
-      width: 100%;
-      background: linear-gradient(135deg, #2d6a37, #1b4d23);
-      border: 1px solid #143b1a;
-      color: #ffffff;
-      padding: 10px;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: bold;
-      cursor: pointer;
-    }
   </style>
 </head>
 <body>
 
 <div class="container">
   <div class="header">
+    <button class="btn-icon-back" onclick="location.href='index.html'">←</button>
     <h1>🏆 シリーズ図鑑 MODE</h1>
   </div>
 
@@ -273,10 +249,6 @@
     <div class="stat-box">
       <span class="stat-label">解禁シリーズ数</span>
       <span class="stat-val" id="unlockedCount">0</span>
-    </div>
-    <div class="stat-box">
-      <span class="stat-label">制覇済み</span>
-      <span class="stat-val gold" id="clearedCount">0</span>
     </div>
     <div class="stat-box" id="rateBox" style="display: none;">
       <span class="stat-label">コンプリート率</span>
@@ -286,10 +258,6 @@
 
   <div class="series-list" id="seriesContainer">
     <div style="text-align: center; padding: 20px; color: var(--sub-text);">シリーズデータを読み込み中...</div>
-  </div>
-
-  <div class="footer-nav">
-    <button class="btn-back" onclick="location.href='index.html'">🏠 マイページへ戻る</button>
   </div>
 </div>
 
@@ -421,7 +389,7 @@
   }
 
   function renderSeriesEncyclopedia() {
-    const totalWins = globalUserData?.total_wins || 0;
+    const totalWins = globalUserData?.total_wins ?? globalUserData?.record?.wins ?? 0;
     const limits = getUnlockedLimits(totalWins);
     const clearedSeriesSet = new Set(globalUserData?.cleared_series_ids || []);
 
@@ -440,7 +408,6 @@
     if (unlockedCount === 0) {
       container.innerHTML = '<div style="text-align: center; padding: 30px; color: var(--sub-text);">現在解放されているシリーズはありません。</div>';
       document.getElementById('unlockedCount').textContent = `0`;
-      document.getElementById('clearedCount').textContent = `0`;
       return;
     }
 
@@ -475,26 +442,16 @@
           <div class="series-title-area">
             <div class="header-top-row">
               <span class="group-badge">${series.group || 'シリーズ'}</span>
-              <span class="limit-badge-inline">上限: ${totalLimit} / 下限: ${singleText}</span>
+              <span class="limit-badge-inline">合計上限: ${totalLimit} / 出走可能: ${singleText}</span>
             </div>
             <div class="series-name">
               ${series.series_name}
-              ${isCleared ? '<span class="clear-badge">🏆 CLEARED</span>' : ''}
+              ${isCleared ? '<span class="clear-badge">🔓 UNLOCKED</span>' : ''}
             </div>
           </div>
           <div class="toggle-icon">▼</div>
         </div>
         <div class="series-detail">
-          <div class="potential-limit-box">
-            <div class="limit-item">
-              <span class="limit-title">制限ポテンシャル合計</span>
-              <span class="limit-val">${totalLimit}</span>
-            </div>
-            <div class="limit-item">
-              <span class="limit-title">出走可能下限/上限</span>
-              <span class="limit-val">${singleText}</span>
-            </div>
-          </div>
           <div class="round-title">【テーマ】 ${roundInfo.round_title || ''}</div>
           <table class="race-table">
             <thead>
@@ -517,7 +474,6 @@
     });
 
     document.getElementById('unlockedCount').textContent = `${unlockedCount}`;
-    document.getElementById('clearedCount').textContent = `${clearedCount}`;
 
     const rate = totalMasterCount > 0 ? (clearedCount / totalMasterCount) * 100 : 0;
     const rateBox = document.getElementById('rateBox');
