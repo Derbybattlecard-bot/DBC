@@ -83,7 +83,7 @@
       white-space: nowrap;
     }
 
-    /* 全体進行ステータス */
+    /* 全体進行ステータス（左右入れ替え） */
     .overall-stats {
       background: var(--card-bg);
       border: 1px solid var(--border-green);
@@ -97,29 +97,24 @@
     .stat-label { font-size: 11px; color: var(--sub-text); display: block; margin-bottom: 2px; }
     .stat-val { font-size: 18px; font-weight: bold; color: var(--text-color); }
 
-    /* シリーズリスト */
-    .series-list {
+    /* カテゴリリスト（第1階層） */
+    .category-list {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
     }
 
-    .series-card {
+    .category-card {
       background: var(--card-bg);
       border: 2px solid var(--border-green);
       border-radius: 8px;
       overflow: hidden;
       box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-      transition: all 0.2s ease;
     }
 
-    .series-card.cleared {
-      border-color: var(--cleared-border);
-      background: linear-gradient(180deg, #ffffff 0%, var(--cleared-gold) 100%);
-    }
-
-    .series-header {
-      padding: 10px 12px;
+    .category-header {
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.9);
       cursor: pointer;
       display: flex;
       justify-content: space-between;
@@ -127,55 +122,46 @@
       user-select: none;
     }
 
-    .series-title-area {
+    .category-title-area {
       flex: 1;
       padding-right: 8px;
     }
 
-    .header-top-row {
+    .category-top-row {
       display: flex;
       align-items: center;
-      gap: 6px;
-      margin-bottom: 3px;
+      gap: 8px;
+      margin-bottom: 4px;
     }
 
-    .group-badge {
-      font-size: 9px;
-      background: #2d6a37;
-      color: #fff;
-      padding: 1px 6px;
-      border-radius: 10px;
-      font-weight: bold;
-    }
-
-    .limit-badge-inline {
-      font-size: 9px;
-      background: var(--limit-bg);
-      color: var(--limit-text);
-      border: 1px solid var(--border-green);
-      padding: 1px 6px;
-      border-radius: 4px;
-      font-weight: bold;
-    }
-
-    .series-name {
-      font-size: 14px;
+    .category-name {
+      font-size: 15px;
       font-weight: bold;
       color: var(--header-green);
       margin: 0;
-      display: flex;
-      align-items: center;
-      gap: 6px;
     }
 
-    .clear-badge {
+    .limit-badge-inline {
       font-size: 10px;
-      background: linear-gradient(135deg, #d4af37, #aa820a);
-      color: #fff;
-      padding: 1px 6px;
+      background: var(--limit-bg);
+      color: var(--limit-text);
+      border: 1px solid var(--border-green);
+      padding: 2px 8px;
       border-radius: 4px;
       font-weight: bold;
-      white-space: nowrap;
+    }
+
+    .category-detail {
+      display: none;
+      padding: 8px 10px 10px 10px;
+      background: #f4f9f5;
+      border-top: 1px solid var(--border-green);
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .category-card.open .category-detail {
+      display: flex;
     }
 
     .toggle-icon {
@@ -184,16 +170,58 @@
       transition: transform 0.3s ease;
     }
 
-    .series-card.open .toggle-icon {
+    .category-card.open > .category-header .toggle-icon,
+    .series-card.open > .series-header .toggle-icon {
       transform: rotate(180deg);
     }
 
-    /* アコーディオン展開コンテンツ */
+    /* シリーズカード（第2階層） */
+    .series-card {
+      background: #ffffff;
+      border: 1px solid var(--border-green);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .series-card.cleared {
+      border-color: var(--cleared-border);
+      background: linear-gradient(180deg, #ffffff 0%, var(--cleared-gold) 100%);
+    }
+
+    .series-header {
+      padding: 8px 10px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+
+    .series-name {
+      font-size: 13px;
+      font-weight: bold;
+      color: var(--header-green);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .clear-badge {
+      font-size: 9px;
+      background: linear-gradient(135deg, #d4af37, #aa820a);
+      color: #fff;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+
+    /* アコーディオン展開コンテンツ（レース一覧） */
     .series-detail {
       display: none;
-      padding: 10px 12px 12px 12px;
+      padding: 8px 10px 10px 10px;
       border-top: 1px dashed var(--border-green);
-      background: rgba(255, 255, 255, 0.5);
+      background: rgba(255, 255, 255, 0.7);
     }
 
     .series-card.open .series-detail {
@@ -248,16 +276,16 @@
 
   <div class="overall-stats">
     <div class="stat-box">
-      <span class="stat-label">解放済シリーズ数</span>
-      <span class="stat-val" id="unlockedCount">0</span>
-    </div>
-    <div class="stat-box">
       <span class="stat-label">解放済カテゴリ数</span>
       <span class="stat-val" id="unlockedCatCount">0</span>
     </div>
+    <div class="stat-box">
+      <span class="stat-label">解放済シリーズ数</span>
+      <span class="stat-val" id="unlockedCount">0</span>
+    </div>
   </div>
 
-  <div class="series-list" id="seriesContainer">
+  <div class="category-list" id="categoryContainer">
     <div style="text-align: center; padding: 20px; color: var(--sub-text);">シリーズデータを読み込み中...</div>
   </div>
 </div>
@@ -373,7 +401,7 @@
       renderSeriesEncyclopedia();
     } catch (err) {
       console.error("図鑑データの読み込みエラー:", err);
-      document.getElementById('seriesContainer').innerHTML = 
+      document.getElementById('categoryContainer').innerHTML = 
         '<div style="text-align:center; padding:20px; color:#c00;">⚠️ データの読み込みに失敗しました</div>';
     }
   });
@@ -394,7 +422,7 @@
     const limits = getUnlockedLimits(totalWins);
     const clearedSeriesSet = new Set(globalUserData?.cleared_series_ids || []);
 
-    const container = document.getElementById('seriesContainer');
+    const container = document.getElementById('categoryContainer');
     container.innerHTML = '';
 
     const unlockedSeriesList = seriesMasterData.filter(s => {
@@ -412,72 +440,98 @@
       return;
     }
 
-    // 解放されているカテゴリの種類の数を算出
-    const unlockedCatSet = new Set(unlockedSeriesList.map(s => getNormalizedCategory(s)));
+    // カテゴリごとにグループ化
+    const categoriesGrouped = {};
+    unlockedSeriesList.forEach(series => {
+      const cat = getNormalizedCategory(series);
+      if (!categoriesGrouped[cat]) {
+        categoriesGrouped[cat] = [];
+      }
+      categoriesGrouped[cat].push(series);
+    });
 
-    unlockedSeriesList.forEach((series) => {
-      const isCleared = clearedSeriesSet.has(series.series_id);
-      const roundInfo = series.rounds && series.rounds[0] ? series.rounds[0] : { races: [] };
+    const unlockedCatNames = Object.keys(categoriesGrouped);
+
+    unlockedCatNames.forEach((catName) => {
+      const seriesList = categoriesGrouped[catName];
+      const sampleSeries = seriesList[0] || {};
       
-      const potLimit = series.potential_limit || {};
-      const totalLimit = series.total_potential_limit ?? potLimit.max_total_potential ?? '無制限';
-      const singleLimit = series.single_potential_limit ?? potLimit.min_potential_per_race ?? '無制限';
+      const potLimit = sampleSeries.potential_limit || {};
+      const totalLimit = sampleSeries.total_potential_limit ?? potLimit.max_total_potential ?? '無制限';
+      const singleLimit = sampleSeries.single_potential_limit ?? potLimit.min_potential_per_race ?? '無制限';
       const singleText = typeof singleLimit === 'number' ? `${singleLimit}以上` : singleLimit;
 
-      const cardEl = document.createElement('div');
-      cardEl.className = `series-card ${isCleared ? 'cleared' : ''}`;
-      
-      let racesRowsHtml = roundInfo.races.map(r => `
-        <tr>
-          <td>R${r.race_num}</td>
-          <td class="race-name">${r.race_name}</td>
-          <td>${r.track}</td>
-          <td class="${r.surface === '芝' ? 'tag-turf' : 'tag-dirt'}">${r.surface}</td>
-          <td>${r.distance}m</td>
-        </tr>
-      `).join('');
+      const catCardEl = document.createElement('div');
+      catCardEl.className = 'category-card';
 
-      cardEl.innerHTML = `
-        <div class="series-header" onclick="toggleCard(this)">
-          <div class="series-title-area">
-            <div class="header-top-row">
-              <span class="group-badge">${series.group || 'シリーズ'}</span>
-              <span class="limit-badge-inline">合計上限: ${totalLimit} / 出走可能: ${singleText}</span>
+      let seriesCardsHtml = seriesList.map(series => {
+        const isCleared = clearedSeriesSet.has(series.series_id);
+        const roundInfo = series.rounds && series.rounds[0] ? series.rounds[0] : { races: [] };
+
+        let racesRowsHtml = roundInfo.races.map(r => `
+          <tr>
+            <td>R${r.race_num}</td>
+            <td class="race-name">${r.race_name}</td>
+            <td>${r.track}</td>
+            <td class="${r.surface === '芝' ? 'tag-turf' : 'tag-dirt'}">${r.surface}</td>
+            <td>${r.distance}m</td>
+          </tr>
+        `).join('');
+
+        return `
+          <div class="series-card ${isCleared ? 'cleared' : ''}">
+            <div class="series-header" onclick="toggleCard(event, this)">
+              <div class="series-name">
+                ${series.series_name}
+                ${isCleared ? '<span class="clear-badge">🔓 UNLOCKED</span>' : ''}
+              </div>
+              <div class="toggle-icon">▼</div>
             </div>
-            <div class="series-name">
-              ${series.series_name}
-              ${isCleared ? '<span class="clear-badge">🔓 UNLOCKED</span>' : ''}
+            <div class="series-detail">
+              <div class="round-title">【テーマ】 ${roundInfo.round_title || ''}</div>
+              <table class="race-table">
+                <thead>
+                  <tr>
+                    <th style="width: 12%;">R</th>
+                    <th style="width: 40%; text-align: left;">レース名</th>
+                    <th style="width: 18%;">競馬場</th>
+                    <th style="width: 14%;">馬場</th>
+                    <th style="width: 16%;">距離</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${racesRowsHtml}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      catCardEl.innerHTML = `
+        <div class="category-header" onclick="toggleCard(event, this)">
+          <div class="category-title-area">
+            <div class="category-top-row">
+              <span class="category-name">${catName}</span>
+              <span class="limit-badge-inline">合計上限: ${totalLimit} / 出走可能: ${singleText}</span>
             </div>
           </div>
           <div class="toggle-icon">▼</div>
         </div>
-        <div class="series-detail">
-          <div class="round-title">【テーマ】 ${roundInfo.round_title || ''}</div>
-          <table class="race-table">
-            <thead>
-              <tr>
-                <th style="width: 12%;">R</th>
-                <th style="width: 40%; text-align: left;">レース名</th>
-                <th style="width: 18%;">競馬場</th>
-                <th style="width: 14%;">馬場</th>
-                <th style="width: 16%;">距離</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${racesRowsHtml}
-            </tbody>
-          </table>
+        <div class="category-detail">
+          ${seriesCardsHtml}
         </div>
       `;
 
-      container.appendChild(cardEl);
+      container.appendChild(catCardEl);
     });
 
     document.getElementById('unlockedCount').textContent = `${unlockedCount}`;
-    document.getElementById('unlockedCatCount').textContent = `${unlockedCatSet.size}`;
+    document.getElementById('unlockedCatCount').textContent = `${unlockedCatNames.length}`;
   }
 
-  window.toggleCard = function(headerEl) {
+  window.toggleCard = function(event, headerEl) {
+    event.stopPropagation();
     const card = headerEl.parentElement;
     card.classList.toggle('open');
   };
