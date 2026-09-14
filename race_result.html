@@ -800,31 +800,27 @@ async function startRace() {
   let p1Pos = getPosPointsMap(calculatedResults, 40, 22);
   setPhasePositions(p1Pos, 4.0, "linear", currentTrackConfig.phase1_3_dir); 
 
+  // --------------------------------------------------
+  // 1. 向正面 (スタート約4秒後)：Phase 1 アビリティ表示
+  // --------------------------------------------------
   setTimeout(() => {
-    const targetHorses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.activated_abilities && h.activated_abilities.length > 0);
+    const p1Horses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.phase1_abilities && h.phase1_abilities.length > 0);
     
-    if (targetHorses.length > 0) {
+    if (p1Horses.length > 0) {
       let abilityLogs = [];
-      targetHorses.forEach(h => {
-        const phase1to3Abilities = h.activated_abilities.filter(ab => ab !== h.rank_swap_trigger);
-        if (phase1to3Abilities.length === 0) return;
-
-        const abs = phase1to3Abilities.map(a => `【${a}】`).join("");
+      p1Horses.forEach(h => {
+        const abs = h.phase1_abilities.map(a => `【${a}】`).join("");
         const label = h.isPlayer ? '<span style="color:var(--player-color); font-weight:bold;">[YOUR]</span>' : '<span style="color:var(--cpu-color); font-weight:bold;">[CPU]</span>';
-        abilityLogs.push(`${label} ${h.name}の限定能力 ${abs} が発動！`);
+        abilityLogs.push(`${label} ${h.name}の能力 ${abs} が発動！`);
 
-        phase1to3Abilities.forEach(abName => {
+        h.phase1_abilities.forEach(abName => {
           const msg = (h.popup_messages && h.popup_messages[abName]) || abName;
           abilityQueue.push({ horse: h, abilityName: abName, popupMessage: msg });
         });
       });
 
-      if (abilityLogs.length > 0) {
-        updateLog(`<strong>【向正面】</strong> ${comm.phase2}<br><span style="color:var(--gold-color);">${abilityLogs.join("<br>")}</span>`);
-        processAbilityQueue();
-      } else {
-        updateLog(`<strong>【向正面】</strong> ${comm.phase2}`);
-      }
+      updateLog(`<strong>【向正面】</strong> ${comm.phase2}<br><span style="color:var(--gold-color);">${abilityLogs.join("<br>")}</span>`);
+      processAbilityQueue();
     } else {
       updateLog(`<strong>【向正面】</strong> ${comm.phase2}`);
     }
@@ -841,6 +837,9 @@ async function startRace() {
     setPhasePositions(p3Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
   }, 8300); 
 
+  // --------------------------------------------------
+  // 2. 最後の直線 (約15秒後)：Phase 4 (展開アビリティ) 表示
+  // --------------------------------------------------
   setTimeout(() => {
     const wipe = document.getElementById('wipe-overlay');
     wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
@@ -880,10 +879,26 @@ async function startRace() {
         setPhasePositions(finalPositions, 10.0, "linear", currentTrackConfig.phase4_dir); 
              
         setTimeout(() => {
+          // 直線突入＆展開テロップ表示
           updateLog(`<strong>【最後の直線】</strong> このレースは『${currentRaceBranch}』！ 激しい叩き合いだ！`);
           showTelop(`【展開】 ${currentRaceBranch}`, 3500);
+
+          // 王道・大逃亡(2回目)・電光石火等の直線ポップアップ実行
+          const p4Horses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.phase4_abilities && h.phase4_abilities.length > 0);
+          if (p4Horses.length > 0) {
+            p4Horses.forEach(h => {
+              h.phase4_abilities.forEach(abName => {
+                const msg = (h.popup_messages && h.popup_messages[abName]) || abName;
+                abilityQueue.push({ horse: h, abilityName: abName, popupMessage: `${msg}！` });
+              });
+            });
+            processAbilityQueue();
+          }
         }, 1500);
 
+        // --------------------------------------------------
+        // 3. ゴール前着順浮上時 (名脇役・ジェントルマン等)
+        // --------------------------------------------------
         setTimeout(() => {
           const swapTriggerHorses = calculatedResults.filter(
             h => (h.isPlayer || h.isCpu) && h.rank_swap_trigger
