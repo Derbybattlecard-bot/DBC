@@ -415,6 +415,9 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
       // Phase 1でのポップアップ発動を防ぐため、activated_abilitiesへのpushは行わずPhase 4で呼び出す
       return;
     }
+    
+// applyPhase1Abilities
+if (abilityName === "レコードホルダー") return; // 直線・展開分岐専用のためスキップ
 
     // ゲートバカラ 仕様
     if (abilityName === "ゲートバカラ") {
