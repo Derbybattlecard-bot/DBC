@@ -417,21 +417,21 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
 
   horse.ability.forEach(abilityName => {
 
-    // 荒ぶる魂 仕様
+    // 荒ぶる魂 仕様（数値計算はPhase1で適用、ポップアップ表示はPhase4の直線で行う）
     if (abilityName === "荒ぶる魂") {
       horse.popup_messages = horse.popup_messages || {};
       const rand = Math.random();
       let buff = 0;
       if (rand < 0.25) {
         buff = 2;
-        horse.popup_messages["荒ぶる魂"] = "荒ぶる魂発動";
+        horse.popup_messages["荒ぶる魂"] = "荒ぶる魂覚醒！圧倒的なパワー！";
       } else {
         buff = -1;
-        horse.popup_messages["荒ぶる魂"] = "荒ぶる魂不発";
+        horse.popup_messages["荒ぶる魂"] = "気性を制御できず暴走気味…！";
       }
       
       applyAllStatsBuff(horse, buff);
-      if (!horse.activated_abilities.includes(abilityName)) horse.activated_abilities.push(abilityName);
+      // Phase 1でのポップアップ発動を防ぐため、activated_abilitiesへのpushは行わずPhase 4で呼び出す
       return;
     }
 
@@ -442,7 +442,7 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
       const isEven = (gate % 2 === 0);
       const buffVal = isEven ? 1 : -1;
 
-      horse.popup_messages["ゲートバカラ"] = isEven ? "ゲートバカラ(UP)" : "ゲートバカラ(DOWN)";
+      horse.popup_messages["ゲートバカラ"] = isEven ? "絶好の偶数枠ゲット！" : "奇数枠…少し出遅れる懸念！";
 
       applyAllStatsBuff(horse, buffVal);
       if (!horse.activated_abilities.includes(abilityName)) horse.activated_abilities.push(abilityName);
@@ -551,6 +551,12 @@ function applyPhase4Abilities(horse, pace, branchName) {
       triggered = true;
       horse.straight_popup_trigger = true;
       horse.commentary_trigger = "レコードホルダー";
+    }
+
+    // ★ 荒ぶる魂: 直線でのポップアップフラグ設定 ★
+    if (abilityName === "荒ぶる魂") {
+      triggered = true;
+      horse.straight_popup_trigger = true;
     }
 
     if (triggered && !horse.activated_abilities.includes(abilityName)) {
@@ -786,7 +792,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       statScore = (spdBase + spdStrat) + (stmBase + stmStrat);
     }
 
-        // STEP 3 内の脚質ボーナス計算部分
+    // STEP 3 内の脚質ボーナス計算部分
     let currentTacticStyle = "";
     if (typeof h.tactic === "object" && h.tactic !== null) {
       currentTacticStyle = h.tactic.style || "";
