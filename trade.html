@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>トレード掲示板 - DERBY BATTLE CARD</title>
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%);
+      --card-bg: rgba(255, 255, 255, 0.92);
+      --card-inner-bg: #f2f8f3;
+      --accent-gold: #c29b1d;
+      --text-color: #1a2e1d;
+      --sub-text: #4e6b52;
+      --header-green: #0d4220;
+      --border-green: #b2d4b6;
+    }
+    body {
+      margin: 0;
+      padding: 10px;
+      background: var(--bg-gradient);
+      background-attachment: fixed;
+      color: var(--text-color);
+      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #ffffff;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-green);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .btn-home {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #0d4220;
+      color: #ffffff;
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .page-title {
+      font-size: 16px;
+      font-weight: 900;
+      color: var(--header-green);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tab-bar {
+      display: flex;
+      gap: 8px;
+    }
+    .tab-btn {
+      flex: 1;
+      background: #e2efe3;
+      border: 1px solid #a0ca33;
+      color: var(--sub-text);
+      padding: 8px 0;
+      font-size: 12px;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .tab-btn.active {
+      background: linear-gradient(135deg, #1b4d23, #2d6a37);
+      color: #ffffff;
+      border-color: #143b1a;
+    }
+    .trade-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .trade-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-green);
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .trade-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px dashed var(--border-green);
+      padding-bottom: 4px;
+    }
+    .seller-name { font-size: 11px; color: var(--sub-text); font-weight: bold; }
+    .trade-body {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .offered-card-info {
+      display: flex;
+      flex-direction: column;
+    }
+    .card-rarity { font-size: 10px; font-weight: bold; color: var(--accent-gold); }
+    .card-name { font-size: 14px; font-weight: bold; color: var(--header-green); }
+    .want-condition {
+      background: #f2f8f3;
+      border: 1px solid var(--border-green);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 10.5px;
+      color: var(--text-color);
+    }
+    .trade-comment {
+      font-size: 10px;
+      color: #555;
+      background: #fff;
+      padding: 4px;
+      border-radius: 4px;
+      border: 1px solid #e0e0e0;
+    }
+    .btn-action {
+      background: linear-gradient(135deg, #2d6a37, #1b4d23);
+      color: #ffffff;
+      border: none;
+      border-radius: 4px;
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: bold;
+      cursor: pointer;
+      align-self: flex-end;
+    }
+    .btn-action.cancel {
+      background: #d93838;
+    }
+    .loading-msg, .empty-msg {
+      text-align: center; padding: 40px 20px; color: var(--header-green);
+      font-weight: bold; font-size: 13px; background: rgba(255, 255, 255, 0.75); border-radius: 8px;
+    }
+
+    /* モーダル */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.6); display: none;
+      justify-content: center; align-items: center; z-index: 1000;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-box {
+      background: #ffffff; border-radius: 10px; width: 90%; max-width: 400px;
+      padding: 16px; box-sizing: border-box; border: 2px solid var(--border-green);
+    }
+    .modal-title { font-size: 15px; font-weight: bold; color: var(--header-green); margin-bottom: 12px; text-align: center; }
+    .select-card-list {
+      max-height: 180px; overflow-y: auto; border: 1px solid var(--border-green);
+      border-radius: 4px; margin-bottom: 12px;
+    }
+    .select-card-item {
+      padding: 8px; border-bottom: 1px solid #e0e0e0; display: flex;
+      justify-content: space-between; align-items: center; cursor: pointer; font-size: 12px;
+    }
+    .select-card-item:hover { background: #f2f8f3; }
+    .select-card-item.selected { background: #c2dfc6; font-weight: bold; }
+    .modal-btns { display: flex; gap: 8px; }
+    .btn-modal-submit {
+      flex: 1; background: var(--header-green); color: #fff; border: none;
+      padding: 8px; border-radius: 6px; font-weight: bold; cursor: pointer;
+    }
+    .btn-modal-cancel {
+      flex: 1; background: #e0e0e0; color: #333; border: none;
+      padding: 8px; border-radius: 6px; font-weight: bold; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header-bar">
+    <a href="index.html" class="btn-home">🏠 ホーム</a>
+    <div class="page-title">🔁 トレード掲示板</div>
+  </div>
+
+  <div class="tab-bar">
+    <div class="tab-btn active" id="tabMarket">🛒 トレードを探す</div>
+    <div class="tab-btn" id="tabMyTrades">📦 自分の出品</div>
+  </div>
+
+  <div class="trade-list" id="tradeListContainer">
+    <div class="loading-msg">トレード出品を読み込み中...</div>
+  </div>
+</div>
+
+<!-- トレード交換申請モーダル -->
+<div class="modal-overlay" id="applyModal">
+  <div class="modal-box">
+    <div class="modal-title">🤝 交換に出すカードを選択</div>
+    <div style="font-size:11px; color:var(--sub-text); margin-bottom:8px;" id="applyTargetInfo"></div>
+    <div class="select-card-list" id="myAvailableCardsList">
+      <!-- 交換可能な手札リストが入る -->
+    </div>
+    <div class="modal-btns">
+      <button class="btn-modal-cancel" id="btnCancelApply">キャンセル</button>
+      <button class="btn-modal-submit" id="btnSubmitApply" disabled>交換を確定する</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { collection, query, where, getDocs, doc, getDoc, runTransaction, updateDoc, increment, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  let HORSES_MASTER = {};
+  let currentUser = null;
+  let activeTab = 'market'; // 'market' または 'myTrades'
+  let activeTradeData = null;
+  let selectedOfferHorseId = null;
+  let userInventoryMap = {};
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.href = 'auth.html';
+      return;
+    }
+    currentUser = user;
+
+    try {
+      // マスターデータの読み込み
+      const res = await fetch('./data/horses_master.json');
+      const horsesArray = await res.json();
+      horsesArray.forEach(h => {
+        const id = String(h.horse_id ?? h.id);
+        HORSES_MASTER[id] = h;
+      });
+
+      // ユーザーのインベントリ取得
+      await loadUserInventory();
+
+      // 初期一覧描画
+      loadTrades();
+    } catch (err) {
+      console.error("初期化エラー:", err);
+      document.getElementById('tradeListContainer').innerHTML = `<div class="loading-msg">⚠️ データの読み込みに失敗しました</div>`;
+    }
+  });
+
+  async function loadUserInventory() {
+    const inventorySnap = await getDocs(collection(db, `users/${currentUser.uid}/inventory`));
+    userInventoryMap = {};
+    inventorySnap.forEach(docSnap => {
+      userInventoryMap[docSnap.id] = docSnap.data();
+    });
+  }
+
+  // 出品一覧の読み込み
+  async function loadTrades() {
+    const container = document.getElementById('tradeListContainer');
+    container.innerHTML = '<div class="loading-msg">トレード出品を読み込み中...</div>';
+
+    try {
+      let q;
+      if (activeTab === 'market') {
+        // 他プレイヤーの出品（active状態）
+        q = query(collection(db, "trades"), where("status", "==", "active"));
+      } else {
+        // 自分の出品
+        q = query(collection(db, "trades"), where("seller_uid", "==", currentUser.uid), where("status", "==", "active"));
+      }
+
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        container.innerHTML = `<div class="empty-msg">${activeTab === 'market' ? '現在出品中のカードはありません。' : 'あなたが出品中のカードはありません。'}</div>`;
+        return;
+      }
+
+      container.innerHTML = '';
+      snap.forEach(docSnap => {
+        const trade = { id: docSnap.id, ...docSnap.data() };
+        
+        // 他人の出品のみ表示（マーケットタブ時）
+        if (activeTab === 'market' && trade.seller_uid === currentUser.uid) return;
+
+        container.appendChild(createTradeCardDOM(trade));
+      });
+
+      if (container.children.length === 0) {
+        container.innerHTML = `<div class="empty-msg">表示可能なトレードがありません。</div>`;
+      }
+    } catch (err) {
+      console.error("トレード読み込みエラー:", err);
+      container.innerHTML = `<div class="loading-msg">⚠️ 一覧の取得に失敗しました</div>`;
+    }
+  }
+
+  function createTradeCardDOM(trade) {
+    const card = document.createElement('div');
+    card.className = 'trade-card';
+
+    let conditionText = `希望: `;
+    if (trade.want_horse_id && HORSES_MASTER[trade.want_horse_id]) {
+      conditionText += `${HORSES_MASTER[trade.want_horse_id].name} 指定`;
+    } else if (trade.want_rarity && trade.want_rarity !== 'ANY') {
+      conditionText += `${trade.want_rarity} 以上`;
+    } else {
+      conditionText += `自由（どのカードでも可）`;
+    }
+
+    const actionBtnHtml = activeTab === 'market' 
+      ? `<button class="btn-action" onclick="openApplyModal('${trade.id}')">🤝 交換を申し込む</button>`
+      : `<button class="btn-action cancel" onclick="cancelTrade('${trade.id}', '${trade.offered_horse_id}')">🗑 出品を取り下げる</button>`;
+
+    card.innerHTML = `
+      <div class="trade-header">
+        <span class="seller-name">👤 出品者: ${trade.seller_name || 'オーナー'}</span>
+      </div>
+      <div class="trade-body">
+        <div class="offered-card-info">
+          <span class="card-rarity">${trade.offered_rarity}</span>
+          <span class="card-name">${trade.offered_horse_name}</span>
+        </div>
+      </div>
+      <div class="want-condition">${conditionText}</div>
+      ${trade.comment ? `<div class="trade-comment">💬 ${trade.comment}</div>` : ''}
+      ${actionBtnHtml}
+    `;
+    return card;
+  }
+
+  // タブ切り替えイベント
+  document.getElementById('tabMarket').addEventListener('click', () => {
+    activeTab = 'market';
+    document.getElementById('tabMarket').className = 'tab-btn active';
+    document.getElementById('tabMyTrades').className = 'tab-btn';
+    loadTrades();
+  });
+
+  document.getElementById('tabMyTrades').addEventListener('click', () => {
+    activeTab = 'myTrades';
+    document.getElementById('tabMyTrades').className = 'tab-btn active';
+    document.getElementById('tabMarket').className = 'tab-btn';
+    loadTrades();
+  });
+
+  // モーダル処理・申請モーダル開く
+  window.openApplyModal = async (tradeId) => {
+    const tradeDoc = await getDoc(doc(db, "trades", tradeId));
+    if (!tradeDoc.exists()) return;
+
+    activeTradeData = { id: tradeDoc.id, ...tradeDoc.data() };
+    document.getElementById('applyTargetInfo').textContent = `相手の出品: 【${activeTradeData.offered_rarity}】${activeTradeData.offered_horse_name}`;
+
+    const listEl = document.getElementById('myAvailableCardsList');
+    listEl.innerHTML = '';
+    selectedOfferHorseId = null;
+    document.getElementById('btnSubmitApply').disabled = true;
+
+    // 交換に出せる手札（locked_countを除いた所持枚数 >= 1）のフィルタリング
+    const availableCards = [];
+    Object.keys(userInventoryMap).forEach(hId => {
+      const info = userInventoryMap[hId];
+      const count = typeof info === 'object' ? (info.count || 0) : info;
+      const locked = typeof info === 'object' ? (info.locked_count || 0) : 0;
+      if (count - locked > 0 && HORSES_MASTER[hId]) {
+        availableCards.push({ id: hId, horse: HORSES_MASTER[hId] });
+      }
+    });
+
+    if (availableCards.length === 0) {
+      listEl.innerHTML = '<div style="padding:10px; font-size:11px; text-align:center;">交換に出せる所持カードがありません</div>';
+    } else {
+      availableCards.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'select-card-item';
+        div.innerHTML = `<span>[${item.horse.rarity || 'N'}] ${item.horse.name}</span>`;
+        div.onclick = () => {
+          document.querySelectorAll('.select-card-item').forEach(el => el.classList.remove('selected'));
+          div.classList.add('selected');
+          selectedOfferHorseId = item.id;
+          document.getElementById('btnSubmitApply').disabled = false;
+        };
+        listEl.appendChild(div);
+      });
+    }
+
+    document.getElementById('applyModal').classList.add('active');
+  };
+
+  document.getElementById('btnCancelApply').addEventListener('click', () => {
+    document.getElementById('applyModal').classList.remove('active');
+  });
+
+  // トレード実行（トランザクション処理）
+  document.getElementById('btnSubmitApply').addEventListener('click', async () => {
+    if (!activeTradeData || !selectedOfferHorseId || !currentUser) return;
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const tradeRef = doc(db, "trades", activeTradeData.id);
+        const tradeSnap = await transaction.get(tradeRef);
+
+        if (!tradeSnap.exists() || tradeSnap.data().status !== 'active') {
+          throw new Error("このトレードは既に終了しているか、キャンセルされました。");
+        }
+
+        const sellerUid = activeTradeData.seller_uid;
+        const buyerUid = currentUser.uid;
+        const offeredHorseId = activeTradeData.offered_horse_id; // 出品者のカード
+        const buyerHorseId = selectedOfferHorseId; // 申請者のカード
+
+        // 1. 出品者の locked_count を減らし、offered_horse_id を -1、buyerHorseId を +1
+        const sellerOfferInvRef = doc(db, `users/${sellerUid}/inventory/${offeredHorseId}`);
+        const sellerBuyerInvRef = doc(db, `users/${sellerUid}/inventory/${buyerHorseId}`);
+        
+        transaction.update(sellerOfferInvRef, { count: increment(-1), locked_count: increment(-1) });
+        transaction.set(sellerBuyerInvRef, { count: increment(1), obtained_at: new Date().toISOString() }, { merge: true });
+
+        // 2. 申請者の buyerHorseId を -1、offered_horse_id を +1
+        const buyerOfferInvRef = doc(db, `users/${buyerUid}/inventory/${buyerHorseId}`);
+        const buyerSellerInvRef = doc(db, `users/${buyerUid}/inventory/${offeredHorseId}`);
+
+        transaction.update(buyerOfferInvRef, { count: increment(-1) });
+        transaction.set(buyerSellerInvRef, { count: increment(1), obtained_at: new Date().toISOString() }, { merge: true });
+
+        // 3. トレードステータスを完了に更新
+        transaction.update(tradeRef, {
+          status: "completed",
+          buyer_uid: buyerUid,
+          exchanged_at: serverTimestamp()
+        });
+      });
+
+      alert("トレードが成立しました！カードが交換されました。");
+      document.getElementById('applyModal').classList.remove('active');
+      await loadUserInventory();
+      loadTrades();
+
+    } catch (err) {
+      console.error("トレード成立エラー:", err);
+      alert(err.message || "トレード処理に失敗しました。");
+    }
+  });
+
+  // 出品取り下げ処理
+  window.cancelTrade = async (tradeId, horseId) => {
+    if (!confirm("出品を取り下げますか？")) return;
+
+    try {
+      // トレードのステータス変更
+      await updateDoc(doc(db, "trades", tradeId), { status: "cancelled" });
+
+      // ロック数の解除
+      await updateDoc(doc(db, `users/${currentUser.uid}/inventory/${horseId}`), {
+        locked_count: increment(-1)
+      });
+
+      alert("出品を取り下げました。");
+      await loadUserInventory();
+      loadTrades();
+    } catch (err) {
+      console.error("取り下げエラー:", err);
+      alert("取り下げ処理に失敗しました。");
+    }
+  };
+</script>
+</body>
+</html>
