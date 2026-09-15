@@ -113,19 +113,47 @@
     .offered-card-info { display: flex; flex-direction: column; }
     .card-rarity { font-size: 10px; font-weight: bold; color: var(--accent-gold); }
     .card-name { font-size: 14px; font-weight: bold; color: var(--header-green); }
+
+    /* 希望条件表示エリア */
     .want-condition {
       background: #f2f8f3;
       border: 1px solid var(--border-green);
-      border-radius: 4px;
-      padding: 4px 8px;
-      font-size: 10.5px;
-      color: var(--text-color);
+      border-radius: 6px;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
+    .condition-title {
+      font-size: 10px;
+      font-weight: bold;
+      color: var(--sub-text);
+    }
+    .condition-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .condition-tag {
+      background: #ffffff;
+      border: 1px solid #b2d4b6;
+      color: #1a2e1d;
+      padding: 2px 6px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: bold;
+    }
+    .condition-tag.highlight {
+      background: #e2f0d9;
+      border-color: #7ec885;
+      color: #0d4220;
+    }
+
     .trade-comment {
       font-size: 10px;
       color: #555;
       background: #fff;
-      padding: 4px;
+      padding: 4px 6px;
       border-radius: 4px;
       border: 1px solid #e0e0e0;
     }
@@ -213,7 +241,7 @@
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-  import { cancelTradeListing, executeTradeTransaction } from './js/trade-service.js'; // 共通関数を読み込み
+  import { cancelTradeListing, executeTradeTransaction } from './js/trade-service.js';
 
   let HORSES_MASTER = {};
   let currentUser = null;
@@ -287,18 +315,95 @@
     }
   }
 
+  // 出品条件をタグリストとして解析生成するヘルパー関数
+  function getConditionBadges(trade) {
+    const badges = [];
+
+    const getVal = (snake, camel) => {
+      if (trade[snake] !== undefined && trade[snake] !== null && trade[snake] !== '' && trade[snake] !== 'ANY') return trade[snake];
+      if (trade[camel] !== undefined && trade[camel] !== null && trade[camel] !== '' && trade[camel] !== 'ANY') return trade[camel];
+      if (trade.extra_conditions) {
+        if (trade.extra_conditions[snake] && trade.extra_conditions[snake] !== 'ANY') return trade.extra_conditions[snake];
+        if (trade.extra_conditions[camel] && trade.extra_conditions[camel] !== 'ANY') return trade.extra_conditions[camel];
+      }
+      return null;
+    };
+
+    // 1. 特定馬名 / ID
+    const horseName = getVal('want_horse_name', 'wantHorseName');
+    const horseId = getVal('want_horse_id', 'wantHorseId');
+    if (horseName) {
+      badges.push({ text: `🐴 馬名: ${horseName}`, highlight: true });
+    } else if (horseId && HORSES_MASTER[horseId]) {
+      badges.push({ text: `🐴 馬名: ${HORSES_MASTER[horseId].name}`, highlight: true });
+    }
+
+    // 2. レアリティ
+    const rarity = getVal('want_rarity', 'wantRarity');
+    if (rarity) {
+      let rText = rarity;
+      if (rarity === 'SAME') rText = '同レアリティ以上';
+      else if (rarity === 'UR') rText = 'UR以上';
+      else if (rarity === 'SSR') rText = 'SSR以上';
+      badges.push({ text: `⭐ ${rText}`, highlight: false });
+    }
+
+    // 3. 世代
+    const gen = getVal('want_gen', 'wantGen');
+    if (gen) {
+      let gText = `${gen} 世代`;
+      if (gen === '1980_BEFORE') gText = '〜1980 世代';
+      else if (gen === '1990_BEFORE') gText = '1981〜1990 世代';
+      badges.push({ text: `📅 ${gText}`, highlight: false });
+    }
+
+    // 4. ポテンシャル
+    const pot = getVal('want_potential', 'wantPotential');
+    if (pot) {
+      badges.push({ text: `⚡ ポテンシャル:${pot}`, highlight: false });
+    }
+
+    // 5. 適性距離
+    const dist = getVal('want_distance', 'wantDistance');
+    if (dist) {
+      badges.push({ text: `📏 ${dist}m`, highlight: false });
+    }
+
+    // 6. バ場区分
+    const track = getVal('want_track', 'wantTrack');
+    if (track) {
+      let tText = track;
+      if (track === 'TURF') tText = '芝';
+      else if (track === 'DIRT') tText = 'ダート';
+      else if (track === 'BOTH') tText = '万能(芝・ダ)';
+      badges.push({ text: `🏟️ ${tText}`, highlight: false });
+    }
+
+    // 7. 性別
+    const sex = getVal('want_sex', 'wantSex');
+    if (sex) {
+      let sText = sex;
+      if (sex === 'MALE') sText = '牡馬';
+      else if (sex === 'FEMALE') sText = '牝馬';
+      else if (sex === 'GELDING') sText = 'セン馬';
+      badges.push({ text: `♀♂ ${sText}`, highlight: false });
+    }
+
+    if (badges.length === 0) {
+      badges.push({ text: '🆓 指定なし（条件自由）', highlight: false });
+    }
+
+    return badges;
+  }
+
   function createTradeCardDOM(trade) {
     const card = document.createElement('div');
     card.className = 'trade-card';
 
-    let conditionText = `希望: `;
-    if (trade.want_horse_id && HORSES_MASTER[trade.want_horse_id]) {
-      conditionText += `${HORSES_MASTER[trade.want_horse_id].name} 指定`;
-    } else if (trade.want_rarity && trade.want_rarity !== 'ANY') {
-      conditionText += `${trade.want_rarity} 以上`;
-    } else {
-      conditionText += `自由（どのカードでも可）`;
-    }
+    const badges = getConditionBadges(trade);
+    const badgesHtml = badges.map(b => 
+      `<span class="condition-tag ${b.highlight ? 'highlight' : ''}">${b.text}</span>`
+    ).join('');
 
     const actionBtnHtml = activeTab === 'market' 
       ? `<button class="btn-action" onclick="openApplyModal('${trade.id}')">🤝 交換を申し込む</button>`
@@ -310,11 +415,16 @@
       </div>
       <div class="trade-body">
         <div class="offered-card-info">
-          <span class="card-rarity">${trade.offered_rarity}</span>
-          <span class="card-name">${trade.offered_horse_name}</span>
+          <span class="card-rarity">${trade.offered_rarity || ''}</span>
+          <span class="card-name">${trade.offered_horse_name || ''}</span>
         </div>
       </div>
-      <div class="want-condition">${conditionText}</div>
+      <div class="want-condition">
+        <div class="condition-title">希望条件</div>
+        <div class="condition-tags">
+          ${badgesHtml}
+        </div>
+      </div>
       ${trade.comment ? `<div class="trade-comment">💬 ${trade.comment}</div>` : ''}
       ${actionBtnHtml}
     `;
@@ -340,7 +450,7 @@
     if (!tradeDoc.exists()) return;
 
     activeTradeData = { id: tradeDoc.id, ...tradeDoc.data() };
-    document.getElementById('applyTargetInfo').textContent = `相手の出品: 【${activeTradeData.offered_rarity}】${activeTradeData.offered_horse_name}`;
+    document.getElementById('applyTargetInfo').textContent = `相手の出品: 【${activeTradeData.offered_rarity || ''}】${activeTradeData.offered_horse_name || ''}`;
 
     const listEl = document.getElementById('myAvailableCardsList');
     listEl.innerHTML = '';
@@ -381,7 +491,6 @@
     document.getElementById('applyModal').classList.remove('active');
   });
 
-  // 共通関数を利用してトレード実行
   document.getElementById('btnSubmitApply').addEventListener('click', async () => {
     if (!activeTradeData || !selectedOfferHorseId || !currentUser) return;
 
@@ -397,7 +506,6 @@
     }
   });
 
-  // 共通関数を利用して出品取り下げ
   window.cancelTrade = async (tradeId, horseId) => {
     if (!confirm("出品を取り下げますか？")) return;
 
