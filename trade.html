@@ -110,10 +110,7 @@
       justify-content: space-between;
       align-items: center;
     }
-    .offered-card-info {
-      display: flex;
-      flex-direction: column;
-    }
+    .offered-card-info { display: flex; flex-direction: column; }
     .card-rarity { font-size: 10px; font-weight: bold; color: var(--accent-gold); }
     .card-name { font-size: 14px; font-weight: bold; color: var(--header-green); }
     .want-condition {
@@ -143,9 +140,7 @@
       cursor: pointer;
       align-self: flex-end;
     }
-    .btn-action.cancel {
-      background: #d93838;
-    }
+    .btn-action.cancel { background: #d93838; }
     .loading-msg, .empty-msg {
       text-align: center; padding: 40px 20px; color: var(--header-green);
       font-weight: bold; font-size: 13px; background: rgba(255, 255, 255, 0.75); border-radius: 8px;
@@ -206,9 +201,7 @@
   <div class="modal-box">
     <div class="modal-title">🤝 交換に出すカードを選択</div>
     <div style="font-size:11px; color:var(--sub-text); margin-bottom:8px;" id="applyTargetInfo"></div>
-    <div class="select-card-list" id="myAvailableCardsList">
-      <!-- 交換可能な手札リストが入る -->
-    </div>
+    <div class="select-card-list" id="myAvailableCardsList"></div>
     <div class="modal-btns">
       <button class="btn-modal-cancel" id="btnCancelApply">キャンセル</button>
       <button class="btn-modal-submit" id="btnSubmitApply" disabled>交換を確定する</button>
@@ -219,11 +212,12 @@
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { collection, query, where, getDocs, doc, getDoc, runTransaction, updateDoc, increment, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { cancelTradeListing, executeTradeTransaction } from './trade-service.js'; // 共通関数を読み込み
 
   let HORSES_MASTER = {};
   let currentUser = null;
-  let activeTab = 'market'; // 'market' または 'myTrades'
+  let activeTab = 'market';
   let activeTradeData = null;
   let selectedOfferHorseId = null;
   let userInventoryMap = {};
@@ -236,7 +230,6 @@
     currentUser = user;
 
     try {
-      // マスターデータの読み込み
       const res = await fetch('./data/horses_master.json');
       const horsesArray = await res.json();
       horsesArray.forEach(h => {
@@ -244,10 +237,7 @@
         HORSES_MASTER[id] = h;
       });
 
-      // ユーザーのインベントリ取得
       await loadUserInventory();
-
-      // 初期一覧描画
       loadTrades();
     } catch (err) {
       console.error("初期化エラー:", err);
@@ -263,7 +253,6 @@
     });
   }
 
-  // 出品一覧の読み込み
   async function loadTrades() {
     const container = document.getElementById('tradeListContainer');
     container.innerHTML = '<div class="loading-msg">トレード出品を読み込み中...</div>';
@@ -271,10 +260,8 @@
     try {
       let q;
       if (activeTab === 'market') {
-        // 他プレイヤーの出品（active状態）
         q = query(collection(db, "trades"), where("status", "==", "active"));
       } else {
-        // 自分の出品
         q = query(collection(db, "trades"), where("seller_uid", "==", currentUser.uid), where("status", "==", "active"));
       }
 
@@ -287,10 +274,7 @@
       container.innerHTML = '';
       snap.forEach(docSnap => {
         const trade = { id: docSnap.id, ...docSnap.data() };
-        
-        // 他人の出品のみ表示（マーケットタブ時）
         if (activeTab === 'market' && trade.seller_uid === currentUser.uid) return;
-
         container.appendChild(createTradeCardDOM(trade));
       });
 
@@ -337,7 +321,6 @@
     return card;
   }
 
-  // タブ切り替えイベント
   document.getElementById('tabMarket').addEventListener('click', () => {
     activeTab = 'market';
     document.getElementById('tabMarket').className = 'tab-btn active';
@@ -352,7 +335,6 @@
     loadTrades();
   });
 
-  // モーダル処理・申請モーダル開く
   window.openApplyModal = async (tradeId) => {
     const tradeDoc = await getDoc(doc(db, "trades", tradeId));
     if (!tradeDoc.exists()) return;
@@ -365,7 +347,6 @@
     selectedOfferHorseId = null;
     document.getElementById('btnSubmitApply').disabled = true;
 
-    // 交換に出せる手札（locked_countを除いた所持枚数 >= 1）のフィルタリング
     const availableCards = [];
     Object.keys(userInventoryMap).forEach(hId => {
       const info = userInventoryMap[hId];
@@ -400,70 +381,28 @@
     document.getElementById('applyModal').classList.remove('active');
   });
 
-  // トレード実行（トランザクション処理）
+  // 共通関数を利用してトレード実行
   document.getElementById('btnSubmitApply').addEventListener('click', async () => {
     if (!activeTradeData || !selectedOfferHorseId || !currentUser) return;
 
     try {
-      await runTransaction(db, async (transaction) => {
-        const tradeRef = doc(db, "trades", activeTradeData.id);
-        const tradeSnap = await transaction.get(tradeRef);
-
-        if (!tradeSnap.exists() || tradeSnap.data().status !== 'active') {
-          throw new Error("このトレードは既に終了しているか、キャンセルされました。");
-        }
-
-        const sellerUid = activeTradeData.seller_uid;
-        const buyerUid = currentUser.uid;
-        const offeredHorseId = activeTradeData.offered_horse_id; // 出品者のカード
-        const buyerHorseId = selectedOfferHorseId; // 申請者のカード
-
-        // 1. 出品者の locked_count を減らし、offered_horse_id を -1、buyerHorseId を +1
-        const sellerOfferInvRef = doc(db, `users/${sellerUid}/inventory/${offeredHorseId}`);
-        const sellerBuyerInvRef = doc(db, `users/${sellerUid}/inventory/${buyerHorseId}`);
-        
-        transaction.update(sellerOfferInvRef, { count: increment(-1), locked_count: increment(-1) });
-        transaction.set(sellerBuyerInvRef, { count: increment(1), obtained_at: new Date().toISOString() }, { merge: true });
-
-        // 2. 申請者の buyerHorseId を -1、offered_horse_id を +1
-        const buyerOfferInvRef = doc(db, `users/${buyerUid}/inventory/${buyerHorseId}`);
-        const buyerSellerInvRef = doc(db, `users/${buyerUid}/inventory/${offeredHorseId}`);
-
-        transaction.update(buyerOfferInvRef, { count: increment(-1) });
-        transaction.set(buyerSellerInvRef, { count: increment(1), obtained_at: new Date().toISOString() }, { merge: true });
-
-        // 3. トレードステータスを完了に更新
-        transaction.update(tradeRef, {
-          status: "completed",
-          buyer_uid: buyerUid,
-          exchanged_at: serverTimestamp()
-        });
-      });
-
+      await executeTradeTransaction(db, currentUser, activeTradeData, selectedOfferHorseId);
       alert("トレードが成立しました！カードが交換されました。");
       document.getElementById('applyModal').classList.remove('active');
       await loadUserInventory();
       loadTrades();
-
     } catch (err) {
       console.error("トレード成立エラー:", err);
       alert(err.message || "トレード処理に失敗しました。");
     }
   });
 
-  // 出品取り下げ処理
+  // 共通関数を利用して出品取り下げ
   window.cancelTrade = async (tradeId, horseId) => {
     if (!confirm("出品を取り下げますか？")) return;
 
     try {
-      // トレードのステータス変更
-      await updateDoc(doc(db, "trades", tradeId), { status: "cancelled" });
-
-      // ロック数の解除
-      await updateDoc(doc(db, `users/${currentUser.uid}/inventory/${horseId}`), {
-        locked_count: increment(-1)
-      });
-
+      await cancelTradeListing(db, currentUser.uid, tradeId, horseId);
       alert("出品を取り下げました。");
       await loadUserInventory();
       loadTrades();
