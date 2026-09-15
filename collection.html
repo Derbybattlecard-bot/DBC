@@ -198,7 +198,9 @@
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-  import { cardRenderer } from './js/card_renderer.js';
+
+  let HORSES_ARRAY = [];
+  let HORSES_MASTER = {};
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
@@ -207,80 +209,67 @@
     }
 
     try {
-      if (cardRenderer.init) {
-        await cardRenderer.init();
+      // deck.html と同等のマスターデータ直接読み込みロジック
+      const res = await fetch('./data/horses_master.json');
+      if (!res.ok) {
+        throw new Error(`horses_master.json の読み込みに失敗しました (HTTP ${res.status})`);
       }
-      await renderCollection(user.uid);
+      
+      HORSES_ARRAY = await res.json();
+      HORSES_MASTER = {};
+      HORSES_ARRAY.forEach(h => {
+        const id = String(h.horse_id ?? h.id);
+        HORSES_MASTER[id] = h;
+      });
+
+      // 所持カード情報の取得 (deck.html と同等)
+      const inventorySnap = await getDocs(collection(db, `users/${user.uid}/inventory`));
+      const userInventory = {};
+      inventorySnap.forEach(docSnap => {
+        userInventory[docSnap.id] = docSnap.data();
+      });
+
+      renderCollection(userInventory);
+
     } catch (error) {
       console.error("図鑑ロードエラー:", error);
       document.getElementById('mainContent').innerHTML = `
         <div class="error-msg">
           ⚠️ カードデータの読み込みに失敗しました。<br>
           <small style="font-size:11px; margin-top:4px; display:block;">
-            ${error.message || '通信環境またはデータ構造をご確認ください。'}
+            ${error.message || '通信環境またはマスターファイルをご確認ください。'}
           </small>
         </div>`;
     }
   });
 
-  async function renderCollection(uid) {
-    // 1. ユーザー所有インベントリの取得
-    const inventoryRef = collection(db, `users/${uid}/inventory`);
-    const snapshot = await getDocs(inventoryRef);
-    const userInventory = {};
-    snapshot.forEach(doc => {
-      userInventory[doc.id] = doc.data();
-    });
-
-    // 2. 馬マスターデータの抽出（多様な構造・プロパティ名に対応）
-    let rawHorses = cardRenderer.horses || cardRenderer.horseMaster || cardRenderer.data || [];
-    if (typeof cardRenderer.getHorses === 'function') {
-      rawHorses = cardRenderer.getHorses();
-    }
-
-    let horses = [];
-    if (Array.isArray(rawHorses)) {
-      horses = rawHorses;
-    } else if (rawHorses && typeof rawHorses === 'object') {
-      if (Array.isArray(rawHorses.horses)) {
-        horses = rawHorses.horses;
-      } else {
-        horses = Object.values(rawHorses);
-      }
-    }
-
-    if (!horses.length) {
+  function renderCollection(inventory) {
+    if (!HORSES_ARRAY || HORSES_ARRAY.length === 0) {
       document.getElementById('mainContent').innerHTML = `<div class="loading-msg">登録されているカードデータがありません。</div>`;
       return;
     }
 
-    // 3. 世代ごとにグループ化
     const genMap = {};
     let totalObtained = 0;
 
-    horses.forEach(horse => {
-      if (!horse || typeof horse !== 'object') return;
-
-      // 馬IDの判定
-      const horseId = horse.id || horse.horse_id || horse.code;
-      if (!horseId) return;
-
-      // 世代年の判定
-      let year = '不明';
-      if (typeof cardRenderer.getGenerationYear === 'function') {
-        year = cardRenderer.getGenerationYear(horse) || year;
-      }
-      if (year === '不明') {
-        year = horse.gen_year || horse.generation || horse.year || '不明';
+    HORSES_ARRAY.forEach(horse => {
+      const strId = String(horse.horse_id ?? horse.id);
+      
+      // deck.html と同等の所持判定ロジック
+      const cardInfo = inventory[strId];
+      const count = (typeof cardInfo === 'object' && cardInfo !== null) ? (cardInfo.count || 1) : (cardInfo || 0);
+      
+      if (count > 0) {
+        totalObtained++;
       }
 
-      if (!genMap[year]) genMap[year] = [];
+      // 世代（年）の判定
+      const year = horse.gen_year || horse.generation || horse.year || '不明';
 
-      const invItem = userInventory[horseId];
-      const count = invItem ? (invItem.count || 1) : 0;
-      if (count > 0) totalObtained++;
-
-      genMap[year].push({ horse, id: horseId, count });
+      if (!genMap[year]) {
+        genMap[year] = [];
+      }
+      genMap[year].push({ horse, count });
     });
 
     const genYears = Object.keys(genMap).sort((a, b) => {
@@ -289,12 +278,12 @@
       return Number(b) - Number(a);
     });
 
-    // 4. カウント情報の反映
+    // カウント情報の反映
     document.getElementById('statGenCount').textContent = genYears.length;
     document.getElementById('statObtainedCount').textContent = totalObtained;
-    document.getElementById('statTotalCount').textContent = horses.length;
+    document.getElementById('statTotalCount').textContent = HORSES_ARRAY.length;
 
-    // 5. 画面の描画
+    // UI描画
     const contentEl = document.getElementById('mainContent');
     contentEl.innerHTML = '';
 
@@ -303,18 +292,17 @@
       block.className = 'gen-block';
 
       const horsesInGen = genMap[year];
-      const obtainedInGen = horsesInGen.filter(h => h.count > 0).length;
+      const obtainedInGen = horsesInGen.filter(item => item.count > 0).length;
 
       const cardsHtml = horsesInGen.map(item => {
         const h = item.horse;
         const isObtained = item.count > 0;
-        const horseName = h.name || h.horse_name || item.id;
         const rarity = h.rarity || 'N';
 
         return `
           <div class="card-item ${isObtained ? '' : 'unobtained'}">
             <div style="font-size:9px; color:var(--accent-gold); font-weight:bold;">${rarity}</div>
-            <div class="card-name" title="${horseName}">${isObtained ? horseName : '？？？？？'}</div>
+            <div class="card-name" title="${h.name}">${isObtained ? h.name : '？？？？？'}</div>
             <div class="card-count">${isObtained ? `所持: ${item.count}枚` : '未獲得'}</div>
           </div>
         `;
