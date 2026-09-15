@@ -483,8 +483,8 @@
   let isLocked = false; // CPU対戦中ロック管理フラグ
 
   const RARITY_WEIGHT = { 
-    "INF": 11, "SER": 10, "UR": 9, "LGR": 8, "CLR": 7, 
-    "TR": 6, "RER": 5, "AR": 4, "VR": 3, "PR": 3, "SPR": 2, "N": 1 
+    "INF": 11, "SER": 10, "ULR": 9, "LGR": 8, "CLR": 7, 
+    "TRR": 6, "RER": 5, "ANR": 4, "VIR": 3, "PRR": 3, "SPR": 2, "NOR": 1 
   };
   
   function getTurfVal(horse) {
@@ -501,6 +501,16 @@
     if (d > 0) return `ダ${d}`;
     return "-";
   }
+
+          if (potentialVal !== 'ALL') {
+          const targetPot = parseInt(potentialVal, 10);
+          const horsePot = getHorsePotential(horse);
+          if (horsePot !== targetPot) continue;
+        }
+
+
+
+      
   function getDistanceText(horse) {
     if (horse.min_distance && horse.max_distance) {
       return `${horse.min_distance}-${horse.max_distance}m`;
@@ -919,9 +929,11 @@
         valB = b.horse.name;
         const res = valA.localeCompare(valB, 'ja');
         return sortOrder === 'asc' ? res : -res;
-      } else if (sortKey === 'potential') {
-        valA = a.horse.total_potential ?? a.horse.potential ?? 0;
-        valB = b.horse.total_potential ?? b.horse.potential ?? 0;
+           } else if (sortKey === 'potential') {
+        valA = getHorsePotential(a.horse);
+        valB = getHorsePotential(b.horse);
+      }
+
       } else if (sortKey === 'rarity') {
         valA = RARITY_WEIGHT[a.horse.rarity] || 0;
         valB = RARITY_WEIGHT[b.horse.rarity] || 0;
