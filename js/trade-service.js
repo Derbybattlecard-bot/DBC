@@ -12,8 +12,9 @@ import {
 
 /**
  * 1. カードを出品する関数
+ * collection.html から渡される extraConditions（世代、ポテンシャル等）の保存に対応
  */
-export async function createTradeListing(db, currentUser, horse, wantRarity, wantHorseId, comment) {
+export async function createTradeListing(db, currentUser, horse, wantRarity, wantHorseName, comment, extraConditions = {}) {
   const horseId = String(horse.horse_id ?? horse.id);
 
   // 出品者の表示名取得
@@ -28,8 +29,16 @@ export async function createTradeListing(db, currentUser, horse, wantRarity, wan
     offered_horse_name: horse.name,
     offered_rarity: horse.rarity || 'N',
     want_rarity: wantRarity,
-    want_horse_id: wantHorseId || null,
+    want_horse_name: wantHorseName || null,
     comment: comment,
+    
+    // 詳細条件（extraConditions）のプロパティを展開して保存
+    want_gen: extraConditions.wantGen || 'ANY',
+    want_potential: extraConditions.wantPotential || 'ANY',
+    want_distance: extraConditions.wantDistance || 'ANY',
+    want_track: extraConditions.wantTrack || 'ANY',
+    want_sex: extraConditions.wantSex || 'ANY',
+    
     status: "active",
     created_at: serverTimestamp()
   });
