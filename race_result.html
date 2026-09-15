@@ -176,6 +176,26 @@
   }
   .series-winner-title { font-size: 1.6em; font-weight: bold; color: var(--gold-color); margin-bottom: 10px; }
   .series-score-box { font-size: 1.2em; font-weight: bold; background: #000; border: 1px solid #444; padding: 10px; margin: 10px 0; border-radius: 6px; }
+
+  /* 最高成績更新バッジ用アニメーション */
+  @keyframes recordPulse {
+    0% { transform: scale(1); box-shadow: 0 0 10px rgba(255, 204, 0, 0.6); }
+    100% { transform: scale(1.05); box-shadow: 0 0 25px rgba(255, 215, 0, 1); }
+  }
+  .new-record-badge {
+    display: none;
+    background: linear-gradient(135deg, #ffe066, #ff9900);
+    color: #000;
+    font-weight: bold;
+    padding: 8px 16px;
+    border-radius: 20px;
+    margin: 10px auto;
+    width: fit-content;
+    font-size: 1.1em;
+    border: 2px solid #fff;
+    box-shadow: 0 0 15px rgba(255, 204, 0, 0.8);
+    animation: recordPulse 1.2s infinite alternate;
+  }
 </style>
 </head>
 <body>
@@ -249,6 +269,12 @@
 <div id="final-series-modal">
   <div class="modal-content">
     <div class="series-winner-title" id="series-result-title">🏆 シリーズ覇者 決定！</div>
+    
+    <!-- 最高成績更新演出バッジ -->
+    <div id="new-record-badge" class="new-record-badge">
+      🌟 シリーズ最高成績更新！ (合計: <span id="new-record-score">0</span>着)
+    </div>
+
     <div class="series-score-box" id="series-score-detail">---</div>
     
     <div style="text-align: left; margin-top: 15px; font-weight: bold; color: var(--accent-green);">📜 全5戦 対戦成績</div>
@@ -480,9 +506,6 @@ function setupRace(rIdx) {
   const racesTrackConditions = globalUserData?.cpu_battle_status?.current_match?.races_track_conditions || [];
   trackCondition = racesTrackConditions[rIdx] || "良";
 
-  const status = globalUserData?.cpu_battle_status || {};
-  let seriesIdStr = status.selected_series_id || (status.series_lineup ? status.series_lineup[(status.current_round || 1) - 1] : null);
-  
   let seriesInfo = seriesMasterData.find(s => s.series_id === seriesIdStr) || seriesMasterData[0];
   let roundInfo = (seriesInfo && seriesInfo.rounds && seriesInfo.rounds[0]) ? seriesInfo.rounds[0] : null;
   currentRaceInfo = (roundInfo && roundInfo.races && roundInfo.races[rIdx]) 
@@ -912,23 +935,7 @@ async function startRace() {
   }, 12600); 
 }
 
-function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear", moveDir = "left_to_right") {
-  const trackContainer = document.getElementById('track-container');
-  if (!trackContainer) return;
-  const trackWidth = trackContainer.clientWidth - 20;
-  
-  positionsArray.forEach((pos, i) => {
-    const el = document.getElementById(`horse-icon-${i}`);
-    if (el) {
-      let validPos = (typeof pos === 'number' && !isNaN(pos)) ? pos : 0;
-      el.style.transition = `left ${durationSec}s ${timing}`;
-      let actualPos = (moveDir === "right_to_left") ? (100 - validPos) : validPos;
-      el.style.left = (10 + (trackWidth * (actualPos / 100))) + "px";
-    }
-  });
-}
-
-function updateLog(text) { document.getElementById('log-content').innerHTML = text; }
+  function updateLog(text) { document.getElementById('log-content').innerHTML = text; }
 function showTelop(text, durationMs = 1500) {
   const telop = document.getElementById('race-telop');
   telop.innerHTML = text; telop.classList.add('show');
@@ -998,6 +1005,26 @@ function showFinalSeriesResult() {
   document.getElementById('series-score-detail').innerHTML = `
     <span style="color:var(--player-color)">あなた ${playerWins}勝</span> - <span style="color:var(--cpu-color)">CPU ${cpuWins}勝</span>
   `;
+
+  // ----------------------------------------------------
+  // ★ シリーズ最高成績更新判定 & 演出表示 ★
+  // ----------------------------------------------------
+  const status = globalUserData?.cpu_battle_status || {};
+  const seriesId = status.selected_series_id || (status.series_lineup ? status.series_lineup[(status.current_round || 1) - 1] : null);
+  const currentTotalRank = seriesHistory.reduce((sum, h) => sum + (h.pRank || 0), 0);
+  
+  const existingBest = (seriesId && globalUserData?.series_best_records) ? globalUserData.series_best_records[seriesId] : null;
+  const badgeEl = document.getElementById('new-record-badge');
+  const scoreEl = document.getElementById('new-record-score');
+
+  if (seriesId && (!existingBest || currentTotalRank < existingBest.best_score)) {
+    if (scoreEl) scoreEl.textContent = `${currentTotalRank}`;
+    if (badgeEl) badgeEl.style.display = 'block';
+  } else {
+    if (badgeEl) badgeEl.style.display = 'none';
+  }
+  // ----------------------------------------------------
+
   const tbody = document.getElementById('series-history-body');
   tbody.innerHTML = "";
   seriesHistory.forEach(h => {
@@ -1011,7 +1038,6 @@ function showFinalSeriesResult() {
       </tr>`;
   });
 
-  const status = globalUserData?.cpu_battle_status || {};
   const isPlayerRoundWin = playerWins >= 3;
   const isFinished = ((status.series_wins || 0) + (isPlayerRoundWin ? 1 : 0) >= 3) || 
                      ((status.series_losses || 0) + (isPlayerRoundWin ? 0 : 1) >= 3) || 
