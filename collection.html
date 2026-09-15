@@ -157,7 +157,7 @@
       line-height: 1.1;
     }
 
-    /* モーダル（縦長項目に対応するためスクロールを追加） */
+    /* モーダル */
     .modal-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0, 0, 0, 0.6); display: none;
@@ -231,7 +231,6 @@
         <option value="ANY">指定なし（こだわらない）</option>
         <option value="1980_BEFORE">〜1980 世代</option>
         <option value="1990_BEFORE">1981〜1990 世代</option>
-        <!-- 1991〜2026年までの単年オプションはJSで動的挿入 -->
       </select>
     </div>
 
@@ -292,10 +291,10 @@
       </select>
     </div>
 
-    <!-- 7. 特定馬ID（任意） -->
+    <!-- 7. 特定馬名（任意・入力補助なし） -->
     <div class="form-group">
-      <label>希望条件（特定馬ID・任意）</label>
-      <input type="text" class="form-input" id="wantHorseId" placeholder="例: 1001 （任意）">
+      <label>希望条件（特定馬名・任意）</label>
+      <input type="text" class="form-input" id="wantHorseName" placeholder="例: ディープインパクト（任意）">
     </div>
 
     <!-- 8. 出品コメント -->
@@ -477,7 +476,7 @@
     document.getElementById('wantDistance').value = "ANY";
     document.getElementById('wantTrack').value = "ANY";
     document.getElementById('wantSex').value = "ANY";
-    document.getElementById('wantHorseId').value = "";
+    document.getElementById('wantHorseName').value = "";
     document.getElementById('tradeComment').value = "";
     document.getElementById('tradeModal').classList.add('active');
   };
@@ -486,15 +485,13 @@
     document.getElementById('tradeModal').classList.remove('active');
   });
 
-  // 拡張された希望条件をオブジェクトとしてまとめた上で送信
   document.getElementById('btnSubmitTrade').addEventListener('click', async () => {
     if (!selectedHorseForTrade || !currentUser) return;
 
     const wantRarity = document.getElementById('wantRarity').value;
-    const wantHorseId = document.getElementById('wantHorseId').value.trim();
+    const wantHorseName = document.getElementById('wantHorseName').value.trim();
     const comment = document.getElementById('tradeComment').value.trim();
 
-    // 拡張条件
     const extraConditions = {
       wantGen: document.getElementById('wantGen').value,
       wantPotential: document.getElementById('wantPotential').value,
@@ -504,7 +501,7 @@
     };
 
     try {
-      await createTradeListing(db, currentUser, selectedHorseForTrade, wantRarity, wantHorseId, comment, extraConditions);
+      await createTradeListing(db, currentUser, selectedHorseForTrade, wantRarity, wantHorseName, comment, extraConditions);
       alert(`「${selectedHorseForTrade.name}」をトレード掲示板に出品しました！`);
       document.getElementById('tradeModal').classList.remove('active');
       location.reload();
