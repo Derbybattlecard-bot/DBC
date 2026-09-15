@@ -157,7 +157,7 @@
       line-height: 1.1;
     }
 
-    /* モーダル */
+    /* モーダル（縦長項目に対応するためスクロールを追加） */
     .modal-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0, 0, 0, 0.6); display: none;
@@ -165,7 +165,8 @@
     }
     .modal-overlay.active { display: flex; }
     .modal-box {
-      background: #ffffff; border-radius: 8px; width: 90%; max-width: 380px;
+      background: #ffffff; border-radius: 8px; width: 92%; max-width: 400px;
+      max-height: 85vh; overflow-y: auto;
       padding: 14px; box-sizing: border-box; border: 2px solid var(--border-green);
     }
     .modal-title { font-size: 14px; font-weight: bold; color: var(--header-green); margin-bottom: 10px; text-align: center; }
@@ -174,15 +175,15 @@
     .form-input, .form-select, .form-textarea {
       padding: 5px 6px; border: 1px solid var(--border-green); border-radius: 4px; font-size: 11px;
     }
-    .form-textarea { resize: vertical; height: 45px; }
+    .form-textarea { resize: vertical; height: 40px; }
     .modal-btns { display: flex; gap: 8px; margin-top: 12px; }
     .btn-modal-submit {
       flex: 1; background: var(--header-green); color: #fff; border: none;
-      padding: 7px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px;
+      padding: 8px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px;
     }
     .btn-modal-cancel {
       flex: 1; background: #e0e0e0; color: #333; border: none;
-      padding: 7px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px;
+      padding: 8px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px;
     }
   </style>
 </head>
@@ -207,26 +208,97 @@
 <!-- トレード出品モーダル -->
 <div class="modal-overlay" id="tradeModal">
   <div class="modal-box">
-    <div class="modal-title">🔁 トレード出品設定</div>
+    <div class="modal-title">🔁 トレード出品条件設定</div>
     <div style="font-size:11px; background:#f2f8f3; padding:6px; border-radius:4px; margin-bottom:8px;">
       出品カード: <strong id="modalCardName" style="color:var(--header-green);"></strong>
     </div>
 
+    <!-- 1. 希望レアリティ -->
     <div class="form-group">
       <label>希望条件（レアリティ）</label>
       <select class="form-select" id="wantRarity">
-        <option value="ANY">どのレアリティでも可</option>
+        <option value="ANY">指定なし（こだわらない）</option>
         <option value="SAME">同レアリティ以上</option>
         <option value="UR">UR以上希望</option>
         <option value="SSR">SSR以上希望</option>
       </select>
     </div>
 
+    <!-- 2. 希望世代 -->
+    <div class="form-group">
+      <label>希望条件（世代）</label>
+      <select class="form-select" id="wantGen">
+        <option value="ANY">指定なし（こだわらない）</option>
+        <option value="1980_BEFORE">〜1980 世代</option>
+        <option value="1990_BEFORE">1981〜1990 世代</option>
+        <!-- 1991〜2026年までの単年オプションはJSで動的挿入 -->
+      </select>
+    </div>
+
+    <!-- 3. 希望ポテンシャル -->
+    <div class="form-group">
+      <label>希望条件（ポテンシャル）</label>
+      <select class="form-select" id="wantPotential">
+        <option value="ANY">指定なし（こだわらない）</option>
+        <option value="21">21</option>
+        <option value="20">20</option>
+        <option value="19">19</option>
+        <option value="18">18</option>
+        <option value="17">17</option>
+        <option value="16">16</option>
+        <option value="15">15</option>
+        <option value="14">14</option>
+      </select>
+    </div>
+
+    <!-- 4. 希望適性距離 -->
+    <div class="form-group">
+      <label>希望条件（適性距離）</label>
+      <select class="form-select" id="wantDistance">
+        <option value="ANY">指定なし（こだわらない）</option>
+        <option value="1000">1000m を含む</option>
+        <option value="1200">1200m を含む</option>
+        <option value="1400">1400m を含む</option>
+        <option value="1600">1600m を含む</option>
+        <option value="1800">1800m を含む</option>
+        <option value="2000">2000m を含む</option>
+        <option value="2200">2200m を含む</option>
+        <option value="2400">2400m を含む</option>
+        <option value="2500">2500m を含む</option>
+        <option value="3000">3000m を含む</option>
+        <option value="3200">3200m を含む</option>
+      </select>
+    </div>
+
+    <!-- 5. 希望バ場区分 -->
+    <div class="form-group">
+      <label>希望条件（芝・ダート）</label>
+      <select class="form-select" id="wantTrack">
+        <option value="ANY">指定なし（こだわらない）</option>
+        <option value="TURF">芝</option>
+        <option value="DIRT">ダート</option>
+        <option value="BOTH">両方（万能）</option>
+      </select>
+    </div>
+
+    <!-- 6. 希望性別 -->
+    <div class="form-group">
+      <label>希望条件（性別）</label>
+      <select class="form-select" id="wantSex">
+        <option value="ANY">指定なし（こだわらない）</option>
+        <option value="MALE">牡馬</option>
+        <option value="FEMALE">牝馬</option>
+        <option value="GELDING">セン馬</option>
+      </select>
+    </div>
+
+    <!-- 7. 特定馬ID（任意） -->
     <div class="form-group">
       <label>希望条件（特定馬ID・任意）</label>
       <input type="text" class="form-input" id="wantHorseId" placeholder="例: 1001 （任意）">
     </div>
 
+    <!-- 8. 出品コメント -->
     <div class="form-group">
       <label>出品コメント</label>
       <textarea class="form-textarea" id="tradeComment" placeholder="例: 同世代のカードと交換希望です！"></textarea>
@@ -243,12 +315,24 @@
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-  import { createTradeListing } from './js/trade-service.js'; // 共通関数を読み込み
+  import { createTradeListing } from './js/trade-service.js';
 
   let HORSES_ARRAY = [];
   let HORSES_MASTER = {};
   let currentUser = null;
   let selectedHorseForTrade = null;
+
+  // 1991年〜2026年までの単年を世代ドロップダウンに生成
+  function initYearSelectOptions() {
+    const wantGenSelect = document.getElementById('wantGen');
+    for (let year = 2026; year >= 1991; year--) {
+      const opt = document.createElement('option');
+      opt.value = String(year);
+      opt.textContent = `${year} 世代`;
+      wantGenSelect.appendChild(opt);
+    }
+  }
+  initYearSelectOptions();
 
   function parseHorseYear(horse) {
     if (horse.gen_year) return Number(horse.gen_year);
@@ -388,6 +472,11 @@
 
     document.getElementById('modalCardName').textContent = selectedHorseForTrade.name;
     document.getElementById('wantRarity').value = "ANY";
+    document.getElementById('wantGen').value = "ANY";
+    document.getElementById('wantPotential').value = "ANY";
+    document.getElementById('wantDistance').value = "ANY";
+    document.getElementById('wantTrack').value = "ANY";
+    document.getElementById('wantSex').value = "ANY";
     document.getElementById('wantHorseId').value = "";
     document.getElementById('tradeComment').value = "";
     document.getElementById('tradeModal').classList.add('active');
@@ -397,7 +486,7 @@
     document.getElementById('tradeModal').classList.remove('active');
   });
 
-  // 共通関数を使用して出品登録（エラー詳細をダイアログ表示に拡張）
+  // 拡張された希望条件をオブジェクトとしてまとめた上で送信
   document.getElementById('btnSubmitTrade').addEventListener('click', async () => {
     if (!selectedHorseForTrade || !currentUser) return;
 
@@ -405,8 +494,17 @@
     const wantHorseId = document.getElementById('wantHorseId').value.trim();
     const comment = document.getElementById('tradeComment').value.trim();
 
+    // 拡張条件
+    const extraConditions = {
+      wantGen: document.getElementById('wantGen').value,
+      wantPotential: document.getElementById('wantPotential').value,
+      wantDistance: document.getElementById('wantDistance').value,
+      wantTrack: document.getElementById('wantTrack').value,
+      wantSex: document.getElementById('wantSex').value
+    };
+
     try {
-      await createTradeListing(db, currentUser, selectedHorseForTrade, wantRarity, wantHorseId, comment);
+      await createTradeListing(db, currentUser, selectedHorseForTrade, wantRarity, wantHorseId, comment, extraConditions);
       alert(`「${selectedHorseForTrade.name}」をトレード掲示板に出品しました！`);
       document.getElementById('tradeModal').classList.remove('active');
       location.reload();
