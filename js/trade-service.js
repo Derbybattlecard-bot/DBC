@@ -2,6 +2,7 @@ import {
   collection, 
   addDoc, 
   updateDoc, 
+  setDoc,
   doc, 
   getDoc, 
   runTransaction, 
@@ -33,11 +34,11 @@ export async function createTradeListing(db, currentUser, horse, wantRarity, wan
     created_at: serverTimestamp()
   });
 
-  // インベントリのロック（トレード中）数を増やす
+  // インベントリのロック（トレード中）数を増やす（setDoc + merge で安全に更新）
   const invRef = doc(db, `users/${currentUser.uid}/inventory/${horseId}`);
-  await updateDoc(invRef, {
+  await setDoc(invRef, {
     locked_count: increment(1)
-  });
+  }, { merge: true });
 }
 
 /**
@@ -47,10 +48,11 @@ export async function cancelTradeListing(db, currentUserUid, tradeId, horseId) {
   // ステータスをキャンセルに変更
   await updateDoc(doc(db, "trades", tradeId), { status: "cancelled" });
 
-  // ロック数を減らす
-  await updateDoc(doc(db, `users/${currentUserUid}/inventory/${horseId}`), {
+  // ロック数を減らす（setDoc + merge で安全に更新）
+  const invRef = doc(db, `users/${currentUserUid}/inventory/${horseId}`);
+  await setDoc(invRef, {
     locked_count: increment(-1)
-  });
+  }, { merge: true });
 }
 
 /**
