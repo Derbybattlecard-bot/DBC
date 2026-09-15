@@ -49,7 +49,6 @@
       border-radius: 8px;
     }
     
-    /* 丸型ホームボタン */
     .btn-icon-back {
       position: absolute;
       left: 8px;
@@ -83,7 +82,7 @@
       white-space: nowrap;
     }
 
-    /* 全体進行ステータス（左右入れ替え） */
+    /* 全体進行ステータス */
     .overall-stats {
       background: var(--card-bg);
       border: 1px solid var(--border-green);
@@ -114,7 +113,7 @@
 
     .category-header {
       padding: 12px 14px;
-      background: rgba(255, 255, 255, 0.9);
+      background: rgba(255, 255, 255, 0.95);
       cursor: pointer;
       display: flex;
       justify-content: space-between;
@@ -124,14 +123,10 @@
 
     .category-title-area {
       flex: 1;
-      padding-right: 8px;
-    }
-
-    .category-top-row {
       display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 4px;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
     }
 
     .category-name {
@@ -149,15 +144,16 @@
       padding: 2px 8px;
       border-radius: 4px;
       font-weight: bold;
+      display: inline-block;
     }
 
     .category-detail {
       display: none;
-      padding: 8px 10px 10px 10px;
+      padding: 10px;
       background: #f4f9f5;
       border-top: 1px solid var(--border-green);
       flex-direction: column;
-      gap: 8px;
+      gap: 10px;
     }
 
     .category-card.open .category-detail {
@@ -178,9 +174,10 @@
     /* シリーズカード（第2階層） */
     .series-card {
       background: #ffffff;
-      border: 1px solid var(--border-green);
-      border-radius: 6px;
+      border: 1.5px solid var(--border-green);
+      border-radius: 8px;
       overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.04);
     }
 
     .series-card.cleared {
@@ -189,7 +186,7 @@
     }
 
     .series-header {
-      padding: 8px 10px;
+      padding: 10px 12px;
       cursor: pointer;
       display: flex;
       justify-content: space-between;
@@ -197,35 +194,65 @@
       user-select: none;
     }
 
-    .series-name {
-      font-size: 13px;
-      font-weight: bold;
-      color: var(--header-green);
+    .series-name-area {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
+    }
+
+    .series-name {
+      font-size: 13.5px;
+      font-weight: bold;
+      color: var(--header-green);
     }
 
     .clear-badge {
       font-size: 9px;
       background: linear-gradient(135deg, #d4af37, #aa820a);
       color: #fff;
-      padding: 1px 5px;
+      padding: 2px 6px;
       border-radius: 4px;
       font-weight: bold;
       white-space: nowrap;
     }
 
-    /* アコーディオン展開コンテンツ（レース一覧） */
+    /* アコーディオン展開コンテンツ（シリーズ詳細＆過去成績） */
     .series-detail {
       display: none;
-      padding: 8px 10px 10px 10px;
+      padding: 10px 12px 12px 12px;
       border-top: 1px dashed var(--border-green);
-      background: rgba(255, 255, 255, 0.7);
+      background: rgba(255, 255, 255, 0.85);
     }
 
     .series-card.open .series-detail {
       display: block;
+    }
+
+    /* 過去最高成績カード */
+    .best-record-box {
+      background: var(--card-inner-bg);
+      border: 1px solid #cce3d0;
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .best-record-label {
+      font-size: 10.5px;
+      font-weight: bold;
+      color: var(--sub-text);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .best-record-value {
+      font-size: 12px;
+      font-weight: bold;
+      color: var(--header-green);
     }
 
     .round-title {
@@ -356,6 +383,11 @@
     return c;
   }
 
+  function formatCategoryDisplayName(catBaseName) {
+    if (catBaseName.endsWith("シリーズ")) return catBaseName;
+    return `${catBaseName}シリーズ`;
+  }
+
   function getSeriesNo(s) {
     if (!s) return 1;
     if (s.series_no) return parseInt(s.series_no, 10) || 1;
@@ -421,6 +453,7 @@
     const totalWins = globalUserData?.total_wins ?? globalUserData?.record?.wins ?? 0;
     const limits = getUnlockedLimits(totalWins);
     const clearedSeriesSet = new Set(globalUserData?.cleared_series_ids || []);
+    const bestRecordsMap = globalUserData?.best_series_records || globalUserData?.series_records || {};
 
     const container = document.getElementById('categoryContainer');
     container.innerHTML = '';
@@ -440,7 +473,6 @@
       return;
     }
 
-    // カテゴリごとにグループ化
     const categoriesGrouped = {};
     unlockedSeriesList.forEach(series => {
       const cat = getNormalizedCategory(series);
@@ -452,8 +484,8 @@
 
     const unlockedCatNames = Object.keys(categoriesGrouped);
 
-    unlockedCatNames.forEach((catName) => {
-      const seriesList = categoriesGrouped[catName];
+    unlockedCatNames.forEach((catBaseName) => {
+      const seriesList = categoriesGrouped[catBaseName];
       const sampleSeries = seriesList[0] || {};
       
       const potLimit = sampleSeries.potential_limit || {};
@@ -467,6 +499,11 @@
       let seriesCardsHtml = seriesList.map(series => {
         const isCleared = clearedSeriesSet.has(series.series_id);
         const roundInfo = series.rounds && series.rounds[0] ? series.rounds[0] : { races: [] };
+        
+        // 過去最高成績チーム情報の取得
+        const record = bestRecordsMap[series.series_id];
+        const bestTeamName = record?.team_name || record?.best_team || '未登録';
+        const bestScore = record?.score ?? record?.pts ?? (isCleared ? 'クリア済' : '記録なし');
 
         let racesRowsHtml = roundInfo.races.map(r => `
           <tr>
@@ -481,13 +518,17 @@
         return `
           <div class="series-card ${isCleared ? 'cleared' : ''}">
             <div class="series-header" onclick="toggleCard(event, this)">
-              <div class="series-name">
-                ${series.series_name}
-                ${isCleared ? '<span class="clear-badge">🔓 UNLOCKED</span>' : ''}
+              <div class="series-name-area">
+                <span class="series-name">${series.series_name}</span>
+                ${isCleared ? '<span class="clear-badge">クリア済</span>' : ''}
               </div>
               <div class="toggle-icon">▼</div>
             </div>
             <div class="series-detail">
+              <div class="best-record-box">
+                <span class="best-record-label">🏆 過去最高成績チーム</span>
+                <span class="best-record-value">${bestTeamName} (${bestScore})</span>
+              </div>
               <div class="round-title">【テーマ】 ${roundInfo.round_title || ''}</div>
               <table class="race-table">
                 <thead>
@@ -508,13 +549,13 @@
         `;
       }).join('');
 
+      const displayName = formatCategoryDisplayName(catBaseName);
+
       catCardEl.innerHTML = `
         <div class="category-header" onclick="toggleCard(event, this)">
           <div class="category-title-area">
-            <div class="category-top-row">
-              <span class="category-name">${catName}</span>
-              <span class="limit-badge-inline">合計上限: ${totalLimit} / 出走可能: ${singleText}</span>
-            </div>
+            <span class="category-name">${displayName}</span>
+            <span class="limit-badge-inline">合計上限: ${totalLimit} / 出走可能: ${singleText}</span>
           </div>
           <div class="toggle-icon">▼</div>
         </div>
