@@ -55,8 +55,8 @@ function generateRaceCommentary(raceData) {
     phase2Text = "各馬隊列を整えながら、1コーナーへと向かっていきます。";
   }
 
-  // フェーズ 3: 中盤〜展開分岐（自馬・ライバルの位置比較）
-  let phase3Text = `ペースは${pace}で流れています。レースは展開分岐「${branch?.name || "勝負所"}」へ！ `;
+  // フェーズ 3: 中盤〜第4コーナー（展開名のコールを削除）
+  let phase3Text = `ペースは${pace}で流れています。`;
 
   if (player && cpu) {
     const pRank = player.positionRank;
@@ -73,16 +73,17 @@ function generateRaceCommentary(raceData) {
     phase3Text += `${player.name}は現在${player.positionRank}番手の位置！手応え十分で直線を迎えます！`;
   }
 
-  // フェーズ 4 / ゴール: 決着（1〜3着コール）
-  let finishText = "";
+  // フェーズ 4 / 直線〜ゴール: 展開発表 ＆ 決着（1〜3着コール）
+  let finishText = `さあ各馬直線に向いた！レースの展開は「${branch?.name || "勝負所"}」！ `;
+
   if (results && results.length >= 3) {
     const rank1 = results[0].name;
     const rank2 = results[1].name;
     const rank3 = results[2].name;
 
-    finishText = `大混戦のゴール前！制したのは${rank1}！${rank1}が見事に1着でゴールイン！2着には${rank2}、3着は${rank3}が入りました！`;
+    finishText += `大混戦のゴール前！制したのは${rank1}！${rank1}が見事に1着でゴールイン！2着には${rank2}、3着は${rank3}が入りました！`;
   } else if (results && results.length > 0) {
-    finishText = `先頭でゴールを駆け抜けたのは${results[0].name}！`;
+    finishText += `先頭でゴールを駆け抜けたのは${results[0].name}！`;
   }
 
   return {
@@ -92,6 +93,7 @@ function generateRaceCommentary(raceData) {
     finish: finishText
   };
 }
+
 
 /**
  * アビリティ発動対象馬かどうか判定するヘルパー
