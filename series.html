@@ -236,6 +236,12 @@
       padding: 8px 10px;
       margin-bottom: 10px;
       display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .best-record-header {
+      display: flex;
       justify-content: space-between;
       align-items: center;
     }
@@ -253,6 +259,16 @@
       font-size: 12px;
       font-weight: bold;
       color: var(--header-green);
+    }
+
+    .best-record-team {
+      font-size: 10.5px;
+      color: var(--sub-text);
+      border-top: 1px dashed #cce3d0;
+      padding-top: 4px;
+      margin-top: 2px;
+      word-break: break-all;
+      line-height: 1.3;
     }
 
     .round-title {
@@ -368,6 +384,7 @@
   let currentUser = null;
   let globalUserData = null;
   let seriesMasterData = [];
+  let horsesMasterMap = {};
 
   function getNormalizedCategory(s) {
     if (!s) return "";
@@ -412,15 +429,26 @@
     currentUser = user;
 
     try {
-      const [userDoc, seriesRes] = await Promise.all([
+      const [userDoc, seriesRes, horsesRes] = await Promise.all([
         getDoc(doc(db, "users", user.uid)),
-        fetchJsonWithFallback('series_master.json')
+        fetchJsonWithFallback('series_master.json'),
+        fetchJsonWithFallback('horses_master.json').catch(() => null)
       ]);
 
       if (userDoc.exists()) {
         globalUserData = userDoc.data();
       }
       seriesMasterData = seriesRes;
+
+      if (horsesRes) {
+        if (Array.isArray(horsesRes)) {
+          horsesRes.forEach(h => {
+            horsesMasterMap[h.horse_id || h.id] = h.name || h.horse_name;
+          });
+        } else {
+          horsesMasterMap = horsesRes;
+        }
+      }
 
       const catCounters = {};
       seriesMasterData.forEach(s => {
@@ -453,7 +481,9 @@
     const totalWins = globalUserData?.total_wins ?? globalUserData?.record?.wins ?? 0;
     const limits = getUnlockedLimits(totalWins);
     const clearedSeriesSet = new Set(globalUserData?.cleared_series_ids || []);
-    const bestRecordsMap = globalUserData?.best_series_records || globalUserData?.series_records || {};
+    
+    // 最高成績データの取得 (優先順位: series_best_records > best_series_records > series_records)
+    const bestRecordsMap = globalUserData?.series_best_records || globalUserData?.best_series_records || globalUserData?.series_records || {};
 
     const container = document.getElementById('categoryContainer');
     container.innerHTML = '';
@@ -500,10 +530,26 @@
         const isCleared = clearedSeriesSet.has(series.series_id);
         const roundInfo = series.rounds && series.rounds[0] ? series.rounds[0] : { races: [] };
         
-        // 過去最高成績チーム情報の取得
+        // 過去最高成績＆出走チームの生成
         const record = bestRecordsMap[series.series_id];
-        const bestTeamName = record?.team_name || record?.best_team || '未登録';
-        const bestScore = record?.score ?? record?.pts ?? (isCleared ? 'クリア済' : '記録なし');
+        let bestScoreText = '記録なし';
+        let teamText = '';
+
+        if (record) {
+          const scoreVal = record.best_score ?? record.score ?? record.pts;
+          bestScoreText = scoreVal !== undefined ? `着順合計: ${scoreVal}` : (isCleared ? 'クリア済' : '記録なし');
+
+          if (Array.isArray(record.team) && record.team.length > 0) {
+            const names = record.team.map(id => horsesMasterMap[id] || (typeof id === 'object' ? id.name : `No.${id}`));
+            teamText = names.join(' / ');
+          } else if (record.team_name || record.best_team) {
+            teamText = record.team_name || record.best_team;
+          }
+        } else if (isCleared) {
+          bestScoreText = 'クリア済';
+        }
+
+        const teamHtml = teamText ? `<div class="best-record-team">編成: ${teamText}</div>` : '';
 
         let racesRowsHtml = roundInfo.races.map(r => `
           <tr>
@@ -526,8 +572,11 @@
             </div>
             <div class="series-detail">
               <div class="best-record-box">
-                <span class="best-record-label">🏆 過去最高成績チーム</span>
-                <span class="best-record-value">${bestTeamName} (${bestScore})</span>
+                <div class="best-record-header">
+                  <span class="best-record-label">🏆 過去最高成績</span>
+                  <span class="best-record-value">${bestScoreText}</span>
+                </div>
+                ${teamHtml}
               </div>
               <div class="round-title">【テーマ】 ${roundInfo.round_title || ''}</div>
               <table class="race-table">
