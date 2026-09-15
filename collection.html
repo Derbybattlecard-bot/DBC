@@ -198,8 +198,6 @@
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-  
-  // ★ ルート直下の HTML から /js/ フォルダ配下を呼び出す設定
   import { cardRenderer } from './js/card_renderer.js';
 
   onAuthStateChanged(auth, async (user) => {
@@ -209,9 +207,9 @@
     }
 
     try {
-      // マスターデータ（JSON）の初期化
-      await cardRenderer.init();
-      // 図鑑データの描画
+      if (cardRenderer.init) {
+        await cardRenderer.init();
+      }
       await renderCollection(user.uid);
     } catch (error) {
       console.error("図鑑ロードエラー:", error);
@@ -219,64 +217,104 @@
         <div class="error-msg">
           ⚠️ カードデータの読み込みに失敗しました。<br>
           <small style="font-size:11px; margin-top:4px; display:block;">
-            ${error.message || 'データ参照パスまたはネットワーク環境をご確認ください。'}
+            ${error.message || '通信環境またはデータ構造をご確認ください。'}
           </small>
         </div>`;
     }
   });
 
   async function renderCollection(uid) {
+    // 1. ユーザー所有インベントリの取得
     const inventoryRef = collection(db, `users/${uid}/inventory`);
     const snapshot = await getDocs(inventoryRef);
     const userInventory = {};
-    
     snapshot.forEach(doc => {
       userInventory[doc.id] = doc.data();
     });
 
-    const horses = cardRenderer.horses || [];
+    // 2. 馬マスターデータの抽出（多様な構造・プロパティ名に対応）
+    let rawHorses = cardRenderer.horses || cardRenderer.horseMaster || cardRenderer.data || [];
+    if (typeof cardRenderer.getHorses === 'function') {
+      rawHorses = cardRenderer.getHorses();
+    }
+
+    let horses = [];
+    if (Array.isArray(rawHorses)) {
+      horses = rawHorses;
+    } else if (rawHorses && typeof rawHorses === 'object') {
+      if (Array.isArray(rawHorses.horses)) {
+        horses = rawHorses.horses;
+      } else {
+        horses = Object.values(rawHorses);
+      }
+    }
+
     if (!horses.length) {
       document.getElementById('mainContent').innerHTML = `<div class="loading-msg">登録されているカードデータがありません。</div>`;
       return;
     }
 
+    // 3. 世代ごとにグループ化
     const genMap = {};
     let totalObtained = 0;
 
     horses.forEach(horse => {
-      const year = cardRenderer.getGenerationYear ? cardRenderer.getGenerationYear(horse) : (horse.gen_year || '不明');
+      if (!horse || typeof horse !== 'object') return;
+
+      // 馬IDの判定
+      const horseId = horse.id || horse.horse_id || horse.code;
+      if (!horseId) return;
+
+      // 世代年の判定
+      let year = '不明';
+      if (typeof cardRenderer.getGenerationYear === 'function') {
+        year = cardRenderer.getGenerationYear(horse) || year;
+      }
+      if (year === '不明') {
+        year = horse.gen_year || horse.generation || horse.year || '不明';
+      }
+
       if (!genMap[year]) genMap[year] = [];
-      
-      const invItem = userInventory[horse.id || horse.horse_id];
+
+      const invItem = userInventory[horseId];
       const count = invItem ? (invItem.count || 1) : 0;
       if (count > 0) totalObtained++;
 
-      genMap[year].push({ horse, count });
+      genMap[year].push({ horse, id: horseId, count });
     });
 
-    const genYears = Object.keys(genMap).sort((a, b) => b - a);
+    const genYears = Object.keys(genMap).sort((a, b) => {
+      if (a === '不明') return 1;
+      if (b === '不明') return -1;
+      return Number(b) - Number(a);
+    });
 
+    // 4. カウント情報の反映
     document.getElementById('statGenCount').textContent = genYears.length;
     document.getElementById('statObtainedCount').textContent = totalObtained;
     document.getElementById('statTotalCount').textContent = horses.length;
 
+    // 5. 画面の描画
     const contentEl = document.getElementById('mainContent');
     contentEl.innerHTML = '';
 
     genYears.forEach(year => {
       const block = document.createElement('div');
       block.className = 'gen-block';
-      
+
       const horsesInGen = genMap[year];
       const obtainedInGen = horsesInGen.filter(h => h.count > 0).length;
 
-      let cardsHtml = horsesInGen.map(item => {
+      const cardsHtml = horsesInGen.map(item => {
         const h = item.horse;
         const isObtained = item.count > 0;
+        const horseName = h.name || h.horse_name || item.id;
+        const rarity = h.rarity || 'N';
+
         return `
           <div class="card-item ${isObtained ? '' : 'unobtained'}">
-            <div style="font-size:9px; color:var(--accent-gold); font-weight:bold;">${h.rarity || 'N'}</div>
-            <div class="card-name" title="${h.name}">${isObtained ? h.name : '？？？？？'}</div>
+            <div style="font-size:9px; color:var(--accent-gold); font-weight:bold;">${rarity}</div>
+            <div class="card-name" title="${horseName}">${isObtained ? horseName : '？？？？？'}</div>
             <div class="card-count">${isObtained ? `所持: ${item.count}枚` : '未獲得'}</div>
           </div>
         `;
@@ -284,7 +322,7 @@
 
       block.innerHTML = `
         <div class="gen-title">
-          <span>📅 ${year}年 世代</span>
+          <span>📅 ${year}${year !== '不明' ? '年 世代' : ''}</span>
           <span style="font-size:11px; font-weight:normal; color:var(--sub-text);">${obtainedInGen} / ${horsesInGen.length} 種</span>
         </div>
         <div class="gen-cards-grid">${cardsHtml}</div>
