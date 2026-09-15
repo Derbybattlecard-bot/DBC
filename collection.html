@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Derby Battle Card - 世代別カード図鑑</title>
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%);
+      --card-bg: rgba(255, 255, 255, 0.95);
+      --card-inner-bg: #f2f8f3;
+      --accent-gold: #c29b1d;
+      --text-color: #1a2e1d;
+      --sub-text: #4e6b52;
+      --header-green: #0d4220;
+      --border-green: #b2d4b6;
+      --cleared-gold: #fff8d6;
+      --cleared-border: #d4af37;
+      --pct-badge-bg: linear-gradient(135deg, #2d6a37 0%, #1e5128 100%);
+      --pct-badge-complete: linear-gradient(135deg, #d4af37 0%, #aa820a 100%);
+    }
+    
+    body {
+      margin: 0;
+      padding: 10px;
+      background: var(--bg-gradient);
+      background-attachment: fixed;
+      color: var(--text-color);
+      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* ヘッダー */
+    .header {
+      position: relative;
+      text-align: center;
+      padding: 12px 60px 12px 75px;
+      background: rgba(255, 255, 255, 0.95);
+      border-bottom: 3px solid var(--header-green);
+      border-radius: 8px;
+    }
+    
+    .btn-icon-back {
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      height: 30px;
+      padding: 0 10px 0 8px;
+      border-radius: 15px;
+      background: var(--header-green);
+      color: #fff;
+      border: none;
+      font-size: 11px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+    .btn-icon-back:active {
+      transform: translateY(-50%) scale(0.95);
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 17px;
+      color: var(--header-green);
+      letter-spacing: 0.5px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    /* 全体進行ステータス (※全体の%は出さない) */
+    .overall-stats {
+      background: var(--card-bg);
+      border: 1px solid var(--border-green);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+    }
+    .stat-box { text-align: center; }
+    .stat-label { font-size: 11px; color: var(--sub-text); display: block; margin-bottom: 2px; }
+    .stat-val { font-size: 18px; font-weight: bold; color: var(--text-color); }
+
+    /* 世代リスト（第1階層） */
+    .generation-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .generation-card {
+      background: var(--card-bg);
+      border: 2px solid var(--border-green);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      transition: border-color 0.2s ease;
+    }
+
+    .generation-card.complete {
+      border-color: var(--cleared-border);
+      background: linear-gradient(180deg, #ffffff 0%, var(--cleared-gold) 100%);
+    }
+
+    .generation-header {
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.95);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+
+    .generation-title-area {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .generation-name {
+      font-size: 16px;
+      font-weight: bold;
+      color: var(--header-green);
+      margin: 0;
+    }
+
+    /* 世代ごとの%バッジ */
+    .pct-badge {
+      font-size: 12px;
+      font-weight: bold;
+      background: var(--pct-badge-bg);
+      color: #ffffff;
+      padding: 3px 8px;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+      letter-spacing: 0.5px;
+    }
+
+    .generation-card.complete .pct-badge {
+      background: var(--pct-badge-complete);
+      color: #3a2500;
+    }
+
+    .generation-count {
+      font-size: 11px;
+      color: var(--sub-text);
+      font-weight: bold;
+    }
+
+    .toggle-icon {
+      font-size: 14px;
+      color: var(--sub-text);
+      transition: transform 0.3s ease;
+    }
+
+    .generation-card.open .toggle-icon {
+      transform: rotate(180deg);
+    }
+
+    /* 世代詳細（獲得カード名一覧） */
+    .generation-detail {
+      display: none;
+      padding: 12px;
+      background: #f4f9f5;
+      border-top: 1px solid var(--border-green);
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .generation-card.open .generation-detail {
+      display: flex;
+    }
+
+    /* 獲得カードチップ一覧レイアウト */
+    .card-name-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 8px;
+    }
+
+    .card-chip {
+      background: #ffffff;
+      border: 1px solid var(--border-green);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: bold;
+      color: var(--header-green);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .card-chip:hover {
+      background: #e2efe3;
+      transform: translateY(-1px);
+      box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+    }
+
+    .card-chip:active {
+      transform: translateY(0);
+    }
+
+    /* 未獲得カード表示 */
+    .card-chip.unowned {
+      background: #ebebeb;
+      border-color: #d0d0d0;
+      color: #888888;
+      cursor: not-allowed;
+      opacity: 0.75;
+    }
+    .card-chip.unowned:hover {
+      transform: none;
+      box-shadow: none;
+      background: #ebebeb;
+    }
+
+    .rarity-tag {
+      font-size: 9px;
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: #e2efe3;
+      color: #2d6a37;
+      border: 1px solid #b2d4b6;
+    }
+
+    /* ----------------------------------------------------
+       カード拡大表示用 モーダル
+    ---------------------------------------------------- */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(3px);
+      z-index: 9999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-content {
+      width: 100%;
+      max-width: 360px;
+      position: relative;
+      transform: translateY(20px) scale(0.95);
+      transition: transform 0.25s ease;
+    }
+
+    .modal-overlay.active .modal-content {
+      transform: translateY(0) scale(1);
+    }
+
+    .btn-close-modal {
+      position: absolute;
+      top: -12px;
+      right: -12px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #ffffff;
+      color: #333;
+      border: 2px solid var(--header-green);
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      z-index: 10000;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <button class="btn-icon-back" onclick="location.href='index.html'">🏠 ホーム</button>
+    <h1>🎴 世代別カード図鑑</h1>
+  </div>
+
+  <!-- 全体ステータス (※全体の%は非表示) -->
+  <div class="overall-stats">
+    <div class="stat-box">
+      <span class="stat-label">総世代数</span>
+      <span class="stat-val" id="totalGenCount">0</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-label">獲得カード種類</span>
+      <span class="stat-val" id="ownedCardCount">0</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-label">全カード数</span>
+      <span class="stat-val" id="totalCardCount">0</span>
+    </div>
+  </div>
+
+  <!-- 世代別リスト（第1階層） -->
+  <div class="generation-list" id="generationContainer">
+    <div style="text-align: center; padding: 20px; color: var(--sub-text);">カードデータを読み込み中...</div>
+  </div>
+</div>
+
+<!-- モーダルダイアログ（拡大カード表示用） -->
+<div class="modal-overlay" id="cardModal" onclick="closeCardModal(event)">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <button class="btn-close-modal" onclick="closeCardModal()">✕</button>
+    <div id="modalCardBody"></div>
+  </div>
+</div>
+
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { cardRenderer } from './card_renderer.js';
+
+  let currentUser = null;
+  let globalUserData = null;
+  let ownedCardSet = new Set(); // ユーザーが所持している馬IDのSet
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.href = 'auth.html';
+      return;
+    }
+    currentUser = user;
+
+    try {
+      // 1. CardRenderer の初期化とユーザーデータの並行取得
+      const [userDoc] = await Promise.all([
+        getDoc(doc(db, "users", user.uid)),
+        cardRenderer.init()
+      ]);
+
+      if (userDoc.exists()) {
+        globalUserData = userDoc.data();
+      }
+
+      // 所持カードIDリストの抽出（Firestoreのデータ構造に応じてフォールバック設定）
+      const possessedIds = globalUserData?.cards 
+                        || globalUserData?.possessed_cards 
+                        || globalUserData?.owned_cards 
+                        || [];
+      
+      // 文字列としてSetに保存
+      if (Array.isArray(possessedIds)) {
+        possessedIds.forEach(id => {
+          if (typeof id === 'object' && id !== null) {
+            ownedCardSet.add(String(id.horse_id || id.id));
+          } else {
+            ownedCardSet.add(String(id));
+          }
+        });
+      }
+
+      renderGenerationEncyclopedia();
+    } catch (err) {
+      console.error("図鑑データの読み込みエラー:", err);
+      document.getElementById('generationContainer').innerHTML = 
+        '<div style="text-align:center; padding:20px; color:#c00;">⚠️ データの読み込みに失敗しました</div>';
+    }
+  });
+
+  function renderGenerationEncyclopedia() {
+    const container = document.getElementById('generationContainer');
+    container.innerHTML = '';
+
+    const allHorses = Array.from(cardRenderer.horsesMap.values());
+
+    if (allHorses.length === 0) {
+      container.innerHTML = '<div style="text-align: center; padding: 30px; color: var(--sub-text);">登録されているカードがありません。</div>';
+      return;
+    }
+
+    // 2. 世代ごとにグループ化
+    const genGroups = {};
+    allHorses.forEach(horse => {
+      const genYear = cardRenderer.getGenerationYear(horse); // 例: "1995" または "----"
+      const gen2Digits = cardRenderer.getGenYearTwoDigits(horse); // 例: "95"
+      const genKey = genYear !== '----' ? genYear : '9999';
+      
+      if (!genGroups[genKey]) {
+        genGroups[genKey] = {
+          year: genYear,
+          displayName: gen2Digits !== '--' ? `${gen2Digits}世代 (${genYear}年)` : 'その他世代',
+          horses: []
+        };
+      }
+      genGroups[genKey].horses.push(horse);
+    });
+
+    // 世代を古い順（西暦昇順）にソート
+    const sortedGenKeys = Object.keys(genGroups).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+
+    let totalCardCount = allHorses.length;
+    let totalOwnedCount = 0;
+
+    // 3. 各世代カードHTMLの生成
+    sortedGenKeys.forEach(genKey => {
+      const group = genGroups[genKey];
+      const horses = group.horses;
+
+      // 獲得数の計算
+      let ownedInGen = 0;
+      horses.forEach(h => {
+        const hId = String(h.horse_id || h.id);
+        if (ownedCardSet.has(hId)) {
+          ownedInGen++;
+        }
+      });
+
+      totalOwnedCount += ownedInGen;
+
+      // 世代ごとの獲得率（%）の計算
+      const pct = horses.length > 0 ? Math.floor((ownedInGen / horses.length) * 100) : 0;
+      const isComplete = (pct === 100 && horses.length > 0);
+
+      const genCardEl = document.createElement('div');
+      genCardEl.className = `generation-card ${isComplete ? 'complete' : ''}`;
+
+      // カードリストの生成（獲得済みは名前でクリック可、未獲得はロック表示）
+      const cardChipsHtml = horses.map(h => {
+        const hId = String(h.horse_id || h.id);
+        const isOwned = ownedCardSet.has(hId);
+
+        if (isOwned) {
+          return `
+            <div class="card-chip" onclick="openCardModal('${hId}')">
+              <span>${h.name}</span>
+              <span class="rarity-tag">${h.rarity || 'NOR'}</span>
+            </div>
+          `;
+        } else {
+          return `
+            <div class="card-chip unowned" title="未獲得のカードです">
+              <span>???</span>
+              <span style="font-size: 10px;">未獲得</span>
+            </div>
+          `;
+        }
+      }).join('');
+
+      genCardEl.innerHTML = `
+        <div class="generation-header" onclick="toggleCard(event, this)">
+          <div class="generation-title-area">
+            <span class="generation-name">${group.displayName}</span>
+            <span class="pct-badge">${pct}%</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="generation-count">(${ownedInGen}/${horses.length}枚)</span>
+            <div class="toggle-icon">▼</div>
+          </div>
+        </div>
+        <div class="generation-detail">
+          <div class="card-name-grid">
+            ${cardChipsHtml}
+          </div>
+        </div>
+      `;
+
+      container.appendChild(genCardEl);
+    });
+
+    // ステータス表示の更新（全体%は表示しない）
+    document.getElementById('totalGenCount').textContent = `${sortedGenKeys.length}`;
+    document.getElementById('ownedCardCount').textContent = `${totalOwnedCount}`;
+    document.getElementById('totalCardCount').textContent = `${totalCardCount}`;
+  }
+
+  // アコーディオン開閉
+  window.toggleCard = function(event, headerEl) {
+    event.stopPropagation();
+    const card = headerEl.parentElement;
+    card.classList.toggle('open');
+  };
+
+  // カードモーダル開閉
+  window.openCardModal = function(horseId) {
+    const modal = document.getElementById('cardModal');
+    const body = document.getElementById('modalCardBody');
+    
+    // card_renderer.js の 'large' モードでカードを描画
+    body.innerHTML = cardRenderer.renderCardUI(horseId, 'large');
+    modal.classList.add('active');
+  };
+
+  window.closeCardModal = function(event) {
+    if (event) event.stopPropagation();
+    const modal = document.getElementById('cardModal');
+    modal.classList.remove('active');
+  };
+</script>
+
+</body>
+</html>
