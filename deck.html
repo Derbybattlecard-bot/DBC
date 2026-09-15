@@ -502,15 +502,12 @@
     return "-";
   }
 
-          if (potentialVal !== 'ALL') {
-          const targetPot = parseInt(potentialVal, 10);
-          const horsePot = getHorsePotential(horse);
-          if (horsePot !== targetPot) continue;
-        }
+  function getHorsePotential(horse) {
+    if (horse.total_potential !== undefined && horse.total_potential !== null) return Number(horse.total_potential);
+    if (horse.potential !== undefined && horse.potential !== null) return Number(horse.potential);
+    return Math.max(getTurfVal(horse), getDirtVal(horse));
+  }
 
-
-
-      
   function getDistanceText(horse) {
     if (horse.min_distance && horse.max_distance) {
       return `${horse.min_distance}-${horse.max_distance}m`;
@@ -912,7 +909,7 @@
         }
         if (potentialVal !== 'ALL') {
           const targetPot = parseInt(potentialVal, 10);
-          const horsePot = Number(horse.total_potential ?? horse.potential) || 0;
+          const horsePot = getHorsePotential(horse);
           if (horsePot !== targetPot) continue;
         }
         if (selectedKana !== 'ALL') {
@@ -929,11 +926,9 @@
         valB = b.horse.name;
         const res = valA.localeCompare(valB, 'ja');
         return sortOrder === 'asc' ? res : -res;
-           } else if (sortKey === 'potential') {
+      } else if (sortKey === 'potential') {
         valA = getHorsePotential(a.horse);
         valB = getHorsePotential(b.horse);
-      }
-
       } else if (sortKey === 'rarity') {
         valA = RARITY_WEIGHT[a.horse.rarity] || 0;
         valB = RARITY_WEIGHT[b.horse.rarity] || 0;
