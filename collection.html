@@ -76,32 +76,42 @@
     .stat-label { font-size: 9px; color: var(--sub-text); margin-bottom: 1px; display: block; }
     .stat-value { font-size: 14px; font-weight: bold; color: var(--header-green); }
     
-    .content-area { min-height: 200px; display: flex; flex-direction: column; gap: 8px; }
+    .content-area { min-height: 200px; display: flex; flex-direction: column; gap: 6px; }
     .loading-msg, .error-msg {
       text-align: center; padding: 20px 10px; color: var(--header-green);
       font-weight: bold; font-size: 13px; background: rgba(255, 255, 255, 0.8); border-radius: 6px;
     }
     .error-msg { color: #d93838; background: #fff0f0; border: 1px solid #f5c6c6; }
 
-    /* 世代ブロック（タイトなレイアウト） */
-    .gen-block { 
-      background: var(--card-bg); 
-      border: 1px solid var(--border-green); 
-      border-radius: 6px; 
-      padding: 6px 6px 8px 6px; 
+    /* 濃い緑の世代ヘッダー帯 */
+    .gen-banner { 
+      background: #0b381a; 
+      color: #ffffff;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 12.5px;
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
     }
-    .gen-title {
-      font-size: 13px; font-weight: bold; color: var(--header-green);
-      border-bottom: 1.5px solid var(--border-green); padding-bottom: 3px; margin-bottom: 6px;
-      display: flex; justify-content: space-between; align-items: center;
+    .gen-banner-count {
+      font-size: 10px;
+      color: #b2d4b6;
+      font-weight: normal;
     }
+
+    /* 3列グリッド */
     .gen-cards-grid { 
       display: grid; 
       grid-template-columns: repeat(3, 1fr); 
       gap: 4px; 
+      margin-bottom: 4px;
     }
 
-    /* コンパクト化したカードアイテム */
+    /* コンパクトカード */
     .card-item {
       background: #ffffff; 
       border: 1px solid #c2dfc6; 
@@ -139,7 +149,6 @@
       line-height: 1;
     }
     
-    /* トレード出品ボタン（短尺化） */
     .btn-trade-offer {
       width: 92%;
       margin-top: 1px;
@@ -156,7 +165,7 @@
     }
     .btn-trade-offer:hover { opacity: 0.9; }
 
-    /* 出品モーダル */
+    /* モーダル */
     .modal-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0, 0, 0, 0.6); display: none;
@@ -193,7 +202,7 @@
   </div>
 
   <div class="stats-bar">
-    <div class="stat-item"><span class="stat-label">総世代数</span><span class="stat-value" id="statGenCount">0</span></div>
+    <div class="stat-item"><span class="stat-label">総世代区分</span><span class="stat-value" id="statGenCount">0</span></div>
     <div class="stat-item"><span class="stat-label">獲得種類</span><span class="stat-value" id="statObtainedCount">0</span></div>
     <div class="stat-item"><span class="stat-label">全カード数</span><span class="stat-value" id="statTotalCount">0</span></div>
   </div>
@@ -248,6 +257,33 @@
   let currentUser = null;
   let selectedHorseForTrade = null;
 
+  // 馬IDまたは設定値から西暦（4桁）を判定する関数
+  function parseHorseYear(horse) {
+    if (horse.gen_year) return Number(horse.gen_year);
+    if (horse.year) return Number(horse.year);
+    
+    const idStr = String(horse.horse_id ?? horse.id ?? '');
+    if (idStr.length >= 4) {
+      const yy = parseInt(idStr.substring(0, idStr.length - 2), 10);
+      if (!isNaN(yy)) {
+        return yy >= 30 ? 1900 + yy : 2000 + yy;
+      }
+    }
+    return 9999;
+  }
+
+  // 世代グループ判定（〜1975, 1976〜1980, 1981〜1985, 1986〜1990, 1991〜単年）
+  function getGenGroupInfo(year) {
+    if (year === 9999 || isNaN(year)) {
+      return { id: 'unknown', label: '年代不明', sortOrder: 0 };
+    }
+    if (year <= 1975) return { id: 'gen_1975', label: '〜1975 世代', sortOrder: 1975 };
+    if (year <= 1980) return { id: 'gen_1980', label: '1976〜1980 世代', sortOrder: 1980 };
+    if (year <= 1985) return { id: 'gen_1985', label: '1981〜1985 世代', sortOrder: 1985 };
+    if (year <= 1990) return { id: 'gen_1990', label: '1986〜1990 世代', sortOrder: 1990 };
+    return { id: `gen_${year}`, label: `${year} 世代`, sortOrder: year };
+  }
+
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
       window.location.href = 'auth.html';
@@ -261,6 +297,17 @@
       
       HORSES_ARRAY = await res.json();
       HORSES_MASTER = {};
+
+      // 1. 馬マスターデータのソート（世代年・ID順）
+      HORSES_ARRAY.sort((a, b) => {
+        const yearA = parseHorseYear(a);
+        const yearB = parseHorseYear(b);
+        if (yearA !== yearB) return yearB - yearA; // 新しい世代順
+        const idA = Number(a.horse_id ?? a.id ?? 0);
+        const idB = Number(b.horse_id ?? b.id ?? 0);
+        return idA - idB; // ID昇順
+      });
+
       HORSES_ARRAY.forEach(h => {
         const id = String(h.horse_id ?? h.id);
         HORSES_MASTER[id] = h;
@@ -284,7 +331,7 @@
   function renderCollection(inventory) {
     if (!HORSES_ARRAY || HORSES_ARRAY.length === 0) return;
 
-    const genMap = {};
+    const groupMap = {};
     let totalObtained = 0;
 
     HORSES_ARRAY.forEach(horse => {
@@ -296,31 +343,49 @@
 
       if (count > 0) totalObtained++;
 
-      const year = horse.gen_year || horse.generation || horse.year || '不明';
-      if (!genMap[year]) genMap[year] = [];
-      genMap[year].push({ horse, count, availableCount });
+      const year = parseHorseYear(horse);
+      const groupInfo = getGenGroupInfo(year);
+
+      if (!groupMap[groupInfo.id]) {
+        groupMap[groupInfo.id] = {
+          info: groupInfo,
+          horses: []
+        };
+      }
+      groupMap[groupInfo.id].horses.push({ horse, count, availableCount });
     });
 
-    const genYears = Object.keys(genMap).sort((a, b) => Number(b) - Number(a));
+    // 世代グループを新しい順にソート
+    const sortedGroups = Object.values(groupMap).sort((a, b) => b.info.sortOrder - a.info.sortOrder);
 
-    document.getElementById('statGenCount').textContent = genYears.length;
+    document.getElementById('statGenCount').textContent = sortedGroups.length;
     document.getElementById('statObtainedCount').textContent = totalObtained;
     document.getElementById('statTotalCount').textContent = HORSES_ARRAY.length;
 
     const contentEl = document.getElementById('mainContent');
     contentEl.innerHTML = '';
 
-    genYears.forEach(year => {
-      const block = document.createElement('div');
-      block.className = 'gen-block';
-      const horsesInGen = genMap[year];
-      const obtainedInGen = horsesInGen.filter(item => item.count > 0).length;
+    sortedGroups.forEach(group => {
+      const horsesInGroup = group.horses;
+      const obtainedInGroup = horsesInGroup.filter(item => item.count > 0).length;
 
-      const cardsHtml = horsesInGen.map(item => {
+      // 濃い緑のヘッダー帯
+      const bannerEl = document.createElement('div');
+      bannerEl.className = 'gen-banner';
+      bannerEl.innerHTML = `
+        <span>📅 ${group.info.label}</span>
+        <span class="gen-banner-count">${obtainedInGroup} / ${horsesInGroup.length} 種</span>
+      `;
+      contentEl.appendChild(bannerEl);
+
+      // カードグリッド
+      const gridEl = document.createElement('div');
+      gridEl.className = 'gen-cards-grid';
+
+      const cardsHtml = horsesInGroup.map(item => {
         const h = item.horse;
         const isObtained = item.count > 0;
         const strId = String(h.horse_id ?? h.id);
-
         const canTrade = isObtained && item.count >= 2 && item.availableCount >= 2;
 
         return `
@@ -332,14 +397,8 @@
         `;
       }).join('');
 
-      block.innerHTML = `
-        <div class="gen-title">
-          <span>📅 ${year}${year !== '不明' ? '年 世代' : ''}</span>
-          <span style="font-size:10px; font-weight:normal; color:var(--sub-text);">${obtainedInGen} / ${horsesInGen.length} 種</span>
-        </div>
-        <div class="gen-cards-grid">${cardsHtml}</div>
-      `;
-      contentEl.appendChild(block);
+      gridEl.innerHTML = cardsHtml;
+      contentEl.appendChild(gridEl);
     });
   }
 
