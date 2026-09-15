@@ -65,15 +65,8 @@
     max-width: 420px;
   }
 
-  /* 自馬（YOUR）用：上部表示 */
-  #ability-popup-container.p1-pos {
-    top: 25%;
-  }
-
-  /* 対戦馬（CPU）用：下部表示 */
-  #ability-popup-container.p2-pos {
-    top: 55%;
-  }
+  #ability-popup-container.p1-pos { top: 25%; }
+  #ability-popup-container.p2-pos { top: 55%; }
 
   #ability-popup-container.show {
     opacity: 1; transform: translate(-50%, -50%) scale(1);
@@ -99,7 +92,7 @@
     transition: left 0.6s cubic-bezier(0.8, 0, 0.2, 1);
   }
   .wipe-text { color: var(--gold-color); font-size: 1.5em; font-weight: bold; text-align: center; text-shadow: 2px 2px 10px #000; }
-  /* テロップ */
+  
   #race-telop {
     position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%) scale(0.8);
     background: rgba(0, 0, 0, 0.85); border: 2px solid var(--gold-color); color: var(--gold-color);
@@ -107,7 +100,7 @@
     z-index: 40; opacity: 0; transition: all 0.4s; pointer-events: none; white-space: nowrap;
   }
   #race-telop.show { opacity: 1; transform: translateX(-50%) scale(1); }
-  /* ゴールライン */
+  
   #goal-line { position: absolute; top: 0; bottom: 0; width: 4px; background: var(--gold-color); box-shadow: 0 0 15px var(--gold-color); z-index: 20; display: none; }
   #goal-flag { position: absolute; top: 2px; background: var(--gold-color); color: #000; font-weight: bold; font-size: 10px; padding: 2px 6px; border-radius: 2px; z-index: 21; display: none; }
   .horse-lane { position: relative; height: 22px; border-bottom: 1px dashed rgba(255,255,255,0.15); }
@@ -142,9 +135,7 @@
   .mini-card.p1 { border-color: var(--player-color); background: rgba(51, 153, 255, 0.1); }
   .mini-card.p2 { border-color: var(--cpu-color); background: rgba(255, 68, 68, 0.1); }
   
-  .card-horse-img {
-    width: 148px; height: auto; margin: 5px 0; image-rendering: pixelated; 
-  }
+  .card-horse-img { width: 148px; height: auto; margin: 5px 0; image-rendering: pixelated; }
   .card-label { font-size: 11px; font-weight: bold; border-bottom: 1px dashed #555; padding-bottom: 4px; margin-bottom: 4px; }
   .card-label.p1 { color: var(--player-color); }
   .card-label.p2 { color: var(--cpu-color); }
@@ -160,7 +151,7 @@
   }
   .btn-next:disabled { background: #222; color: #666; border-color: #444; cursor: not-allowed; }
   
-  /* 6. 履歴テーブル（調整・統合後） */
+  /* 6. 履歴テーブル */
   .data-table { width: 100%; border-collapse: collapse; background: #111; font-size: 0.75em; border: 1px solid #333; margin-top: 8px; }
   .data-table th, .data-table td { border: 1px solid #222; padding: 5px 4px; text-align: center; vertical-align: middle; }
   .data-table th { background: #1a1a24; color: var(--accent-green); white-space: nowrap; }
@@ -195,7 +186,6 @@
     <span class="race-condition-badge" id="display-race-cond">馬場: ---</span>
   </div>
   <div id="track-container">
-    <!-- アビリティ発動ポップアップ演出用要素 -->
     <div id="ability-popup-container">
       <div class="ability-popup-box" id="ability-popup-box">
         <div class="ability-pop-header" id="ability-pop-header">ABILITY ACTIVATED!</div>
@@ -731,7 +721,6 @@ function queueAbilities(targetHorses) {
   processAbilityQueue();
 }
 
-// レース演出メイン処理（更新版）
 async function startRace() {
   if (raceState !== 'ready') return;
   raceState = 'running';
@@ -801,9 +790,6 @@ async function startRace() {
   let p1Pos = getPosPointsMap(calculatedResults, 40, 22);
   setPhasePositions(p1Pos, 4.0, "linear", currentTrackConfig.phase1_3_dir); 
 
-  // --------------------------------------------------
-  // 1. 向正面 (スタート約4秒後)：Phase 1 アビリティ表示
-  // --------------------------------------------------
   setTimeout(() => {
     const p1Horses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.phase1_abilities && h.phase1_abilities.length > 0);
     
@@ -838,9 +824,6 @@ async function startRace() {
     setPhasePositions(p3Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
   }, 8300); 
 
-  // --------------------------------------------------
-  // 2. 最後の直線 (約15秒後)：Phase 4 (展開アビリティ) 表示
-  // --------------------------------------------------
   setTimeout(() => {
     const wipe = document.getElementById('wipe-overlay');
     wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
@@ -880,11 +863,9 @@ async function startRace() {
         setPhasePositions(finalPositions, 10.0, "linear", currentTrackConfig.phase4_dir); 
              
         setTimeout(() => {
-          // 直線突入＆展開テロップ表示
           updateLog(`<strong>【最後の直線】</strong> このレースは『${currentRaceBranch}』！ 激しい叩き合いだ！`);
           showTelop(`【展開】 ${currentRaceBranch}`, 3500);
 
-          // 王道・大逃亡(2回目)・電光石火等の直線ポップアップ実行
           const p4Horses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.phase4_abilities && h.phase4_abilities.length > 0);
           if (p4Horses.length > 0) {
             p4Horses.forEach(h => {
@@ -897,9 +878,6 @@ async function startRace() {
           }
         }, 1500);
 
-        // --------------------------------------------------
-        // 3. ゴール前着順浮上時 (名脇役・ジェントルマン等)
-        // --------------------------------------------------
         setTimeout(() => {
           const swapTriggerHorses = calculatedResults.filter(
             h => (h.isPlayer || h.isCpu) && h.rank_swap_trigger
@@ -1072,22 +1050,47 @@ window.goToNextSeries = async function() {
   const p1stCount = seriesHistory.filter(h => h.pRank === 1).length;
   const updatedTotal1st = (status.total_1st_places || 0) + p1stCount;
 
-  const isChallengeFinished = (newWins >= 3 || newLosses >= 3 || newRound > 5);
+  // ----------------------------------------------------
+  // ★ シリーズ最高成績（series_best_records）更新ロジック ★
+  // ----------------------------------------------------
+  const seriesId = status.selected_series_id || (status.series_lineup ? status.series_lineup[(status.current_round || 1) - 1] : null);
+  
+  // 自馬の全5戦の着順合計を算出
+  const currentTotalRank = seriesHistory.reduce((sum, h) => sum + (h.pRank || 0), 0);
+
+  // 既存の最高記録を取得して比較
+  const existingBestRecords = globalUserData?.series_best_records || {};
+  const currentBest = seriesId ? existingBestRecords[seriesId] : null;
+
+  let updatedBestRecords = { ...existingBestRecords };
+
+  // 過去の記録がない、または今回の方が合計着順が少ない（良い成績）場合に更新
+  if (seriesId && usedIds.length === 5) {
+    if (!currentBest || currentTotalRank < currentBest.best_score) {
+      updatedBestRecords[seriesId] = {
+        best_score: currentTotalRank,
+        team: usedIds,
+        updated_at: new Date().toISOString()
+      };
+    }
+  }
 
   const updatedCpuBattleStatus = {
-  ...status,
-  is_active: true, // チャレンジ完了時も true を維持し、battle.html 側に判定を委ねる
-  series_wins: newWins,
-  series_losses: newLosses,
-  current_round: newRound,
-  total_1st_places: updatedTotal1st,
-  used_cards_history: updatedUsedCards,
-  current_match: null
-};
+    ...status,
+    is_active: true,
+    series_wins: newWins,
+    series_losses: newLosses,
+    current_round: newRound,
+    total_1st_places: updatedTotal1st,
+    used_cards_history: updatedUsedCards,
+    current_match: null
+  };
 
   try {
+    // cpu_battle_status と series_best_records を同時にセット
     await setDoc(doc(db, "users", currentUser.uid), {
-      cpu_battle_status: updatedCpuBattleStatus
+      cpu_battle_status: updatedCpuBattleStatus,
+      series_best_records: updatedBestRecords
     }, { merge: true });
 
     window.location.href = 'battle.html';
