@@ -315,16 +315,19 @@
     }
   }
 
-  // 出品条件をタグリストとして解析生成するヘルパー関数
+  // 出品条件をタグリストとして解析生成するヘルパー関数（修正版）
   function getConditionBadges(trade) {
     const badges = [];
 
-    const getVal = (snake, camel) => {
-      if (trade[snake] !== undefined && trade[snake] !== null && trade[snake] !== '' && trade[snake] !== 'ANY') return trade[snake];
-      if (trade[camel] !== undefined && trade[camel] !== null && trade[camel] !== '' && trade[camel] !== 'ANY') return trade[camel];
-      if (trade.extra_conditions) {
-        if (trade.extra_conditions[snake] && trade.extra_conditions[snake] !== 'ANY') return trade.extra_conditions[snake];
-        if (trade.extra_conditions[camel] && trade.extra_conditions[camel] !== 'ANY') return trade.extra_conditions[camel];
+    // 各階層・名前付け（snake_case / camelCase）のプロパティを横断的に検索する共通関数
+    const getVal = (...keys) => {
+      for (const k of keys) {
+        if (trade[k] !== undefined && trade[k] !== null && trade[k] !== '' && trade[k] !== 'ANY') {
+          return trade[k];
+        }
+        if (trade.extra_conditions && trade.extra_conditions[k] !== undefined && trade.extra_conditions[k] !== null && trade.extra_conditions[k] !== '' && trade.extra_conditions[k] !== 'ANY') {
+          return trade.extra_conditions[k];
+        }
       }
       return null;
     };
