@@ -30,32 +30,28 @@ const OVERSEAS_TRACKS = [
 ];
 
 /**
- * 馬の本来の脚質とレースペースに応じたボーナスPtを取得（完全一致判定）
+ * 脚質（馬本来の脚質 / 作戦の脚質）とレースペースに応じたボーナスPtを取得
  */
-function getHorseStylePaceBonus(horseStyle, pace) {
-  const style = String(horseStyle || "").trim();
+function getStylePaceBonus(styleCategory, pace) {
+  const style = String(styleCategory || "").trim();
 
-  if (style === "大逃" || style === "大逃げ") {
-    if (pace === "超ハイペース") return 2;
-    if (pace === "ハイペース") return 1;
-  } else if (style === "逃げ" || style === "逃") {
+  // 逃げ
+  if (style.includes("逃げ") || style === "逃" || style.includes("大逃")) {
     if (pace === "スローペース") return 2;
-  } else if (style === "先行") {
-    if (pace === "スローペース") return 1;
+  } 
+  // 先行
+  else if (style.includes("先行") || style.includes("好位")) {
     if (pace === "ミドルペース") return 2;
-  } else if (style === "好位") {
     if (pace === "スローペース") return 1;
-    if (pace === "ミドルペース") return 2;
-    if (pace === "乱ペース") return 1;
-  } else if (style === "差し") {
+  } 
+  // 差し
+  else if (style.includes("差し")) {
     if (pace === "ミドルペース" || pace === "ハイペース" || pace === "超ハイペース") return 1;
-  } else if (style === "追込") {
+  } 
+  // 追込
+  else if (style.includes("追込")) {
     if (pace === "超ハイペース") return 2;
     if (pace === "ハイペース") return 1;
-  } else if (style === "自在") {
-    if (pace === "ハイペース" || pace === "ミドルペース" || pace === "スローペース") return 1;
-  } else if (style === "逃追") {
-    if (pace === "ハイペース" || pace === "超ハイペース") return 1;
   }
 
   return 0;
@@ -810,18 +806,12 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       else if (tStr.includes("追込")) currentTacticStyle = "追込";
     }
 
-    // 作戦の脚質ボーナス（展開分岐依存）
-    if (selectedBranch.style_bonus) {
-      Object.keys(selectedBranch.style_bonus).forEach(bonusStyle => {
-        if (currentTacticStyle.includes(bonusStyle)) {
-          styleBonusPt = selectedBranch.style_bonus[bonusStyle] || 0;
-        }
-      });
-    }
+    // 作戦の脚質ボーナス（ペース判断）
+    styleBonusPt = getStylePaceBonus(currentTacticStyle, selectedPace);
 
-    // ★ 馬の本来の脚質によるペース加算Pt（完全一致判定）
+    // 馬の本来の脚質ボーナス（ペース判断）
     const rawHorseStyle = h.style || h.running_style || h.horse_style || "";
-    horseStyleBonusPt = getHorseStylePaceBonus(rawHorseStyle, selectedPace);
+    horseStyleBonusPt = getStylePaceBonus(rawHorseStyle, selectedPace);
 
     if (selectedBranch.position_bonus_type === "direct_asc") {
       posAddPt = h.positionRank;
@@ -884,7 +874,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
 
     let devDetails = [];
     if (styleBonusPt > 0) devDetails.push(`作戦脚質+${styleBonusPt}`);
-    if (horseStyleBonusPt > 0) devDetails.push(`馬脚質+${horseStyleBonusPt}`); // ★ 馬脚質表示
+    if (horseStyleBonusPt > 0) devDetails.push(`馬脚質+${horseStyleBonusPt}`);
     if (posAddPt > 0) devDetails.push(`位置+${posAddPt}`);
     if (extraScore > 0) devDetails.push(`展開アビ+${extraScore}`);
 
@@ -922,4 +912,4 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     branch: selectedBranch,
     commentary: commentaryData
   };
-    }
+          }
