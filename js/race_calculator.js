@@ -427,16 +427,16 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
   if (!horse.ability || !Array.isArray(horse.ability)) return;
 
   horse.ability.forEach(abilityName => {
-    if (abilityName === "荒ぶる魂") {
+    if (abilityName === "荒ぶる魂" || abilityName === "気分屋") {
       horse.popup_messages = horse.popup_messages || {};
       const rand = Math.random();
       let buff = 0;
       if (rand < 0.25) {
         buff = 2;
-        horse.popup_messages["荒ぶる魂"] = "荒ぶる魂覚醒！圧倒的なパワー！";
+        horse.popup_messages[abilityName] = `${abilityName}覚醒！圧倒的なパワー！`;
       } else {
         buff = -1;
-        horse.popup_messages["荒ぶる魂"] = "気性を制御できず暴走気味…！";
+        horse.popup_messages[abilityName] = "気性を制御できず暴走気味…！";
       }
       
       applyAllStatsBuff(horse, buff);
@@ -565,7 +565,7 @@ function applyPhase4Abilities(horse, pace, branchName) {
       horse.commentary_trigger = "レコードホルダー";
     }
 
-    if (abilityName === "荒ぶる魂") {
+    if (abilityName === "荒ぶる魂" || abilityName === "気分屋") {
       triggered = true;
       horse.straight_popup_trigger = true;
     }
@@ -586,8 +586,8 @@ function applyRankSwapAbilities(resultList) {
   const player = resultList.find(h => h.isPlayer);
   const cpu = resultList.find(h => h.isCpu);
 
-  const playerHasAbility = Array.isArray(player?.ability) && player.ability.some(a => a === "名脇役" || a === "ジェントルマン" || a === "シルバーコレクター");
-  const cpuHasAbility = Array.isArray(cpu?.ability) && cpu.ability.some(a => a === "名脇役" || a === "ジェントルマン" || a === "シルバーコレクター");
+  const playerHasAbility = Array.isArray(player?.ability) && player.ability.some(a => a === "名脇役" || a === "シルバーコレクター");
+  const cpuHasAbility = Array.isArray(cpu?.ability) && cpu.ability.some(a => a === "名脇役" || a === "シルバーコレクター");
 
   if (playerHasAbility && cpuHasAbility) return;
 
@@ -595,9 +595,9 @@ function applyRankSwapAbilities(resultList) {
     if (!isEligibleForAbility(horse) || !Array.isArray(horse.ability)) return;
 
     const hasNameWakiyaku = horse.ability.includes("名脇役");
-    const hasGentleman = horse.ability.includes("ジェントルマン") || horse.ability.includes("シルバーコレクター");
+    const hasSilverCollector = horse.ability.includes("シルバーコレクター");
 
-    if (!hasNameWakiyaku && !hasGentleman) return;
+    if (!hasNameWakiyaku && !hasSilverCollector) return;
 
     const currentRank = resultList.findIndex(h => h.index === horse.index) + 1;
     let targetRank = null;
@@ -616,8 +616,8 @@ function applyRankSwapAbilities(resultList) {
       resultList[targetIdx] = resultList[currentIdx];
       resultList[currentIdx] = temp;
 
-      if (!horse.activated_abilities) horse.activated_abilities = [];
-      const activeName = hasNameWakiyaku ? "名脇役" : (horse.ability.includes("ジェントルマン") ? "ジェントルマン" : "シルバーコレクター");
+     if (!horse.activated_abilities) horse.activated_abilities = [];
+      const activeName = hasNameWakiyaku ? "名脇役" : "シルバーコレクター";
       if (!horse.activated_abilities.includes(activeName)) {
         horse.activated_abilities.push(activeName);
       }
@@ -922,4 +922,4 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     branch: selectedBranch,
     commentary: commentaryData
   };
-}
+    }
