@@ -1,5 +1,10 @@
 <!DOCTYPE html>
 <html lang="ja">
+  <!-- 初期状態は非表示(display: none) -->
+<a href="admin-trade.html" id="adminMenuBtn" class="btn-admin" style="display: none;">
+  ⚙️ CPUトレード管理
+</a>
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -242,6 +247,25 @@
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
   import { cancelTradeListing, executeTradeTransaction } from './js/trade-service.js';
+import { auth } from './firebase-config.js';
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+// 管理者のUIDを定義
+const ADMIN_UIDS = [
+  "z3k1aaK9ULg6Hz31rMS6Dc1od693"
+];
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    // ログインユーザーが管理者の場合のみ、ボタンを表示する
+    if (ADMIN_UIDS.includes(user.uid)) {
+      const adminBtn = document.getElementById('adminMenuBtn');
+      if (adminBtn) {
+        adminBtn.style.display = 'inline-block';
+      }
+    }
+  }
+});
 
   let HORSES_MASTER = {};
   let currentUser = null;
