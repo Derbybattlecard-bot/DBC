@@ -243,7 +243,7 @@
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
   import { createTradeListing } from './js/trade-service.js';
 
   let HORSES_ARRAY = [];
@@ -405,6 +405,19 @@
     const comment = document.getElementById('tradeComment').value.trim();
 
     try {
+      // 出品前チェック: 1人1件制限（アクティブな出品がすでにある場合は拒否）
+      const q = query(
+        collection(db, "trades"),
+        where("seller_uid", "==", currentUser.uid),
+        where("status", "==", "active")
+      );
+      const activeSnap = await getDocs(q);
+
+      if (!activeSnap.empty) {
+        alert("既に出品中のカードがあります。トレードの出品は1人1つまでです。\n新規に出品する場合は、掲示板の「自分の出品」から現在の出品を取り下げてください。");
+        return;
+      }
+
       await createTradeListing(db, currentUser, selectedHorseForTrade, wantHorseNames, comment);
       alert(`「${selectedHorseForTrade.name}」をトレード掲示板に出品しました！`);
       document.getElementById('tradeModal').classList.remove('active');
