@@ -3,95 +3,430 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <a href="index.html" class="btn-home">🏠 ホーム</a>
-  <title>開発者専用 CPUトレード管理</title>
+  <title>⚙️ CPUトレード管理 - DERBY BATTLE CARD</title>
   <style>
-    body { font-family: sans-serif; padding: 16px; background: #f4f6f8; max-width: 500px; margin: 0 auto; }
-    .card { background: #fff; padding: 16px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    h2 { font-size: 16px; color: #333; margin-top: 0; }
-    .form-group { margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px; }
-    label { font-size: 12px; font-weight: bold; color: #555; }
-    select, input, textarea, button { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
-    button { background: #0d4220; color: #fff; font-weight: bold; border: none; cursor: pointer; margin-top: 8px; }
-    button:hover { background: #1b5e20; }
+    :root {
+      --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%);
+      --card-bg: rgba(255, 255, 255, 0.94);
+      --card-inner-bg: #f2f8f3;
+      --accent-gold: #c29b1d;
+      --text-color: #1a2e1d;
+      --sub-text: #4e6b52;
+      --header-green: #0d4220;
+      --border-green: #b2d4b6;
+    }
+    body {
+      margin: 0;
+      padding: 10px;
+      background: var(--bg-gradient);
+      background-attachment: fixed;
+      color: var(--text-color);
+      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #ffffff;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-green);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .btn-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #0d4220;
+      color: #ffffff;
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    .page-title {
+      font-size: 15px;
+      font-weight: 900;
+      color: var(--header-green);
+    }
+    .section-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border-green);
+      border-radius: 8px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .section-title {
+      font-size: 14px;
+      font-weight: bold;
+      color: var(--header-green);
+      border-bottom: 2px solid var(--border-green);
+      padding-bottom: 4px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .form-group label {
+      font-size: 11px;
+      font-weight: bold;
+      color: var(--sub-text);
+    }
+    .form-input, .form-select, .form-textarea {
+      padding: 6px 8px;
+      border: 1px solid var(--border-green);
+      border-radius: 4px;
+      font-size: 12px;
+      box-sizing: border-box;
+      width: 100%;
+    }
+    .form-textarea {
+      resize: vertical;
+      height: 50px;
+    }
+    .btn-submit {
+      background: linear-gradient(135deg, #1b4d23, #2d6a37);
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 6px;
+    }
+    .trade-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .trade-card {
+      background: #ffffff;
+      border: 1px solid var(--border-green);
+      border-radius: 6px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .trade-card-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: bold;
+      color: var(--header-green);
+    }
+    .trade-card-info {
+      font-size: 11px;
+      color: var(--sub-text);
+    }
+    .btn-cancel {
+      background: #d93838;
+      color: #ffffff;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 10px;
+      font-weight: bold;
+      cursor: pointer;
+      align-self: flex-end;
+    }
+    .loading-msg {
+      text-align: center;
+      font-size: 12px;
+      color: var(--sub-text);
+      padding: 20px;
+    }
   </style>
 </head>
 <body>
-
-<div class="card">
-  <h2>🤖 CPUトレード出品生成（管理者用）</h2>
-  
-  <div class="form-group">
-    <label>出品するカード（馬）を選択</label>
-    <select id="selectHorse"></select>
+<div class="container">
+  <div class="header-bar">
+    <a href="trade.html" class="btn-link">🔁 掲示板へ</a>
+    <div class="page-title">⚙️ CPUトレード管理</div>
+    <a href="index.html" class="btn-link">🏠 ホーム</a>
   </div>
 
-  <div class="form-group">
-    <label>希望条件（レアリティ）</label>
-    <select id="wantRarity">
-      <option value="ANY">指定なし</option>
-      <option value="SAME">同レアリティ以上</option>
-      <option value="UR">UR以上</option>
-    </select>
+  <!-- 出品フォーム -->
+  <div class="section-box">
+    <div class="section-title">🤖 公式BOTカード出品</div>
+    
+    <!-- 対象カード選択 -->
+    <div class="form-group">
+      <label>出品するカードを選択</label>
+      <select class="form-select" id="selectHorse">
+        <option value="">カードを読み込み中...</option>
+      </select>
+    </div>
+
+    <!-- 1. 希望レアリティ -->
+    <div class="form-group">
+      <label>希望条件（レアリティ）</label>
+      <select class="form-select" id="wantRarity">
+        <option value="ANY">指定なし（こだわらない）</option>
+        <option value="SAME">同レアリティ以上</option>
+        <option value="UR">UR以上希望</option>
+        <option value="SSR">SSR以上希望</option>
+      </select>
+    </div>
+
+    <!-- 2. 希望世代 -->
+    <div class="form-group">
+      <label>希望条件（世代）</label>
+      <select class="form-select" id="wantGen">
+        <option value="ANY">指定なし（こだわらない）</option>
+        <option value="1980_BEFORE">〜1980 世代</option>
+        <option value="1990_BEFORE">1981〜1990 世代</option>
+      </select>
+    </div>
+
+    <!-- 3. 希望ポテンシャル -->
+    <div class="form-group">
+      <label>希望条件（ポテンシャル）</label>
+      <select class="form-select" id="wantPotential">
+        <option value="ANY">指定なし（こだわらない）</option>
+        <option value="21">21</option>
+        <option value="20">20</option>
+        <option value="19">19</option>
+        <option value="18">18</option>
+        <option value="17">17</option>
+        <option value="16">16</option>
+        <option value="15">15</option>
+        <option value="14">14</option>
+      </select>
+    </div>
+
+    <!-- 4. 希望適性距離 -->
+    <div class="form-group">
+      <label>希望条件（適性距離）</label>
+      <select class="form-select" id="wantDistance">
+        <option value="ANY">指定なし（こだわらない）</option>
+        <option value="1000">1000m を含む</option>
+        <option value="1200">1200m を含む</option>
+        <option value="1400">1400m を含む</option>
+        <option value="1600">1600m を含む</option>
+        <option value="1800">1800m を含む</option>
+        <option value="2000">2000m を含む</option>
+        <option value="2200">2200m を含む</option>
+        <option value="2400">2400m を含む</option>
+        <option value="2500">2500m を含む</option>
+        <option value="3000">3000m を含む</option>
+        <option value="3200">3200m を含む</option>
+      </select>
+    </div>
+
+    <!-- 5. 希望バ場区分 -->
+    <div class="form-group">
+      <label>希望条件（芝・ダート）</label>
+      <select class="form-select" id="wantTrack">
+        <option value="ANY">指定なし（こだわらない）</option>
+        <option value="TURF">芝</option>
+        <option value="DIRT">ダート</option>
+        <option value="BOTH">両方（万能）</option>
+      </select>
+    </div>
+
+    <!-- 6. 希望性別 -->
+    <div class="form-group">
+      <label>希望条件（性別）</label>
+      <select class="form-select" id="wantSex">
+        <option value="ANY">指定なし（こだわらない）</option>
+        <option value="MALE">牡馬</option>
+        <option value="FEMALE">牝馬</option>
+        <option value="GELDING">セン馬</option>
+      </select>
+    </div>
+
+    <!-- 7. 特定馬名 -->
+    <div class="form-group">
+      <label>希望条件（特定馬名・任意）</label>
+      <input type="text" class="form-input" id="wantHorseName" placeholder="例: トウカイテイオー（任意）">
+    </div>
+
+    <!-- 8. 出品コメント -->
+    <div class="form-group">
+      <label>出品コメント</label>
+      <textarea class="form-textarea" id="tradeComment" placeholder="例: 【公式BOT】テスト出品です。どなたでも交換どうぞ！"></textarea>
+    </div>
+
+    <button class="btn-submit" id="btnSubmitCpuTrade">🤖 CPUトレードを出品する</button>
   </div>
 
-  <div class="form-group">
-    <label>コメント</label>
-    <textarea id="comment" rows="2">【公式BOT】テスト出品です。自由にご利用ください！</textarea>
+  <!-- 現在のCPU出品一覧 -->
+  <div class="section-box">
+    <div class="section-title">📦 現在のCPU出品一覧</div>
+    <div class="trade-list" id="cpuTradeList">
+      <div class="loading-msg">読み込み中...</div>
+    </div>
   </div>
-
-  <button id="btnCreateCpuTrade">🚀 CPU出品を発行する</button>
 </div>
 
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { createCpuTradeListing } from './js/trade-service.js';
+  import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { createCpuTradeListing, cancelTradeListing, CPU_UID } from './js/trade-service.js';
 
-  // ★ご自身のFirebase UIDをここに貼り付けてください
+  // 管理者権限UID定義
   const ADMIN_UIDS = [
-    "z3k1aaK9ULg6Hz31rMS6Dc1od693" 
+    "z3k1aaK9ULg6Hz31rMS6Dc1od693"
   ];
 
-  let HORSES_ARRAY = [];
+  let HORSES_MASTER = {};
 
+  // 1991年〜2026年までの世代選択肢動的生成 (collection.html準拠)
+  function initYearSelectOptions() {
+    const wantGenSelect = document.getElementById('wantGen');
+    for (let year = 2026; year >= 1991; year--) {
+      const opt = document.createElement('option');
+      opt.value = String(year);
+      opt.textContent = `${year} 世代`;
+      wantGenSelect.appendChild(opt);
+    }
+  }
+  initYearSelectOptions();
+
+  // 管理者判定・初期化処理
   onAuthStateChanged(auth, async (user) => {
-    // 開発者以外のアクセスを弾くセキュリティ処理
     if (!user || !ADMIN_UIDS.includes(user.uid)) {
       alert("管理者権限がありません。");
       window.location.href = 'index.html';
       return;
     }
 
-    // マスターデータのロード
-    const res = await fetch('./data/horses_master.json');
-    HORSES_ARRAY = await res.json();
-    
-    const selectEl = document.getElementById('selectHorse');
-    HORSES_ARRAY.forEach(h => {
-      const opt = document.createElement('option');
-      opt.value = String(h.horse_id ?? h.id);
-      opt.textContent = `[${h.rarity || 'N'}] ${h.name}`;
-      selectEl.appendChild(opt);
-    });
-  });
-
-  document.getElementById('btnCreateCpuTrade').addEventListener('click', async () => {
-    const horseId = document.getElementById('selectHorse').value;
-    const selectedHorse = HORSES_ARRAY.find(h => String(h.horse_id ?? h.id) === horseId);
-    const wantRarity = document.getElementById('wantRarity').value;
-    const comment = document.getElementById('comment').value;
-
-    if (!selectedHorse) return;
-
     try {
-      await createCpuTradeListing(db, selectedHorse, wantRarity, null, comment);
-      alert(`「${selectedHorse.name}」のCPU出品を作成しました！`);
+      // マスターデータロード
+      const res = await fetch('./data/horses_master.json');
+      const horsesArray = await res.json();
+      
+      const selectEl = document.getElementById('selectHorse');
+      selectEl.innerHTML = '<option value="">-- 出品カードを選択してください --</option>';
+
+      horsesArray.forEach(h => {
+        const id = String(h.horse_id ?? h.id);
+        HORSES_MASTER[id] = h;
+
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = `[${h.rarity || 'N'}] ${h.name}`;
+        selectEl.appendChild(opt);
+      });
+
+      loadCpuTrades();
     } catch (err) {
-      console.error(err);
-      alert("作成エラーが発生しました");
+      console.error("初期化エラー:", err);
+      alert("マスターデータの読み込みに失敗しました。");
     }
   });
+
+  // 出品ボタン処理
+  document.getElementById('btnSubmitCpuTrade').addEventListener('click', async () => {
+    const horseId = document.getElementById('selectHorse').value;
+    if (!horseId || !HORSES_MASTER[horseId]) {
+      alert("出品するカードを選択してください。");
+      return;
+    }
+
+    const selectedHorse = HORSES_MASTER[horseId];
+    const wantRarity = document.getElementById('wantRarity').value;
+    const wantHorseName = document.getElementById('wantHorseName').value.trim();
+    const comment = document.getElementById('tradeComment').value.trim();
+
+    const extraConditions = {
+      wantGen: document.getElementById('wantGen').value,
+      wantPotential: document.getElementById('wantPotential').value,
+      wantDistance: document.getElementById('wantDistance').value,
+      wantTrack: document.getElementById('wantTrack').value,
+      wantSex: document.getElementById('wantSex').value
+    };
+
+    try {
+      await createCpuTradeListing(db, selectedHorse, wantRarity, wantHorseName, comment, extraConditions);
+      alert(`🤖 CPU出品を作成しました: 【${selectedHorse.name}】`);
+      
+      // フォーム初期化
+      document.getElementById('selectHorse').value = "";
+      document.getElementById('wantRarity').value = "ANY";
+      document.getElementById('wantGen').value = "ANY";
+      document.getElementById('wantPotential').value = "ANY";
+      document.getElementById('wantDistance').value = "ANY";
+      document.getElementById('wantTrack').value = "ANY";
+      document.getElementById('wantSex').value = "ANY";
+      document.getElementById('wantHorseName').value = "";
+      document.getElementById('tradeComment').value = "";
+
+      loadCpuTrades();
+    } catch (err) {
+      console.error("CPU出品エラー:", err);
+      alert("CPU出品処理に失敗しました:\n" + err.message);
+    }
+  });
+
+  // アクティブなCPU出品を取得表示
+  async function loadCpuTrades() {
+    const container = document.getElementById('cpuTradeList');
+    container.innerHTML = '<div class="loading-msg">読み込み中...</div>';
+
+    try {
+      const q = query(
+        collection(db, "trades"),
+        where("seller_uid", "==", CPU_UID),
+        where("status", "==", "active")
+      );
+
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        container.innerHTML = '<div class="loading-msg">現在アクティブなCPU出品はありません。</div>';
+        return;
+      }
+
+      container.innerHTML = '';
+      snap.forEach(docSnap => {
+        const trade = { id: docSnap.id, ...docSnap.data() };
+        
+        const cardEl = document.createElement('div');
+        cardEl.className = 'trade-card';
+        cardEl.innerHTML = `
+          <div class="trade-card-header">
+            <span>[${trade.offered_rarity || 'N'}] ${trade.offered_horse_name}</span>
+          </div>
+          <div class="trade-card-info">💬 ${trade.comment || 'コメントなし'}</div>
+          <button class="btn-cancel" onclick="cancelCpuTrade('${trade.id}', '${trade.offered_horse_id}')">🗑 取り下げる</button>
+        `;
+        container.appendChild(cardEl);
+      });
+    } catch (err) {
+      console.error("CPU出品一覧取得エラー:", err);
+      container.innerHTML = '<div class="loading-msg">⚠️ 一覧の取得に失敗しました</div>';
+    }
+  }
+
+  // CPU出品取り下げグローバル関数
+  window.cancelCpuTrade = async (tradeId, horseId) => {
+    if (!confirm("このCPU出品を取り下げますか？")) return;
+
+    try {
+      await cancelTradeListing(db, CPU_UID, tradeId, horseId);
+      alert("取り下げました。");
+      loadCpuTrades();
+    } catch (err) {
+      console.error("取り下げエラー:", err);
+      alert("取り下げ処理に失敗しました。");
+    }
+  };
 </script>
 </body>
 </html>
