@@ -10,18 +10,18 @@ import {
   serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+// CPUの固定識別ID
+export const CPU_UID = "CPU_SYSTEM_BOT";
+
 /**
- * 1. カードを出品する関数
- * collection.html から渡される extraConditions（世代、ポテンシャル等）の保存に対応
+ * 1. 通常ユーザー用 カード出品関数
  */
 export async function createTradeListing(db, currentUser, horse, wantRarity, wantHorseName, comment, extraConditions = {}) {
   const horseId = String(horse.horse_id ?? horse.id);
 
-  // 出品者の表示名取得
   const userDoc = await getDoc(doc(db, "users", currentUser.uid));
   const userName = userDoc.exists() ? (userDoc.data().display_name || "名無しオーナー") : "名無しオーナー";
 
-  // trades コレクションへ追加
   await addDoc(collection(db, "trades"), {
     seller_uid: currentUser.uid,
     seller_name: userName,
@@ -32,7 +32,6 @@ export async function createTradeListing(db, currentUser, horse, wantRarity, wan
     want_horse_name: wantHorseName || null,
     comment: comment,
     
-    // 詳細条件（extraConditions）のプロパティを展開して保存
     want_gen: extraConditions.wantGen || 'ANY',
     want_potential: extraConditions.wantPotential || 'ANY',
     want_distance: extraConditions.wantDistance || 'ANY',
@@ -43,7 +42,6 @@ export async function createTradeListing(db, currentUser, horse, wantRarity, wan
     created_at: serverTimestamp()
   });
 
-  // インベントリのロック（トレード中）数を増やす（setDoc + merge で安全に更新）
   const invRef = doc(db, `users/${currentUser.uid}/inventory/${horseId}`);
   await setDoc(invRef, {
     locked_count: increment(1)
@@ -51,21 +49,50 @@ export async function createTradeListing(db, currentUser, horse, wantRarity, wan
 }
 
 /**
- * 2. 出品を取り下げる関数
+ * 2. CPU（公式BOT）用 トレード出品作成関数
  */
-export async function cancelTradeListing(db, currentUserUid, tradeId, horseId) {
-  // ステータスをキャンセルに変更
-  await updateDoc(doc(db, "trades", tradeId), { status: "cancelled" });
+export async function createCpuTradeListing(db, horse, wantRarity, wantHorseName, comment, extraConditions = {}) {
+  const horseId = String(horse.horse_id ?? horse.id);
 
-  // ロック数を減らす（setDoc + merge で安全に更新）
-  const invRef = doc(db, `users/${currentUserUid}/inventory/${horseId}`);
-  await setDoc(invRef, {
-    locked_count: increment(-1)
-  }, { merge: true });
+  await addDoc(collection(db, "trades"), {
+    seller_uid: CPU_UID,
+    seller_name: "🤖 公式トレードBOT",
+    offered_horse_id: horseId,
+    offered_horse_name: horse.name,
+    offered_rarity: horse.rarity || 'N',
+    want_rarity: wantRarity,
+    want_horse_name: wantHorseName || null,
+    comment: comment || "【公式BOT】テスト出品です。どなたでも交換どうぞ！",
+    
+    want_gen: extraConditions.wantGen || 'ANY',
+    want_potential: extraConditions.wantPotential || 'ANY',
+    want_distance: extraConditions.wantDistance || 'ANY',
+    want_track: extraConditions.wantTrack || 'ANY',
+    want_sex: extraConditions.wantSex || 'ANY',
+    
+    status: "active",
+    created_at: serverTimestamp()
+  });
+  // CPU出品の場合はインベントリ更新（locked_count）をスキップ
 }
 
 /**
- * 3. トレード（カード交換）を実行する関数
+ * 3. 出品取り下げ関数（CPU出品時のロック減算回避に対応）
+ */
+export async function cancelTradeListing(db, currentUserUid, tradeId, horseId) {
+  await updateDoc(doc(db, "trades", tradeId), { status: "cancelled" });
+
+  // CPU出品以外の場合のみインベントリのロック数を減算
+  if (currentUserUid !== CPU_UID) {
+    const invRef = doc(db, `users/${currentUserUid}/inventory/${horseId}`);
+    await setDoc(invRef, {
+      locked_count: increment(-1)
+    }, { merge: true });
+  }
+}
+
+/**
+ * 4. トレード（カード交換）実行関数（CPU相手の取引に対応）
  */
 export async function executeTradeTransaction(db, currentUser, activeTradeData, selectedOfferHorseId) {
   await runTransaction(db, async (transaction) => {
@@ -78,24 +105,28 @@ export async function executeTradeTransaction(db, currentUser, activeTradeData, 
 
     const sellerUid = activeTradeData.seller_uid;
     const buyerUid = currentUser.uid;
-    const offeredHorseId = activeTradeData.offered_horse_id; // 出品されたカード
-    const buyerHorseId = selectedOfferHorseId;               // 申し込んだカード
+    const offeredHorseId = activeTradeData.offered_horse_id;
+    const buyerHorseId = selectedOfferHorseId;
 
-    // 出品者: 出品カード -1（ロック解除兼用）、獲得カード +1
-    const sellerOfferInvRef = doc(db, `users/${sellerUid}/inventory/${offeredHorseId}`);
-    const sellerBuyerInvRef = doc(db, `users/${sellerUid}/inventory/${buyerHorseId}`);
-    
-    transaction.update(sellerOfferInvRef, { count: increment(-1), locked_count: increment(-1) });
-    transaction.set(sellerBuyerInvRef, { count: increment(1), obtained_at: new Date().toISOString() }, { merge: true });
+    const isCpuTrade = (sellerUid === CPU_UID);
 
-    // 申込者: 申込カード -1、獲得カード +1
+    // 出品者側の更新（CPUでない場合のみ実在のインベントリを変更）
+    if (!isCpuTrade) {
+      const sellerOfferInvRef = doc(db, `users/${sellerUid}/inventory/${offeredHorseId}`);
+      const sellerBuyerInvRef = doc(db, `users/${sellerUid}/inventory/${buyerHorseId}`);
+      
+      transaction.update(sellerOfferInvRef, { count: increment(-1), locked_count: increment(-1) });
+      transaction.set(sellerBuyerInvRef, { count: increment(1), obtained_at: new Date().toISOString() }, { merge: true });
+    }
+
+    // 申込者（プレイヤー）側のインベントリ更新
     const buyerOfferInvRef = doc(db, `users/${buyerUid}/inventory/${buyerHorseId}`);
     const buyerSellerInvRef = doc(db, `users/${buyerUid}/inventory/${offeredHorseId}`);
 
     transaction.update(buyerOfferInvRef, { count: increment(-1) });
     transaction.set(buyerSellerInvRef, { count: increment(1), obtained_at: new Date().toISOString() }, { merge: true });
 
-    // トレード完了状態に更新
+    // トレードステータスを完了に変更
     transaction.update(tradeRef, {
       status: "completed",
       buyer_uid: buyerUid,
