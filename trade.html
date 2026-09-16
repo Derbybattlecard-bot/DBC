@@ -361,15 +361,68 @@
       badges.push({ text: `🐴 馬名: ${HORSES_MASTER[horseId].name}`, highlight: true });
     }
 
-    // 2. レアリティ
-    const rarity = getVal('want_rarity', 'wantRarity');
-    if (rarity) {
-      let rText = rarity;
-      if (rarity === 'SAME') rText = '同レアリティ以上';
-      else if (rarity === 'UR') rText = 'UR以上';
-      else if (rarity === 'SSR') rText = 'SSR以上';
-      badges.push({ text: `⭐ ${rText}`, highlight: false });
+   // レアリティごとの強さスコア定義
+const RARITY_SCORE_MAP = {
+  'SER': 5, // レアランクS
+  'ULR': 4, 'LGR': 4, 'CLR': 4, 'TRR': 4, // レアランクA
+  'RER': 3, 'ANR': 3, 'VIR': 3, 'PRR': 3, // レアランクB
+  'SPR': 2, // レアランクC
+  'NOR': 1, 'N': 1 // ノーマル
+};
+
+// 1. バッジ表示の更新
+function getConditionBadges(trade) {
+  const badges = [];
+  // ...（前後の処理は既存のまま）...
+
+  const rarity = getVal('want_rarity', 'wantRarity');
+  if (rarity) {
+    let rText = rarity;
+    if (rarity === 'SAME') rText = '同ランク以上';
+    else if (rarity === 'RANK_S') rText = 'Sランク以上';
+    else if (rarity === 'RANK_A') rText = 'Aランク以上';
+    else if (rarity === 'RANK_B') rText = 'Bランク以上';
+    else if (rarity === 'RANK_C') rText = 'Cランク以上';
+    badges.push({ text: `⭐ ${rText}`, highlight: false });
+  }
+
+  // ...（後続の処理は既存のまま）...
+  return badges;
+}
+
+// 2. マッチング判定の更新
+function isMatchCondition(horse, trade) {
+  if (!horse || !trade) return false;
+
+  // ...（前後の処理は既存のまま）...
+
+  // 2. レアリティ判定
+  const wantRarity = getVal('want_rarity', 'wantRarity');
+  if (wantRarity) {
+    const hRarity = horse.rarity || 'NOR';
+    const hScore = RARITY_SCORE_MAP[hRarity] || 1;
+
+    if (wantRarity === 'SAME') {
+      const offeredRarity = trade.offered_rarity || 'NOR';
+      const offeredScore = RARITY_SCORE_MAP[offeredRarity] || 1;
+      if (hScore < offeredScore) return false;
+    } else if (wantRarity === 'RANK_S') {
+      if (hScore < 5) return false;
+    } else if (wantRarity === 'RANK_A') {
+      if (hScore < 4) return false;
+    } else if (wantRarity === 'RANK_B') {
+      if (hScore < 3) return false;
+    } else if (wantRarity === 'RANK_C') {
+      if (hScore < 2) return false;
+    } else if (hRarity !== wantRarity) {
+      return false;
     }
+  }
+
+  // ...（後続の処理は既存のまま）...
+  return true;
+}
+
 
     // 3. 世代
     const gen = getVal('want_gen', 'wantGen');
