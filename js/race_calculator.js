@@ -607,6 +607,7 @@ function applyRankSwapAbilities(resultList) {
   });
 }
 
+
 // ============================================================================
 // メイン処理エクスポート関数: runRaceLogic
 // ============================================================================
@@ -725,7 +726,6 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     let posAddPt = 0;
     let formulaFormulaDetail = "";
 
-    const stratPot = (h.level || 1) * 2;
     const horseBasePot = h.potential || 0;
     
     const isChikaraKurabe = selectedBranch.name === "力比べ" || selectedBranch.name.includes("力比べ");
@@ -736,15 +736,12 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
 
     const totalPot = (basePotVal * potMultiplier) + (stratPotBase * potMultiplier);
 
+    // ★ 特殊計算式分岐（修正部分） ★
     if (selectedBranch.formula) {
-      let targetVal = 50;
-      let targetStatName = "標準値";
-
-          if (selectedBranch.formula) {
       let targetVal = 0;
       let targetStatName = "パラメータ";
 
-      // 抽選対象のパラメータプール（設定がない場合は主要5ステータスからランダム選別）
+      // 抽選対象のパラメータプール
       const targetPool = (selectedBranch.target_pool && selectedBranch.target_pool.length > 0)
         ? selectedBranch.target_pool
         : ['speed', 'stamina', 'sharp', 'jizoku', 'guts'];
@@ -762,14 +759,11 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       };
       targetStatName = statNameMap[randomKey] || randomKey;
 
-      // 【修正】 (30 - 馬単体のポテンシャル) + (作戦レベル × 2) + ランダムパラメータ1個
+      // (30 - 馬単体のポテンシャル) + (作戦レベル × 2) + ランダムパラメータ1個
       statScore = (30 - basePotVal) + stratPotBase + targetVal;
       
-      // 結果テーブル用 内訳テキスト
       formulaFormulaDetail = `30 - 馬ポテ:${basePotVal} + 作戦Lv:${stratPotBase} + ${targetStatName}:${targetVal}`;
-    }
-
-    else if (selectedBranch.key_stats && selectedBranch.key_stats.length > 0) {
+    } else if (selectedBranch.key_stats && selectedBranch.key_stats.length > 0) {
       selectedBranch.key_stats.forEach(key => {
         if (key === 'potential' || key === 'current_potential') {
           statScore += totalPot;
@@ -901,4 +895,4 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     branch: selectedBranch,
     commentary: commentaryData
   };
-      }
+}
