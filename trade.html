@@ -201,6 +201,14 @@
     .btn-modal-submit {
       flex: 1; background: var(--header-green); color: #fff; border: none;
       padding: 8px; border-radius: 6px; font-weight: bold; cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    /* カード未選択時のグレーアウト表示 */
+    .btn-modal-submit:disabled {
+      background: #cccccc;
+      color: #888888;
+      cursor: not-allowed;
+      border: 1px solid #bbbbbb;
     }
     .btn-modal-cancel {
       flex: 1; background: #e0e0e0; color: #333; border: none;
@@ -595,26 +603,50 @@
     if (!tradeDoc.exists()) return;
 
     activeTradeData = { id: tradeDoc.id, ...tradeDoc.data() };
-    document.getElementById('applyTargetInfo').textContent = `相手の出品: 【${activeTradeData.offered_rarity || ''}】${activeTradeData.offered_horse_name || ''}`;
 
-    const listEl = document.getElementById('myAvailableCardsList');
-    listEl.innerHTML = '';
-    selectedOfferHorseId = null;
-    document.getElementById('btnSubmitApply').disabled = true;
-
+    // 所持カードの中から、条件を満たすカードがあるか事前にチェック
     const availableCards = [];
     Object.keys(userInventoryMap).forEach(hId => {
       const info = userInventoryMap[hId];
       const count = typeof info === 'object' ? (info.count || 0) : info;
       const locked = typeof info === 'object' ? (info.locked_count || 0) : 0;
       
-      // 余剰カードがあり、かつ条件を満たすもののみ追加
+      // 余剰カードがあり、かつ相手の条件を満たすもののみ抽出
       if (count - locked > 0 && HORSES_MASTER[hId]) {
         const horse = HORSES_MASTER[hId];
         if (isMatchCondition(horse, activeTradeData)) {
           availableCards.push({ id: hId, horse: horse });
         }
       }
+    });
+
+    // 交換可能なカードを所持していない場合、モーダルを開かずに即時アラートを表示
+    if (availableCards.length === 0) {
+      alert("⚠️ 相手の希望条件に適合する（かつトレード可能な余剰）カードを所持していません。");
+      return;
+    }
+
+    // 適合カードがある場合のみモーダルをセットアップして表示
+    document.getElementById('applyTargetInfo').textContent = `相手の出品: 【${activeTradeData.offered_rarity || ''}】${activeTradeData.offered_horse_name || ''}`;
+
+    const listEl = document.getElementById('myAvailableCardsList');
+    listEl.innerHTML = '';
+    selectedOfferHorseId = null;
+    
+    const submitBtn = document.getElementById('btnSubmitApply');
+    submitBtn.disabled = true; // カード選択前はボタン無効化
+
+    availableCards.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'select-card-item';
+      div.innerHTML = `<span>[${item.horse.rarity || 'N'}] ${item.horse.name}</span>`;
+      div.onclick = () => {
+        document.querySelectorAll('.select-card-item').forEach(el => el.classList.remove('selected'));
+        div.classList.add('selected');
+        selectedOfferHorseId = item.id;
+        submitBtn.disabled = false; // カード選択で有効化
+      };
+      listEl.appendChild(div);
     });
 
     document.getElementById('applyModal').classList.add('active');
