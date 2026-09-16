@@ -277,8 +277,8 @@
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-  import { createCpuTradeListing, cancelTradeListing, CPU_UID } from './js/trade-service.js';
+  import { collection, query, where, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { createCpuTradeListing, CPU_UID } from './js/trade-service.js';
 
   // 管理者権限UID定義
   const ADMIN_UIDS = [
@@ -287,7 +287,7 @@
 
   let HORSES_MASTER = {};
 
-  // 1991年〜2026年までの世代選択肢動的生成 (collection.html準拠)
+  // 1991年〜2026年までの世代選択肢動的生成
   function initYearSelectOptions() {
     const wantGenSelect = document.getElementById('wantGen');
     for (let year = 2026; year >= 1991; year--) {
@@ -404,7 +404,7 @@
             <span>[${trade.offered_rarity || 'N'}] ${trade.offered_horse_name}</span>
           </div>
           <div class="trade-card-info">💬 ${trade.comment || 'コメントなし'}</div>
-          <button class="btn-cancel" onclick="cancelCpuTrade('${trade.id}', '${trade.offered_horse_id}')">🗑 取り下げる</button>
+          <button class="btn-cancel" onclick="cancelCpuTrade('${trade.id}')">🗑 取り下げる</button>
         `;
         container.appendChild(cardEl);
       });
@@ -414,17 +414,19 @@
     }
   }
 
-  // CPU出品取り下げグローバル関数
-  window.cancelCpuTrade = async (tradeId, horseId) => {
+  // CPU出品取り下げ処理（管理者直接更新）
+  window.cancelCpuTrade = async (tradeId) => {
     if (!confirm("このCPU出品を取り下げますか？")) return;
 
     try {
-      await cancelTradeListing(db, CPU_UID, tradeId, horseId);
+      const tradeRef = doc(db, "trades", tradeId);
+      await updateDoc(tradeRef, { status: "cancelled" });
+      
       alert("取り下げました。");
       loadCpuTrades();
     } catch (err) {
       console.error("取り下げエラー:", err);
-      alert("取り下げ処理に失敗しました。");
+      alert("取り下げ処理に失敗しました:\n" + err.message);
     }
   };
 </script>
