@@ -213,10 +213,10 @@
   <div class="header-bar">
     <a href="index.html" class="btn-home">🏠 ホーム</a>
     <div class="page-title">🔁 トレード掲示板</div>
-     <!-- 初期状態は非表示(display: none) -->
-<a href="admin-trade.html" id="adminMenuBtn" class="btn-admin" style="display: none;">
-  ⚙️ CPUトレード管理
-</a>
+    <!-- 初期状態は非表示(display: none) -->
+    <a href="admin-trade.html" id="adminMenuBtn" class="btn-admin" style="display: none;">
+      ⚙️ CPUトレード管理
+    </a>
   </div>
 
   <div class="tab-bar">
@@ -252,6 +252,38 @@
   const ADMIN_UIDS = [
     "z3k1aaK9ULg6Hz31rMS6Dc1od693"
   ];
+
+  // レアリティごとの強さスコア定義
+  const RARITY_SCORE_MAP = {
+    'SER': 5, // Sランク
+    'ULR': 4, 'LGR': 4, 'CLR': 4, 'TRR': 4, // Aランク
+    'RER': 3, 'ANR': 3, 'VIR': 3, 'PRR': 3, // Bランク
+    'SPR': 2, // Cランク
+    'NOR': 1, 'N': 1 // ノーマル
+  };
+
+  // レアリティ表示名の変換ヘルパー
+  function getRarityLabel(rarity) {
+    const labels = {
+      'SAME': '同ランク以上',
+      'RANK_S': 'Sランク(SER)以上',
+      'RANK_A': 'Aランク以上',
+      'RANK_B': 'Bランク以上',
+      'RANK_C': 'Cランク以上',
+      'SER': 'SER',
+      'ULR': 'ULR',
+      'LGR': 'LGR',
+      'CLR': 'CLR',
+      'TRR': 'TRR',
+      'RER': 'RER',
+      'ANR': 'ANR',
+      'VIR': 'VIR',
+      'PRR': 'PRR',
+      'SPR': 'SPR',
+      'NOR': 'NOR'
+    };
+    return labels[rarity] || rarity;
+  }
 
   onAuthStateChanged(auth, (user) => {
     if (user) {
@@ -352,7 +384,13 @@
       return null;
     };
 
-    // 1. 特定馬名 / ID
+    // 1. レアリティ・ランク指定
+    const rarity = getVal('want_rarity', 'wantRarity');
+    if (rarity) {
+      badges.push({ text: `⭐ ${getRarityLabel(rarity)}`, highlight: false });
+    }
+
+    // 2. 特定馬名 / ID
     const horseName = getVal('want_horse_name', 'wantHorseName');
     const horseId = getVal('want_horse_id', 'wantHorseId');
     if (horseName) {
@@ -360,69 +398,6 @@
     } else if (horseId && HORSES_MASTER[horseId]) {
       badges.push({ text: `🐴 馬名: ${HORSES_MASTER[horseId].name}`, highlight: true });
     }
-
-   // レアリティごとの強さスコア定義
-const RARITY_SCORE_MAP = {
-  'SER': 5, // レアランクS
-  'ULR': 4, 'LGR': 4, 'CLR': 4, 'TRR': 4, // レアランクA
-  'RER': 3, 'ANR': 3, 'VIR': 3, 'PRR': 3, // レアランクB
-  'SPR': 2, // レアランクC
-  'NOR': 1, 'N': 1 // ノーマル
-};
-
-// 1. バッジ表示の更新
-function getConditionBadges(trade) {
-  const badges = [];
-  // ...（前後の処理は既存のまま）...
-
-  const rarity = getVal('want_rarity', 'wantRarity');
-  if (rarity) {
-    let rText = rarity;
-    if (rarity === 'SAME') rText = '同ランク以上';
-    else if (rarity === 'RANK_S') rText = 'Sランク以上';
-    else if (rarity === 'RANK_A') rText = 'Aランク以上';
-    else if (rarity === 'RANK_B') rText = 'Bランク以上';
-    else if (rarity === 'RANK_C') rText = 'Cランク以上';
-    badges.push({ text: `⭐ ${rText}`, highlight: false });
-  }
-
-  // ...（後続の処理は既存のまま）...
-  return badges;
-}
-
-// 2. マッチング判定の更新
-function isMatchCondition(horse, trade) {
-  if (!horse || !trade) return false;
-
-  // ...（前後の処理は既存のまま）...
-
-  // 2. レアリティ判定
-  const wantRarity = getVal('want_rarity', 'wantRarity');
-  if (wantRarity) {
-    const hRarity = horse.rarity || 'NOR';
-    const hScore = RARITY_SCORE_MAP[hRarity] || 1;
-
-    if (wantRarity === 'SAME') {
-      const offeredRarity = trade.offered_rarity || 'NOR';
-      const offeredScore = RARITY_SCORE_MAP[offeredRarity] || 1;
-      if (hScore < offeredScore) return false;
-    } else if (wantRarity === 'RANK_S') {
-      if (hScore < 5) return false;
-    } else if (wantRarity === 'RANK_A') {
-      if (hScore < 4) return false;
-    } else if (wantRarity === 'RANK_B') {
-      if (hScore < 3) return false;
-    } else if (wantRarity === 'RANK_C') {
-      if (hScore < 2) return false;
-    } else if (hRarity !== wantRarity) {
-      return false;
-    }
-  }
-
-  // ...（後続の処理は既存のまま）...
-  return true;
-}
-
 
     // 3. 世代
     const gen = getVal('want_gen', 'wantGen');
@@ -488,30 +463,36 @@ function isMatchCondition(horse, trade) {
       return null;
     };
 
-    // 1. 指定馬名 / ID
+    // 1. レアリティ判定
+    const wantRarity = getVal('want_rarity', 'wantRarity');
+    if (wantRarity) {
+      const hRarity = horse.rarity || 'NOR';
+      const hScore = RARITY_SCORE_MAP[hRarity] || 1;
+
+      if (wantRarity === 'SAME') {
+        const offeredRarity = trade.offered_rarity || 'NOR';
+        const offeredScore = RARITY_SCORE_MAP[offeredRarity] || 1;
+        if (hScore < offeredScore) return false;
+      } else if (wantRarity === 'RANK_S') {
+        if (hScore < 5) return false;
+      } else if (wantRarity === 'RANK_A') {
+        if (hScore < 4) return false;
+      } else if (wantRarity === 'RANK_B') {
+        if (hScore < 3) return false;
+      } else if (wantRarity === 'RANK_C') {
+        if (hScore < 2) return false;
+      } else if (hRarity !== wantRarity) {
+        return false;
+      }
+    }
+
+    // 2. 指定馬名 / ID
     const wantName = getVal('want_horse_name', 'wantHorseName');
     const wantId = getVal('want_horse_id', 'wantHorseId');
     if (wantName) {
       if (!horse.name || !horse.name.includes(wantName)) return false;
     } else if (wantId) {
       if (String(horse.horse_id ?? horse.id) !== String(wantId)) return false;
-    }
-
-    // 2. レアリティ
-    const wantRarity = getVal('want_rarity', 'wantRarity');
-    if (wantRarity) {
-      const rarityOrder = { 'N': 1, 'R': 2, 'SR': 3, 'SSR': 4, 'UR': 5, 'PRR': 6 };
-      const hRank = rarityOrder[horse.rarity] || 0;
-      if (wantRarity === 'SAME') {
-        const offeredRank = rarityOrder[trade.offered_rarity] || 0;
-        if (hRank < offeredRank) return false;
-      } else if (wantRarity === 'UR') {
-        if (hRank < 5) return false;
-      } else if (wantRarity === 'SSR') {
-        if (hRank < 4) return false;
-      } else if (horse.rarity !== wantRarity) {
-        return false;
-      }
     }
 
     // 3. 世代
@@ -635,23 +616,6 @@ function isMatchCondition(horse, trade) {
         }
       }
     });
-
-    if (availableCards.length === 0) {
-      listEl.innerHTML = '<div style="padding:10px; font-size:11px; text-align:center; color:#d93838;">⚠️ 条件に適合する所持カードがありません</div>';
-    } else {
-      availableCards.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'select-card-item';
-        div.innerHTML = `<span>[${item.horse.rarity || 'N'}] ${item.horse.name}</span>`;
-        div.onclick = () => {
-          document.querySelectorAll('.select-card-item').forEach(el => el.classList.remove('selected'));
-          div.classList.add('selected');
-          selectedOfferHorseId = item.id;
-          document.getElementById('btnSubmitApply').disabled = false;
-        };
-        listEl.appendChild(div);
-      });
-    }
 
     document.getElementById('applyModal').classList.add('active');
   };
