@@ -32,29 +32,30 @@ const OVERSEAS_TRACKS = [
 /**
  * 馬の本来の脚質（8種類）とレースペースに応じたボーナスPtを取得
  */
-function getHorseStylePaceBonus(horseStyle, pace) {
-  const style = String(horseStyle || "").trim();
+function getHorseStylePaceBonus(horseStyleInput, racePace) {
+  const horseStyle = String(horseStyleInput || "").trim();
+  const pace = String(racePace || "").trim();
 
-  if (style === "大逃" || style === "大逃げ") {
+  if (horseStyle === "大逃") {
     if (pace === "超ハイペース") return 2;
     if (pace === "ハイペース") return 1;
-  } else if (style === "逃げ" || style === "逃") {
+  } else if (horseStyle === "逃げ" || horseStyle === "逃") {
     if (pace === "スローペース") return 2;
-  } else if (style === "先行") {
+  } else if (horseStyle === "先行") {
     if (pace === "スローペース") return 1;
     if (pace === "ミドルペース") return 2;
-  } else if (style === "好位") {
+  } else if (horseStyle === "好位") {
     if (pace === "スローペース") return 1;
     if (pace === "ミドルペース") return 2;
-    if (pace === "乱ペース") return 1;
-  } else if (style === "差し") {
+    if (pace === "乱ペース" || pace.includes("波乱")) return 1;
+  } else if (horseStyle === "差し") {
     if (pace === "ミドルペース" || pace === "ハイペース" || pace === "超ハイペース") return 1;
-  } else if (style === "追込") {
+  } else if (horseStyle === "追込") {
     if (pace === "超ハイペース") return 2;
     if (pace === "ハイペース") return 1;
-  } else if (style === "自在") {
+  } else if (horseStyle === "自在") {
     if (pace === "ハイペース" || pace === "ミドルペース" || pace === "スローペース") return 1;
-  } else if (style === "逃追") {
+  } else if (horseStyle === "逃追") {
     if (pace === "ハイペース" || pace === "超ハイペース") return 1;
   }
 
@@ -64,17 +65,18 @@ function getHorseStylePaceBonus(horseStyle, pace) {
 /**
  * 作戦の脚質（4種類: 逃げ/先行/差し/追込）とレースペースに応じたボーナスPtを取得
  */
-function getTacticPaceBonus(tacticStyle, pace) {
-  const style = String(tacticStyle || "").trim();
+function getTacticPaceBonus(tacticStyleInput, racePace) {
+  const tacticStyle = String(tacticStyleInput || "").trim();
+  const pace = String(racePace || "").trim();
 
-  if (style === "逃げ") {
+  if (tacticStyle === "逃げ") {
     if (pace === "スローペース") return 2;
-  } else if (style === "先行") {
+  } else if (tacticStyle === "先行") {
     if (pace === "ミドルペース") return 2;
     if (pace === "スローペース") return 1;
-  } else if (style === "差し") {
+  } else if (tacticStyle === "差し") {
     if (pace === "ミドルペース" || pace === "ハイペース" || pace === "超ハイペース") return 1;
-  } else if (style === "追込") {
+  } else if (tacticStyle === "追込") {
     if (pace === "超ハイペース") return 2;
     if (pace === "ハイペース") return 1;
   }
@@ -220,7 +222,7 @@ function determinePace(horses, raceMaster, trackCondition) {
     } else {
       tactic = String(h.tactic || "");
     }
-    return style === "逃げ" || tactic.includes("逃げ") || tactic === "ハナにこだわる";
+    return style === "逃げ" || style === "大逃" || tactic.includes("逃げ") || tactic === "ハナにこだわる";
   });
 
   const leadCount = leadHorses.length;
@@ -260,11 +262,11 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
   
   let tacticStr = "";
   if (typeof horse.tactic === "object" && horse.tactic !== null) {
-    tacticStr = horse.tactic.style || "";
+    tacticStr = horse.tactic.style || horse.tactic.name || "";
   } else {
     tacticStr = String(horse.tactic || "");
   }
-  const isEscape = (horse.style || tacticStr).includes("逃げ");
+  const isEscape = (horse.style || tacticStr).includes("逃げ") || (horse.style || "") === "大逃";
 
   if (condition.startsWith("track_")) {
     const venue = condition.replace("track_", "");
@@ -312,8 +314,8 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
     case "single_escape": {
       const leadHorses = allHorses.filter(h => {
         const style = h.style || h.running_style || "";
-        let t = typeof h.tactic === "object" ? (h.tactic.style || "") : String(h.tactic || "");
-        return style === "逃げ" || t.includes("逃げ") || t === "ハナにこだわる";
+        let t = typeof h.tactic === "object" ? (h.tactic.style || h.tactic.name || "") : String(h.tactic || "");
+        return style === "逃げ" || style === "大逃" || t.includes("逃げ") || t === "ハナにこだわる";
       });
 
       if (leadHorses.length !== 1) return false;
@@ -409,12 +411,11 @@ function processMarkStrategy(resultList) {
     if (!isEligibleForAbility(horse) || !Array.isArray(horse.ability)) return;
     if (!horse.ability.includes("マーク屋")) return;
 
-    let currentTactic = typeof horse.tactic === "object" ? (horse.tactic.style || "") : String(horse.tactic || "");
+    let currentTactic = typeof horse.tactic === "object" ? (horse.tactic.style || horse.tactic.name || "") : String(horse.tactic || "");
     if (currentTactic.includes("先行マーク") || currentTactic === "マーク") {
       const opponent = horse.isPlayer ? cpu : player;
       if (opponent && opponent.tactic) {
         horse.tactic = opponent.tactic;
-        horse.style = opponent.tactic;
         if (!horse.activated_abilities) horse.activated_abilities = [];
         if (!horse.activated_abilities.includes("マーク屋")) {
           horse.activated_abilities.push("マーク屋");
@@ -687,7 +688,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     let tacticCategory = "";
 
     if (typeof h.tactic === "object" && h.tactic !== null) {
-      tacticCategory = h.tactic.style || "";
+      tacticCategory = h.tactic.style || h.tactic.category || "";
     } else {
       const tacticStr = String(h.tactic_style || h.target_style || h.tactic || "");
       if (tacticStr.includes("逃げ") || tacticStr.includes("ハナ")) {
@@ -715,7 +716,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     const horseStyle = String(h.style || h.running_style || h.horse_style || "");
     let styleCalcPt = 0;
 
-    if (horseStyle.includes("大逃")) {
+    if (horseStyle === "大逃") {
       styleCalcPt = tacticStylePt + 50;
     } else if (horseStyle.includes("逃げ") || horseStyle === "逃") {
       styleCalcPt = tacticStylePt + 40;
@@ -825,10 +826,10 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       statScore = (spdBase + spdStrat) + (stmBase + stmStrat);
     }
 
-    // 作戦の脚質（4種類）カテゴリ判定
+    // 1. 作戦の脚質（4種類）カテゴリ判定
     let currentTacticStyle = "";
     if (typeof h.tactic === "object" && h.tactic !== null) {
-      currentTacticStyle = h.tactic.style || "";
+      currentTacticStyle = h.tactic.style || h.tactic.category || "";
     } else {
       const tStr = String(h.tactic_style || h.target_style || h.tactic || "");
       if (tStr.includes("逃げ")) currentTacticStyle = "逃げ";
@@ -837,12 +838,18 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       else if (tStr.includes("追込")) currentTacticStyle = "追込";
     }
 
-    // ★ 作戦の脚質ボーナス（レースペース依存に統一）
+    // ★ 作戦の脚質ボーナス計算（独立関数で取得）
     styleBonusPt = getTacticPaceBonus(currentTacticStyle, selectedPace);
 
-    // ★ 馬の本来の脚質ボーナス（レースペース依存）
+    // 2. 馬本来の脚質（8種類）を取得
     const rawHorseStyle = h.style || h.running_style || h.horse_style || "";
+
+    // ★ 馬本来の脚質ボーナス計算（独立関数で取得）
     horseStyleBonusPt = getHorseStylePaceBonus(rawHorseStyle, selectedPace);
+
+    // 画面表示用プロパティを安全に格納（履歴等の表記用）
+    h.original_horse_style = rawHorseStyle;
+    h.display_tactic_name = (typeof h.tactic === "object" && h.tactic !== null) ? (h.tactic.name || h.tactic.style || "") : String(h.tactic || "");
 
     // 前残り・前崩れ（位置取りによる加減算）
     if (selectedBranch.position_bonus_type === "direct_asc") {
