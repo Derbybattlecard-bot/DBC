@@ -1,10 +1,5 @@
 <!DOCTYPE html>
 <html lang="ja">
-  <!-- 初期状態は非表示(display: none) -->
-<a href="admin-trade.html" id="adminMenuBtn" class="btn-admin" style="display: none;">
-  ⚙️ CPUトレード管理
-</a>
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -52,6 +47,18 @@
       align-items: center;
       gap: 4px;
       background: #0d4220;
+      color: #ffffff;
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .btn-admin {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #c29b1d;
       color: #ffffff;
       text-decoration: none;
       padding: 6px 12px;
@@ -119,7 +126,6 @@
     .card-rarity { font-size: 10px; font-weight: bold; color: var(--accent-gold); }
     .card-name { font-size: 14px; font-weight: bold; color: var(--header-green); }
 
-    /* 希望条件表示エリア */
     .want-condition {
       background: #f2f8f3;
       border: 1px solid var(--border-green);
@@ -216,6 +222,8 @@
 <div class="container">
   <div class="header-bar">
     <a href="index.html" class="btn-home">🏠 ホーム</a>
+    <!-- 管理者判定時に表示されるボタン -->
+    <a href="admin-trade.html" id="adminMenuBtn" class="btn-admin" style="display: none;">⚙️ CPU管理</a>
     <div class="page-title">🔁 トレード掲示板</div>
   </div>
 
@@ -247,25 +255,11 @@
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
   import { cancelTradeListing, executeTradeTransaction } from './js/trade-service.js';
-import { auth } from './firebase-config.js';
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-// 管理者のUIDを定義
-const ADMIN_UIDS = [
-  "z3k1aaK9ULg6Hz31rMS6Dc1od693"
-];
-
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    // ログインユーザーが管理者の場合のみ、ボタンを表示する
-    if (ADMIN_UIDS.includes(user.uid)) {
-      const adminBtn = document.getElementById('adminMenuBtn');
-      if (adminBtn) {
-        adminBtn.style.display = 'inline-block';
-      }
-    }
-  }
-});
+  // 管理者のUID設定
+  const ADMIN_UIDS = [
+    "z3k1aaK9ULg6Hz31rMS6Dc1od693"
+  ];
 
   let HORSES_MASTER = {};
   let currentUser = null;
@@ -280,6 +274,14 @@ onAuthStateChanged(auth, (user) => {
       return;
     }
     currentUser = user;
+
+    // ログイン中のユーザーが管理者の場合、管理ボタンを表示
+    if (ADMIN_UIDS.includes(user.uid)) {
+      const adminBtn = document.getElementById('adminMenuBtn');
+      if (adminBtn) {
+        adminBtn.style.display = 'inline-flex';
+      }
+    }
 
     try {
       const res = await fetch('./data/horses_master.json');
@@ -339,11 +341,9 @@ onAuthStateChanged(auth, (user) => {
     }
   }
 
-  // 出品条件をタグリストとして解析生成するヘルパー関数（修正版）
   function getConditionBadges(trade) {
     const badges = [];
 
-    // 各階層・名前付け（snake_case / camelCase）のプロパティを横断的に検索する共通関数
     const getVal = (...keys) => {
       for (const k of keys) {
         if (trade[k] !== undefined && trade[k] !== null && trade[k] !== '' && trade[k] !== 'ANY') {
@@ -356,7 +356,6 @@ onAuthStateChanged(auth, (user) => {
       return null;
     };
 
-    // 1. 特定馬名 / ID
     const horseName = getVal('want_horse_name', 'wantHorseName');
     const horseId = getVal('want_horse_id', 'wantHorseId');
     if (horseName) {
@@ -365,7 +364,6 @@ onAuthStateChanged(auth, (user) => {
       badges.push({ text: `🐴 馬名: ${HORSES_MASTER[horseId].name}`, highlight: true });
     }
 
-    // 2. レアリティ
     const rarity = getVal('want_rarity', 'wantRarity');
     if (rarity) {
       let rText = rarity;
@@ -375,7 +373,6 @@ onAuthStateChanged(auth, (user) => {
       badges.push({ text: `⭐ ${rText}`, highlight: false });
     }
 
-    // 3. 世代
     const gen = getVal('want_gen', 'wantGen');
     if (gen) {
       let gText = `${gen} 世代`;
@@ -384,19 +381,16 @@ onAuthStateChanged(auth, (user) => {
       badges.push({ text: `📅 ${gText}`, highlight: false });
     }
 
-    // 4. ポテンシャル
     const pot = getVal('want_potential', 'wantPotential');
     if (pot) {
       badges.push({ text: `⚡ ポテンシャル:${pot}`, highlight: false });
     }
 
-    // 5. 適性距離
     const dist = getVal('want_distance', 'wantDistance');
     if (dist) {
       badges.push({ text: `📏 ${dist}m`, highlight: false });
     }
 
-    // 6. バ場区分
     const track = getVal('want_track', 'wantTrack');
     if (track) {
       let tText = track;
@@ -406,7 +400,6 @@ onAuthStateChanged(auth, (user) => {
       badges.push({ text: `🏟️ ${tText}`, highlight: false });
     }
 
-    // 7. 性別
     const sex = getVal('want_sex', 'wantSex');
     if (sex) {
       let sText = sex;
