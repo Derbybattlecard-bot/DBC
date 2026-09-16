@@ -740,21 +740,35 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       let targetVal = 50;
       let targetStatName = "標準値";
 
-      if (selectedBranch.target_pool && selectedBranch.target_pool.length > 0) {
-        const randomKey = selectedBranch.target_pool[Math.floor(Math.random() * selectedBranch.target_pool.length)];
-        const keyName = `calc_${randomKey}`;
-        targetVal = h[keyName] ?? h[randomKey] ?? 0;
-        
-        if (randomKey === 'speed') targetStatName = 'SPD';
-        else if (randomKey === 'stamina') targetStatName = 'STM';
-        else if (randomKey === 'sharp') targetStatName = '瞬発';
-        else if (randomKey === 'jizoku') targetStatName = '持続';
-        else if (randomKey === 'guts') targetStatName = '根性';
-      }
+          if (selectedBranch.formula) {
+      let targetVal = 0;
+      let targetStatName = "パラメータ";
 
-      statScore = 30 - totalPot + targetVal;
-      formulaFormulaDetail = `30 - ポテ:${totalPot}(${basePotVal * potMultiplier}+${stratPotBase * potMultiplier}) + ${targetStatName}:${targetVal}`;
-    } 
+      // 抽選対象のパラメータプール（設定がない場合は主要5ステータスからランダム選別）
+      const targetPool = (selectedBranch.target_pool && selectedBranch.target_pool.length > 0)
+        ? selectedBranch.target_pool
+        : ['speed', 'stamina', 'sharp', 'jizoku', 'guts'];
+
+      const randomKey = targetPool[Math.floor(Math.random() * targetPool.length)];
+      const keyName = `calc_${randomKey}`;
+      targetVal = h[keyName] ?? h[randomKey] ?? 0;
+      
+      const statNameMap = {
+        speed: 'SPD',
+        stamina: 'STM',
+        sharp: '瞬発',
+        jizoku: '持続',
+        guts: '根性'
+      };
+      targetStatName = statNameMap[randomKey] || randomKey;
+
+      // 【修正】 (30 - 馬単体のポテンシャル) + (作戦レベル × 2) + ランダムパラメータ1個
+      statScore = (30 - basePotVal) + stratPotBase + targetVal;
+      
+      // 結果テーブル用 内訳テキスト
+      formulaFormulaDetail = `30 - 馬ポテ:${basePotVal} + 作戦Lv:${stratPotBase} + ${targetStatName}:${targetVal}`;
+    }
+
     else if (selectedBranch.key_stats && selectedBranch.key_stats.length > 0) {
       selectedBranch.key_stats.forEach(key => {
         if (key === 'potential' || key === 'current_potential') {
