@@ -1,5 +1,10 @@
 <!DOCTYPE html>
 <html lang="ja">
+  <!-- 初期状態は非表示(display: none) -->
+<a href="admin-trade.html" id="adminMenuBtn" class="btn-admin" style="display: none;">
+  ⚙️ CPUトレード管理
+</a>
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -47,18 +52,6 @@
       align-items: center;
       gap: 4px;
       background: #0d4220;
-      color: #ffffff;
-      text-decoration: none;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: bold;
-    }
-    .btn-admin {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      background: #c29b1d;
       color: #ffffff;
       text-decoration: none;
       padding: 6px 12px;
@@ -126,6 +119,7 @@
     .card-rarity { font-size: 10px; font-weight: bold; color: var(--accent-gold); }
     .card-name { font-size: 14px; font-weight: bold; color: var(--header-green); }
 
+    /* 希望条件表示エリア */
     .want-condition {
       background: #f2f8f3;
       border: 1px solid var(--border-green);
@@ -222,8 +216,6 @@
 <div class="container">
   <div class="header-bar">
     <a href="index.html" class="btn-home">🏠 ホーム</a>
-    <!-- 管理者判定時に表示されるボタン -->
-    <a href="admin-trade.html" id="adminMenuBtn" class="btn-admin" style="display: none;">⚙️ CPU管理</a>
     <div class="page-title">🔁 トレード掲示板</div>
   </div>
 
@@ -256,10 +248,21 @@
   import { collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
   import { cancelTradeListing, executeTradeTransaction } from './js/trade-service.js';
 
-  // 管理者のUID設定
+  // 管理者のUIDを定義
   const ADMIN_UIDS = [
     "z3k1aaK9ULg6Hz31rMS6Dc1od693"
   ];
+
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      if (ADMIN_UIDS.includes(user.uid)) {
+        const adminBtn = document.getElementById('adminMenuBtn');
+        if (adminBtn) {
+          adminBtn.style.display = 'inline-block';
+        }
+      }
+    }
+  });
 
   let HORSES_MASTER = {};
   let currentUser = null;
@@ -274,14 +277,6 @@
       return;
     }
     currentUser = user;
-
-    // ログイン中のユーザーが管理者の場合、管理ボタンを表示
-    if (ADMIN_UIDS.includes(user.uid)) {
-      const adminBtn = document.getElementById('adminMenuBtn');
-      if (adminBtn) {
-        adminBtn.style.display = 'inline-flex';
-      }
-    }
 
     try {
       const res = await fetch('./data/horses_master.json');
@@ -341,6 +336,7 @@
     }
   }
 
+  // 出品条件をタグリストとして解析生成するヘルパー関数
   function getConditionBadges(trade) {
     const badges = [];
 
@@ -356,6 +352,7 @@
       return null;
     };
 
+    // 1. 特定馬名 / ID
     const horseName = getVal('want_horse_name', 'wantHorseName');
     const horseId = getVal('want_horse_id', 'wantHorseId');
     if (horseName) {
@@ -364,6 +361,7 @@
       badges.push({ text: `🐴 馬名: ${HORSES_MASTER[horseId].name}`, highlight: true });
     }
 
+    // 2. レアリティ
     const rarity = getVal('want_rarity', 'wantRarity');
     if (rarity) {
       let rText = rarity;
@@ -373,6 +371,7 @@
       badges.push({ text: `⭐ ${rText}`, highlight: false });
     }
 
+    // 3. 世代
     const gen = getVal('want_gen', 'wantGen');
     if (gen) {
       let gText = `${gen} 世代`;
@@ -381,16 +380,19 @@
       badges.push({ text: `📅 ${gText}`, highlight: false });
     }
 
+    // 4. ポテンシャル
     const pot = getVal('want_potential', 'wantPotential');
     if (pot) {
       badges.push({ text: `⚡ ポテンシャル:${pot}`, highlight: false });
     }
 
+    // 5. 適性距離
     const dist = getVal('want_distance', 'wantDistance');
     if (dist) {
       badges.push({ text: `📏 ${dist}m`, highlight: false });
     }
 
+    // 6. バ場区分
     const track = getVal('want_track', 'wantTrack');
     if (track) {
       let tText = track;
@@ -400,6 +402,7 @@
       badges.push({ text: `🏟️ ${tText}`, highlight: false });
     }
 
+    // 7. 性別
     const sex = getVal('want_sex', 'wantSex');
     if (sex) {
       let sText = sex;
@@ -414,6 +417,94 @@
     }
 
     return badges;
+  }
+
+  // 所持カードが出品者の希望条件を満たしているか判定する関数
+  function isMatchCondition(horse, trade) {
+    if (!horse || !trade) return false;
+
+    const getVal = (...keys) => {
+      for (const k of keys) {
+        if (trade[k] !== undefined && trade[k] !== null && trade[k] !== '' && trade[k] !== 'ANY') {
+          return trade[k];
+        }
+        if (trade.extra_conditions && trade.extra_conditions[k] !== undefined && trade.extra_conditions[k] !== null && trade.extra_conditions[k] !== '' && trade.extra_conditions[k] !== 'ANY') {
+          return trade.extra_conditions[k];
+        }
+      }
+      return null;
+    };
+
+    // 1. 指定馬名 / ID
+    const wantName = getVal('want_horse_name', 'wantHorseName');
+    const wantId = getVal('want_horse_id', 'wantHorseId');
+    if (wantName) {
+      if (!horse.name || !horse.name.includes(wantName)) return false;
+    } else if (wantId) {
+      if (String(horse.horse_id ?? horse.id) !== String(wantId)) return false;
+    }
+
+    // 2. レアリティ
+    const wantRarity = getVal('want_rarity', 'wantRarity');
+    if (wantRarity) {
+      const rarityOrder = { 'N': 1, 'R': 2, 'SR': 3, 'SSR': 4, 'UR': 5, 'PRR': 6 };
+      const hRank = rarityOrder[horse.rarity] || 0;
+      if (wantRarity === 'SAME') {
+        const offeredRank = rarityOrder[trade.offered_rarity] || 0;
+        if (hRank < offeredRank) return false;
+      } else if (wantRarity === 'UR') {
+        if (hRank < 5) return false;
+      } else if (wantRarity === 'SSR') {
+        if (hRank < 4) return false;
+      } else if (horse.rarity !== wantRarity) {
+        return false;
+      }
+    }
+
+    // 3. 世代
+    const wantGen = getVal('want_gen', 'wantGen');
+    if (wantGen) {
+      const genNum = parseInt(horse.generation || horse.gen || 0);
+      if (wantGen === '1980_BEFORE') {
+        if (genNum > 1980) return false;
+      } else if (wantGen === '1990_BEFORE') {
+        if (genNum < 1981 || genNum > 1990) return false;
+      } else if (String(genNum) !== String(wantGen)) {
+        return false;
+      }
+    }
+
+    // 4. ポテンシャル
+    const wantPot = getVal('want_potential', 'wantPotential');
+    if (wantPot && String(horse.potential) !== String(wantPot)) return false;
+
+    // 5. 適性距離
+    const wantDist = getVal('want_distance', 'wantDistance');
+    if (wantDist) {
+      const minD = horse.min_distance || horse.distance_min || 0;
+      const maxD = horse.max_distance || horse.distance_max || 9999;
+      const reqD = parseInt(wantDist);
+      if (reqD < minD || reqD > maxD) return false;
+    }
+
+    // 6. バ場区分
+    const wantTrack = getVal('want_track', 'wantTrack');
+    if (wantTrack) {
+      const track = horse.track_aptitude || horse.track || '';
+      if (wantTrack === 'TURF' && !track.includes('芝')) return false;
+      if (wantTrack === 'DIRT' && !track.includes('ダ')) return false;
+    }
+
+    // 7. 性別
+    const wantSex = getVal('want_sex', 'wantSex');
+    if (wantSex) {
+      const sex = horse.sex || '';
+      if (wantSex === 'MALE' && sex !== '牡') return false;
+      if (wantSex === 'FEMALE' && sex !== '牝') return false;
+      if (wantSex === 'GELDING' && sex !== 'セン') return false;
+    }
+
+    return true;
   }
 
   function createTradeCardDOM(trade) {
@@ -482,13 +573,18 @@
       const info = userInventoryMap[hId];
       const count = typeof info === 'object' ? (info.count || 0) : info;
       const locked = typeof info === 'object' ? (info.locked_count || 0) : 0;
+      
+      // 余剰カードがあり、かつ条件を満たすもののみ追加
       if (count - locked > 0 && HORSES_MASTER[hId]) {
-        availableCards.push({ id: hId, horse: HORSES_MASTER[hId] });
+        const horse = HORSES_MASTER[hId];
+        if (isMatchCondition(horse, activeTradeData)) {
+          availableCards.push({ id: hId, horse: horse });
+        }
       }
     });
 
     if (availableCards.length === 0) {
-      listEl.innerHTML = '<div style="padding:10px; font-size:11px; text-align:center;">交換に出せる所持カードがありません</div>';
+      listEl.innerHTML = '<div style="padding:10px; font-size:11px; text-align:center; color:#d93838;">⚠️ 条件に適合する所持カードがありません</div>';
     } else {
       availableCards.forEach(item => {
         const div = document.createElement('div');
