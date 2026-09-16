@@ -618,7 +618,7 @@ function applyRankSwapAbilities(resultList) {
 
       if (!horse.activated_abilities) horse.activated_abilities = [];
       const hasNameWakiyaku = horse.ability.includes("名脇役");
-    const hasGentleman = horse.ability.includes("ジェントルマン");
+    const hasGentleman = horse.ability.includes("シルバーコレクター");
 
     if (!hasNameWakiyaku && !hasGentleman) return;
 
@@ -640,7 +640,7 @@ function applyRankSwapAbilities(resultList) {
       resultList[currentIdx] = temp;
 
       if (!horse.activated_abilities) horse.activated_abilities = [];
-      const activeName = hasNameWakiyaku ? "名脇役" : "ジェントルマン";
+      const activeName = hasNameWakiyaku ? "名脇役" : "シルバーコレクター";
       if (!horse.activated_abilities.includes(activeName)) {
         horse.activated_abilities.push(activeName);
       }
