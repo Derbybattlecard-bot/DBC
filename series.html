@@ -82,6 +82,123 @@
       white-space: nowrap;
     }
 
+    /* オンライン対戦用シリーズ設定パネル */
+    .online-select-panel {
+      background: var(--card-bg);
+      border: 2px solid var(--cleared-border);
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .online-panel-title {
+      font-size: 13px;
+      font-weight: bold;
+      color: var(--header-green);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .online-slots-container {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .slot-box {
+      background: #ffffff;
+      border: 1.5px dashed var(--border-green);
+      border-radius: 6px;
+      padding: 8px 6px;
+      min-height: 52px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      position: relative;
+    }
+
+    .slot-box.filled {
+      border: 1.5px solid var(--header-green);
+      background: var(--card-inner-bg);
+    }
+
+    .slot-cat {
+      font-size: 9px;
+      color: var(--sub-text);
+      font-weight: bold;
+    }
+
+    .slot-name {
+      font-size: 11px;
+      font-weight: bold;
+      color: var(--header-green);
+      margin-top: 2px;
+      line-height: 1.2;
+    }
+
+    .slot-remove-btn {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: #e74c3c;
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      font-size: 10px;
+      line-height: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .btn-save-online {
+      width: 100%;
+      padding: 8px;
+      background: linear-gradient(135deg, #d4af37, #aa820a);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 12px;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .btn-save-online:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    /* ロック用スタイリング */
+    .locked-panel {
+      background: rgba(230, 230, 230, 0.9);
+      border: 1.5px solid #bbb;
+      border-radius: 8px;
+      padding: 14px;
+      text-align: center;
+      color: #666;
+    }
+
+    .locked-title {
+      font-weight: bold;
+      font-size: 13px;
+      color: #444;
+      margin-bottom: 4px;
+    }
+
+    .locked-desc {
+      font-size: 11px;
+    }
+
     /* 全体進行ステータス */
     .overall-stats {
       background: var(--card-bg);
@@ -228,6 +345,28 @@
       display: block;
     }
 
+    .online-select-action {
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .btn-select-series {
+      padding: 5px 12px;
+      font-size: 11px;
+      font-weight: bold;
+      border-radius: 4px;
+      border: 1px solid var(--header-green);
+      background: #fff;
+      color: var(--header-green);
+      cursor: pointer;
+    }
+
+    .btn-select-series.selected {
+      background: var(--header-green);
+      color: #fff;
+    }
+
     /* 過去最高成績カード */
     .best-record-box {
       background: var(--card-inner-bg);
@@ -325,6 +464,9 @@
     <h1>🏆 シリーズ図鑑 MODE</h1>
   </div>
 
+  <!-- オンライン対戦用シリーズ設定エリア -->
+  <div id="onlineSelectContainer"></div>
+
   <div class="overall-stats">
     <div class="stat-box">
       <span class="stat-label">解放済カテゴリ数</span>
@@ -344,7 +486,7 @@
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   const UNLOCK_STAGES = [
     { wins: 0, cat: "古馬東西", no: 1 },
@@ -393,6 +535,7 @@
   let globalUserData = null;
   let seriesMasterData = [];
   let HORSES_MASTER = {};
+  let selectedOnlineSeriesIds = [];
 
   function getNormalizedCategory(s) {
     if (!s) return "";
@@ -445,6 +588,7 @@
 
       if (userDoc.exists()) {
         globalUserData = userDoc.data();
+        selectedOnlineSeriesIds = globalUserData.selected_online_series || [];
       }
       seriesMasterData = seriesRes;
 
@@ -462,6 +606,7 @@
         s.series_no = catCounters[cat];
       });
 
+      renderOnlineSelectPanel();
       renderSeriesEncyclopedia();
     } catch (err) {
       console.error("図鑑データの読み込みエラー:", err);
@@ -479,6 +624,58 @@
       } catch (e) { }
     }
     throw new Error(`Failed to load ${filename}`);
+  }
+
+  // オンライン選出UIの描画
+  function renderOnlineSelectPanel() {
+    const totalWins = globalUserData?.total_wins ?? globalUserData?.record?.wins ?? 0;
+    const panelContainer = document.getElementById('onlineSelectContainer');
+
+    if (totalWins < 50) {
+      panelContainer.innerHTML = `
+        <div class="locked-panel">
+          <div class="locked-title">🔒 オンライン対戦用シリーズ設定（ロック中）</div>
+          <div class="locked-desc">通算50勝を達成すると、対戦用シリーズ（3枠）を設定可能になります（現在: ${totalWins}勝）</div>
+        </div>
+      `;
+      return;
+    }
+
+    let slotsHtml = '';
+    for (let i = 0; i < 3; i++) {
+      const seriesId = selectedOnlineSeriesIds[i];
+      const seriesObj = seriesMasterData.find(s => s.series_id === seriesId);
+      if (seriesObj) {
+        const catName = getNormalizedCategory(seriesObj);
+        slotsHtml += `
+          <div class="slot-box filled">
+            <button class="slot-remove-btn" onclick="removeOnlineSeries('${seriesId}')">✕</button>
+            <span class="slot-cat">${catName}</span>
+            <span class="slot-name">${seriesObj.series_name}</span>
+          </div>
+        `;
+      } else {
+        slotsHtml += `
+          <div class="slot-box">
+            <span class="slot-cat">枠 ${i + 1}</span>
+            <span class="slot-name" style="color: #aaa; font-weight: normal;">未選択</span>
+          </div>
+        `;
+      }
+    }
+
+    panelContainer.innerHTML = `
+      <div class="online-select-panel">
+        <div class="online-panel-title">
+          <span>⚔️ オンライン対戦用シリーズ（${selectedOnlineSeriesIds.length}/3）</span>
+          <span style="font-size: 10px; color: var(--sub-text);">※1カテゴリ1つまで</span>
+        </div>
+        <div class="online-slots-container">
+          ${slotsHtml}
+        </div>
+        <button class="btn-save-online" id="btnSaveOnline" onclick="saveOnlineSeriesSelection()">設定を保存する</button>
+      </div>
+    `;
   }
 
   function renderSeriesEncyclopedia() {
@@ -563,6 +760,15 @@
           </tr>
         `).join('');
 
+        const isSelectedForOnline = selectedOnlineSeriesIds.includes(series.series_id);
+        const onlineBtnHtml = totalWins >= 50 ? `
+          <div class="online-select-action">
+            <button class="btn-select-series ${isSelectedForOnline ? 'selected' : ''}" onclick="toggleOnlineSeries(event, '${series.series_id}')">
+              ${isSelectedForOnline ? '✓ オンライン選出中' : '+ オンライン対戦用に設定'}
+            </button>
+          </div>
+        ` : '';
+
         return `
           <div class="series-card ${isCleared ? 'cleared' : ''}">
             <div class="series-header" onclick="toggleCard(event, this)">
@@ -573,6 +779,7 @@
               <div class="toggle-icon">▼</div>
             </div>
             <div class="series-detail">
+              ${onlineBtnHtml}
               <div class="best-record-box">
                 <div class="best-record-info">
                   <span class="best-record-label">🏆 過去最高成績編成</span>
@@ -629,6 +836,65 @@
     event.stopPropagation();
     const card = headerEl.parentElement;
     card.classList.toggle('open');
+  };
+
+  // オンラインシリーズ選択処理（トグル）
+  window.toggleOnlineSeries = function(event, seriesId) {
+    event.stopPropagation();
+    
+    const index = selectedOnlineSeriesIds.indexOf(seriesId);
+    if (index > -1) {
+      selectedOnlineSeriesIds.splice(index, 1);
+    } else {
+      if (selectedOnlineSeriesIds.length >= 3) {
+        alert("オンライン対戦用に設定できるシリーズは最大3つまでです。");
+        return;
+      }
+
+      const targetSeries = seriesMasterData.find(s => s.series_id === seriesId);
+      const targetCat = getNormalizedCategory(targetSeries);
+
+      const hasSameCategory = selectedOnlineSeriesIds.some(id => {
+        const s = seriesMasterData.find(item => item.series_id === id);
+        return getNormalizedCategory(s) === targetCat;
+      });
+
+      if (hasSameCategory) {
+        alert(`「${targetCat}」カテゴリのシリーズは既に選出されています。1カテゴリにつき1つまで選択可能です。`);
+        return;
+      }
+
+      selectedOnlineSeriesIds.push(seriesId);
+    }
+
+    renderOnlineSelectPanel();
+    renderSeriesEncyclopedia();
+  };
+
+  window.removeOnlineSeries = function(seriesId) {
+    selectedOnlineSeriesIds = selectedOnlineSeriesIds.filter(id => id !== seriesId);
+    renderOnlineSelectPanel();
+    renderSeriesEncyclopedia();
+  };
+
+  window.saveOnlineSeriesSelection = async function() {
+    if (!currentUser) return;
+    const btn = document.getElementById('btnSaveOnline');
+    btn.disabled = true;
+    btn.textContent = '保存中...';
+
+    try {
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        selected_online_series: selectedOnlineSeriesIds
+      });
+      alert("オンライン対戦用シリーズを保存しました！");
+    } catch (err) {
+      console.error("保存失敗:", err);
+      alert("保存に失敗しました。");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '設定を保存する';
+    }
   };
 </script>
 
