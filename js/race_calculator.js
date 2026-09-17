@@ -671,6 +671,17 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     copy.phase1_abilities = [];
     copy.phase4_abilities = [];
     copy.activated_abilities = [];
+
+    // ★ 作戦(tactic)オブジェクトから strat_* パラメータを自動補填
+    if (typeof copy.tactic === "object" && copy.tactic !== null) {
+      const tac = copy.tactic;
+      ['speed', 'stamina', 'sharp', 'jizoku', 'guts'].forEach(key => {
+        if (copy[`strat_${key}`] === undefined || copy[`strat_${key}`] === null) {
+          copy[`strat_${key}`] = tac[`strat_${key}`] ?? tac[key] ?? 0;
+        }
+      });
+    }
+
     return copy;
   });
 
@@ -838,16 +849,16 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       else if (tStr.includes("追込")) currentTacticStyle = "追込";
     }
 
-    // ★ 作戦の脚質ボーナス計算（独立関数で取得）
+    // 作戦の脚質ボーナス計算
     styleBonusPt = getTacticPaceBonus(currentTacticStyle, selectedPace);
 
     // 2. 馬本来の脚質（8種類）を取得
     const rawHorseStyle = h.style || h.running_style || h.horse_style || "";
 
-    // ★ 馬本来の脚質ボーナス計算（独立関数で取得）
+    // 馬本来の脚質ボーナス計算
     horseStyleBonusPt = getHorseStylePaceBonus(rawHorseStyle, selectedPace);
 
-    // 画面表示用プロパティを安全に格納（履歴等の表記用）
+    // 画面表示用プロパティを安全に格納
     h.original_horse_style = rawHorseStyle;
     h.display_tactic_name = (typeof h.tactic === "object" && h.tactic !== null) ? (h.tactic.name || h.tactic.style || "") : String(h.tactic || "");
 
@@ -951,4 +962,9 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     branch: selectedBranch,
     commentary: commentaryData
   };
-        }
+}
+
+
+
+
+
