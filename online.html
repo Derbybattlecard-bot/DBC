@@ -6,16 +6,12 @@
 <title>DERBY BATTLE CARD - オンライン対戦ロビー (online.html)</title>
 <style>
   :root {
-    /* 紫メインのテーマカラー */
     --bg-gradient: linear-gradient(135deg, #2e1065 0%, #4c1d95 50%, #5b21b6 100%);
     --panel-bg: rgba(255, 255, 255, 0.95);
     --accent-color: #6b21a8;
-    --accent-hover: #581c87;
     --accent-gold: #fbbf24;
     --accent-orange: #f97316;
-    --accent-orange-hover: #ea580c;
     --text-main: #1e1b4b;
-    --text-sub: #5b21b6;
     --border-color: #ddd6fe;
   }
   body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--bg-gradient); color: var(--text-main); margin: 0; padding: 15px; font-size: 13px; display: flex; justify-content: center; min-height: 100vh; }
@@ -38,26 +34,24 @@
   .card-tag { position: absolute; top: 0; right: 0; background: var(--accent-color); color: #fff; font-size: 10px; font-weight: bold; padding: 3px 10px; border-bottom-left-radius: 8px; }
   .card-tag.gold { background: #d97706; }
 
-  .card-icon { font-size: 32px; margin-bottom: -4px; }
   .card-title { font-size: 16px; font-weight: 800; color: var(--text-main); margin: 0; }
-  .card-desc { font-size: 11px; color: #6b7280; margin: 0; line-height: 1.4; }
+  
+  /* モード選択タブ */
+  .mode-select-group { display: flex; gap: 6px; width: 100%; max-width: 340px; justify-content: center; }
+  .mode-btn { flex: 1; padding: 8px 4px; border: 1.5px solid var(--border-color); background: #f3e8ff; color: var(--text-main); font-size: 11px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+  .mode-btn.active { background: var(--accent-color); color: #ffffff; border-color: var(--accent-color); box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
 
   .btn-match { background: linear-gradient(135deg, #f97316, #ea580c); color: white; border: none; padding: 12px 24px; border-radius: 20px; font-weight: bold; font-size: 14px; cursor: pointer; text-align: center; box-shadow: 0 4px 0 #c2410c; width: 100%; max-width: 280px; transition: all 0.1s; }
   .btn-match:active { transform: translateY(2px); box-shadow: none; }
 
   .passcode-input-group { display: flex; gap: 8px; width: 100%; max-width: 280px; justify-content: center; }
   .passcode-input { width: 140px; text-align: center; font-size: 18px; font-weight: bold; letter-spacing: 4px; padding: 8px; border: 2px solid var(--border-color); border-radius: 8px; outline: none; }
-  .passcode-input:focus { border-color: var(--accent-color); }
   
-  /* マッチング検索中モーダル */
+  /* モーダル */
   .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 15px; }
   .modal-content { background: #fff; border-radius: 12px; padding: 30px 20px; width: 100%; max-width: 320px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
-  
   .spinner { width: 50px; height: 50px; border: 5px solid #f3e8ff; border-top: 5px solid var(--accent-color); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px auto; }
   @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-  .searching-title { font-size: 16px; font-weight: bold; color: var(--accent-color); margin-bottom: 6px; }
-  .searching-sub { font-size: 12px; color: #6b7280; margin-bottom: 20px; }
   .btn-cancel { background: #9ca3af; color: white; border: none; padding: 8px 20px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; }
 </style>
 </head>
@@ -65,7 +59,7 @@
 
 <div class="container">
   <div class="header-panel">
-    <a href="index.html" class="btn-back">← ホームへ</a>
+    <a href="index.html" class="btn-back">← メニュー</a>
     <div class="header-right">
       <div id="userWinsBadge" class="wins-badge">通算 0 勝</div>
       <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中</div>
@@ -80,18 +74,31 @@
   <!-- 全国ランダムマッチ -->
   <div class="match-card random">
     <div class="card-tag gold">QUICK</div>
-    <div class="card-icon">⚔️</div>
+    <div class="card-icon" style="font-size: 28px;">⚔️</div>
     <h3 class="card-title">全国ランダムマッチ</h3>
-    <p class="card-desc">対戦相手を自動検索します。<br>手軽に今すぐ戦いたい方にオススメ！</p>
+    
+    <!-- モード選択 (ライト/通常) -->
+    <div class="mode-select-group">
+      <button class="mode-btn active" id="btn-rand-light" onclick="selectRandomMode('light')">ライト<br>(2デック/3回戦)</button>
+      <button class="mode-btn" id="btn-rand-standard" onclick="selectRandomMode('standard')">通常<br>(2デック/5回戦)</button>
+    </div>
+
     <button class="btn-match" onclick="startMatching('random')">対戦相手を探す</button>
   </div>
 
   <!-- あい言葉マッチ -->
   <div class="match-card private">
     <div class="card-tag">PRIVATE</div>
-    <div class="card-icon">🔑</div>
+    <div class="card-icon" style="font-size: 28px;">🔑</div>
     <h3 class="card-title">あい言葉マッチ</h3>
-    <p class="card-desc">同じ「あい言葉」を入力した友達と対戦できます。</p>
+    
+    <!-- モード選択 (ライト/通常/サバイバル) -->
+    <div class="mode-select-group">
+      <button class="mode-btn active" id="btn-priv-light" onclick="selectPrivateMode('light')">ライト<br>(3回戦)</button>
+      <button class="mode-btn" id="btn-priv-standard" onclick="selectPrivateMode('standard')">通常<br>(5回戦)</button>
+      <button class="mode-btn" id="btn-priv-survival" onclick="selectPrivateMode('survival')">サバイバル<br>(1デック/3回戦)</button>
+    </div>
+
     <div class="passcode-input-group">
       <input type="text" id="passcodeInput" class="passcode-input" placeholder="0000" maxlength="4" pattern="[0-9]*" inputmode="numeric">
       <button class="btn-match" style="width: auto; padding: 8px 16px; font-size: 12px;" onclick="startMatching('private')">参戦</button>
@@ -103,8 +110,8 @@
 <div class="modal-overlay" id="searchingModal">
   <div class="modal-content">
     <div class="spinner"></div>
-    <div class="searching-title" id="searchingTitle">対戦相手を検索中…</div>
-    <div class="searching-sub" id="searchingSub">しばらくお待ちください</div>
+    <div style="font-size:16px; font-weight:bold; color:var(--accent-color);" id="searchingTitle">対戦相手を検索中…</div>
+    <div style="font-size:12px; color:#6b7280; margin-bottom:20px;" id="searchingSub">しばらくお待ちください</div>
     <button class="btn-cancel" onclick="cancelMatching()">検索をキャンセル</button>
   </div>
 </div>
@@ -118,18 +125,33 @@
   let matchingUnsubscribe = null;
   let currentQueueId = null;
 
+  let selectedRandomMode = 'light';
+  let selectedPrivateMode = 'light';
+
+  // モード選択UI切り替え
+  window.selectRandomMode = function(mode) {
+    selectedRandomMode = mode;
+    document.getElementById('btn-rand-light').classList.toggle('active', mode === 'light');
+    document.getElementById('btn-rand-standard').classList.toggle('active', mode === 'standard');
+  };
+
+  window.selectPrivateMode = function(mode) {
+    selectedPrivateMode = mode;
+    document.getElementById('btn-priv-light').classList.toggle('active', mode === 'light');
+    document.getElementById('btn-priv-standard').classList.toggle('active', mode === 'standard');
+    document.getElementById('btn-priv-survival').classList.toggle('active', mode === 'survival');
+  };
+
   onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = 'auth.html'; return; }
     currentUser = user;
     try {
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) {
-        const data = userDoc.data();
-        document.getElementById('userWinsBadge').textContent = `通算 ${data.total_wins || 0} 勝`;
+        document.getElementById('userWinsBadge').textContent = `通算 ${userDoc.data().total_wins || 0} 勝`;
       }
       document.getElementById('syncStatus').textContent = "✅";
     } catch (err) {
-      console.error("初期化エラー:", err);
       document.getElementById('syncStatus').textContent = "❌";
     }
   });
@@ -137,53 +159,54 @@
   window.startMatching = async function(type) {
     if (!currentUser) return;
 
-    let matchKey = "random";
-    if (type === 'private') {
+    let targetMode = selectedRandomMode;
+    if (type === 'random') {
+      currentQueueId = `queue_random_${selectedRandomMode}`;
+    } else {
       const code = document.getElementById('passcodeInput').value.trim();
       if (!code || code.length < 4) {
         alert("4桁のあい言葉を入力してください");
         return;
       }
-      matchKey = `code_${code}`;
+      targetMode = selectedPrivateMode;
+      currentQueueId = `queue_code_${code}`;
     }
 
     document.getElementById('searchingTitle').textContent = type === 'private' ? `あい言葉「${document.getElementById('passcodeInput').value}」を検索中…` : "対戦相手を検索中…";
     document.getElementById('searchingModal').style.display = "flex";
 
-    currentQueueId = `queue_${matchKey}`;
     const queueRef = doc(db, "match_queue", currentQueueId);
 
     try {
       const snap = await getDoc(queueRef);
 
       if (snap.exists() && snap.data().host_uid !== currentUser.uid) {
-        // 先客がいる場合はマッチング成立！
+        // 既に入室しているプレイヤーがいる場合
         const hostUid = snap.data().host_uid;
-        await deleteDoc(queueRef); // キューを消去
+        const matchedMode = snap.data().mode || targetMode; // ホストのモードを優先
+        await deleteDoc(queueRef);
 
-        // MatchRoom生成
         const roomId = `room_${Date.now()}`;
-        await setDoc(doc(db, "online_matches", roomId), {
+        await setDoc(doc(doc(db, "online_matches", roomId)), {
           player1: hostUid,
           player2: currentUser.uid,
+          mode: matchedMode,
           status: "ready",
           created_at: new Date().toISOString()
         });
 
-        // 自分をonbattleへ遷移
-        proceedToBattle(roomId, "guest");
+        proceedToBattle(roomId, "guest", matchedMode);
       } else {
-        // 先客がいない場合は自分がホストとして待機
+        // 自身がホストとして待機
         await setDoc(queueRef, {
           host_uid: currentUser.uid,
+          mode: targetMode,
           created_at: new Date().toISOString()
         });
 
-        // 相手が来るのを監視
         matchingUnsubscribe = onSnapshot(queueRef, (docSnap) => {
           if (!docSnap.exists()) {
-            // キューが消えた＝ゲストに拾われてルームが作られた
-            proceedToBattle(currentQueueId, "host");
+            proceedToBattle(currentQueueId, "host", targetMode);
           }
         });
       }
@@ -195,25 +218,17 @@
   };
 
   window.cancelMatching = async function() {
-    if (matchingUnsubscribe) {
-      matchingUnsubscribe();
-      matchingUnsubscribe = null;
-    }
+    if (matchingUnsubscribe) { matchingUnsubscribe(); matchingUnsubscribe = null; }
     if (currentQueueId) {
-      try {
-        await deleteDoc(doc(db, "match_queue", currentQueueId));
-      } catch (e) {
-        console.warn("キュー削除スキップ:", e);
-      }
+      try { await deleteDoc(doc(db, "match_queue", currentQueueId)); } catch (e) {}
       currentQueueId = null;
     }
     document.getElementById('searchingModal').style.display = "none";
   };
 
-  function proceedToBattle(roomId, role) {
+  function proceedToBattle(roomId, role, mode) {
     if (matchingUnsubscribe) matchingUnsubscribe();
-    // onbattle.htmlへルーム情報付きで遷移
-    window.location.href = `onbattle.html?roomId=${roomId}&role=${role}`;
+    window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${mode}`;
   }
 </script>
 
