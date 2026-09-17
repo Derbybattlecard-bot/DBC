@@ -1,723 +1,598 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DERBY BATTLE CARD - CPU対戦 お題発表 (onbattle.html)</title>
-<style>
-  :root {
-    --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%);
-    --panel-bg: rgba(255, 255, 255, 0.94);
-    --accent-color: #2d6a37;
-    --accent-hover: #1b4d23;
-    --text-main: #1a2e1d;
-    --text-sub: #4e6b52;
-    --border-color: #b2d4b6;
-    --turf-color: #4CAF50;
-    --dirt-color: #8D6E63;
-    --limit-bg: #fff8e1;
-    --limit-border: #ffe082;
-    --limit-text: #8d6e63;
-  }
-  body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--bg-gradient); color: var(--text-main); margin: 0; padding: 15px; font-size: 13px; display: flex; justify-content: center; }
-  .container { display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 650px; padding-bottom: 30px; }
-  
-  .header-panel { background-color: var(--panel-bg); padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
-  .btn-back { background: #ffffff; color: var(--accent-color); border: 1px solid var(--accent-color); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; text-decoration: none; }
-  .header-right { display: flex; align-items: center; gap: 8px; }
-  .wins-badge { background: linear-gradient(135deg, #d4af37, #f3e5ab); color: #6b4c0a; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid #b8860b; }
-  .streak-badge { background: linear-gradient(135deg, #ff9800, #ffe0b2); color: #e65100; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid #f57c00; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DERBY BATTLE CARD</title>
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%);
+      --card-bg: rgba(255, 255, 255, 0.88);
+      --card-inner-bg: #f2f8f3;
+      --accent-gold: #c29b1d;
+      --text-color: #1a2e1d;
+      --sub-text: #4e6b52;
+      --header-green: #0d4220;
+      --border-green: #b2d4b6;
+    }
+    body {
+      margin: 0;
+      padding: 10px;
+      background: var(--bg-gradient);
+      background-attachment: fixed;
+      color: var(--text-color);
+      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .header {
+      text-align: center;
+      padding: 10px 8px;
+      background: rgba(255, 255, 255, 0.95);
+      border-bottom: 3px solid var(--header-green);
+      border-radius: 8px 8px 0 0;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 20px;
+      color: var(--header-green);
+      letter-spacing: 2px;
+      font-weight: 900;
+    }
+    .user-profile {
+      background: #ffffff;
+      border: 1px solid var(--border-green);
+      border-radius: 6px;
+      padding: 6px 12px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: bold;
+    }
+    .record-section {
+      background: var(--card-bg);
+      border: 1px solid var(--border-green);
+      border-radius: 8px;
+      padding: 8px 12px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+    }
+    .record-item { text-align: center; }
+    .record-label { font-size: 10px; color: var(--sub-text); display: block; margin-bottom: 2px; }
+    .record-value { font-size: 14px; font-weight: bold; color: var(--text-color); }
+    .record-value.highlight { color: var(--accent-gold); }
 
-  .status-header { background-color: var(--panel-bg); border: 2px solid #d4af37; border-radius: 8px; padding: 10px; text-align: center; font-weight: bold; font-size: 15px; color: #b8860b; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
-  .win-loss-text { color: #d32f2f; font-size: 18px; margin: 0 5px; }
-  .btn-reset-data { background: #d9534f; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer; }
-  .btn-reset-data:hover { background: #c9302c; }
+    /* --- ボーナスカード部分 --- */
+    .bonus-section {
+      background: var(--card-bg);
+      border: 2px solid #82c088;
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+    }
+    .bonus-title { font-size: 12px; font-weight: bold; color: var(--header-green); margin-bottom: 8px; }
+    .cards-container { display: flex; justify-content: space-between; gap: 6px; }
+    .bonus-card {
+      flex: 1;
+      min-width: 0;
+      background: #ffffff;
+      border: 1px solid #a8d5ac;
+      border-radius: 6px;
+      padding: 5px 4px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 110px;
+      box-sizing: border-box;
+      text-align: left;
+    }
+    .bonus-card.empty {
+      background: #f0f4f0;
+      border: 1px dashed var(--border-green);
+      color: #888;
+      font-size: 11px;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .bonus-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px dashed #d0edd3;
+      padding-bottom: 2px;
+      margin-bottom: 3px;
+    }
+    .bonus-card .slot-num { font-size: 12px; font-weight: bold; color: #e63956; }
+    .bonus-card .gen-year { font-size: 9px; color: var(--sub-text); }
+    .bonus-card .rarity { font-size: 10px; font-weight: bold; color: var(--accent-gold); }
+    .bonus-card .horse-name-mini { 
+      font-size: 11px; 
+      font-weight: bold; 
+      overflow: hidden; 
+      text-overflow: ellipsis; 
+      white-space: nowrap; 
+    }
+    .bonus-card-sub {
+      font-size: 8.5px;
+      color: var(--sub-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .bonus-card-params {
+      display: flex;
+      justify-content: space-between;
+      background: #f8faf8;
+      border: 1px solid #e2efe3;
+      padding: 1px 2px;
+      border-radius: 3px;
+      font-size: 8px;
+      color: var(--header-green);
+      font-weight: bold;
+      font-family: monospace;
+    }
+    .bonus-card-abilities {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+    }
+    .bonus-ability-btn {
+      background: #e2efe3;
+      border: 1px solid #2d6a37;
+      color: #2d6a37;
+      border-radius: 2px;
+      font-size: 7.5px;
+      font-weight: bold;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding: 1px 0;
+    }
+    .bonus-ability-btn.empty { visibility: hidden; }
+    .bonus-msg { 
+      margin-top: 8px; 
+      font-size: 10px; 
+      color: #8a6200; 
+      background: #fff8d6; 
+      padding: 4px; 
+      border-radius: 4px; 
+      border: 1px solid #f0e3a1; 
+    }
+    .bonus-claim-btn {
+      margin-top: 8px;
+      background: linear-gradient(135deg, #d4af37, #aa820a);
+      border: none;
+      color: #fff;
+      padding: 6px 16px;
+      border-radius: 12px;
+      font-weight: bold;
+      font-size: 11px;
+      cursor: pointer;
+    }
 
-  .challenge-panel { background-color: var(--panel-bg); border: 2px solid var(--accent-color); border-radius: 8px; padding: 15px 20px; text-align: center; position: relative; }
-  .challenge-label { font-size: 12px; font-weight: bold; color: #666; margin-bottom: 2px; }
-  .match-type-tag { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: #d9534f; color: #fff; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-  
-  .series-category-badge {
-    display: inline-block;
-    background: linear-gradient(135deg, #2d6a37, #1b4d23);
-    color: #ffffff;
-    font-size: 15px;
-    font-weight: 800;
-    padding: 6px 18px;
-    border-radius: 20px;
-    margin: 6px 0 4px 0;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-    letter-spacing: 1px;
-    border: 1px solid #d4af37;
-  }
-  .series-title { font-size: 18px; font-weight: bold; color: var(--accent-color); margin-bottom: 10px; margin-top: 4px; }
-  
-  .limit-info-box { background: var(--limit-bg); border: 1px solid var(--limit-border); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; display: flex; justify-content: center; gap: 15px; font-weight: bold; color: var(--limit-text); }
-  .race-list { display: flex; flex-direction: column; gap: 6px; background: #ffffff; border: 1px solid var(--border-color); border-radius: 6px; padding: 10px 12px; text-align: left; }
-  .race-item { display: flex; align-items: center; font-size: 12px; border-bottom: 1px dashed #e2efe3; padding-bottom: 5px; }
-  .race-item:last-child { border-bottom: none; padding-bottom: 0; }
-  .race-num { font-weight: bold; color: var(--text-sub); width: 50px; }
-  .race-name { flex: 1; font-weight: bold; color: var(--text-main); }
-  .race-cond { font-size: 11px; color: #555; }
-  .surface-badge { padding: 2px 5px; border-radius: 3px; color: #fff; font-size: 10px; font-weight: bold; margin-right: 4px; }
-  .surface-turf { background-color: var(--turf-color); }
-  .surface-dirt { background-color: var(--dirt-color); }
+    /* --- ナビゲーションボタン（カテゴリー別配色） --- */
+    .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .btn-link { text-decoration: none; }
+    .btn-link.full-width { grid-column: span 2; }
+    
+    .btn {
+      width: 100%;
+      box-sizing: border-box;
+      color: #ffffff;
+      padding: 10px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+      transition: transform 0.1s ease, filter 0.1s ease;
+    }
+    .btn:active {
+      transform: scale(0.98);
+    }
 
-  .deck-select-panel { background-color: var(--panel-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; }
-  .deck-options { display: flex; gap: 10px; }
-  .deck-card { flex: 1; background: #fff; border: 2px solid var(--border-color); border-radius: 6px; padding: 10px; cursor: pointer; text-align: center; transition: all 0.2s; }
-  .deck-card.selected { border-color: var(--accent-color); background-color: #f2f8f3; box-shadow: 0 0 0 2px var(--accent-color); transform: scale(1.02); }
-  .deck-title { font-weight: bold; font-size: 13px; color: var(--accent-color); margin-bottom: 2px; }
+    /* 1. VS CPU (王道のグリーン) */
+    .btn-cpu {
+      background: linear-gradient(135deg, #2d6a37, #1b4d23);
+      border: 1px solid #143b1a;
+    }
+    /* 2. ONLINE MATCH (深みのあるブルー) */
+    .btn-online {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      border: 1px solid #1e40af;
+    }
+    /* 3. EDIT DECK (シックなダークグリーン) */
+    .btn-deck {
+      background: linear-gradient(135deg, #1e4d40, #0f332a);
+      border: 1px solid #0a241d;
+    }
+    /* 4. 作戦の作戦室 (オリーブ・アースカラー) */
+    .btn-strategy {
+      background: linear-gradient(135deg, #4d602a, #324219);
+      border: 1px solid #212c0f;
+    }
+    /* 5. SERIES VIEW (クラシックパープル) */
+    .btn-series {
+      background: linear-gradient(135deg, #6b3ba7, #4c257d);
+      border: 1px solid #36195c;
+    }
+    /* 6. TRADE BOARD (ブロンズアンバー) */
+    .btn-trade {
+      background: linear-gradient(135deg, #b45309, #78350f);
+      border: 1px solid #451a03;
+    }
+    /* 7. CARD COLLECTION (豪華なゴールド) */
+    .btn-collection {
+      background: linear-gradient(135deg, #d4af37, #aa820a);
+      border: 1px solid #785a02;
+    }
 
-  .deck-table-container { background: #ffffff; border: 1px solid var(--border-color); border-radius: 6px; max-height: 340px; overflow-y: auto; }
-  .deck-table { width: 100%; border-collapse: collapse; font-size: 10.5px; text-align: center; }
-  .deck-table th { background-color: #2d6a37; color: #ffffff; padding: 6px 2px; position: sticky; top: 0; white-space: nowrap; z-index: 10; }
-  .deck-table td { padding: 5px 2px; border-bottom: 1px solid #ebf4ec; white-space: nowrap; }
-  .horse-name-cell { text-align: left; font-weight: bold; padding-left: 4px !important; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
-  .used-row { background-color: #f5f5f5; color: #999; }
-
-  .btn-start { background: var(--accent-color); color: white; border: none; padding: 15px; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; box-shadow: 0 4px 0 var(--accent-hover); width: 100%; transition: all 0.1s; }
-  .btn-start:active { transform: translateY(4px); box-shadow: 0 0 0 var(--accent-hover); }
-
-  .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 15px; }
-  .modal-content { background: #fff; border-radius: 12px; padding: 25px; width: 100%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-  @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-  
-  .modal-title { font-size: 22px; font-weight: 900; margin-bottom: 10px; }
-  .title-clear { color: #d4af37; }
-  .title-over { color: #d9534f; }
-  .modal-desc { font-size: 14px; color: #444; margin-bottom: 15px; line-height: 1.5; }
-  
-  .reward-box { background: #fff8e1; border: 2px solid #ffe082; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-  .modal-btn { background: var(--accent-color); color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-weight: bold; font-size: 14px; cursor: pointer; }
-
-  .mode-cards-container { display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
-  .mode-card { flex: 1; min-width: 240px; background: #ffffff; border: 2px solid var(--accent-color); border-radius: 10px; padding: 16px 14px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05); box-sizing: border-box; }
-  .mode-card.mode-survival { border-color: #8d6e63; }
-  .mode-card-header { text-align: center; width: 100%; }
-  .mode-card-title { font-size: 17px; font-weight: 800; color: var(--text-main); }
-  .mode-card.mode-survival .mode-card-title { color: #5d4037; }
-  .mode-card-sub { font-size: 11px; color: #666; margin-top: 2px; font-weight: bold; }
-  .mode-card-desc { font-size: 11.5px; color: #555; line-height: 1.45; margin: 12px 0 16px 0; text-align: center; }
-  .btn-mode-start { background: var(--accent-color); color: #ffffff; border: none; padding: 8px 24px; border-radius: 20px; font-weight: bold; font-size: 13px; cursor: pointer; box-shadow: 0 3px 0 var(--accent-hover); transition: all 0.1s; min-width: 140px; }
-  .btn-mode-start:active { transform: translateY(3px); box-shadow: 0 0 0 var(--accent-hover); }
-  .btn-mode-start.btn-survival { background: #8d6e63; box-shadow: 0 3px 0 #5d4037; }
-  .btn-mode-start.btn-survival:active { box-shadow: 0 0 0 #5d4037; }
-  .btn-mode-start:disabled { background: #cccccc !important; box-shadow: none !important; cursor: not-allowed !important; opacity: 0.6; }
-</style>
+    /* --- デッキ表示表示領域 --- */
+    .deck-section {
+      background: var(--card-bg);
+      border-radius: 8px;
+      padding: 10px;
+      border: 1px solid var(--border-green);
+    }
+    .main-deck-tabs { display: flex; gap: 8px; margin-bottom: 8px; }
+    .main-tab {
+      flex: 1;
+      background: #e2efe3;
+      border: 1px solid #a0ca33;
+      color: var(--sub-text);
+      padding: 6px 0;
+      font-size: 11px;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .main-tab.active {
+      background: linear-gradient(135deg, #1b4d23, #2d6a37);
+      color: #ffffff;
+      border-color: #143b1a;
+    }
+    .deck-control-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card-inner-bg);
+      padding: 6px 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      border: 1px solid #cce2d0;
+    }
+    .deck-name { font-size: 11px; font-weight: bold; }
+    .action-btn {
+      background: #ffffff;
+      border: 1px solid #82c088;
+      color: var(--text-color);
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .race-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      text-align: center;
+      background: #ffffff;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid #c2dfc6;
+    }
+    .race-table th { background: #2d6a37; color: #ffffff; padding: 5px 2px; }
+    .race-table td { padding: 4px 2px; border-bottom: 1px solid #ebf4ec; }
+    .race-table tr:nth-child(even) { background: #f7fbf7; }
+  </style>
 </head>
 <body>
-
 <div class="container">
-  <div class="header-panel">
-    <a href="online.html" class="btn-back">← 戻る</a>
-    <div class="header-right">
-      <div id="userWinsBadge" class="wins-badge">通算 0 勝</div>
-      <div id="userMax1stBadge" class="streak-badge">最多1着: 0回</div>     
-      <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中</div>
-    </div>
-  </div>
-
-  <!-- モード選択パネル -->
-  <div class="challenge-panel" id="modeSelectPanel" style="display: none;">
-    <div class="challenge-label">＼ 挑戦する対戦モードを選択してください ／</div>
-    <div class="series-title" style="margin-bottom: 15px;">対戦モード選択</div>
-
-    <div class="mode-cards-container">
-      <div class="mode-card">
-        <div class="mode-card-header">
-          <div class="mode-card-title">チャレンジシリーズ</div>
-          <div class="mode-card-sub" id="standardSubLabel">(2デック制 / 3回戦)</div>
-        </div>
-        <div class="mode-card-desc">
-          多彩なテーマに挑む基本モード。<br>
-          各ラウンドごとにデッキの変更が可能です。
-        </div>
-        <button id="btnStartStandard" class="btn-mode-start" onclick="startNewBattle('standard')">
-          対戦スタート
-        </button>
-      </div>
-
-      <div class="mode-card mode-survival">
-        <div class="mode-card-header">
-          <div class="mode-card-title">サバイバルモード</div>
-          <div class="mode-card-sub">(1デック制 / 3回戦)</div>
-        </div>
-        <div class="mode-card-desc">
-          1つの固定デッキで全3回戦を戦い抜く。<br>
-          カード消費の管理が鍵となる上級モード。
-        </div>
-        <button id="btnStartSurvival" class="btn-mode-start btn-survival" onclick="startNewBattle('survival')">
-          対戦スタート
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <div class="status-header" id="winLossHeader" style="display: none;">
-    <div>現在の成績： <span class="win-loss-text" id="winCount">0</span>勝 <span class="win-loss-text" id="lossCount">0</span>敗</div>
-    <button class="btn-reset-data" onclick="manualResetBattleData()">対戦データ初期化</button>
-  </div>
-
-  <div class="challenge-panel" id="challengePanel" style="display: none;">
-    <div class="match-type-tag" id="matchTypeTag">-回戦マッチ</div>
-    <div class="challenge-label">＼ 今回の対戦シリーズはこちら！ ／</div>
-    <div class="series-category-badge" id="seriesCategoryBadge">カテゴリ</div>
-    <div class="series-title" id="seriesTitle"></div>
-    <div class="limit-info-box">
-      <span>合計上限 <strong id="maxTotalPotentialVal">-</strong></span>｜<span>出走可能 <strong id="minPotentialVal">-</strong>以上</span>
-    </div>
-    <div class="race-list" id="raceList"></div>
-  </div>
-
-  <div class="deck-select-panel" id="deckPanel" style="display: none;">
-    <h3 id="deckPanelTitle" style="margin:0; text-align: center; color: var(--accent-color);">挑戦するデッキを選択 (最大18頭)</h3>
-    <div class="deck-options">
-      <div class="deck-card selected" id="deckCard0" onclick="selectDeck(0)">
-        <div class="deck-title" id="deckName0">メインデッキ 1</div>
-        <div style="font-size: 11px; color: #777;">登録: <span id="deckCount0">0</span>頭</div>
-      </div>
-      <div class="deck-card" id="deckCard1" onclick="selectDeck(1)">
-        <div class="deck-title" id="deckName1">メインデッキ 2</div>
-        <div style="font-size: 11px; color: #777;">登録: <span id="deckCount1">0</span>頭</div>
-      </div>
-    </div>
-    <div class="deck-table-container">
-      <table class="deck-table">
-        <thead>
-          <tr>
-            <th style="width:20px;">枠</th>
-            <th style="text-align:left;">馬名</th>
-            <th style="width:30px;">性</th>
-            <th style="width:70px;">馬場</th>
-            <th style="width:75px;">距離</th>
-            <th style="width:35px;">脚質</th>
-            <th style="width:35px;">状態</th>
-          </tr>
-        </thead>
-        <tbody id="deckHorseList"></tbody>
-      </table>
-    </div>
-  </div>
+  <div class="header"><h1>DERBY BATTLE CARD</h1></div>
+  <div class="user-profile" id="userProfileDisplay">読み込み中...</div>
+  <div class="record-section" id="recordSection"><div class="record-item"><span class="record-label">取得中...</span></div></div>
   
-  <button class="btn-start" id="btnStart" style="display: none;" onclick="goToMatchup()">出走登録へ進む</button>
-</div>
+  <div class="bonus-section" id="loginBonusSection">
+    <div class="bonus-title">🎰 DAILY LOGIN BONUS</div>
+    <div class="cards-container" id="bonusCardsContainer"></div>
+    <div id="bonusMessageContainer"></div>
+    <div id="bonusBtnContainer"></div>
+  </div>
 
-<!-- バトルリザルト用モーダル -->
-<div class="modal-overlay" id="resultModal">
-  <div class="modal-content">
-    <div class="modal-title" id="modalTitle">RESULT</div>
-    <div class="modal-desc" id="modalDesc"></div>
-    <div class="reward-box" id="rewardBox" style="display: none;">
-      <div style="font-size:12px; color:#c67100; font-weight:bold; margin-bottom: 8px;">🎁 報酬カード獲得！</div>
-      <div id="rewardCardContainer" style="display: flex; justify-content: center; margin: 10px 0;"></div>
+  <div class="menu-grid">
+    <a href="battle.html" class="btn-link"><button class="btn btn-cpu">💻 VS COMPUTER</button></a>
+    <a href="online.html" class="btn-link"><button class="btn btn-online">🌐 ONLINE MATCH</button></a>
+    <a href="deck.html" class="btn-link"><button class="btn btn-deck">🗂️ EDIT DECK</button></a>
+    <a href="strategy_list.html" class="btn-link"><button class="btn btn-strategy">🎯 作戦の作戦室</button></a>
+    <a href="series.html" class="btn-link"><button class="btn btn-series">🏆 SERIES VIEW</button></a>
+    <a href="admin-trade.html" class="btn-link"><button class="btn btn-trade">🤝 TRADE BOARD</button></a>
+    <a href="collection.html" class="btn-link full-width"><button class="btn btn-collection">📚 CARD COLLECTION</button></a>
+  </div>
+
+  <div class="deck-section">
+    <div class="main-deck-tabs">
+      <div class="main-tab active" id="tabMain1">🏇 MAIN DECK 1</div>
+      <div class="main-tab" id="tabMain2">🏇 MAIN DECK 2</div>
     </div>
-    <button class="modal-btn" onclick="closeModalAndReset()">ステータス画面へ戻る</button>
+    <div class="deck-control-bar">
+      <span class="deck-name" id="deckNameDisplay">✏️ 読み込み中...</span>
+      <a href="deck.html" style="text-decoration:none;"><button class="action-btn">✏️ 編集する</button></a>
+    </div>
+    <table class="race-table">
+      <thead>
+        <tr><th>枠</th><th>印</th><th style="text-align:left; padding-left:4px;">馬名</th><th>適性</th><th>距離</th></tr>
+      </thead>
+      <tbody id="raceTableBody">
+        <tr><td colspan="5">読み込み中...</td></tr>
+      </tbody>
+    </table>
   </div>
 </div>
 
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { doc, getDoc, setDoc, collection, getCountFromServer, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  
+  // ★ ルート直下のファイルからインポート（./js/ ではなく ./ に修正）
+  import { cardRenderer } from './js/card_renderer.js';
+  import { drawBonusCard, getGenYearLastDigit, playFourthCornerCutIn } from './js/login_bonus.js';
 
+  let globalUserData = null;
   let currentUser = null;
-  let globalUserData = {};
-  let SERIES_MASTER = [];
-  let HORSES_MASTER = {};
-  let HORSES_ARRAY = [];
-  let selectedSeries = null;
-  let selectedDeckIndex = 0;
-
-  async function fetchJsonSafely(url) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`${url} 取得失敗 (HTTP ${res.status})`);
-    const text = await res.text();
-    try {
-      return JSON.parse(text);
-    } catch (e) {
-      console.error(`JSON Parse Error in ${url}:`, e);
-      throw new Error(`設定ファイルの読み込みに失敗しました`);
-    }
-  }
-
-  function getNormalizedCategory(s) {
-    if (!s) return "";
-    const c = String(s.group || s.category || s.category_name || "");
-    
-    if (c.includes("東西")) return "古馬東西";
-    if (c.includes("地方")) return "地方交流";
-    if (c.includes("クラシック")) return "クラシック";
-    if (c.includes("王道")) return "古馬王道";
-    if (c.includes("ローカル")) return "ローカル";
-    if (c.includes("海外単独")) return "海外単独";
-    if (c.includes("海外チャレンジ")) return "海外チャレンジ";
-    if (c.includes("トリビュート") || c.includes("メモリアル")) return "トリビュート";
-    
-    return c;
-  }
-
-  function updateHeaderBadges() {
-    const totalWins = globalUserData.total_wins || 0;
-    const max1st = globalUserData.max_1st_places || 0;
-
-    document.getElementById('userWinsBadge').textContent = `通算 ${totalWins} 勝`;
-    document.getElementById('userMax1stBadge').textContent = `最多1着: ${max1st}回`;
-  }
+  let activeDeckIndex = 0;
 
   onAuthStateChanged(auth, async (user) => {
-    if (!user) { window.location.href = 'auth.html'; return; }
+    if (!user) {
+      window.location.href = 'auth.html';
+      return;
+    }
     currentUser = user;
     try {
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) {
-        globalUserData = userDoc.data();
-      }
+      // データの並行読み込み
+      const [userDoc] = await Promise.all([
+        getDoc(doc(db, "users", user.uid)),
+        cardRenderer.init().catch(err => {
+          console.error("cardRendererの初期化エラー（単独リカバリ）:", err);
+        })
+      ]);
 
-      SERIES_MASTER = await fetchJsonSafely('./data/series_master.json');
-      HORSES_ARRAY = await fetchJsonSafely('./data/horses_master.json');
-
-      if (Array.isArray(HORSES_ARRAY)) {
-        HORSES_ARRAY.forEach(h => HORSES_MASTER[h.horse_id] = h);
-      } else {
-        throw new Error("馬データの形式が不正です");
+      if (!userDoc.exists()) {
+        window.location.href = 'setup.html';
+        return;
       }
-      
-      document.getElementById('syncStatus').textContent = "✅";
-      updateHeaderBadges();
-      
-      await processBattleState();
+      globalUserData = userDoc.data();
+
+      renderUserProfile();
+      renderSelectedDeck();
+      renderRecord(); 
+      await checkAndRenderLoginBonus();
     } catch (err) {
       console.error("初期化エラー:", err);
-      document.getElementById('syncStatus').textContent = `❌ ${err.message}`;
+      document.getElementById('userProfileDisplay').textContent = "⚠️ 初期化エラーが発生しました";
+      alert("初期化に失敗しました。マスターデータおよびネットワーク環境をご確認ください。");
     }
   });
 
-  async function processBattleState() {
-    let status = globalUserData.cpu_battle_status;
-
-    if (status && status.is_active) {
-      if (status.current_match) {
-        window.location.href = 'onrace_result.html';
-        return;
-      }
-
-      const maxRounds = status.max_rounds || 3;
-      const winCondition = Math.ceil(maxRounds / 2);
-      const currentWins = status.series_wins || 0;
-      const currentLosses = status.series_losses || 0;
-
-      if (currentWins >= winCondition) {
-        await handleGameEnd(status, true);
-        return; 
-      } 
-      if (currentLosses >= winCondition) {
-        await handleGameEnd(status, false);
-        return; 
-      }
-
-      if (status.current_round > maxRounds) {
-        const emptyStatus = { is_active: false };
-        await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: emptyStatus }, { merge: true });
-        globalUserData.cpu_battle_status = emptyStatus;
-        status = emptyStatus;
-      }
-    }
-
-    if (status && status.is_active) {
-      document.getElementById('modeSelectPanel').style.display = 'none';
-      await renderActiveBattle(status);
-    } else {
-      showModeSelectUI();
-    }
+  function renderUserProfile() {
+    const name = globalUserData.display_name || globalUserData.displayName || currentUser.displayName || "ゲスト";
+    document.getElementById('userProfileDisplay').innerHTML = `👤 プレイヤー: <strong>${name}</strong>`;
   }
 
-  function showModeSelectUI() {
-    document.getElementById('challengePanel').style.display = 'none';
-    document.getElementById('deckPanel').style.display = 'none';
-    document.getElementById('btnStart').style.display = 'none';
-    document.getElementById('winLossHeader').style.display = 'none';
+  async function renderRecord() {
+    const totalWins = globalUserData.total_wins || 0;
+    const max1st = globalUserData.max_1st_places || 0;
+    const rec = globalUserData.record || { matches: 0, wins: 0 };
+    const winRate = rec.matches > 0 ? ((rec.wins / rec.matches) * 100).toFixed(1) : "0.0";
     
-    document.getElementById('modeSelectPanel').style.display = 'block';
+    updateRecordDOM(totalWins, max1st, winRate, "取得中...");
 
-    const totalWins = globalUserData.total_wins || 0;
-    const standardLabel = totalWins >= 30 ? "(2デック制 / 5回戦)" : "(2デック制 / 3回戦)";
-    document.getElementById('standardSubLabel').textContent = standardLabel;
+    try {
+      const collRef = collection(db, `users/${currentUser.uid}/inventory`);
+      const snapshot = await getCountFromServer(collRef);
+      updateRecordDOM(totalWins, max1st, winRate, `${snapshot.data().count}種`);
+    } catch (error) {
+      updateRecordDOM(totalWins, max1st, winRate, "- 種");
+    }
   }
 
-  window.startNewBattle = async function(mode) {
-    const totalWins = globalUserData.total_wins || 0;
-    const maxRounds = (mode === 'standard' && totalWins >= 30) ? 5 : 3;
-    const deckType = mode === 'survival' ? 1 : 2;
+  function updateRecordDOM(totalWins, max1st, winRate, cardTypesDisplay) {
+    document.getElementById('recordSection').innerHTML = `
+      <div class="record-item"><span class="record-label">通算勝利</span><span class="record-value highlight">${totalWins}勝</span></div>
+      <div class="record-item"><span class="record-label">1着最多数</span><span class="record-value">${max1st}回</span></div>
+      <div class="record-item"><span class="record-label">対戦勝率</span><span class="record-value">${winRate}%</span></div>
+      <div class="record-item"><span class="record-label">所持種類</span><span class="record-value" style="color:#0d4220;">${cardTypesDisplay}</span></div>
+    `;
+  }
 
-    const lineup = generateSeriesLineup(maxRounds);
-
-    const newStatus = {
-      is_active: true,
-      battle_type: mode,
-      deck_type: deckType,
-      current_round: 1,
-      max_rounds: maxRounds,
-      series_lineup: lineup,
-      selected_series_id: lineup[0] || "",
-      selected_deck_index: 0,
-      series_wins: 0,
-      series_losses: 0,
-      total_1st_places: 0,
-      used_cards_history: [],
-      current_match: null
+  async function checkAndRenderLoginBonus() {
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    
+    let bonusState = globalUserData.login_bonus_state || {
+      last_date: "", today_cards: [], fever_qualified_next_day: false, is_fever_today: false, last_claim_time: 0
     };
 
-    try {
-      await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: newStatus }, { merge: true });
-      globalUserData.cpu_battle_status = newStatus;
-      document.getElementById('modeSelectPanel').style.display = 'none';
-      await renderActiveBattle(newStatus);
-    } catch (err) {
-      console.error("対戦開始エラー:", err);
-      alert("対戦の開始に失敗しました。再読み込みしてください。");
-    }
-  };
-
-  window.manualResetBattleData = async function() {
-    if (!confirm("現在の対戦データを初期化して、新しい対戦を開始しますか？")) return;
-    try {
-      const emptyStatus = { is_active: false };
-      await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: emptyStatus }, { merge: true });
-      globalUserData.cpu_battle_status = emptyStatus;
-      window.location.reload();
-    } catch (err) {
-      console.error("初期化エラー:", err);
-      alert("初期化に失敗しました。");
-    }
-  };
-
-  async function handleGameEnd(status, isClear) {
-    const modal = document.getElementById('resultModal');
-    const title = document.getElementById('modalTitle');
-    const desc = document.getElementById('modalDesc');
-    const rewardBox = document.getElementById('rewardBox');
-    const cardContainer = document.getElementById('rewardCardContainer');
-    
-    const current1stCount = status.total_1st_places || 0;
-    let newMax1st = globalUserData.max_1st_places || 0;
-    const userUpdateObj = {};
-
-    if (current1stCount > newMax1st) {
-      newMax1st = current1stCount;
-      globalUserData.max_1st_places = newMax1st;
-      userUpdateObj.max_1st_places = newMax1st;
-    }
-
-    if (isClear) {
-      title.textContent = "🎉 CHALLENGE CLEAR!";
-      title.className = "modal-title title-clear";
-      desc.innerHTML = `おめでとうございます！規定勝利数を達成しました！<br>（累計1着回数: ${current1stCount}回）`;
-      
-      const rewardHorse = HORSES_ARRAY[Math.floor(Math.random() * HORSES_ARRAY.length)];
-      rewardBox.style.display = "block";
-
-      const updatedStatus = { ...status, is_active: false, current_match: null };
-      globalUserData.total_wins = (globalUserData.total_wins || 0) + 1;
-      globalUserData.cpu_battle_status = updatedStatus;
-
-      userUpdateObj.total_wins = increment(1);
-      userUpdateObj.cpu_battle_status = updatedStatus;
-      
-      Promise.all([
-        setDoc(doc(db, "users", currentUser.uid), userUpdateObj, { merge: true }),
-        setDoc(doc(db, `users/${currentUser.uid}/inventory/${rewardHorse.horse_id}`), { count: increment(1), obtained_at: new Date().toISOString() }, { merge: true })
-      ]).catch(err => console.error("データ保存エラー:", err));
-      
-      updateHeaderBadges();
-
-      let rendererObj = null;
-      try {
-        const { cardRenderer } = await import('./js/card_renderer.js');
-        rendererObj = cardRenderer;
-        
-        if (!cardRenderer.isLoaded) {
-          await cardRenderer.init();
-        }
-
-        const { playFourthCornerCutIn } = await import('./js/login_bonus.js');
-        await playFourthCornerCutIn(rewardHorse, cardRenderer);
-
-      } catch (err) {
-        console.warn("演出エラー:", err);
-      } finally {
-        if (cardContainer) {
-          if (rendererObj && rendererObj.isLoaded) {
-            cardContainer.innerHTML = rendererObj.renderCardUI(rewardHorse, 'large');
-          } else {
-            cardContainer.innerHTML = `<div style="padding:20px; font-weight:bold;">${rewardHorse.name} を獲得しました！</div>`;
-          }
-        }
-        modal.style.display = "flex";
-      }
-
-    } else {
-      title.textContent = "💥 GAME OVER";
-      title.className = "modal-title title-over";
-      desc.textContent = `敗北数が上限に達したため終了となります。（累計1着回数: ${current1stCount}回）`;
-      rewardBox.style.display = "none";
-
-      try {
-        const updatedStatus = { ...status, is_active: false, current_match: null };
-        globalUserData.cpu_battle_status = updatedStatus;
-        userUpdateObj.cpu_battle_status = updatedStatus;
-        
-        await setDoc(doc(db, "users", currentUser.uid), userUpdateObj, { merge: true });
-        updateHeaderBadges();
-      } catch (err) {
-        console.error("ステータス保存エラー:", err);
-      }
-      
-      modal.style.display = "flex";
-    }
-  }
-
-  window.closeModalAndReset = async function() {
-    try {
-      const emptyStatus = { is_active: false };
-      await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: emptyStatus }, { merge: true });
-    } catch(e) {
-      console.error(e);
-    }
-    window.location.href = 'online.html'; 
-  };
-
-  function generateSeriesLineup(maxRounds) {
-    if (!SERIES_MASTER || SERIES_MASTER.length === 0) return [];
-    const lineup = [];
-    const poolCopy = [...SERIES_MASTER];
-
-    for (let r = 0; r < maxRounds; r++) {
-      if (poolCopy.length === 0) {
-        const fallback = SERIES_MASTER[Math.floor(Math.random() * SERIES_MASTER.length)];
-        if (fallback && fallback.series_id) lineup.push(fallback.series_id);
-      } else {
-        const idx = Math.floor(Math.random() * poolCopy.length);
-        const selected = poolCopy[idx];
-        if (selected && selected.series_id) lineup.push(selected.series_id);
-        poolCopy.splice(idx, 1);
-      }
-    }
-    return lineup;
-  }
-
-  async function renderActiveBattle(status) {
-    const deckType = status.deck_type || 2;
-    const isSurvivalLocked = (deckType === 1 && status.current_round > 1);
-
-    if (typeof status.selected_deck_index === 'number') {
-      selectedDeckIndex = status.selected_deck_index;
-    }
-
-    document.getElementById('winCount').textContent = status.series_wins || 0;
-    document.getElementById('lossCount').textContent = status.series_losses || 0;
-    document.getElementById('winLossHeader').style.display = 'flex';
-
-    const currentSeriesId = status.series_lineup[status.current_round - 1];
-    selectedSeries = SERIES_MASTER.find(s => s.series_id === currentSeriesId) || SERIES_MASTER[0];
-
-    const categoryName = getNormalizedCategory(selectedSeries) || selectedSeries.category || '一般';
-    document.getElementById('seriesCategoryBadge').textContent = `【 ${categoryName} シリーズ 】`;
-
-    const typeText = deckType === 1 ? '1デック制サバイバル' : '2デック制';
-    document.getElementById('matchTypeTag').textContent = `${status.max_rounds || 3}回戦 (${typeText})`;
-    document.getElementById('seriesTitle').textContent = `第${status.current_round}回戦：${selectedSeries.series_name || '名称未設定'}`;
-    
-    const limits = selectedSeries.potential_limit || { max_total_potential: 95, min_potential_per_race: 15 };
-    document.getElementById('maxTotalPotentialVal').textContent = limits.max_total_potential;
-    if (limits.min_potential_per_race === null || limits.min_potential_per_race === undefined) {
-      document.getElementById('minPotentialVal').textContent = "出走制限なし";
-    } else {
-      document.getElementById('minPotentialVal').textContent = `${limits.min_potential_per_race}以上`;
-    }
-
-    const rounds = selectedSeries.rounds || [];
-    const races = (rounds[0] && rounds[0].races) ? rounds[0].races : [];
-    const raceListEl = document.getElementById('raceList');
-    raceListEl.innerHTML = races.map(r => {
-      const surfaceClass = r.surface === '芝' ? 'surface-turf' : 'surface-dirt';
-      return `
-        <div class="race-item">
-          <span class="race-num">第${r.race_num}戦</span>
-          <span class="race-name">${r.race_name}</span>
-          <span class="race-cond">
-            <span class="surface-badge ${surfaceClass}">${r.surface}</span>
-            ${r.track} ${r.distance}m
-          </span>
-        </div>
-      `;
-    }).join('');
-
-    const deckHeaderTitle = document.getElementById('deckPanelTitle');
-    if (deckHeaderTitle) {
-      if (isSurvivalLocked) {
-        deckHeaderTitle.textContent = "挑戦中のデッキ (1デック制: 固定中)";
-      } else {
-        deckHeaderTitle.textContent = "挑戦するデッキを選択 (最大18頭)";
-      }
-    }
-
-    const decks = globalUserData.decks || [];
-    [0, 1].forEach(idx => {
-      const deck = decks[idx] || { deck_name: `メインデッキ ${idx + 1}`, horse_ids: [] };
-      const validCount = (deck.horse_ids || []).filter(id => id !== null && id !== undefined).length;
-      document.getElementById(`deckName${idx}`).textContent = deck.deck_name || `メインデッキ ${idx + 1}`;
-      document.getElementById(`deckCount${idx}`).textContent = validCount;
-    });
-
-    document.getElementById('challengePanel').style.display = 'block';
-    document.getElementById('deckPanel').style.display = 'flex';
-    document.getElementById('btnStart').style.display = 'block';
-    
-    selectDeck(selectedDeckIndex);
-  }
-
-  window.selectDeck = function(idx) {
-    const status = globalUserData.cpu_battle_status || {};
-    const deckType = status.deck_type || 2;
-    
-    if (deckType === 1 && status.current_round > 1) {
-      idx = status.selected_deck_index || 0;
-    }
-
-    selectedDeckIndex = idx;
-    document.getElementById('deckCard0').classList.toggle('selected', idx === 0);
-    document.getElementById('deckCard1').classList.toggle('selected', idx === 1);
-
-    if (deckType === 1 && status.current_round > 1) {
-      document.getElementById('deckCard0').style.cursor = 'not-allowed';
-      document.getElementById('deckCard1').style.cursor = 'not-allowed';
-    } else {
-      document.getElementById('deckCard0').style.cursor = 'pointer';
-      document.getElementById('deckCard1').style.cursor = 'pointer';
-    }
-
-    renderDeckTable();
-  };
-
-  function getTurfVal(horse) {
-    if (!horse) return 0;
-    if (horse.turf_potential !== undefined && horse.turf_potential !== null) return Number(horse.turf_potential) || 0;
-    if (typeof horse.turf === 'number') return horse.turf;
-    if (typeof horse.turf === 'boolean') return horse.turf ? 1 : 0;
-    return 0;
-  }
-
-  function getDirtVal(horse) {
-    if (!horse) return 0;
-    if (horse.dirt_potential !== undefined && horse.dirt_potential !== null) return Number(horse.dirt_potential) || 0;
-    if (typeof horse.dirt === 'number') return horse.dirt;
-    if (typeof horse.dirt === 'boolean') return horse.dirt ? 1 : 0;
-    return 0;
-  }
-
-  function getSurfaceText(horse) {
-    if (!horse) return '-';
-    const t = getTurfVal(horse);
-    const d = getDirtVal(horse);
-    if (t > 0 && d > 0) return `芝${t}/ダ${d}`;
-    if (t > 0) return `芝${t}`;
-    if (d > 0) return `ダ${d}`;
-    if (horse.surface) return horse.surface;
-    return '-';
-  }
-
-  function getDistanceText(horse) {
-    if (!horse) return '-';
-    let minD = horse.min_distance ?? horse.distance_min ?? horse.aptitude?.min_distance;
-    let maxD = horse.max_distance ?? horse.distance_max ?? horse.aptitude?.max_distance;
-    if (minD !== undefined && maxD !== undefined && minD !== null && maxD !== null && minD !== '' && maxD !== '') {
-      minD = Number(minD); maxD = Number(maxD);
-      if (!isNaN(minD) && !isNaN(maxD)) return minD === maxD ? `${minD}m` : `${minD}-${maxD}m`;
-    }
-    const distVal = horse.distance ?? horse.dist;
-    if (distVal !== undefined && distVal !== null && distVal !== '') {
-      if (Array.isArray(distVal)) {
-        if (distVal.length === 0) return '-';
-        const min = Math.min(...distVal); const max = Math.max(...distVal);
-        return min === max ? `${min}m` : `${min}-${max}m`;
-      }
-      const distStr = String(distVal).trim();
-      if (distStr.endsWith('m')) return distStr;
-      return `${distStr}m`;
-    }
-    return '-';
-  }
-
-  function getHorseLegStyle(horse) {
-    if (!horse) return '-';
-    return horse.style || horse.running_style || horse.leg_style || horse.strategy || '-';
-  }
-
-  function renderDeckTable() {
-    const tbody = document.getElementById('deckHorseList');
-    tbody.innerHTML = '';
-    const usedCards = globalUserData.cpu_battle_status?.used_cards_history || [];
-    const deck = (globalUserData.decks || [])[selectedDeckIndex] || { horse_ids: [] };
-
-    for (let i = 0; i < 18; i++) {
-      const horse = HORSES_MASTER[deck.horse_ids[i]];
-      const tr = document.createElement('tr');
-      const frameNum = i + 1;
-
-      if (horse) {
-        const hasContinuousAbility = Array.isArray(horse.ability) && (horse.ability.includes("鉄女") || horse.ability.includes("連闘"));
-        const isUsed = (usedCards.includes(horse.horse_id) || usedCards.includes(horse.name)) && !hasContinuousAbility;
-        
-        if (isUsed) {
-          tr.className = 'used-row';
-          tr.style.opacity = '0.4';
-        }
-
-        const sex = horse.sex || '牡馬';
-        const surface = getSurfaceText(horse);
-        const dist = getDistanceText(horse);
-        const leg = getHorseLegStyle(horse);
-
-        tr.innerHTML = `
-          <td>${frameNum}</td>
-          <td class="horse-name-cell">${horse.name}</td>
-          <td>${sex}</td>
-          <td>${surface}</td>
-          <td>${dist}</td>
-          <td>${leg}</td>
-          <td>${isUsed ? '出走済' : '可'}</td>
-        `;
-      } else {
-        tr.innerHTML = `<td>${frameNum}</td><td colspan="6" style="color:#aaa;">(未設定)</td>`;
-      }
-      tbody.appendChild(tr);
-    }
-  }
-
-  window.goToMatchup = async function() {
-    if (!selectedSeries || !currentUser) return;
-
-    try {
-      const currentStatus = globalUserData.cpu_battle_status || {};
-      const updatedStatus = {
-        ...currentStatus,
-        selected_series_id: selectedSeries.series_id,
-        selected_deck_index: selectedDeckIndex
+    if (bonusState.last_date !== todayStr) {
+      bonusState = {
+        last_date: todayStr,
+        today_cards: [],
+        fever_qualified_next_day: false,
+        is_fever_today: Boolean(bonusState.fever_qualified_next_day),
+        last_claim_time: 0
       };
-
-      await setDoc(doc(db, "users", currentUser.uid), {
-        cpu_battle_status: updatedStatus
-      }, { merge: true });
-
-      globalUserData.cpu_battle_status = updatedStatus;
-      window.location.href = 'onmatchup.html';
-    } catch (err) {
-      console.error("ステータス保存エラー:", err);
-      alert("通信エラーが発生しました。再度お試しください。");
+      await setDoc(doc(db, "users", currentUser.uid), { login_bonus_state: bonusState }, { merge: true });
+      globalUserData.login_bonus_state = bonusState;
     }
-  };
-</script>
+    renderBonusUI(bonusState);
+  }
 
+  function parseTimestamp(val) {
+    if (!val) return 0;
+    if (typeof val === 'number') return val;
+    if (val.toMillis) return val.toMillis();
+    return val.seconds ? val.seconds * 1000 : 0;
+  }
+
+  function renderBonusUI(state) {
+    const container = document.getElementById('bonusCardsContainer');
+    const msgContainer = document.getElementById('bonusMessageContainer');
+    const btnContainer = document.getElementById('bonusBtnContainer');
+    container.innerHTML = ''; msgContainer.innerHTML = ''; btnContainer.innerHTML = '';
+
+    const cards = state.today_cards || [];
+
+    for (let i = 0; i < 3; i++) {
+      if (i < cards.length) {
+        const item = cards[i];
+        const horse = cardRenderer.getHorse ? cardRenderer.getHorse(item.horse_id) : null;
+        const genYear = cardRenderer.getGenerationYear ? cardRenderer.getGenerationYear(horse || item.horse_id) : '-';
+        const lastDigit = getGenYearLastDigit(item.horse_id);
+        const horseName = horse ? horse.name : item.horse_id;
+
+        let surfaceText = "-", distanceText = "-", paramsHtml = "", abilitiesHtml = "";
+
+        if (horse) {
+          surfaceText = cardRenderer.formatAptitude ? cardRenderer.formatAptitude(horse.turf_potential ?? horse.turf, horse.dirt_potential ?? horse.dirt) : '-';
+          distanceText = cardRenderer.getDistanceText ? cardRenderer.getDistanceText(horse) : '-';
+          
+          paramsHtml = `
+            <div class="bonus-card-params">
+              <span>ス${cardRenderer.getParamRank ? cardRenderer.getParamRank(horse.speed) : '-'}</span>
+              <span>タ${cardRenderer.getParamRank ? cardRenderer.getParamRank(horse.stamina) : '-'}</span>
+              <span>瞬${cardRenderer.getParamRank ? cardRenderer.getParamRank(horse.sharp ?? horse.sharpness) : '-'}</span>
+              <span>持${cardRenderer.getParamRank ? cardRenderer.getParamRank(horse.jizoku) : '-'}</span>
+              <span>根${cardRenderer.getParamRank ? cardRenderer.getParamRank(horse.guts) : '-'}</span>
+            </div>`;
+
+          const abilities = Array.isArray(horse.ability) ? horse.ability : (horse.ability ? [horse.ability] : []);
+          abilitiesHtml = '<div class="bonus-card-abilities">' + [0, 1, 2].map(k => 
+            abilities[k] ? `<div class="bonus-ability-btn" title="${abilities[k]}">${String(abilities[k]).substring(0, 3)}</div>`
+                         : `<div class="bonus-ability-btn empty">---</div>`
+          ).join('') + '</div>';
+        }
+
+        container.innerHTML += `
+          <div class="bonus-card">
+            <div class="bonus-card-header">
+              <span class="gen-year">${genYear}年</span>
+              <span class="slot-num">${lastDigit}</span>
+              <span class="rarity">${item.rarity}</span>
+            </div>
+            <div class="horse-name-mini" title="${horseName}">${horseName}</div>
+            <div class="bonus-card-sub">${surfaceText} ${distanceText}</div>
+            ${paramsHtml}
+            ${abilitiesHtml}
+          </div>`;
+      } else {
+        container.innerHTML += `<div class="bonus-card empty">${i + 1}枚目 未獲得</div>`;
+      }
+    }
+
+    const diffMs = Date.now() - parseTimestamp(state.last_claim_time);
+    const ONE_HOUR_MS = 3600000;
+
+    if (cards.length < 3) {
+      if (cards.length === 0 || diffMs >= ONE_HOUR_MS) {
+        const isFever = (cards.length === 0 && state.is_fever_today);
+        btnContainer.innerHTML = `<button class="bonus-claim-btn" id="claimBtn">${isFever ? "🔥 確変ボーナスを受け取る！" : `🎁 ${cards.length + 1}枚目を受け取る`}</button>`;
+        document.getElementById('claimBtn').onclick = claimLoginBonus;
+        if (isFever) msgContainer.innerHTML = `<div class="bonus-msg">✨ 前日のスロット達成特典適用中！レアカード確定！ ✨</div>`;
+      } else {
+        const minLeft = Math.ceil((ONE_HOUR_MS - diffMs) / 60000);
+        msgContainer.innerHTML = `<div class="bonus-msg">⏰ 次のボーナス獲得まで あと約${minLeft}分</div>`;
+      }
+    } else {
+      if (state.fever_qualified_next_day) {
+        msgContainer.innerHTML = `<div class="bonus-msg">✨ 7-7-7 誕生年下1桁ゾロ目達成！明日の1枚目は確変確定！ ✨</div>`;
+      } else {
+        msgContainer.innerHTML = `<div class="bonus-msg" style="background:#eaf5eb; color:#0d4220; border-color:#b2d4b6;">本日のログインボーナスはすべて獲得済みです</div>`;
+      }
+    }
+  }
+
+  async function claimLoginBonus() {
+    let state = globalUserData.login_bonus_state || {};
+    const cards = state.today_cards || [];
+    if (cards.length >= 3) return;
+
+    const isFeverClaim = (cards.length === 0 && Boolean(state.is_fever_today));
+    const chosenHorse = drawBonusCard(cardRenderer, globalUserData.affiliation, isFeverClaim);
+
+    if (!chosenHorse || !chosenHorse.horse_id) {
+      alert("カードデータの取得に失敗しました。");
+      return;
+    }
+
+    // 🎬 第4コーナーカットイン演出の呼出
+    if (typeof playFourthCornerCutIn === 'function') {
+      await playFourthCornerCutIn(chosenHorse, cardRenderer);
+    }
+
+    const nowMs = Date.now();
+    state.today_cards = [...cards, { horse_id: chosenHorse.horse_id, rarity: chosenHorse.rarity, timestamp: nowMs }];
+    state.last_claim_time = nowMs;
+
+    if (state.today_cards.length === 3) {
+      const [d1, d2, d3] = state.today_cards.map(c => getGenYearLastDigit(c.horse_id));
+      if (d1 === d2 && d2 === d3) state.fever_qualified_next_day = true;
+    }
+
+    try {
+      await Promise.all([
+        setDoc(doc(db, "users", currentUser.uid), { login_bonus_state: state }, { merge: true }),
+        setDoc(doc(db, `users/${currentUser.uid}/inventory/${chosenHorse.horse_id}`), {
+          count: increment(1),
+          obtained_at: new Date().toISOString()
+        }, { merge: true })
+      ]);
+
+      globalUserData.login_bonus_state = state;
+      renderBonusUI(state);
+      renderRecord();
+    } catch (err) {
+      console.error("ログインボーナス処理失敗:", err);
+      alert("保存時にエラーが発生しました。");
+    }
+  }
+
+  function switchTab(idx) {
+    activeDeckIndex = idx;
+    document.getElementById('tabMain1').className = `main-tab ${idx === 0 ? 'active' : ''}`;
+    document.getElementById('tabMain2').className = `main-tab ${idx === 1 ? 'active' : ''}`;
+    renderSelectedDeck();
+  }
+
+  function renderSelectedDeck() {
+    const decks = globalUserData.decks || [{ deck_name: "メインデッキ 1", horse_ids: [] }, { deck_name: "メインデッキ 2", horse_ids: [] }];
+    const deck = decks[activeDeckIndex] || { deck_name: "未設定", horse_ids: [] };
+    document.getElementById('deckNameDisplay').textContent = `✏️ ${deck.deck_name || "メインデッキ"}`;
+    
+    const tbody = document.getElementById('raceTableBody');
+    if (!deck.horse_ids || deck.horse_ids.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:#888; padding:12px;">デッキが設定されていません（EDIT DECKから編成してください）</td></tr>';
+      return;
+    }
+    if (cardRenderer.renderRaceTableRow) {
+      tbody.innerHTML = deck.horse_ids.map((hId, index) => cardRenderer.renderRaceTableRow(hId, index)).join('');
+    } else {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:#888; padding:12px;">データ描画準備中...</td></tr>';
+    }
+  }
+
+  document.getElementById('tabMain1').onclick = () => switchTab(0);
+  document.getElementById('tabMain2').onclick = () => switchTab(1);
+</script>
 </body>
 </html>
