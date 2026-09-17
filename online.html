@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DERBY BATTLE CARD - オンライン対戦待合室</title>
+<style>
+  :root {
+    --bg-gradient: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    --panel-bg: rgba(255, 255, 255, 0.95);
+    --accent-color: #1a73e8;
+    --text-main: #202124;
+  }
+  body { font-family: sans-serif; background: var(--bg-gradient); color: var(--text-main); margin: 0; padding: 15px; display: flex; justify-content: center; }
+  .container { width: 100%; max-width: 500px; display: flex; flex-direction: column; gap: 15px; }
+  .panel { background: var(--panel-bg); border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+  
+  /* ルームID表示 */
+  .room-id-box { background: #f1f3f4; padding: 10px; border-radius: 8px; font-size: 18px; font-weight: bold; letter-spacing: 2px; margin: 10px 0; }
+  
+  /* 対戦者スロット */
+  .vs-container { display: flex; justify-content: space-around; align-items: center; margin: 20px 0; }
+  .player-box { width: 40%; padding: 10px; border: 2px dashed #ccc; border-radius: 8px; }
+  .player-box.ready { border-color: #34a853; background-color: #e6f4ea; }
+  .player-name { font-weight: bold; margin-bottom: 5px; }
+  .status-badge { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #9ee5b5; color: #137333; }
+  
+  .btn-action { background: var(--accent-color); color: white; border: none; padding: 12px 24px; border-radius: 20px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
+  .btn-action:disabled { background: #ccc; cursor: not-allowed; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- 部屋作成・参加パネル -->
+  <div class="panel" id="lobbyPanel">
+    <h2>オンライン対戦</h2>
+    <button class="btn-action" style="margin-bottom: 10px;" onclick="createRoom()">対戦部屋を作成</button>
+    <div style="margin: 10px 0; font-size: 12px; color: #666;">または</div>
+    <input type="text" id="joinRoomId" placeholder="ルームIDを入力" style="padding: 10px; width: 60%; text-align: center;">
+    <button class="btn-action" style="width: auto; padding: 10px 15px;" onclick="joinRoom()">参加</button>
+  </div>
+
+  <!-- 待合室パネル（接続後） -->
+  <div class="panel" id="waitingPanel" style="display: none;">
+    <h3>対戦待合室</h3>
+    <div class="room-id-box" id="displayRoomId">ROOM ID: ------</div>
+    
+    <div class="vs-container">
+      <div class="player-box ready" id="p1Box">
+        <div class="player-name" id="p1Name">あなた</div>
+        <div class="status-badge" id="p1Status">READY</div>
+      </div>
+      <div style="font-weight: 900; font-size: 20px;">VS</div>
+      <div class="player-box" id="p2Box">
+        <div class="player-name" id="p2Name">待機中...</div>
+        <div class="status-badge" id="p2Status" style="background:#eee; color:#666;">WAITING</div>
+      </div>
+    </div>
+
+    <button class="btn-action" id="btnReady" onclick="toggleReady()">準備完了</button>
+  </div>
+</div>
+
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  // FirestoreのRealtime Listener (onSnapshot) を利用して対戦状態を同期する設計がスムーズです
+</script>
+
+</body>
+</html>
