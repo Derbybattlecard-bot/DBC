@@ -245,7 +245,7 @@
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) globalUserData = userDoc.data();
 
-      // ─── レース途中（作戦指示完了・進行中）の自動リダイレクト処理 ───
+      // レース途中（作戦指示完了・進行中）の自動リダイレクト処理
       const status = globalUserData?.cpu_battle_status;
       if (status && status.current_match && status.current_match.full_race_grids) {
         window.location.href = 'race_result.html';
@@ -287,10 +287,10 @@
 
   function getDefaultStrategies() {
     return [
-      { name: "逃げ", category: "逃げ" }, { name: "大逃げ", category: "逃げ" },
-      { name: "先行", category: "先行" }, { name: "好位", category: "先行" },
-      { name: "差し", category: "差し" }, { name: "待機", category: "差し" },
-      { name: "追込", category: "追込" }, { name: "最後方", category: "追込" }
+      { strategy_id: "NIGE_01", name: "ハナにこだわる", category: "逃げ" },
+      { strategy_id: "SENKO_01", name: "先行して粘り込み", category: "先行" },
+      { strategy_id: "SASHI_01", name: "早目スパート", category: "差し" },
+      { strategy_id: "OIKOMI_01", name: "道中死んだふり", category: "追込" }
     ];
   }
 
@@ -311,6 +311,7 @@
     return horse.running_style || horse.leg_style || horse.style || horse.strategy || '先行';
   }
 
+  // 旧ロジック: 脚質ごとの初期作戦取得（フォールバック用）
   function getDefaultStrategyForStyle(style) {
     if (!style) return null;
     const s = String(style);
@@ -325,11 +326,52 @@
     const match = STRATEGY_MASTER.find(item => {
       if (!item) return false;
       if (item.strategy_id && item.strategy_id.startsWith(prefix)) return true;
-      if (item.category === catName) return true;
+      if (item.category === catName || item.style === catName) return true;
       return false;
     });
 
     return match ? (match.name || match.strategy_name || match.strategy) : null;
+  }
+
+  // ★ 新ロジック: 初期作戦設定 (default_strategies) を最優先で読み込み取得する関数
+  function getInitialStrategyForHorse(pEntry, rIdx) {
+    if (!pEntry) return null;
+
+    // 1. 出走登録データ内に設定済み作戦がある場合
+    if (pEntry.strategy) {
+      return pEntry.strategy;
+    }
+
+    // 2. ユーザーの選択中デックの default_strategies から取得
+    const activeDeckIdx = globalUserData?.selectedDeckIdx ?? globalUserData?.cpu_battle_status?.selected_deck_idx ?? 0;
+    const currentDeck = globalUserData?.decks?.[activeDeckIdx];
+
+    if (currentDeck) {
+      let defaultStratId = null;
+
+      // 枠番 (slot_idx) が明示されている場合
+      if (pEntry.slot_idx !== undefined && currentDeck.default_strategies?.[pEntry.slot_idx]) {
+        defaultStratId = currentDeck.default_strategies[pEntry.slot_idx];
+      }
+      // 馬IDからデック内の枠位置を特定して取得
+      else if (pEntry.horse_id && Array.isArray(currentDeck.horse_ids)) {
+        const foundIdx = currentDeck.horse_ids.findIndex(id => String(id) === String(pEntry.horse_id));
+        if (foundIdx !== -1 && currentDeck.default_strategies?.[foundIdx]) {
+          defaultStratId = currentDeck.default_strategies[foundIdx];
+        }
+      }
+
+      // IDが見つかった場合、作戦名に変換
+      if (defaultStratId) {
+        const match = STRATEGY_MASTER.find(s => s.strategy_id === defaultStratId || s.name === defaultStratId);
+        if (match) return match.name || match.strategy_name || match.strategy;
+      }
+    }
+
+    // 3. 設定がない場合のフォールバック（馬の脚質に応じた作戦）
+    const pHorse = HORSES_MASTER[String(pEntry.horse_id)];
+    const pStyle = getHorseStyle(pHorse);
+    return getDefaultStrategyForStyle(pStyle) || "先行して粘り込み";
   }
 
   function initStrategyPage() {
@@ -366,9 +408,10 @@
       const pPt = getHorsePt(pHorse, race.surface);
       const pStyle = getHorseStyle(pHorse);
 
-      const defaultStrat = getDefaultStrategyForStyle(pStyle);
+      // 初期作戦の割り当て
       if (!pEntry.isCustomized) {
-        pEntry.strategy = defaultStrat || pEntry.strategy || "好位";
+        const initStrat = getInitialStrategyForHorse(pEntry, rIdx);
+        pEntry.strategy = initStrat;
       }
 
       const cpuEntry = cpuEntries[rIdx] || {};
@@ -397,12 +440,12 @@
         const categoryStrats = STRATEGY_MASTER.filter(s => {
           if (!s) return false;
           if (s.strategy_id) return s.strategy_id.startsWith(cat.prefix);
-          return s.category === cat.catName;
+          return s.category === cat.catName || s.style === cat.catName;
         });
         
         categoryStrats.forEach(s => {
           const sName = s.name || s.strategy_name || s.strategy || cat.title;
-          const isSelected = pEntry.strategy === sName;
+          const isSelected = pEntry.strategy === sName || pEntry.strategy === s.strategy_id;
           stratOptionsHtml += `<option value="${sName}" ${isSelected ? 'selected' : ''}>${sName}</option>`;
         });
         stratOptionsHtml += `</optgroup>`;
@@ -552,6 +595,19 @@
     btn.disabled = true;
     btn.textContent = "枠順抽選・データ送信中...";
 
+          playerGate: numbers[0],
+      cpuGate: numbers[1],
+      mobGates: numbers.slice(2, 2 + mobCount)
+    };
+  }
+
+  window.finalizeAndStartRace = async function() {
+    if (!currentUser) return;
+
+    const btn = document.getElementById('btnGoRace');
+    btn.disabled = true;
+    btn.textContent = "枠順抽選・データ送信中...";
+
     try {
       const currentStatus = globalUserData.cpu_battle_status || {};
       const currentMatch = currentStatus.current_match || {};
@@ -568,7 +624,7 @@
 
         const stratSelect = document.getElementById(`selectStrat${rIdx}`);
         const levelSelect = document.getElementById(`selectLevel${rIdx}`);
-        const finalStrat = stratSelect ? stratSelect.value : (pEntry.strategy || "先行");
+        const finalStrat = stratSelect ? stratSelect.value : (pEntry.strategy || "先行して粘り込み");
         const finalLevel = levelSelect ? parseInt(levelSelect.value, 10) : (pEntry.strategy_level || 3);
 
         const updatedPlayerEntry = {
