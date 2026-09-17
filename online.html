@@ -181,13 +181,14 @@
       const snap = await getDoc(queueRef);
 
       if (snap.exists() && snap.data().host_uid !== currentUser.uid) {
-        // 既に入室しているプレイヤーがいる場合
+        // 既に入室しているプレイヤーがいる場合（ゲスト参加）
         const hostUid = snap.data().host_uid;
-        const matchedMode = snap.data().mode || targetMode; // ホストのモードを優先
+        const matchedMode = snap.data().mode || targetMode;
         await deleteDoc(queueRef);
 
         const roomId = `room_${Date.now()}`;
-        await setDoc(doc(doc(db, "online_matches", roomId)), {
+        // 二重記述を修正 (doc(db, ...))
+        await setDoc(doc(db, "online_matches", roomId), {
           player1: hostUid,
           player2: currentUser.uid,
           mode: matchedMode,
@@ -225,6 +226,13 @@
     }
     document.getElementById('searchingModal').style.display = "none";
   };
+
+  // 画面移動・タブ閉じ時の自動キュー削除処理
+  window.addEventListener('beforeunload', () => {
+    if (currentQueueId) {
+      deleteDoc(doc(db, "match_queue", currentQueueId));
+    }
+  });
 
   function proceedToBattle(roomId, role, mode) {
     if (matchingUnsubscribe) matchingUnsubscribe();
