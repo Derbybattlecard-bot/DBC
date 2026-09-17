@@ -333,7 +333,7 @@
     return match ? (match.name || match.strategy_name || match.strategy) : null;
   }
 
-  // ★ 修正版: default_strategies（作戦ID）を最優先取得して作戦名に変換する関数
+  // ★ 修正版: 出走馬が所属するデックを自動判定して作戦を取得する関数
   function getInitialStrategyForHorse(pEntry, rIdx) {
     if (!pEntry) return null;
 
@@ -343,21 +343,42 @@
       return match ? (match.name || match.strategy_name || match.strategy) : pEntry.strategy;
     }
 
-    // 2. ユーザーの選択中デックの default_strategies から取得 (最優先)
-    const activeDeckIdx = globalUserData?.selectedDeckIdx ?? globalUserData?.cpu_battle_status?.selected_deck_idx ?? 0;
-    const currentDeck = globalUserData?.decks?.[activeDeckIdx];
+    // 2. 出走馬の所属デックを特定（馬IDが含まれるデックを検索、無ければ保存された選択インデックスを使用）
+    let targetDeck = null;
 
-    if (currentDeck && currentDeck.default_strategies) {
+    if (globalUserData?.decks && Array.isArray(globalUserData.decks)) {
+      // 出走馬の ID が含まれるデックを検索（メイン/サブ等の違いを自動解決）
+      targetDeck = globalUserData.decks.find(deck => 
+        Array.isArray(deck.horse_ids) && pEntry.horse_id && deck.horse_ids.map(String).includes(String(pEntry.horse_id))
+      );
+    }
+
+    // 自動検知できない場合は保存されたインデックスを使用
+    if (!targetDeck) {
+      const savedDeckIdx = globalUserData?.cpu_battle_status?.selected_deck_idx 
+        ?? globalUserData?.cpu_battle_status?.current_match?.selected_deck_idx 
+        ?? globalUserData?.selectedDeckIdx 
+        ?? 0;
+      targetDeck = globalUserData?.decks?.[savedDeckIdx];
+    }
+
+    // デックから作戦を取得
+    if (targetDeck && targetDeck.default_strategies) {
       let defaultStratId = null;
 
-      // 枠順(slot_idx) または 配列インデックス(rIdx) から取得
-      const slotIdx = pEntry.slot_idx !== undefined ? pEntry.slot_idx : rIdx;
-      if (currentDeck.default_strategies[slotIdx]) {
-        defaultStratId = currentDeck.default_strategies[slotIdx];
-      } else if (pEntry.horse_id && Array.isArray(currentDeck.horse_ids)) {
-        const foundIdx = currentDeck.horse_ids.findIndex(id => String(id) === String(pEntry.horse_id));
-        if (foundIdx !== -1 && currentDeck.default_strategies[foundIdx]) {
-          defaultStratId = currentDeck.default_strategies[foundIdx];
+      // 馬のIDがデック内の何番目に配置されているか検索
+      if (pEntry.horse_id && Array.isArray(targetDeck.horse_ids)) {
+        const foundIdx = targetDeck.horse_ids.findIndex(id => String(id) === String(pEntry.horse_id));
+        if (foundIdx !== -1 && targetDeck.default_strategies[foundIdx]) {
+          defaultStratId = targetDeck.default_strategies[foundIdx];
+        }
+      }
+
+      // 見つからない場合は枠順(slot_idx)または配列順(rIdx)でフォールバック
+      if (!defaultStratId) {
+        const slotIdx = pEntry.slot_idx !== undefined ? pEntry.slot_idx : rIdx;
+        if (targetDeck.default_strategies[slotIdx]) {
+          defaultStratId = targetDeck.default_strategies[slotIdx];
         }
       }
 
@@ -570,7 +591,7 @@
       limitEl.textContent = '合計オーバー';
       limitEl.className = 'status-val error';
       goBtn.disabled = true;
-    } else {
+} else {
       lvlEl.className = 'status-val ok';
       limitEl.textContent = 'OK';
       limitEl.className = 'status-val ok';
