@@ -237,11 +237,19 @@
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) globalUserData = userDoc.data();
 
-      // ─── レース途中（中断時）の自動リダイレクト処理 ───
+      // ─── 進行状況に応じた段階的リダイレクト処理 ───
       const status = globalUserData?.cpu_battle_status;
       if (status && status.current_match) {
-        window.location.href = 'race_result.html';
-        return;
+        // ① 出走馬および作戦の両方が確定している場合 → レース結果画面へ
+        if (status.current_match.full_race_grids) {
+          window.location.href = 'race_result.html';
+          return;
+        }
+        // ② 出走馬（チーム）のみ確定しており、作戦が未確定の場合 → 作戦指示画面へ
+        else if (status.current_match.player_entries && status.current_match.player_entries.length > 0) {
+          window.location.href = 'strategy.html';
+          return;
+        }
       }
 
       const [seriesData, horsesData] = await Promise.all([
