@@ -183,7 +183,7 @@
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 4px;
-    max-height: 580px;
+    max-height: 620px;
     overflow-y: auto;
   }
   .slot-card {
@@ -191,7 +191,7 @@
     border: 1px dashed var(--border-color);
     border-radius: 5px;
     padding: 4px;
-    min-height: 96px;
+    min-height: 120px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -213,25 +213,13 @@
     text-overflow: ellipsis;
     width: 100%;
   }
-  
-  .card-params-slot {
-    display: flex;
-    justify-content: space-between;
-    background: #f8faf8;
-    border: 1px solid #e2efe3;
-    padding: 1px 2px;
-    border-radius: 3px;
-    margin-top: 2px;
-    font-size: 8.5px;
-    color: var(--accent-color);
-    font-weight: bold;
-  }
+
   .card-details-slot {
     display: flex;
     flex-direction: column;
     gap: 1px;
     color: var(--text-sub);
-    font-size: 9.5px;
+    font-size: 9px;
   }
   .card-details-slot span {
     white-space: nowrap;
@@ -239,6 +227,14 @@
     text-overflow: ellipsis;
   }
   
+  /* レーダーチャート領域のレイアウト指定 */
+  .slot-radar-box {
+    width: 65px;
+    height: 65px;
+    margin: 2px auto;
+    flex-shrink: 0;
+  }
+
   .empty-text { color: var(--text-sub); text-align: center; margin: auto; font-size: 11px; }
   .filter-box { display: flex; flex-direction: column; gap: 6px; background: #f2f8f3; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 12px; }
   .filter-row { display: flex; gap: 5px; flex-wrap: wrap; }
@@ -271,7 +267,7 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
-    max-height: 440px;
+    max-height: 480px;
     overflow-y: auto;
   }
   .pool-card {
@@ -304,32 +300,22 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .pool-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+
+  .pool-radar-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
     background: #f8faf8;
     border: 1px solid #e2efe3;
     border-radius: 4px;
-    padding: 2px 4px;
-    text-align: center;
-    font-size: 11px;
-    gap: 1px;
+    padding: 2px;
   }
-  .stat-item {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.1;
+  .pool-radar-box {
+    width: 70px;
+    height: 70px;
+    flex-shrink: 0;
   }
-  .stat-label {
-    font-size: 9px;
-    color: var(--text-sub);
-  }
-  .stat-val {
-    font-weight: bold;
-    color: var(--accent-color);
-    font-size: 11px;
-  }
-  
+
   .card-abilities-row {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -470,6 +456,7 @@
 
 <script type="module">
   import { auth, db } from './firebase-config.js';
+  import { cardRenderer } from './card_renderer.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { doc, getDoc, updateDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
@@ -514,13 +501,7 @@
     }
     return horse.distance || '-';
   }
-  function getParamRank(val) {
-    if (val === undefined || val === null) return "-";
-    if (val >= 20) return "S";
-    if (val >= 18) return "A";
-    if (val >= 16) return "B";
-    return "C";
-  }
+
   function setSyncStatus(msg) {
     const el = document.getElementById('syncStatus');
     if (el) el.textContent = msg;
@@ -547,6 +528,24 @@
     }
     html += '</div>';
     return html;
+  }
+
+  // 馬オブジェクトからレーダーチャートSVGを生成するヘルパー関数
+  function createRadarSvgForHorse(horse) {
+    const getVal = (val) => {
+      if (typeof val === 'number') return val;
+      return cardRenderer.rankToValue(val);
+    };
+
+    const paramsObj = {
+      spdVal: getVal(horse.speed),
+      stmVal: getVal(horse.stamina),
+      shpVal: getVal(horse.sharp ?? horse.sharpness),
+      jzkVal: getVal(horse.jizoku),
+      gutVal: getVal(horse.guts)
+    };
+    const styleName = horse.style || horse.running_style || 'default';
+    return cardRenderer.generateRadarSVG(paramsObj, styleName);
   }
 
   // ロック状態に応じてUIを同期切り替え
@@ -580,6 +579,8 @@
     currentUser = user;
     setSyncStatus("☁️ データ読み込み中...");
     try {
+      await cardRenderer.init();
+
       const res = await fetch('./data/horses_master.json');
       if (res.ok) {
         HORSES_ARRAY = await res.json();
@@ -788,6 +789,7 @@
         const distanceText = getDistanceText(horse);
         const sexText = horse.sex || "-";
         const abilitiesHtml = getAbilityBadgeHtml(horse);
+        const radarSvgHtml = createRadarSvgForHorse(horse);
         
         div.className = `slot-card filled ${isSelected ? 'selected' : ''}`;
         
@@ -796,13 +798,9 @@
           <div class="card-details-slot">
             <span>${surfaceText} ${distanceText}</span>
             <span>脚:${horse.style || '-'} ${sexText}</span>
-            <div class="card-params-slot">
-              <span>ス${getParamRank(horse.speed)}</span>
-              <span>タ${getParamRank(horse.stamina)}</span>
-              <span>瞬${getParamRank(horse.sharp ?? horse.sharpness)}</span>
-              <span>持${getParamRank(horse.jizoku)}</span>
-              <span>根${getParamRank(horse.guts)}</span>
-            </div>
+          </div>
+          <div class="slot-radar-box">
+            ${radarSvgHtml}
           </div>
           ${abilitiesHtml}
         `;
@@ -941,20 +939,21 @@
       const distanceText = getDistanceText(horse);
       const sexText = horse.sex || "-";
       const abilitiesHtml = getAbilityBadgeHtml(horse);
+      const radarSvgHtml = createRadarSvgForHorse(horse);
       
       const div = document.createElement('div');
       div.className = 'pool-card';
       
       div.innerHTML = `
         <div class="pool-name">${horse.name}</div>
-        <div class="pool-surface-dist">${surfaceText} ${distanceText} ${sexText}</div>
-        <div class="pool-stats-grid">
-          <div class="stat-item"><span class="stat-label">脚質</span><span class="stat-val">${horse.style || '-'}</span></div>
-          <div class="stat-item"><span class="stat-label">スピ</span><span class="stat-val">${getParamRank(horse.speed)}</span></div>
-          <div class="stat-item"><span class="stat-label">スタ</span><span class="stat-val">${getParamRank(horse.stamina)}</span></div>
-          <div class="stat-item"><span class="stat-label">瞬発</span><span class="stat-val">${getParamRank(horse.sharp ?? horse.sharpness)}</span></div>
-          <div class="stat-item"><span class="stat-label">持続</span><span class="stat-val">${getParamRank(horse.jizoku)}</span></div>
-          <div class="stat-item"><span class="stat-label">根性</span><span class="stat-val">${getParamRank(horse.guts)}</span></div>
+        <div class="pool-radar-row">
+          <div class="pool-surface-dist">
+            <div>${surfaceText} ${distanceText}</div>
+            <div>脚質:${horse.style || '-'} ${sexText}</div>
+          </div>
+          <div class="pool-radar-box">
+            ${radarSvgHtml}
+          </div>
         </div>
         ${abilitiesHtml}
       `;
