@@ -1,18 +1,17 @@
 // レアリティごとのカード外枠カラー
 const RARITY_BORDER_COLORS = {
-  ULR: '#d4af37', // ULTRA LEGEND
-  INF: '#e0a800', // INFINITE
-  SER: '#a855f7', // SECRET RARE
-  URR: '#ef4444', // ULTIMATE RARE
-  SPR: '#3b82f6', // SUPER RARE
-  PRR: '#10b981', // PREMIUM RARE
-  VIR: '#f59e0b', // VICTORY RARE
-  NOR: '#9ca3af', // NORMAL
-  LGR: '#b8860b', // LEGENDARY RARE
-  CLR: '#d2691e', // CLASSICAL RARE
-  TRR: '#4b0082', // TRADITIONAL RARE
-  RER: '#708090', // RETRO RARE
-  ANR: '#2e8b57', // ANTIQUE RARE
+  INF: '#ff00ff',
+  SER: '#8a2be2',
+  ULR: '#d4af37',
+  LGR: '#b8860b',
+  CLR: '#d2691e',
+  TRR: '#4b0082',
+  RER: '#708090',
+  ANR: '#2e8b57',
+  VIR: '#1e90ff',
+  PRR: '#9370db',
+  SPR: '#32cd32',
+  NOR: '#9ca3af',
 };
 const DEFAULT_BORDER_COLOR = '#9ca3af';
 
@@ -69,7 +68,7 @@ export class CardRenderer {
     style.textContent = `
       .crc-card {
         box-sizing: border-box;
-        border-radius: 6px;
+        border-radius: 8px;
         background: #ffffff;
         font-family: 'Helvetica Neue', Arial, sans-serif;
         color: #1a2e1d;
@@ -86,8 +85,7 @@ export class CardRenderer {
       .crc-abilities-row {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 1.5px;
-        margin-top: 4px;
+        gap: 3px;
         width: 100%;
         box-sizing: border-box;
       }
@@ -95,9 +93,9 @@ export class CardRenderer {
         background: #e2efe3;
         border: 1px solid #2d6a37;
         color: #2d6a37;
-        border-radius: 3px;
-        padding: 1px 0;
-        font-size: 8.5px;
+        border-radius: 4px;
+        padding: 3px 0;
+        font-size: 9.5px;
         font-weight: bold;
         text-align: center;
         line-height: 1.2;
@@ -111,7 +109,7 @@ export class CardRenderer {
         background: transparent;
       }
 
-      /* デック用カードレイアウト最適化 */
+      /* 通常一覧用デックレイアウト */
       .crc-card-deck {
         padding: 6px;
         min-height: 135px;
@@ -166,64 +164,129 @@ export class CardRenderer {
         flex-shrink: 0;
       }
 
-      /* 拡大パターン（.crc-card-large：カットイン演出用） */
+      /* 拡大表示（3:4 縦長ボーナスカード用） */
       .crc-card-large {
-        padding: 12px;
-        min-height: 280px;
+        width: 100%;
+        aspect-ratio: 3 / 4;
+        padding: 10px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        gap: 10px;
-        border-radius: 10px;
+        border-radius: 12px;
         background: #ffffff;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.25);
         box-sizing: border-box;
+        overflow: hidden;
       }
-      .crc-card-large .crc-deck-name {
-        font-size: 17px;
-        font-weight: 900;
-        text-align: center;
-        color: #1a2e1d;
+
+      /* 1行目: 馬名 + レアバッジ */
+      .crc-large-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         border-bottom: 2px solid #e2efe3;
         padding-bottom: 4px;
-        letter-spacing: 0.5px;
       }
-      .crc-large-body {
+      .crc-large-name {
+        font-size: 16px;
+        font-weight: 900;
+        color: #1a2e1d;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 72%;
+      }
+      .crc-rarity-badge {
+        font-size: 10px;
+        font-weight: 900;
+        color: #ffffff;
+        padding: 2px 8px;
+        border-radius: 10px;
+        letter-spacing: 0.5px;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+      }
+
+      /* 2行目: 画像 */
+      .crc-large-hero-img {
+        width: 100%;
+        height: 110px;
+        border-radius: 6px;
+        overflow: hidden;
+        border: 1px solid #b5d4ba;
+        background: #f2f7f3;
+        margin: 2px 0;
+      }
+      .crc-large-hero-img img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      /* 3行目: 基本ステータス（2行構造） */
+      .crc-large-info-block {
+        background: #f6faf7;
+        border-radius: 6px;
+        padding: 5px 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        border: 1px solid #e2efe3;
+      }
+      .crc-info-row {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        font-size: 10.5px;
+        font-weight: bold;
+        color: #2d6a37;
+      }
+      .crc-info-item {
+        white-space: nowrap;
+      }
+
+      /* 4行目: 左右分割（左レーダー / 右コメント） */
+      .crc-large-mid-section {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 8px;
-        margin: 4px 0;
+        height: 105px;
+        margin: 1px 0;
       }
-      .crc-large-img-box {
-        width: 52px;
-        height: 52px;
+      .crc-large-radar-wrap {
+        width: 105px;
+        height: 105px;
         flex-shrink: 0;
-        border: 1px solid #b5d4ba;
-        border-radius: 6px;
-        overflow: hidden;
-        background: #f2f7f3;
       }
-      .crc-large-details {
+      .crc-large-comment-box {
+        flex: 1;
+        height: 100%;
+        background: #f4f8f4;
+        border-radius: 6px;
+        border: 1px solid #d0e4d2;
+        padding: 6px;
+        box-sizing: border-box;
         display: flex;
         flex-direction: column;
-        gap: 2px;
-        color: #4e6b52;
-        font-size: 11px;
+        justify-content: flex-start;
+        overflow: hidden;
+      }
+      .crc-comment-title {
+        font-size: 9.5px;
         font-weight: bold;
-        line-height: 1.25;
-        flex: 1;
-        min-width: 0;
+        color: #1b4d23;
+        margin-bottom: 2px;
       }
-      .crc-large-radar-chart {
-        width: 115px;
-        height: 115px;
-        flex-shrink: 0;
-      }
-      .crc-card-large .crc-ability-btn {
+      .crc-comment-text {
         font-size: 10px;
-        padding: 3px 0;
-        border-radius: 3px;
+        color: #334e38;
+        line-height: 1.35;
+        display: -webkit-box;
+        -webkit-line-clamp: 5;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        font-weight: 500;
       }
     `;
     document.head.appendChild(style);
@@ -241,6 +304,28 @@ export class CardRenderer {
     if (t > 0) return `芝${t}`;
     if (d > 0) return `ダ${d}`;
     return '-';
+  }
+
+  getDistanceText(horse) {
+    const min = horse.min_distance || horse.distance_min;
+    const max = horse.max_distance || horse.distance_max;
+    if (min && max) return `${min}m-${max}m`;
+    if (horse.distance) return `${horse.distance}m`;
+    return '-';
+  }
+
+  getGenerationText(horse) {
+    let idStr = String(horse?.horse_id || horse?.id || '');
+    if (idStr.length >= 2) {
+      const genYY = idStr.substring(0, 2);
+      if (!isNaN(parseInt(genYY, 10))) return `${genYY}世代`;
+    }
+    const year = horse?.generation_year || horse?.birth_year || horse?.generation || horse?.gen_year;
+    if (year) {
+      const str = String(year);
+      return str.length >= 4 ? `${str.slice(-2)}世代` : `${str}世代`;
+    }
+    return '----世代';
   }
 
   getDistanceLinesHtml(horse) {
@@ -392,7 +477,8 @@ export class CardRenderer {
       this.getHorseParam(horse, ['turf_potential', 'turf']),
       this.getHorseParam(horse, ['dirt_potential', 'dirt'])
     );
-    const distLinesHtml = this.getDistanceLinesHtml(horse);
+    const distText = this.getDistanceText(horse);
+    const genText = this.getGenerationText(horse);
     const sexText = horse.sex || '-';
     const abilitiesHtml = this.getAbilityBadgesHtml(horse);
 
@@ -420,6 +506,7 @@ export class CardRenderer {
 
     // 1. デック用（通常一覧表示）
     if (mode === 'deck') {
+      const distLinesHtml = this.getDistanceLinesHtml(horse);
       return `
         <div class="crc-card crc-card-deck" style="border: 1px solid ${borderColor}; border-left: 4px solid ${borderColor};">
           <div class="crc-deck-header">
@@ -444,24 +531,47 @@ export class CardRenderer {
       `;
     }
 
-    // 2. 拡大表示（large モード：カットイン演出用）
+    // 2. 拡大表示（large モード：縦長 3:4 スケール）
+    const commentText = horse.comment || horse.description || horse.memo || `${horse.name}。高い能力を秘めた競走馬。`;
+
     return `
       <div class="crc-card crc-card-large" style="border: 3px solid ${borderColor};">
-        <div class="crc-deck-name" title="${horse.name}">${horse.name}</div>
-        <div class="crc-large-body">
-          <div class="crc-large-img-box">
-            <img src="${imgPath}" onerror="this.onerror=null; this.src='${fallbackPath}';" style="width:100%; height:100%; object-fit:cover;" alt="horse">
+        <!-- 1行目: 馬名 (左) + レアバッジ (右) -->
+        <div class="crc-large-header">
+          <div class="crc-large-name" title="${horse.name}">${horse.name}</div>
+          <div class="crc-rarity-badge" style="background: ${borderColor};">${rarityKey}</div>
+        </div>
+
+        <!-- 2行目: 馬画像 -->
+        <div class="crc-large-hero-img">
+          <img src="${imgPath}" onerror="this.onerror=null; this.src='${fallbackPath}';" alt="${horse.name}">
+        </div>
+
+        <!-- 3行目: 基本情報 (2行構造) -->
+        <div class="crc-large-info-block">
+          <div class="crc-info-row">
+            <span class="crc-info-item">適性: ${surfaceText}</span>
+            <span class="crc-info-item">性別: ${sexText}</span>
+            <span class="crc-info-item">${genText}</span>
           </div>
-          <div class="crc-large-details">
-            <div>${surfaceText}</div>
-            ${distLinesHtml}
-            <div>脚質: ${styleName}</div>
-            <div>性別: ${sexText}</div>
-          </div>
-          <div class="crc-large-radar-chart">
-            ${radarSvgHtml}
+          <div class="crc-info-row">
+            <span class="crc-info-item">距離: ${distText}</span>
+            <span class="crc-info-item">脚質: ${styleName}</span>
           </div>
         </div>
+
+        <!-- 4行目: 左右分割 (左: レーダーチャート / 右: コメント) -->
+        <div class="crc-large-mid-section">
+          <div class="crc-large-radar-wrap">
+            ${radarSvgHtml}
+          </div>
+          <div class="crc-large-comment-box">
+            <div class="crc-comment-title">【特徴・メモ】</div>
+            <div class="crc-comment-text">${commentText}</div>
+          </div>
+        </div>
+
+        <!-- 5行目: アビリティバッジ -->
         ${abilitiesHtml}
       </div>
     `;
