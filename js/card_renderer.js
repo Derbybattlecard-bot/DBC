@@ -18,25 +18,14 @@ const DEFAULT_BORDER_COLOR = '#9ca3af';
 
 // 脚質ごとのテーマカラー（レーダーチャート＆バッジ用）
 const STYLE_THEMES = {
-  // 逃げグループ（赤系）
   '逃げ': { fill: 'rgba(239, 83, 80, 0.35)', border: '#e53935', point: '#c62828', bg: '#ffebee', text: '#c62828' },
   '大逃': { fill: 'rgba(239, 83, 80, 0.35)', border: '#e53935', point: '#c62828', bg: '#ffebee', text: '#c62828' },
-  
-  // 先行グループ（オレンジ系）
   '先行': { fill: 'rgba(255, 167, 38, 0.35)', border: '#fb8c00', point: '#ef6c00', bg: '#fff3e0', text: '#ef6c00' },
   '好位': { fill: 'rgba(255, 167, 38, 0.35)', border: '#fb8c00', point: '#ef6c00', bg: '#fff3e0', text: '#ef6c00' },
-  
-  // 差し（緑系）
   '差し': { fill: 'rgba(102, 187, 106, 0.35)', border: '#43a047', point: '#2e7d32', bg: '#e8f5e9', text: '#2e7d32' },
-  
-  // 追込（紫系）
   '追込': { fill: 'rgba(171, 71, 188, 0.35)', border: '#ab47bc', point: '#7b1fa2', bg: '#f3e5f5', text: '#7b1fa2' },
-  
-  // 新色：自在・逃追グループ（ブルー系）
   '自在': { fill: 'rgba(30, 136, 229, 0.35)', border: '#1e88e5', point: '#1565c0', bg: '#e3f2fd', text: '#1565c0' },
   '逃追': { fill: 'rgba(30, 136, 229, 0.35)', border: '#1e88e5', point: '#1565c0', bg: '#e3f2fd', text: '#1565c0' },
-  
-  // デフォルト（緑系）
   'default': { fill: 'rgba(45, 106, 55, 0.35)', border: '#2d6a37', point: '#1b4d23', bg: '#e8f5e9', text: '#2d6a37' }
 };
 
@@ -98,10 +87,10 @@ export class CardRenderer {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 1px 5px;
+        padding: 1px 4px;
         font-size: 8.5px;
         font-weight: 900;
-        border-radius: 8px;
+        border-radius: 6px;
         border: 1px solid #c29b1d;
         background: linear-gradient(135deg, #ffffff 0%, #f4f4f4 100%);
         color: #c29b1d;
@@ -114,30 +103,18 @@ export class CardRenderer {
         background: linear-gradient(135deg, #fff2cb 0%, #ffd700 100%);
         color: #6b4d00;
         border-color: #d4af37;
-        box-shadow: 0 1px 3px rgba(212, 175, 55, 0.4);
       }
       .crc-rarity-badge.rarity-ssr {
         background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
         color: #ffffff;
         border-color: #e63956;
-        box-shadow: 0 1px 3px rgba(230, 57, 86, 0.4);
-      }
-      .crc-rarity-badge.rarity-sr {
-        background: linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%);
-        color: #ffffff;
-        border-color: #1e90ff;
-      }
-      .crc-rarity-badge.rarity-r {
-        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-        color: #0d4220;
-        border-color: #2ed573;
       }
 
       .crc-gen-badge {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 1px 4px;
+        padding: 1px 3px;
         font-size: 8.5px;
         font-weight: bold;
         border-radius: 3px;
@@ -151,7 +128,7 @@ export class CardRenderer {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 1.5px;
-        margin-top: 3px;
+        margin-top: 2px;
         width: 100%;
         box-sizing: border-box;
       }
@@ -168,7 +145,6 @@ export class CardRenderer {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        letter-spacing: -0.5px;
       }
       .crc-ability-btn.empty {
         visibility: hidden;
@@ -176,27 +152,53 @@ export class CardRenderer {
         background: transparent;
       }
 
+      /* デック用カードレイアウト最適化 */
       .crc-card-deck {
-        padding: 4px;
-        min-height: 96px;
+        padding: 4px 6px;
+        min-height: 105px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
         font-size: 11px;
       }
-      .crc-card-header {
+      .crc-deck-header {
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        gap: 2px;
+        justify-content: space-between;
+        gap: 4px;
+        width: 100%;
+        margin-bottom: 2px;
       }
       .crc-deck-name {
         font-weight: bold;
         font-size: 11.5px;
+        color: #1a2e1d;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
         flex: 1;
+        line-height: 1.2;
+      }
+      .crc-deck-badges {
+        display: flex;
+        gap: 2px;
+        flex-shrink: 0;
+      }
+      .crc-deck-body {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 4px;
+        margin: 2px 0;
+      }
+      .crc-deck-img-box {
+        width: 32px;
+        height: 32px;
+        flex-shrink: 0;
+        border: 1px solid #b5d4ba;
+        border-radius: 4px;
+        overflow: hidden;
+        background: #f2f7f3;
       }
       .crc-deck-details {
         display: flex;
@@ -204,69 +206,21 @@ export class CardRenderer {
         gap: 1px;
         color: #4e6b52;
         font-size: 9.5px;
+        line-height: 1.1;
+        flex: 1;
       }
       .crc-deck-details span {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
       }
-      .crc-deck-params {
-        display: flex;
-        justify-content: space-between;
-        background: #f8faf8;
-        border: 1px solid #e2efe3;
-        padding: 1px 2px;
-        border-radius: 3px;
-        margin-top: 2px;
-        font-size: 8.5px;
-        color: #2d6a37;
-        font-weight: bold;
-        font-family: 'Consolas', 'Monaco', monospace;
+      .crc-deck-radar {
+        width: 50px;
+        height: 50px;
+        flex-shrink: 0;
       }
 
-      .crc-card-pool {
-        padding: 6px 8px;
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-        font-size: 12px;
-      }
-      .crc-pool-name {
-        font-weight: bold;
-        font-size: 12.5px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .crc-pool-sub {
-        font-size: 10.5px;
-        color: #4e6b52;
-        font-weight: bold;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-      }
-      .crc-pool-stats-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        background: #f8faf8;
-        border: 1px solid #e2efe3;
-        border-radius: 4px;
-        padding: 2px 4px;
-        text-align: center;
-        font-size: 11px;
-        gap: 1px;
-      }
-      .crc-stat-item { display: flex; flex-direction: column; line-height: 1.1; }
-      .crc-stat-label { font-size: 9px; color: #4e6b52; }
-      .crc-stat-val { font-weight: bold; color: #2d6a37; font-size: 11px; font-family: 'Consolas', 'Monaco', monospace; }
-
-      /* ====================================================
-         拡大パターン（.crc-card-large）レイアウト調整
-      ==================================================== */
+      /* 拡大パターン（.crc-card-large） */
       .crc-card-large {
         padding: 12px;
         min-height: 420px;
@@ -277,64 +231,11 @@ export class CardRenderer {
         border-radius: 10px;
         background: #ffffff;
       }
-
-      /* 馬名：1行で独立表示 */
       .crc-card-large .crc-deck-name {
         font-size: 20px;
         font-weight: bold;
-        line-height: 1.2;
-        width: 100%;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
         text-align: center;
       }
-
-      /* 画像枠 */
-      .crc-large-image-box {
-        width: 66%;
-        height: 130px;
-        margin: 0 auto;
-        background: #f2f7f3;
-        border-radius: 6px;
-        border: 1px solid #b5d4ba;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-      }
-      .crc-large-image-box img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
-
-      /* 画像下のバッジ配置領域 */
-      .crc-large-badges-row {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 8px;
-        margin-top: 2px;
-      }
-
-      .crc-card-large .crc-rarity-badge,
-      .crc-card-large .crc-gen-badge {
-        font-size: 13px;
-        padding: 2px 8px;
-        border-radius: 6px;
-      }
-
-      /* 芝ダート・距離・脚質・性別のフォント */
-      .crc-card-large .crc-deck-details {
-        font-size: 14px;
-        line-height: 1.3;
-        gap: 2px;
-        font-weight: bold;
-        text-align: center;
-      }
-
-      /* レーダーチャート＆ランクの一体型コンテナ */
       .crc-large-radar-section {
         display: flex;
         align-items: center;
@@ -343,34 +244,11 @@ export class CardRenderer {
         border: 1px solid #e2efe3;
         border-radius: 8px;
         padding: 6px;
-        margin: 4px 0;
       }
       .crc-large-radar-chart {
         width: 120px;
         height: 120px;
         flex-shrink: 0;
-      }
-      .crc-large-rank-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 2px;
-        font-size: 11px;
-      }
-      .crc-rank-row {
-        display: flex;
-        justify-content: space-between;
-        gap: 8px;
-        border-bottom: 1px dashed #e0e0e0;
-        padding-bottom: 1px;
-      }
-      .crc-rank-label { color: #4e6b52; font-weight: bold; }
-      .crc-rank-val { font-weight: bold; color: #2d6a37; font-family: 'Consolas', 'Monaco', monospace; }
-
-      /* アビリティボタン */
-      .crc-card-large .crc-ability-btn {
-        font-size: 13px;
-        padding: 4px 0;
-        border-radius: 4px;
       }
     `;
     document.head.appendChild(style);
@@ -392,7 +270,6 @@ export class CardRenderer {
         return `${century}${idStr.substring(0, 2)}`;
       }
     }
-
     if (!horse) return '----';
     const year = horse.generation_year || horse.birth_year || horse.generation || horse.gen_year;
     return year ? String(year) : '----';
@@ -415,9 +292,7 @@ export class CardRenderer {
   getDistanceText(horse) {
     const min = horse.min_distance || horse.distance_min;
     const max = horse.max_distance || horse.distance_max;
-    if (min && max) {
-      return `${min}-${max}m`;
-    }
+    if (min && max) return `${min}-${max}m`;
     return horse.distance || '-';
   }
 
@@ -452,9 +327,6 @@ export class CardRenderer {
     return undefined;
   }
 
-  /**
-   * SVGで軽量・高速に描画する五角形レーダーチャート生成関数
-   */
   generateRadarSVG(params, styleName = 'default') {
     const theme = STYLE_THEMES[styleName] || STYLE_THEMES.default;
     const labels = ['スピ', 'スタ', '瞬発', '持続', '根性'];
@@ -463,11 +335,11 @@ export class CardRenderer {
 
     const cx = 50, cy = 50, r = 35;
     const angles = [
-      -Math.PI / 2,                  // 上 (スピ)
-      -Math.PI / 2 + (2 * Math.PI) / 5,  // 右上 (スタ)
-      -Math.PI / 2 + (4 * Math.PI) / 5,  // 右下 (瞬発)
-      -Math.PI / 2 + (6 * Math.PI) / 5,  // 左下 (持続)
-      -Math.PI / 2 + (8 * Math.PI) / 5   // 左上 (根性)
+      -Math.PI / 2,
+      -Math.PI / 2 + (2 * Math.PI) / 5,
+      -Math.PI / 2 + (4 * Math.PI) / 5,
+      -Math.PI / 2 + (6 * Math.PI) / 5,
+      -Math.PI / 2 + (8 * Math.PI) / 5
     ];
 
     let gridHtml = '';
@@ -497,11 +369,11 @@ export class CardRenderer {
 
     let labelsHtml = '';
     const labelOffsets = [
-      { dx: 0, dy: -6 },   // 上
-      { dx: 6, dy: -1 },   // 右上
-      { dx: 5, dy: 6 },    // 右下
-      { dx: -5, dy: 6 },   // 左下
-      { dx: -6, dy: -1 }   // 左上
+      { dx: 0, dy: -6 },
+      { dx: 6, dy: -1 },
+      { dx: 5, dy: 6 },
+      { dx: -5, dy: 6 },
+      { dx: -6, dy: -1 }
     ];
     angles.forEach((a, i) => {
       const lx = cx + (r + 7) * Math.cos(a) + labelOffsets[i].dx;
@@ -555,11 +427,9 @@ export class CardRenderer {
 
   renderCardUI(horseId, mode = 'deck') {
     let horse = this.getHorse(horseId);
-    
     if (!horse && typeof horseId === 'object' && horseId !== null) {
       horse = horseId;
     }
-
     if (!horse) return `<div class="card-error" style="color:#888; font-size:11px; text-align:center; padding:10px;">(未設定: ID ${horseId})</div>`;
 
     const rarityKey = (horse.rarity || 'NOR').toUpperCase();
@@ -598,8 +468,7 @@ export class CardRenderer {
     const styleName = horse.style || horse.running_style || 'default';
     const radarSvgHtml = this.generateRadarSVG(paramsObj, styleName);
 
-    // 1. デック用（コンパクト表示）
-    // 1. デック用（コンパクト表示）
+    // 1. デック用（コンパクト表示・レイアウト最適化）
     if (mode === 'deck') {
       const rawId = String(horse?.horse_id || horse?.id || '8801');
       const formattedId = rawId.padStart(4, '0');
@@ -608,21 +477,21 @@ export class CardRenderer {
 
       return `
         <div class="crc-card crc-card-deck" style="border: 1px solid ${borderColor}; border-left: 4px solid ${borderColor};">
-          <div class="crc-card-header">
-            <div class="crc-deck-name">${horse.name}</div>
-            ${genBadgeHtml}${rarityBadgeHtml}
+          <div class="crc-deck-header">
+            <div class="crc-deck-name" title="${horse.name}">${horse.name}</div>
+            <div class="crc-deck-badges">${genBadgeHtml}${rarityBadgeHtml}</div>
           </div>
-          <div style="display: flex; gap: 6px; margin-top: 4px; margin-bottom: 2px;">
-            <div style="width: 36px; height: 36px; flex-shrink: 0; border: 1px solid #b5d4ba; border-radius: 4px; overflow: hidden; background: #f2f7f3;">
+          <div class="crc-deck-body">
+            <div class="crc-deck-img-box">
               <img src="${imgPath}" onerror="this.onerror=null; this.src='${fallbackPath}';" style="width:100%; height:100%; object-fit:cover;" alt="horse">
             </div>
-            <div class="crc-deck-details" style="flex-grow: 1; justify-content: center;">
-              <span>${surfaceText} ${distanceText} 性別:${sexText}</span>
-              <span>脚:${styleName}</span>
+            <div class="crc-deck-details">
+              <span>${surfaceText} ${distanceText}</span>
+              <span>脚:${styleName} 性:${sexText}</span>
             </div>
-          </div>
-          <div style="width: 65px; height: 65px; margin: 2px auto;">
-            ${radarSvgHtml}
+            <div class="crc-deck-radar">
+              ${radarSvgHtml}
+            </div>
           </div>
           ${abilitiesHtml}
         </div>
@@ -659,5 +528,4 @@ export class CardRenderer {
   }
 }
 
-// HTML側の import { cardRenderer } に対応するためインスタンスをエクスポート
 export const cardRenderer = new CardRenderer();
