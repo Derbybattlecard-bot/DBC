@@ -15,7 +15,7 @@ const RARITY_BORDER_COLORS = {
 };
 const DEFAULT_BORDER_COLOR = '#9ca3af';
 
-// 脚質ごとのテーマカラー＆映えるバッジ用グラデーション・アイコン
+// 脚質ごとのテーマカラー＆グラデーション・アイコン
 const STYLE_THEMES = {
   '大逃': { icon: '⚡', fill: 'rgba(239, 83, 80, 0.35)', border: '#e53935', point: '#c62828', grad: 'linear-gradient(135deg, #ff5252, #c62828)' },
   '逃げ': { icon: '🏃', fill: 'rgba(239, 83, 80, 0.35)', border: '#e53935', point: '#c62828', grad: 'linear-gradient(135deg, #ff7043, #d84315)' },
@@ -126,7 +126,7 @@ export class CardRenderer {
       .crc-deck-details { display: flex; flex-direction: column; gap: 1px; color: #4e6b52; font-size: 10px; font-weight: bold; line-height: 1.2; flex: 1; }
       .crc-deck-radar { width: 65px; height: 65px; flex-shrink: 0; }
 
-      /* 遊戯王カード規格（59:86）に基いた拡大表示 */
+      /* 遊戯王カード規格（59:86）拡大表示 */
       .crc-card-large {
         width: 100%;
         height: 100%;
@@ -142,13 +142,13 @@ export class CardRenderer {
         overflow: hidden;
       }
 
-      /* 1行目: 馬名 + レアバッジ */
+      /* ヘッダー: 馬名 + レアバッジ */
       .crc-large-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
         border-bottom: 2px solid #e2efe3;
-        padding-bottom: 4px;
+        padding-bottom: 3px;
         flex-shrink: 0;
       }
       .crc-large-name {
@@ -158,7 +158,7 @@ export class CardRenderer {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        max-width: 70%;
+        max-width: 72%;
       }
       .crc-rarity-badge {
         font-size: 10px;
@@ -171,24 +171,22 @@ export class CardRenderer {
         box-shadow: 0 2px 4px rgba(0,0,0,0.15);
       }
 
-      /* 2行目: 画像（残りの高さを消費し、4:3アスペクト比で配置） */
+      /* 画像エリア (幅65%中央揃え / 4:3) */
       .crc-large-hero-wrap {
-        flex: 1;
         display: flex;
         justify-content: center;
         align-items: center;
-        margin: 6px 0;
-        min-height: 0;
+        margin: 4px 0;
+        flex-shrink: 0;
       }
       .crc-large-hero-img {
+        width: 65%; /* 60〜70%の範囲で中央配置 */
         aspect-ratio: 4 / 3;
-        height: 100%;
-        max-width: 100%;
         border-radius: 8px;
         overflow: hidden;
         border: 1.5px solid #b5d4ba;
         background: #f2f7f3;
-        box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
       }
       .crc-large-hero-img img {
         width: 100%;
@@ -196,74 +194,87 @@ export class CardRenderer {
         object-fit: cover;
       }
 
-      /* 3行目: 基本ステータス（ポテンシャル強調 & 脚質映えデザイン） */
+      /* 情報ブロック (脚質・ポテンシャルを攻めたレイアウト) */
       .crc-large-info-block {
-        background: #f4faf5;
+        background: linear-gradient(135deg, #f4faf5 0%, #e8f5e9 100%);
         border-radius: 8px;
-        padding: 6px 8px;
+        padding: 5px 8px;
         display: flex;
         flex-direction: column;
-        gap: 4px;
-        border: 1px solid #c2dfc6;
+        gap: 3px;
+        border: 1px solid #a3d9a5;
         flex-shrink: 0;
-        margin-bottom: 6px;
+        margin-bottom: 4px;
       }
-      .crc-info-row {
+      .crc-info-main-row {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        font-size: 11px;
+      }
+      .crc-info-sub-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 10.5px;
         font-weight: bold;
-        color: #2d6a37;
+        color: #3e6343;
+        border-top: 1px dashed #c2dfc6;
+        padding-top: 3px;
+        margin-top: 1px;
       }
       
-      /* ポテンシャル（芝/ダート）強調 */
+      /* ポテンシャルバッジ */
       .crc-potential-badge {
-        font-size: 12.5px;
+        font-size: 13px;
         font-weight: 900;
         color: #0d4220;
-        background: #e1f3e3;
+        background: #ffffff;
         padding: 2px 8px;
         border-radius: 4px;
-        border: 1px solid #a3d9a5;
-        letter-spacing: 0.5px;
+        border: 1.5px solid #2d6a37;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
       }
 
-      /* 脚質グラデーションバッジ */
+      /* 脚質バッジ（存在感アップ） */
       .crc-style-badge {
         display: inline-flex;
         align-items: center;
-        gap: 3px;
+        gap: 4px;
         color: #ffffff;
-        padding: 2px 8px;
+        padding: 3px 10px;
         border-radius: 12px;
-        font-size: 11px;
-        font-weight: bold;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        font-size: 12px;
+        font-weight: 900;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+        text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+        letter-spacing: 0.5px;
       }
 
-      /* 4行目: 左右分割 (レーダー & コメント) */
+      /* 左右分割 (拡大されたレーダー & コメント) */
       .crc-large-mid-section {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 8px;
-        height: 100px;
-        flex-shrink: 0;
-        margin-bottom: 8px;
+        gap: 6px;
+        flex: 1; /* 余ったスペースを最大限利用 */
+        min-height: 0;
+        margin-bottom: 6px;
       }
       .crc-large-radar-wrap {
-        width: 100px;
-        height: 100px;
+        width: 130px; /* レーダーを大幅拡大 */
+        height: 130px;
         flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
       .crc-large-comment-box {
         flex: 1;
         height: 100%;
-        background: #f4f8f4;
+        max-height: 130px;
+        background: #f8faf8;
         border-radius: 6px;
-        border: 1px solid #d0e4d2;
+        border: 1px solid #c2dfc6;
         padding: 6px 8px;
         box-sizing: border-box;
         display: flex;
@@ -275,20 +286,22 @@ export class CardRenderer {
         font-size: 9.5px;
         font-weight: bold;
         color: #1b4d23;
-        margin-bottom: 2px;
+        margin-bottom: 3px;
+        border-bottom: 1px dotted #b5d4ba;
+        padding-bottom: 2px;
       }
       .crc-comment-text {
         font-size: 10px;
-        color: #334e38;
+        color: #2e4732;
         line-height: 1.35;
         display: -webkit-box;
-        -webkit-line-clamp: 5;
+        -webkit-line-clamp: 6;
         -webkit-box-orient: vertical;
         overflow: hidden;
         font-weight: 500;
       }
 
-      /* 5行目: アビリティエリア */
+      /* 下部: アビリティ */
       .crc-large-bottom-section {
         flex-shrink: 0;
       }
@@ -318,7 +331,6 @@ export class CardRenderer {
     return '-';
   }
 
-  // 世代表記を確実に4桁の西暦（例: 1999世代）に変更
   getGenerationText(horse) {
     let rawYear = horse?.generation_year || horse?.birth_year || horse?.generation || horse?.gen_year || horse?.year;
     if (rawYear) {
@@ -385,13 +397,14 @@ export class CardRenderer {
     return undefined;
   }
 
+  // 大幅拡大したSVGレーダーチャート（領域・フォント位置を調整）
   generateRadarSVG(params, styleName = 'default') {
     const theme = STYLE_THEMES[styleName] || STYLE_THEMES.default;
     const labels = ['スピ', 'スタ', '瞬発', '持続', '根性'];
     const values = [params.spdVal, params.stmVal, params.shpVal, params.jzkVal, params.gutVal];
     const maxVal = 25;
 
-    const cx = 50, cy = 50, r = 35;
+    const cx = 50, cy = 50, r = 36;
     const angles = [
       -Math.PI / 2,
       -Math.PI / 2 + (2 * Math.PI) / 5,
@@ -401,14 +414,14 @@ export class CardRenderer {
     ];
 
     let gridHtml = '';
-    [0.2, 0.4, 0.6, 0.8, 1.0].forEach(level => {
+    [0.25, 0.5, 0.75, 1.0].forEach(level => {
       const pts = angles.map(a => `${cx + r * level * Math.cos(a)},${cy + r * level * Math.sin(a)}`).join(' ');
-      gridHtml += `<polygon points="${pts}" fill="none" stroke="rgba(0,0,0,0.08)" stroke-width="1"/>`;
+      gridHtml += `<polygon points="${pts}" fill="none" stroke="rgba(0,0,0,0.1)" stroke-width="0.8"/>`;
     });
 
     let axisHtml = '';
     angles.forEach(a => {
-      axisHtml += `<line x1="${cx}" y1="${cy}" x2="${cx + r * Math.cos(a)}" y2="${cy + r * Math.sin(a)}" stroke="rgba(0,0,0,0.1)" stroke-width="1"/>`;
+      axisHtml += `<line x1="${cx}" y1="${cy}" x2="${cx + r * Math.cos(a)}" y2="${cy + r * Math.sin(a)}" stroke="rgba(0,0,0,0.12)" stroke-width="0.8"/>`;
     });
 
     const dataPtsArr = values.map((v, i) => {
@@ -422,28 +435,28 @@ export class CardRenderer {
 
     let pointsHtml = '';
     dataPtsArr.forEach(p => {
-      pointsHtml += `<circle cx="${p.x}" cy="${p.y}" r="2" fill="${theme.point}" />`;
+      pointsHtml += `<circle cx="${p.x}" cy="${p.y}" r="2.2" fill="${theme.point}" />`;
     });
 
     let labelsHtml = '';
     const labelOffsets = [
       { dx: 0, dy: -6 },
       { dx: 6, dy: -1 },
-      { dx: 5, dy: 6 },
-      { dx: -5, dy: 6 },
+      { dx: 4, dy: 5 },
+      { dx: -4, dy: 5 },
       { dx: -6, dy: -1 }
     ];
     angles.forEach((a, i) => {
-      const lx = cx + (r + 7) * Math.cos(a) + labelOffsets[i].dx;
-      const ly = cy + (r + 7) * Math.sin(a) + labelOffsets[i].dy;
-      labelsHtml += `<text x="${lx}" y="${ly}" font-size="7" font-weight="bold" fill="${theme.border}" text-anchor="middle" dominant-baseline="central">${labels[i]}</text>`;
+      const lx = cx + (r + 7.5) * Math.cos(a) + labelOffsets[i].dx;
+      const ly = cy + (r + 7.5) * Math.sin(a) + labelOffsets[i].dy;
+      labelsHtml += `<text x="${lx}" y="${ly}" font-size="7.5" font-weight="bold" fill="${theme.border}" text-anchor="middle" dominant-baseline="central">${labels[i]}</text>`;
     });
 
     return `
       <svg viewBox="0 0 100 100" class="crc-radar-svg" style="width:100%; height:100%; overflow:visible;">
         ${gridHtml}
         ${axisHtml}
-        <polygon points="${dataPtsStr}" fill="${theme.fill}" stroke="${theme.border}" stroke-width="1.8"/>
+        <polygon points="${dataPtsStr}" fill="${theme.fill}" stroke="${theme.border}" stroke-width="2"/>
         ${pointsHtml}
         ${labelsHtml}
       </svg>
@@ -515,7 +528,7 @@ export class CardRenderer {
     const imgPath = `./images/${formattedId}.jpg`;
     const fallbackPath = `./images/8801.jpg`;
 
-    // 1. デック表示用
+    // デック一覧表示用
     if (mode === 'deck') {
       const distLinesHtml = this.getDistanceLinesHtml(horse);
       return `
@@ -542,7 +555,7 @@ export class CardRenderer {
       `;
     }
 
-    // 2. 拡大表示（遊戯王規格比率 59:86 & 4:3画像最適化）
+    // 拡大表示モーダル用（レイアウト最適化版）
     const commentText = horse.comment || horse.description || horse.memo || `${horse.name}。血統と能力に恵まれた競走馬。`;
 
     return `
@@ -553,29 +566,29 @@ export class CardRenderer {
           <div class="crc-rarity-badge" style="background: ${borderColor};">${rarityKey}</div>
         </div>
 
-        <!-- 2行目: 画像 (余白を埋める縦幅自動可変 4:3) -->
+        <!-- 2行目: 画像 (幅65%中央揃え 4:3) -->
         <div class="crc-large-hero-wrap">
           <div class="crc-large-hero-img">
             <img src="${imgPath}" onerror="this.onerror=null; this.src='${fallbackPath}';" alt="${horse.name}">
           </div>
         </div>
 
-        <!-- 3行目: ポテンシャル（強調）/ 脚質（グラデーションバッジ） / 基本情報 -->
+        <!-- 3行目: ポテンシャル & 脚質（ダイナミック配置） -->
         <div class="crc-large-info-block">
-          <div class="crc-info-row">
+          <div class="crc-info-main-row">
             <span class="crc-potential-badge">${surfaceText}</span>
             <span class="crc-style-badge" style="background: ${styleTheme.grad};">
               ${styleTheme.icon} ${styleName}
             </span>
           </div>
-          <div class="crc-info-row" style="margin-top: 2px;">
+          <div class="crc-info-sub-row">
             <span>距離: ${distText}</span>
             <span>性別: ${sexText}</span>
             <span>${genText}</span>
           </div>
         </div>
 
-        <!-- 4行目: レーダー & コメント -->
+         <!-- 4行目: 大幅拡大レーダー & コメント欄 -->
         <div class="crc-large-mid-section">
           <div class="crc-large-radar-wrap">
             ${radarSvgHtml}
@@ -586,7 +599,7 @@ export class CardRenderer {
           </div>
         </div>
 
-        <!-- 5行目: アビリティバッジ -->
+        <!-- 5行目: アビリティエリア -->
         <div class="crc-large-bottom-section">
           ${abilitiesHtml}
         </div>
@@ -594,5 +607,3 @@ export class CardRenderer {
     `;
   }
 }
-
-export const cardRenderer = new CardRenderer();
