@@ -30,7 +30,6 @@
   h1, h2, h3 { margin: 0 0 6px 0; color: var(--accent-color); }
   .container { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 1150px; }
   
-  /* CPU対戦中ロック通知バナー */
   .lock-banner {
     background-color: #d9534f;
     color: #ffffff;
@@ -42,7 +41,6 @@
     box-shadow: 0 2px 5px rgba(0,0,0,0.15);
   }
 
-  /* ロック状態のUI領域（操作不能・グレーアウト） */
   .is-locked {
     pointer-events: none !important;
     opacity: 0.55 !important;
@@ -186,12 +184,14 @@
     max-height: 620px;
     overflow-y: auto;
   }
+  
+  /* スロットカードCSS最適化 */
   .slot-card {
     background-color: var(--slot-empty);
     border: 1px dashed var(--border-color);
     border-radius: 5px;
-    padding: 4px;
-    min-height: 120px;
+    padding: 4px 6px;
+    min-height: 105px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -204,6 +204,15 @@
   .slot-card.filled { border-style: solid; border-color: #a0ca33; background-color: #ffffff; }
   .slot-card.selected { border-color: var(--gold); box-shadow: 0 0 5px rgba(194, 155, 29, 0.6); }
   
+  .card-header-slot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    width: 100%;
+    margin-bottom: 2px;
+  }
+
   .card-name-slot {
     font-weight: bold;
     font-size: 11.5px;
@@ -211,7 +220,16 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    width: 100%;
+    flex: 1;
+    line-height: 1.2;
+  }
+
+  .card-body-slot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    margin: 2px 0;
   }
 
   .card-details-slot {
@@ -219,7 +237,9 @@
     flex-direction: column;
     gap: 1px;
     color: var(--text-sub);
-    font-size: 9px;
+    font-size: 9.5px;
+    line-height: 1.1;
+    flex: 1;
   }
   .card-details-slot span {
     white-space: nowrap;
@@ -227,11 +247,10 @@
     text-overflow: ellipsis;
   }
   
-  /* レーダーチャート領域のレイアウト指定 */
+  /* レーダーチャート領域（横並び化） */
   .slot-radar-box {
-    width: 65px;
-    height: 65px;
-    margin: 2px auto;
+    width: 48px;
+    height: 48px;
     flex-shrink: 0;
   }
 
@@ -320,7 +339,7 @@
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 1.5px;
-    margin-top: 3px;
+    margin-top: 2px;
     width: 100%;
     box-sizing: border-box;
   }
@@ -348,7 +367,6 @@
 </head>
 <body>
 <div class="container">
-  <!-- CPU対戦中ロック通知バナー -->
   <div id="lockBanner" class="lock-banner" style="display: none;">
     🔒 CPU対戦が進行中のため、デックの編集・カード入れ替えはロックされています。
   </div>
@@ -467,7 +485,7 @@
   let activeDeckIdx = 0;
   let selectedSlotIndex = null;
   let selectedKana = "ALL";
-  let isLocked = false; // CPU対戦中ロック管理フラグ
+  let isLocked = false;
 
   const RARITY_WEIGHT = { 
     "INF": 11, "SER": 10, "ULR": 9, "LGR": 8, "CLR": 7, 
@@ -530,7 +548,6 @@
     return html;
   }
 
-  // 馬オブジェクトからレーダーチャートSVGを生成するヘルパー関数
   function createRadarSvgForHorse(horse) {
     const getVal = (val) => {
       if (typeof val === 'number') return val;
@@ -548,7 +565,6 @@
     return cardRenderer.generateRadarSVG(paramsObj, styleName);
   }
 
-  // ロック状態に応じてUIを同期切り替え
   function updateLockUI() {
     const lockBanner = document.getElementById('lockBanner');
     const btnChangeDeckName = document.getElementById('btnChangeDeckName');
@@ -598,7 +614,6 @@
         return;
       }
 
-      // CPU対戦実行中フラグの判定
       if (globalUserData.cpu_battle_status && globalUserData.cpu_battle_status.is_active) {
         isLocked = true;
       } else {
@@ -773,6 +788,7 @@
     alert(msg);
   }
   
+  // デック一覧（スロット）の描画最適化
   function renderDeck() {
     const grid = document.getElementById('slotsGrid');
     grid.innerHTML = '';
@@ -790,17 +806,24 @@
         const sexText = horse.sex || "-";
         const abilitiesHtml = getAbilityBadgeHtml(horse);
         const radarSvgHtml = createRadarSvgForHorse(horse);
+        const rarityBadge = cardRenderer.getRarityBadgeHtml(horse);
+        const genBadge = cardRenderer.getGenBadgeHtml(horse);
         
         div.className = `slot-card filled ${isSelected ? 'selected' : ''}`;
         
         div.innerHTML = `
-          <div class="card-name-slot">${horse.name}</div>
-          <div class="card-details-slot">
-            <span>${surfaceText} ${distanceText}</span>
-            <span>脚:${horse.style || '-'} ${sexText}</span>
+          <div class="card-header-slot">
+            <div class="card-name-slot" title="${horse.name}">${horse.name}</div>
+            <div style="display:flex; gap:2px; flex-shrink:0;">${genBadge}${rarityBadge}</div>
           </div>
-          <div class="slot-radar-box">
-            ${radarSvgHtml}
+          <div class="card-body-slot">
+            <div class="card-details-slot">
+              <span>${surfaceText} ${distanceText}</span>
+              <span>脚:${horse.style || '-'} 性:${sexText}</span>
+            </div>
+            <div class="slot-radar-box">
+              ${radarSvgHtml}
+            </div>
           </div>
           ${abilitiesHtml}
         `;
