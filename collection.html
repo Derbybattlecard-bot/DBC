@@ -117,6 +117,7 @@
       align-items: center;
       box-sizing: border-box; 
       gap: 2px;
+      transition: transform 0.1s ease;
     }
     .card-item.unobtained { background: #f2f5f2; border: 1px dashed #b0cab3; opacity: 0.55; }
     
@@ -157,10 +158,10 @@
       line-height: 1.1;
     }
 
-    /* モーダル */
+    /* モーダル共通 */
     .modal-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.6); display: none;
+      background: rgba(0, 0, 0, 0.7); display: none;
       justify-content: center; align-items: center; z-index: 1000;
     }
     .modal-overlay.active { display: flex; }
@@ -207,6 +208,13 @@
   </div>
 </div>
 
+<!-- カード拡大表示モーダル -->
+<div class="modal-overlay" id="cardDetailModal" style="z-index: 2000;">
+  <div style="width: 90%; max-width: 320px; pointer-events: auto;">
+    <div id="cardDetailContainer"></div>
+  </div>
+</div>
+
 <!-- トレード出品モーダル -->
 <div class="modal-overlay" id="tradeModal">
   <div class="modal-box">
@@ -245,6 +253,7 @@
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
   import { createTradeListing } from './js/trade-service.js';
+  import { cardRenderer } from './card_renderer.js';
 
   let HORSES_ARRAY = [];
   let HORSES_MASTER = {};
@@ -281,6 +290,9 @@
     currentUser = user;
 
     try {
+      // カード描画レンダラーの初期化
+      await cardRenderer.init();
+
       const res = await fetch('./data/horses_master.json');
       if (!res.ok) throw new Error(`horses_master.json の読み込みに失敗しました`);
       
@@ -371,10 +383,12 @@
         const canTrade = isObtained && item.count >= 2 && item.availableCount >= 2;
 
         return `
-          <div class="card-item ${isObtained ? '' : 'unobtained'}">
+          <div class="card-item ${isObtained ? '' : 'unobtained'}"
+               style="${isObtained ? 'cursor: pointer;' : ''}"
+               ${isObtained ? `onclick="openCardModal('${strId}')"` : ''}>
             <div class="card-name" title="${h.name}">${isObtained ? h.name : '？？？？？'}</div>
             <div class="card-count">${isObtained ? `${item.count}枚` : '未獲得'}</div>
-            ${canTrade ? `<button class="btn-trade-offer" onclick="openTradeModal('${strId}')">📤 出品</button>` : ''}
+            ${canTrade ? `<button class="btn-trade-offer" onclick="event.stopPropagation(); openTradeModal('${strId}')">📤 出品</button>` : ''}
           </div>
         `;
       }).join('');
@@ -383,6 +397,24 @@
     });
   }
 
+  // カード拡大表示モーダル処理
+  window.openCardModal = (horseId) => {
+    const horse = HORSES_MASTER[horseId];
+    if (!horse) return;
+
+    const cardHtml = cardRenderer.renderCardUI(horse, 'large');
+    document.getElementById('cardDetailContainer').innerHTML = cardHtml;
+    document.getElementById('cardDetailModal').classList.add('active');
+  };
+
+  // 背景タップでカード拡大表示モーダルを閉じる
+  document.getElementById('cardDetailModal').addEventListener('click', (e) => {
+    if (e.target.id === 'cardDetailModal') {
+      document.getElementById('cardDetailModal').classList.remove('active');
+    }
+  });
+
+  // トレード出品モーダル処理
   window.openTradeModal = (horseId) => {
     selectedHorseForTrade = HORSES_MASTER[horseId];
     if (!selectedHorseForTrade) return;
@@ -405,7 +437,6 @@
     const comment = document.getElementById('tradeComment').value.trim();
 
     try {
-      // 出品前チェック: 1人1件制限（アクティブな出品がすでにある場合は拒否）
       const q = query(
         collection(db, "trades"),
         where("seller_uid", "==", currentUser.uid),
