@@ -319,7 +319,6 @@
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { doc, getDoc, setDoc, collection, getCountFromServer, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
   
-  // ★ ルート直下のファイルからインポート（./js/ ではなく ./ に修正）
   import { cardRenderer } from './js/card_renderer.js';
   import { drawBonusCard, getGenYearLastDigit, playFourthCornerCutIn } from './js/login_bonus.js';
 
@@ -334,7 +333,6 @@
     }
     currentUser = user;
     try {
-      // データの並行読み込み
       const [userDoc] = await Promise.all([
         getDoc(doc(db, "users", user.uid)),
         cardRenderer.init().catch(err => {
@@ -509,7 +507,6 @@
       return;
     }
 
-    // 🎬 第4コーナーカットイン演出の呼出
     if (typeof playFourthCornerCutIn === 'function') {
       await playFourthCornerCutIn(chosenHorse, cardRenderer);
     }
@@ -548,7 +545,7 @@
     renderSelectedDeck();
   }
 
-     function renderSelectedDeck() {
+  function renderSelectedDeck() {
     const decks = globalUserData.decks || [{ deck_name: "メインデッキ 1", horse_ids: [] }, { deck_name: "メインデッキ 2", horse_ids: [] }];
     const deck = decks[activeDeckIndex] || { deck_name: "未設定", horse_ids: [] };
     document.getElementById('deckNameDisplay').textContent = `✏️ ${deck.deck_name || "メインデッキ"}`;
@@ -559,20 +556,49 @@
       return;
     }
 
-    // 1. cardRenderer に renderRaceTableRow が定義されている場合はそれを使用
-    if (typeof cardRenderer.renderRaceTableRow === 'function') {
-      tbody.innerHTML = deck.horse_ids.map((hId, index) => cardRenderer.renderRaceTableRow(hId, index)).join('');
-      return;
-    }
-
-    // 2. 未定義の場合の直接描画処理（フォールバック）
-    const rowsHtml = deck.horse_ids.map((hId, index) => {
+    // 1. 各馬のデータ取得と能力値（スコア）計算
+    const horsesData = deck.horse_ids.map((hId, originalIndex) => {
       const horse = cardRenderer.getHorse ? cardRenderer.getHorse(hId) : null;
+      if (!horse) return { hId, originalIndex, horse: null, score: 0 };
+
+      const getVal = (v) => {
+        if (typeof v === 'number') return v;
+        const rankMap = { 'SS': 100, 'S': 90, 'A': 80, 'B': 70, 'C': 60, 'D': 50, 'E': 40 };
+        return rankMap[v] || 0;
+      };
+
+      const score = getVal(horse.speed) + getVal(horse.stamina) + 
+                    getVal(horse.sharp ?? horse.sharpness) + 
+                    getVal(horse.jizoku) + getVal(horse.guts);
+
+      return { hId, originalIndex, horse, score };
+    });
+
+    // 2. デッキ内でのスコア順位に応じて印（◎, ◯, ▲, △, △, 注）を判定
+    const validHorses = horsesData.filter(item => item.horse !== null);
+    validHorses.sort((a, b) => b.score - a.score);
+
+    const markMap = new Map();
+    validHorses.forEach((item, rank) => {
+      let mark = 'ー';
+      if (rank === 0) mark = '<span style="color:#e60000; font-weight:bold;">◎</span>';
+      else if (rank === 1) mark = '<span style="color:#e60000; font-weight:bold;">◯</span>';
+      else if (rank === 2) mark = '<span style="color:#1a73e8; font-weight:bold;">▲</span>';
+      else if (rank === 3 || rank === 4) mark = '<span style="color:#2d6a37; font-weight:bold;">△</span>';
+      else if (rank === 5) mark = '<span style="color:#c29b1d; font-weight:bold;">注</span>';
       
+      markMap.set(item.hId, mark);
+    });
+
+    // 3. テーブル行（枠順通り）の描画
+    const rowsHtml = horsesData.map((item) => {
+      const { hId, originalIndex, horse } = item;
+      const frameNum = originalIndex + 1;
+
       if (!horse) {
         return `<tr>
-          <td>${index + 1}</td>
-          <td>-</td>
+          <td>${frameNum}</td>
+          <td>ー</td>
           <td style="text-align:left; padding-left:4px;">${hId}</td>
           <td>-</td>
           <td>-</td>
@@ -580,14 +606,36 @@
       }
 
       const name = horse.name || hId;
+      const mark = markMap.get(hId) || 'ー';
+
+      // 適性表示
       const aptitude = cardRenderer.formatAptitude 
         ? cardRenderer.formatAptitude(horse.turf_potential ?? horse.turf, horse.dirt_potential ?? horse.dirt)
-        : (horse.turf || '-');
-      const distance = cardRenderer.getDistanceText ? cardRenderer.getDistanceText(horse) : '-';
-      const mark = horse.style || 'ー'; // 脚質または印
+        : (horse.turf ? `芝${horse.turf}` : (horse.dirt ? `ダ${horse.dirt}` : '-'));
+
+      // 距離表示
+      let distance = '-';
+      if (cardRenderer.getDistanceText) {
+        const res = cardRenderer.getDistanceText(horse);
+        if (res && res !== '-' && res !== 'undefined') distance = res;
+      }
+
+      if (distance === '-') {
+        if (horse.distance) {
+          distance = typeof horse.distance === 'number' ? `${horse.distance}m` : horse.distance;
+        } else if (horse.min_distance && horse.max_distance) {
+          distance = `${horse.min_distance}-${horse.max_distance}m`;
+        } else if (horse.min_dist && horse.max_dist) {
+          distance = `${horse.min_dist}-${horse.max_dist}m`;
+        } else if (horse.distance_aptitude) {
+          distance = horse.distance_aptitude;
+        } else if (horse.dist) {
+          distance = horse.dist;
+        }
+      }
 
       return `<tr>
-        <td><strong>${index + 1}</strong></td>
+        <td><strong>${frameNum}</strong></td>
         <td>${mark}</td>
         <td style="text-align:left; padding-left:4px; font-weight:bold;">${name}</td>
         <td>${aptitude}</td>
@@ -597,7 +645,6 @@
 
     tbody.innerHTML = rowsHtml;
   }
-
 
   document.getElementById('tabMain1').onclick = () => switchTab(0);
   document.getElementById('tabMain2').onclick = () => switchTab(1);
