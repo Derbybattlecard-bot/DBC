@@ -83,22 +83,25 @@ function injectCutInStyles() {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 16px; /* カードとレア帯の間隔 */
-      width: 90%; max-width: 320px;
-      /* translateYで帯の分だけ全体を少し上へずらす */
-      transform: translateY(-8vh) scale(0.5); opacity: 0;
+      gap: 12px;
+      width: 92%;
+      max-width: 340px;
+      transform: translateY(-6vh) scale(0.5);
+      opacity: 0;
       transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.25), opacity 0.3s ease;
       z-index: 10;
     }
     .cutin-card-box.in { 
-      transform: translateY(-8vh) scale(1); 
+      transform: translateY(-6vh) scale(1); 
       opacity: 1; 
     }
 
     .card-render-inner {
-      width: 100%; border-radius: 6px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
-      background: #fff; overflow: hidden;
+      width: 100%;
+      border-radius: 10px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
+      background: #ffffff;
+      overflow: hidden;
     }
 
     /* レア表示スロット：カードに被らず、直下に表示される */
