@@ -548,7 +548,7 @@
     renderSelectedDeck();
   }
 
-   function renderSelectedDeck() {
+     function renderSelectedDeck() {
     const decks = globalUserData.decks || [{ deck_name: "メインデッキ 1", horse_ids: [] }, { deck_name: "メインデッキ 2", horse_ids: [] }];
     const deck = decks[activeDeckIndex] || { deck_name: "未設定", horse_ids: [] };
     document.getElementById('deckNameDisplay').textContent = `✏️ ${deck.deck_name || "メインデッキ"}`;
@@ -558,12 +558,46 @@
       tbody.innerHTML = '<tr><td colspan="5" style="color:#888; padding:12px;">デッキが設定されていません（EDIT DECKから編成してください）</td></tr>';
       return;
     }
-    if (cardRenderer.renderRaceTableRow) {
+
+    // 1. cardRenderer に renderRaceTableRow が定義されている場合はそれを使用
+    if (typeof cardRenderer.renderRaceTableRow === 'function') {
       tbody.innerHTML = deck.horse_ids.map((hId, index) => cardRenderer.renderRaceTableRow(hId, index)).join('');
-    } else {
-      tbody.innerHTML = '<tr><td colspan="5" style="color:#888; padding:12px;">データ描画準備中...</td></tr>';
+      return;
     }
+
+    // 2. 未定義の場合の直接描画処理（フォールバック）
+    const rowsHtml = deck.horse_ids.map((hId, index) => {
+      const horse = cardRenderer.getHorse ? cardRenderer.getHorse(hId) : null;
+      
+      if (!horse) {
+        return `<tr>
+          <td>${index + 1}</td>
+          <td>-</td>
+          <td style="text-align:left; padding-left:4px;">${hId}</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>`;
+      }
+
+      const name = horse.name || hId;
+      const aptitude = cardRenderer.formatAptitude 
+        ? cardRenderer.formatAptitude(horse.turf_potential ?? horse.turf, horse.dirt_potential ?? horse.dirt)
+        : (horse.turf || '-');
+      const distance = cardRenderer.getDistanceText ? cardRenderer.getDistanceText(horse) : '-';
+      const mark = horse.style || 'ー'; // 脚質または印
+
+      return `<tr>
+        <td><strong>${index + 1}</strong></td>
+        <td>${mark}</td>
+        <td style="text-align:left; padding-left:4px; font-weight:bold;">${name}</td>
+        <td>${aptitude}</td>
+        <td>${distance}</td>
+      </tr>`;
+    }).join('');
+
+    tbody.innerHTML = rowsHtml;
   }
+
 
   document.getElementById('tabMain1').onclick = () => switchTab(0);
   document.getElementById('tabMain2').onclick = () => switchTab(1);
