@@ -40,7 +40,7 @@ function injectCutInStyles() {
     /* バナーコンテナ: 上から下へ追加し、古いものは下に押し出される */
     .dynamic-banners {
       position: absolute;
-      top: 10vh; /* 少し上からスタート */
+      top: 8vh;
       left: 0; width: 100%;
       display: flex;
       flex-direction: column;
@@ -52,11 +52,11 @@ function injectCutInStyles() {
     /* 滑らかに高さが開いて一段ずれるためのラッパー */
     .banner-row {
       width: 100%;
-      height: 0; /* 追加時は高さ0 */
+      height: 0;
       transition: height 0.25s ease-out;
     }
     .banner-row.open {
-      height: 64px; /* バナーの高さ52px + 隙間12px */
+      height: 64px;
     }
 
     .slot-banner {
@@ -78,36 +78,36 @@ function injectCutInStyles() {
     .bg-name { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #7209b7 20%, #f72585 80%, rgba(0,0,0,0) 100%); color: #ffffff; text-shadow: 0 0 8px rgba(255,255,255,0.8); }
     .bg-rare { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #b8860b 20%, #ffd700 80%, rgba(0,0,0,0) 100%); color: #3a2500; text-shadow: 0 0 8px rgba(255,255,255,0.6); }
 
-    /* 中央のカードボックス（縦並びにしてレア帯と分離し、全体を上にずらす） */
+    /* 中央のカードボックス（3:4 縦長表示用に幅調整） */
     .cutin-card-box {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 12px;
-      width: 92%;
-      max-width: 340px;
-      transform: translateY(-6vh) scale(0.5);
+      width: 90%;
+      max-width: 320px;
+      transform: translateY(-4vh) scale(0.5);
       opacity: 0;
       transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.25), opacity 0.3s ease;
       z-index: 10;
     }
     .cutin-card-box.in { 
-      transform: translateY(-6vh) scale(1); 
+      transform: translateY(-4vh) scale(1); 
       opacity: 1; 
     }
 
     .card-render-inner {
       width: 100%;
-      border-radius: 10px;
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
+      border-radius: 12px;
+      box-shadow: 0 10px 32px rgba(0, 0, 0, 0.8);
       background: #ffffff;
       overflow: hidden;
     }
 
-    /* レア表示スロット：カードに被らず、直下に表示される */
+    /* レア表示スロット：カード直下に表示 */
     .rare-banner-slot {
       position: relative;
-      width: 108%; /* カードより少し幅広 */
+      width: 108%;
       height: 52px;
       z-index: 30;
       pointer-events: none;
@@ -244,10 +244,8 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
     banner.textContent = text;
     row.appendChild(banner);
     
-    // コンテナの一番上に追加（これで古いものは下へずれる）
     dynamicBanners.prepend(row);
 
-    // 追加直後に高さを広げて、滑らかに押し出す
     requestAnimationFrame(() => {
       row.classList.add('open');
     });
@@ -255,14 +253,12 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
     await wait(20);
     banner.classList.add('in');
     
-    // 次の要素が出るまでの「間」
     await wait(delayBeforeNext);
   };
 
   backdrop.classList.add('active');
   await wait(600);
 
-  // 通常のバナー間の間隔（ゆとりを持たせる）
   const NORMAL_DELAY = 1250;
 
   // 1. アビリティ
@@ -280,13 +276,12 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   // 3. 距離適性
   await playBannerDynamic(`🏁 ${distText}`, 'bg-dist', NORMAL_DELAY);
 
-  // 4. 世代 （★ここで1.5秒のタメを作り、プレイヤーに予想させる）
+  // 4. 世代
   await playBannerDynamic(genText, 'bg-gen', 2500); 
 
   // 5. 馬名
   await playBannerDynamic(horse.name || '馬名不明', 'bg-name', 1000);
 
-  // バナー群を非表示にしてスッキリさせる
   dynamicBanners.style.opacity = '0';
   await wait(300);
 
@@ -294,9 +289,9 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   cardBox.classList.add('in');
 
   if (isRare) {
-    await wait(600); // カードが出て少しタメる
+    await wait(600);
     
-    // 7. カード下部の被らない位置にレアバナーを表示
+    // 7. レアバナーの演出
     const rareBanner = document.createElement('div');
     rareBanner.className = `slot-banner bg-rare`;
     rareBanner.style.boxShadow = rarityConfig.shadow; 
@@ -306,9 +301,8 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
     await wait(20);
     rareBanner.classList.add('in');
     
-    await wait(3200); // じっくり結果を見せる
+    await wait(3200);
   } else {
-    // ノーマルの場合はカードのみをじっくり見せる
     await wait(3500);
   }
 
