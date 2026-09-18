@@ -124,17 +124,16 @@ export class CardRenderer {
         width: 100%;
         margin-bottom: 4px;
       }
-      /* 変更箇所: .crc-deck-name */
-.crc-deck-name {
-  font-weight: bold;
-  font-size: 11px; /* 12px → 11px に微調整 */
-  letter-spacing: -0.3px; /* 文字間隔をわずかに詰める */
-  color: #1a2e1d;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.2;
-}
+      .crc-deck-name {
+        font-weight: bold;
+        font-size: 11px;
+        letter-spacing: -0.3px;
+        color: #1a2e1d;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.2;
+      }
       .crc-deck-body {
         display: flex;
         align-items: center;
@@ -167,35 +166,64 @@ export class CardRenderer {
         flex-shrink: 0;
       }
 
-      /* 拡大パターン（.crc-card-large） */
+      /* 拡大パターン（.crc-card-large：カットイン演出用） */
       .crc-card-large {
         padding: 12px;
-        min-height: 420px;
+        min-height: 280px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        gap: 8px;
+        gap: 10px;
         border-radius: 10px;
         background: #ffffff;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        box-sizing: border-box;
       }
       .crc-card-large .crc-deck-name {
-        font-size: 20px;
-        font-weight: bold;
+        font-size: 17px;
+        font-weight: 900;
         text-align: center;
+        color: #1a2e1d;
+        border-bottom: 2px solid #e2efe3;
+        padding-bottom: 4px;
+        letter-spacing: 0.5px;
       }
-      .crc-large-radar-section {
+      .crc-large-body {
         display: flex;
         align-items: center;
-        justify-content: space-around;
-        background: rgba(248, 250, 248, 0.8);
-        border: 1px solid #e2efe3;
-        border-radius: 8px;
-        padding: 6px;
+        justify-content: space-between;
+        gap: 8px;
+        margin: 4px 0;
+      }
+      .crc-large-img-box {
+        width: 52px;
+        height: 52px;
+        flex-shrink: 0;
+        border: 1px solid #b5d4ba;
+        border-radius: 6px;
+        overflow: hidden;
+        background: #f2f7f3;
+      }
+      .crc-large-details {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        color: #4e6b52;
+        font-size: 11px;
+        font-weight: bold;
+        line-height: 1.25;
+        flex: 1;
+        min-width: 0;
       }
       .crc-large-radar-chart {
-        width: 120px;
-        height: 120px;
+        width: 115px;
+        height: 115px;
         flex-shrink: 0;
+      }
+      .crc-card-large .crc-ability-btn {
+        font-size: 10px;
+        padding: 3px 0;
+        border-radius: 3px;
       }
     `;
     document.head.appendChild(style);
@@ -385,13 +413,13 @@ export class CardRenderer {
     const styleName = horse.style || horse.running_style || 'default';
     const radarSvgHtml = this.generateRadarSVG(paramsObj, styleName);
 
-    // 1. デック用（バッジ削除・名前1行・65pxレーダー・ステータス改行表示）
-    if (mode === 'deck') {
-      const rawId = String(horse?.horse_id || horse?.id || '8801');
-      const formattedId = rawId.padStart(4, '0');
-      const imgPath = `./images/${formattedId}.jpg`;
-      const fallbackPath = `./images/8801.jpg`;
+    const rawId = String(horse?.horse_id || horse?.id || '8801');
+    const formattedId = rawId.padStart(4, '0');
+    const imgPath = `./images/${formattedId}.jpg`;
+    const fallbackPath = `./images/8801.jpg`;
 
+    // 1. デック用（通常一覧表示）
+    if (mode === 'deck') {
       return `
         <div class="crc-card crc-card-deck" style="border: 1px solid ${borderColor}; border-left: 4px solid ${borderColor};">
           <div class="crc-deck-header">
@@ -416,15 +444,20 @@ export class CardRenderer {
       `;
     }
 
-    // 2. 拡大表示（large モード）
+    // 2. 拡大表示（large モード：カットイン演出用）
     return `
-      <div class="crc-card crc-card-large" style="border: 2px solid ${borderColor};">
-        <div class="crc-deck-name">${horse.name}</div>
-        <div class="crc-deck-details">
-          <span>${surfaceText} 性別:${sexText}</span>
-          <span>脚質: ${styleName}</span>
-        </div>
-        <div class="crc-large-radar-section">
+      <div class="crc-card crc-card-large" style="border: 3px solid ${borderColor};">
+        <div class="crc-deck-name" title="${horse.name}">${horse.name}</div>
+        <div class="crc-large-body">
+          <div class="crc-large-img-box">
+            <img src="${imgPath}" onerror="this.onerror=null; this.src='${fallbackPath}';" style="width:100%; height:100%; object-fit:cover;" alt="horse">
+          </div>
+          <div class="crc-large-details">
+            <div>${surfaceText}</div>
+            ${distLinesHtml}
+            <div>脚質: ${styleName}</div>
+            <div>性別: ${sexText}</div>
+          </div>
           <div class="crc-large-radar-chart">
             ${radarSvgHtml}
           </div>
