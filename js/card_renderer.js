@@ -1,17 +1,8 @@
 // レアリティごとのカード外枠カラー
 const RARITY_BORDER_COLORS = {
-  INF: '#ff00ff',
-  SER: '#8a2be2',
-  ULR: '#d4af37',
-  LGR: '#b8860b',
-  CLR: '#d2691e',
-  TRR: '#4b0082',
-  RER: '#708090',
-  ANR: '#2e8b57',
-  VIR: '#1e90ff',
-  PRR: '#9370db',
-  SPR: '#32cd32',
-  NOR: '#9ca3af',
+  INF: '#ff00ff', SER: '#8a2be2', ULR: '#d4af37', LGR: '#b8860b',
+  CLR: '#d2691e', TRR: '#4b0082', RER: '#708090', ANR: '#2e8b57',
+  VIR: '#1e90ff', PRR: '#9370db', SPR: '#32cd32', NOR: '#9ca3af',
 };
 const DEFAULT_BORDER_COLOR = '#9ca3af';
 
@@ -107,7 +98,6 @@ export class CardRenderer {
         background: transparent;
       }
 
-      /* デック表示用レイアウト */
       .crc-card-deck {
         padding: 6px;
         min-height: 135px;
@@ -126,7 +116,6 @@ export class CardRenderer {
       .crc-deck-details { display: flex; flex-direction: column; gap: 1px; color: #4e6b52; font-size: 10px; font-weight: bold; line-height: 1.2; flex: 1; }
       .crc-deck-radar { width: 65px; height: 65px; flex-shrink: 0; }
 
-      /* 遊戯王カード規格（59:86）拡大表示 */
       .crc-card-large {
         width: 100%;
         height: 100%;
@@ -142,7 +131,6 @@ export class CardRenderer {
         overflow: hidden;
       }
 
-      /* ヘッダー: 馬名 + レアバッジ */
       .crc-large-header {
         display: flex;
         justify-content: space-between;
@@ -171,7 +159,6 @@ export class CardRenderer {
         box-shadow: 0 2px 4px rgba(0,0,0,0.15);
       }
 
-      /* 画像エリア (幅65%中央揃え / 4:3) */
       .crc-large-hero-wrap {
         display: flex;
         justify-content: center;
@@ -180,7 +167,7 @@ export class CardRenderer {
         flex-shrink: 0;
       }
       .crc-large-hero-img {
-        width: 65%; /* 60〜70%の範囲で中央配置 */
+        width: 65%;
         aspect-ratio: 4 / 3;
         border-radius: 8px;
         overflow: hidden;
@@ -194,7 +181,6 @@ export class CardRenderer {
         object-fit: cover;
       }
 
-      /* 情報ブロック (脚質・ポテンシャルを攻めたレイアウト) */
       .crc-large-info-block {
         background: linear-gradient(135deg, #f4faf5 0%, #e8f5e9 100%);
         border-radius: 8px;
@@ -223,7 +209,6 @@ export class CardRenderer {
         margin-top: 1px;
       }
       
-      /* ポテンシャルバッジ */
       .crc-potential-badge {
         font-size: 13px;
         font-weight: 900;
@@ -235,7 +220,6 @@ export class CardRenderer {
         box-shadow: 0 1px 2px rgba(0,0,0,0.05);
       }
 
-      /* 脚質バッジ（存在感アップ） */
       .crc-style-badge {
         display: inline-flex;
         align-items: center;
@@ -250,18 +234,17 @@ export class CardRenderer {
         letter-spacing: 0.5px;
       }
 
-      /* 左右分割 (拡大されたレーダー & コメント) */
       .crc-large-mid-section {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 6px;
-        flex: 1; /* 余ったスペースを最大限利用 */
+        flex: 1;
         min-height: 0;
         margin-bottom: 6px;
       }
       .crc-large-radar-wrap {
-        width: 130px; /* レーダーを大幅拡大 */
+        width: 130px;
         height: 130px;
         flex-shrink: 0;
         display: flex;
@@ -301,7 +284,6 @@ export class CardRenderer {
         font-weight: 500;
       }
 
-      /* 下部: アビリティ */
       .crc-large-bottom-section {
         flex-shrink: 0;
       }
@@ -397,7 +379,6 @@ export class CardRenderer {
     return undefined;
   }
 
-  // 大幅拡大したSVGレーダーチャート（領域・フォント位置を調整）
   generateRadarSVG(params, styleName = 'default') {
     const theme = STYLE_THEMES[styleName] || STYLE_THEMES.default;
     const labels = ['スピ', 'スタ', '瞬発', '持続', '根性'];
@@ -528,7 +509,6 @@ export class CardRenderer {
     const imgPath = `./images/${formattedId}.jpg`;
     const fallbackPath = `./images/8801.jpg`;
 
-    // デック一覧表示用
     if (mode === 'deck') {
       const distLinesHtml = this.getDistanceLinesHtml(horse);
       return `
@@ -555,25 +535,21 @@ export class CardRenderer {
       `;
     }
 
-    // 拡大表示モーダル用（レイアウト最適化版）
     const commentText = horse.comment || horse.description || horse.memo || `${horse.name}。血統と能力に恵まれた競走馬。`;
 
     return `
       <div class="crc-card crc-card-large" style="border: 3px solid ${borderColor};">
-        <!-- 1行目: 馬名 + レアバッジ -->
         <div class="crc-large-header">
           <div class="crc-large-name" title="${horse.name}">${horse.name}</div>
           <div class="crc-rarity-badge" style="background: ${borderColor};">${rarityKey}</div>
         </div>
 
-        <!-- 2行目: 画像 (幅65%中央揃え 4:3) -->
         <div class="crc-large-hero-wrap">
           <div class="crc-large-hero-img">
             <img src="${imgPath}" onerror="this.onerror=null; this.src='${fallbackPath}';" alt="${horse.name}">
           </div>
         </div>
 
-        <!-- 3行目: ポテンシャル & 脚質（ダイナミック配置） -->
         <div class="crc-large-info-block">
           <div class="crc-info-main-row">
             <span class="crc-potential-badge">${surfaceText}</span>
@@ -588,7 +564,6 @@ export class CardRenderer {
           </div>
         </div>
 
-         <!-- 4行目: 大幅拡大レーダー & コメント欄 -->
         <div class="crc-large-mid-section">
           <div class="crc-large-radar-wrap">
             ${radarSvgHtml}
@@ -599,11 +574,18 @@ export class CardRenderer {
           </div>
         </div>
 
-        <!-- 5行目: アビリティエリア -->
         <div class="crc-large-bottom-section">
           ${abilitiesHtml}
         </div>
       </div>
     `;
   }
+}
+
+// インスタンスの生成・エクスポート追加部
+export const cardRenderer = new CardRenderer();
+
+if (typeof window !== 'undefined') {
+  window.CardRenderer = CardRenderer;
+  window.cardRenderer = cardRenderer;
 }
