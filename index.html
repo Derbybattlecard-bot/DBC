@@ -69,7 +69,7 @@
     .record-value { font-size: 14px; font-weight: bold; color: var(--text-color); }
     .record-value.highlight { color: var(--accent-gold); }
 
-    /* --- ボーナスカード部分 --- */
+    /* --- ボーナスカード部分 (deck.htmlスタイル準拠) --- */
     .bonus-section {
       background: var(--card-bg);
       border: 2px solid #82c088;
@@ -78,7 +78,7 @@
       text-align: center;
     }
     .bonus-title { font-size: 12px; font-weight: bold; color: var(--header-green); margin-bottom: 8px; }
-    .cards-container { display: flex; justify-content: space-between; gap: 6px; }
+    .cards-container { display: flex; justify-content: space-between; gap: 4px; }
     .bonus-card {
       flex: 1;
       min-width: 0;
@@ -89,7 +89,7 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      min-height: 110px;
+      min-height: 130px;
       box-sizing: border-box;
       text-align: left;
     }
@@ -108,41 +108,53 @@
       align-items: center;
       border-bottom: 1px dashed #d0edd3;
       padding-bottom: 2px;
-      margin-bottom: 3px;
+      margin-bottom: 2px;
     }
-    .bonus-card .slot-num { font-size: 12px; font-weight: bold; color: #e63956; }
+    .bonus-card .slot-num { font-size: 11px; font-weight: bold; color: #e63956; }
     .bonus-card .gen-year { font-size: 9px; color: var(--sub-text); }
     .bonus-card .rarity { font-size: 10px; font-weight: bold; color: var(--accent-gold); }
-    .bonus-card .horse-name-mini { 
-      font-size: 11px; 
+    .bonus-card-name { 
+      font-size: 10.5px; 
       font-weight: bold; 
       overflow: hidden; 
       text-overflow: ellipsis; 
       white-space: nowrap; 
+      line-height: 1.2;
+      color: var(--text-color);
     }
-    .bonus-card-sub {
-      font-size: 8.5px;
+    .bonus-card-body {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2px;
+      margin: 2px 0;
+    }
+    .bonus-card-details {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
       color: var(--sub-text);
+      font-size: 9px;
+      font-weight: bold;
+      line-height: 1.1;
+      flex: 1;
+      min-width: 0;
+    }
+    .bonus-card-details div {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .bonus-card-params {
-      display: flex;
-      justify-content: space-between;
-      background: #f8faf8;
-      border: 1px solid #e2efe3;
-      padding: 1px 2px;
-      border-radius: 3px;
-      font-size: 8px;
-      color: var(--header-green);
-      font-weight: bold;
-      font-family: monospace;
+    .bonus-radar-box {
+      width: 50px;
+      height: 50px;
+      flex-shrink: 0;
     }
-    .bonus-card-abilities {
+    .bonus-abilities-row {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 1px;
+      margin-top: 2px;
     }
     .bonus-ability-btn {
       background: #e2efe3;
@@ -156,6 +168,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
       padding: 1px 0;
+      letter-spacing: -0.5px;
     }
     .bonus-ability-btn.empty { visibility: hidden; }
     .bonus-msg { 
@@ -184,7 +197,6 @@
     .btn-link { text-decoration: none; }
     .btn-link.full-width { grid-column: span 2; }
     
-    /* 基本ボタン（今まで通りの深い緑） */
     .btn {
       width: 100%;
       box-sizing: border-box;
@@ -198,19 +210,17 @@
       cursor: pointer;
     }
 
-    /* 薄めの緑（EDIT DECK & 作戦の作戦室用） */
     .btn-light-green {
       background: linear-gradient(135deg, #449e54, #2c773a);
       border: 1px solid #1e5227;
     }
 
-    /* コレクション（ゴールド） */
     .btn-collection {
       background: linear-gradient(135deg, #d4af37, #aa820a);
       border: 1px solid #785a02;
     }
 
-    /* --- デッキ表示表示領域 --- */
+    /* --- デッキ表示領域 --- */
     .deck-section {
       background: var(--card-bg);
       border-radius: 8px;
@@ -326,6 +336,78 @@
   let currentUser = null;
   let activeDeckIndex = 0;
 
+  // --- deck.htmlと同等のヘルパー関数 ---
+  function getTurfVal(horse) {
+    return Number(horse.turf_potential ?? horse.turf) || 0;
+  }
+  function getDirtVal(horse) {
+    return Number(horse.dirt_potential ?? horse.dirt) || 0;
+  }
+  function getSurfaceText(horse) {
+    const t = getTurfVal(horse);
+    const d = getDirtVal(horse);
+    if (t > 0 && d > 0) return t === d ? `芝/ダ${t}` : `芝${t}ダ${d}`;
+    if (t > 0) return `芝${t}`;
+    if (d > 0) return `ダ${d}`;
+    return "-";
+  }
+
+  function getDistanceLinesHtml(horse) {
+    const min = horse.min_distance || horse.distance_min;
+    const max = horse.max_distance || horse.distance_max;
+    if (min && max) {
+      return `<div>${min}m</div><div>${max}m</div>`;
+    }
+    if (horse.distance) {
+      const parts = String(horse.distance).split('-');
+      if (parts.length === 2) {
+        return `<div>${parts[0]}m</div><div>${parts[1]}m</div>`;
+      }
+      return `<div>${horse.distance}</div>`;
+    }
+    return `<div>-</div>`;
+  }
+
+  function getAbilityBadgeHtml(horse) {
+    let abilities = [];
+    if (Array.isArray(horse.ability)) {
+      abilities = horse.ability;
+    } else if (typeof horse.ability === 'string' && horse.ability) {
+      abilities = [horse.ability];
+    } else if (horse.skill) {
+      abilities = Array.isArray(horse.skill) ? horse.skill : [horse.skill];
+    }
+
+    let html = '<div class="bonus-abilities-row">';
+    for (let i = 0; i < 3; i++) {
+      if (abilities[i]) {
+        const label = String(abilities[i]).substring(0, 3);
+        html += `<div class="bonus-ability-btn" title="${abilities[i]}">${label}</div>`;
+      } else {
+        html += `<div class="bonus-ability-btn empty">---</div>`;
+      }
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function createRadarSvgForHorse(horse) {
+    const getVal = (val) => {
+      if (typeof val === 'number') return val;
+      return cardRenderer.rankToValue ? cardRenderer.rankToValue(val) : 0;
+    };
+
+    const paramsObj = {
+      spdVal: getVal(horse.speed),
+      stmVal: getVal(horse.stamina),
+      shpVal: getVal(horse.sharp ?? horse.sharpness),
+      jzkVal: getVal(horse.jizoku),
+      gutVal: getVal(horse.guts)
+    };
+    const styleName = horse.style || horse.running_style || 'default';
+    return cardRenderer.generateRadarSVG ? cardRenderer.generateRadarSVG(paramsObj, styleName) : '';
+  }
+
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
       window.location.href = 'auth.html';
@@ -433,40 +515,46 @@
         const lastDigit = getGenYearLastDigit(item.horse_id);
         const horseName = horse ? horse.name : item.horse_id;
 
-        let surfaceText = "-", distanceText = "-", paramsHtml = "", abilitiesHtml = "";
-
         if (horse) {
-          surfaceText = cardRenderer.formatAptitude ? cardRenderer.formatAptitude(horse.turf_potential ?? horse.turf, horse.dirt_potential ?? horse.dirt) : '-';
-          distanceText = cardRenderer.getDistanceText ? cardRenderer.getDistanceText(horse) : '-';
-          
-          paramsHtml = `
-            <div class="bonus-card-params">
-              <span>ス${cardRenderer.getParamRank ? cardRenderer.getParamRank(horse.speed) : '-'}</span>
-              <span>タ${cardRenderer.getParamRank ? cardRenderer.getParamRank(horse.stamina) : '-'}</span>
-              <span>瞬${cardRenderer.getParamRank ? cardRenderer.getParamRank(horse.sharp ?? horse.sharpness) : '-'}</span>
-              <span>持${cardRenderer.getParamRank ? cardRenderer.getParamRank(horse.jizoku) : '-'}</span>
-              <span>根${cardRenderer.getParamRank ? cardRenderer.getParamRank(horse.guts) : '-'}</span>
+          const surfaceText = getSurfaceText(horse);
+          const distLinesHtml = getDistanceLinesHtml(horse);
+          const sexText = horse.sex || "-";
+          const abilitiesHtml = getAbilityBadgeHtml(horse);
+          const radarSvgHtml = createRadarSvgForHorse(horse);
+
+          container.innerHTML += `
+            <div class="bonus-card">
+              <div class="bonus-card-header">
+                <span class="gen-year">${genYear}年</span>
+                <span class="slot-num">${lastDigit}</span>
+                <span class="rarity">${item.rarity}</span>
+              </div>
+              <div class="bonus-card-name" title="${horseName}">${horseName}</div>
+              <div class="bonus-card-body">
+                <div class="bonus-card-details">
+                  <div>${surfaceText}</div>
+                  ${distLinesHtml}
+                  <div>${horse.style || horse.running_style || '-'}</div>
+                  <div>${sexText}</div>
+                </div>
+                <div class="bonus-radar-box">
+                  ${radarSvgHtml}
+                </div>
+              </div>
+              ${abilitiesHtml}
             </div>`;
-
-          const abilities = Array.isArray(horse.ability) ? horse.ability : (horse.ability ? [horse.ability] : []);
-          abilitiesHtml = '<div class="bonus-card-abilities">' + [0, 1, 2].map(k => 
-            abilities[k] ? `<div class="bonus-ability-btn" title="${abilities[k]}">${String(abilities[k]).substring(0, 3)}</div>`
-                         : `<div class="bonus-ability-btn empty">---</div>`
-          ).join('') + '</div>';
+        } else {
+          container.innerHTML += `
+            <div class="bonus-card">
+              <div class="bonus-card-header">
+                <span class="gen-year">${genYear}年</span>
+                <span class="slot-num">${lastDigit}</span>
+                <span class="rarity">${item.rarity}</span>
+              </div>
+              <div class="bonus-card-name" title="${horseName}">${horseName}</div>
+              <div style="font-size:10px; color:#888; margin:auto;">データ取得中</div>
+            </div>`;
         }
-
-        container.innerHTML += `
-          <div class="bonus-card">
-            <div class="bonus-card-header">
-              <span class="gen-year">${genYear}年</span>
-              <span class="slot-num">${lastDigit}</span>
-              <span class="rarity">${item.rarity}</span>
-            </div>
-            <div class="horse-name-mini" title="${horseName}">${horseName}</div>
-            <div class="bonus-card-sub">${surfaceText} ${distanceText}</div>
-            ${paramsHtml}
-            ${abilitiesHtml}
-          </div>`;
       } else {
         container.innerHTML += `<div class="bonus-card empty">${i + 1}枚目 未獲得</div>`;
       }
@@ -556,7 +644,6 @@
       return;
     }
 
-    // 1. 各馬のデータ取得と能力値（スコア）計算
     const horsesData = deck.horse_ids.map((hId, originalIndex) => {
       const horse = cardRenderer.getHorse ? cardRenderer.getHorse(hId) : null;
       if (!horse) return { hId, originalIndex, horse: null, score: 0 };
@@ -574,7 +661,6 @@
       return { hId, originalIndex, horse, score };
     });
 
-    // 2. デッキ内でのスコア順位に応じて印（◎, ◯, ▲, △, △, 注）を判定
     const validHorses = horsesData.filter(item => item.horse !== null);
     validHorses.sort((a, b) => b.score - a.score);
 
@@ -590,7 +676,6 @@
       markMap.set(item.hId, mark);
     });
 
-    // 3. テーブル行（枠順通り）の描画
     const rowsHtml = horsesData.map((item) => {
       const { hId, originalIndex, horse } = item;
       const frameNum = originalIndex + 1;
@@ -610,12 +695,10 @@
       const mark = markMap.get(hId) || 'ー';
       const style = horse.style || horse.running_style || horse.leg_style || '-';
 
-      // 適性表示
       const aptitude = cardRenderer.formatAptitude 
         ? cardRenderer.formatAptitude(horse.turf_potential ?? horse.turf, horse.dirt_potential ?? horse.dirt)
         : (horse.turf ? `芝${horse.turf}` : (horse.dirt ? `ダ${horse.dirt}` : '-'));
 
-      // 距離表示
       let distance = '-';
       if (cardRenderer.getDistanceText) {
         const res = cardRenderer.getDistanceText(horse);
