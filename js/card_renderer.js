@@ -599,6 +599,7 @@ export class CardRenderer {
     const radarSvgHtml = this.generateRadarSVG(paramsObj, styleName);
 
     // 1. デック用（コンパクト表示）
+    // 1. デック用（コンパクト表示）
     if (mode === 'deck') {
       const rawId = String(horse?.horse_id || horse?.id || '8801');
       const formattedId = rawId.padStart(4, '0');
@@ -606,7 +607,7 @@ export class CardRenderer {
       const fallbackPath = `./images/8801.jpg`;
 
       return `
-        <div class="crc-card crc-card-deck" style="border: 1px solid ${borderColor}; border-left: 4px solid${borderColor};">
+        <div class="crc-card crc-card-deck" style="border: 1px solid ${borderColor}; border-left: 4px solid ${borderColor};">
           <div class="crc-card-header">
             <div class="crc-deck-name">${horse.name}</div>
             ${genBadgeHtml}${rarityBadgeHtml}
@@ -620,7 +621,43 @@ export class CardRenderer {
               <span>脚:${styleName}</span>
             </div>
           </div>
-          <div class="crc-deck-details">
-            <div class="crc-deck-params">
-              <span>ス:${spd}</span>
-      
+          <div style="width: 65px; height: 65px; margin: 2px auto;">
+            ${radarSvgHtml}
+          </div>
+          ${abilitiesHtml}
+        </div>
+      `;
+    }
+
+    // 2. 拡大表示（large モード）
+    return `
+      <div class="crc-card crc-card-large" style="border: 2px solid ${borderColor};">
+        <div class="crc-deck-name">${horse.name}</div>
+        <div class="crc-large-badges-row">
+          ${genBadgeHtml}
+          ${rarityBadgeHtml}
+        </div>
+        <div class="crc-deck-details">
+          <span>${surfaceText} ${distanceText} 性別:${sexText}</span>
+          <span>脚質: ${styleName}</span>
+        </div>
+        <div class="crc-large-radar-section">
+          <div class="crc-large-radar-chart">
+            ${radarSvgHtml}
+          </div>
+          <div class="crc-large-rank-grid">
+            <div class="crc-rank-row"><span class="crc-rank-label">スピード</span><span class="crc-rank-val">${spd}</span></div>
+            <div class="crc-rank-row"><span class="crc-rank-label">スタミナ</span><span class="crc-rank-val">${stm}</span></div>
+            <div class="crc-rank-row"><span class="crc-rank-label">瞬発力</span><span class="crc-rank-val">${shp}</span></div>
+            <div class="crc-rank-row"><span class="crc-rank-label">勝負根性</span><span class="crc-rank-val">${jzk}</span></div>
+            <div class="crc-rank-row"><span class="crc-rank-label">柔軟性</span><span class="crc-rank-val">${gut}</span></div>
+          </div>
+        </div>
+        ${abilitiesHtml}
+      </div>
+    `;
+  }
+}
+
+// HTML側の import { cardRenderer } に対応するためインスタンスをエクスポート
+export const cardRenderer = new CardRenderer();
