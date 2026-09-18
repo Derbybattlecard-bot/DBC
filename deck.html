@@ -190,8 +190,8 @@
     background-color: var(--slot-empty);
     border: 1px dashed var(--border-color);
     border-radius: 5px;
-    padding: 4px 6px;
-    min-height: 105px;
+    padding: 6px;
+    min-height: 135px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -205,22 +205,17 @@
   .slot-card.selected { border-color: var(--gold); box-shadow: 0 0 5px rgba(194, 155, 29, 0.6); }
   
   .card-header-slot {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 4px;
     width: 100%;
     margin-bottom: 2px;
   }
 
   .card-name-slot {
     font-weight: bold;
-    font-size: 11.5px;
+    font-size: 12px;
     color: var(--text-main);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    flex: 1;
     line-height: 1.2;
   }
 
@@ -237,20 +232,21 @@
     flex-direction: column;
     gap: 1px;
     color: var(--text-sub);
-    font-size: 9.5px;
-    line-height: 1.1;
+    font-size: 10px;
+    font-weight: bold;
+    line-height: 1.2;
     flex: 1;
   }
-  .card-details-slot span {
+  .card-details-slot div {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
   
-  /* レーダーチャート領域（横並び化） */
+  /* レーダーチャート領域（65px確保） */
   .slot-radar-box {
-    width: 48px;
-    height: 48px;
+    width: 65px;
+    height: 65px;
     flex-shrink: 0;
   }
 
@@ -312,26 +308,29 @@
     text-overflow: ellipsis;
   }
   .pool-surface-dist {
-    font-size: 10.5px;
+    font-size: 10px;
     color: var(--text-sub);
     font-weight: bold;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    line-height: 1.2;
+    flex: 1;
   }
 
   .pool-radar-row {
     display: flex;
     align-items: center;
-    justify-content: space-around;
+    justify-content: space-between;
     background: #f8faf8;
     border: 1px solid #e2efe3;
     border-radius: 4px;
-    padding: 2px;
+    padding: 4px;
+    gap: 4px;
   }
   .pool-radar-box {
-    width: 70px;
-    height: 70px;
+    width: 65px;
+    height: 65px;
     flex-shrink: 0;
   }
 
@@ -339,7 +338,7 @@
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 1.5px;
-    margin-top: 2px;
+    margin-top: 4px;
     width: 100%;
     box-sizing: border-box;
   }
@@ -513,11 +512,20 @@
     return Math.max(getTurfVal(horse), getDirtVal(horse));
   }
 
-  function getDistanceText(horse) {
-    if (horse.min_distance && horse.max_distance) {
-      return `${horse.min_distance}-${horse.max_distance}m`;
+  function getDistanceLinesHtml(horse) {
+    const min = horse.min_distance || horse.distance_min;
+    const max = horse.max_distance || horse.distance_max;
+    if (min && max) {
+      return `<div>${min}m</div><div>${max}m</div>`;
     }
-    return horse.distance || '-';
+    if (horse.distance) {
+      const parts = String(horse.distance).split('-');
+      if (parts.length === 2) {
+        return `<div>${parts[0]}m</div><div>${parts[1]}m</div>`;
+      }
+      return `<div>${horse.distance}</div>`;
+    }
+    return `<div>-</div>`;
   }
 
   function setSyncStatus(msg) {
@@ -788,7 +796,7 @@
     alert(msg);
   }
   
-  // デック一覧（スロット）の描画最適化
+  // デック一覧（スロット）の描画
   function renderDeck() {
     const grid = document.getElementById('slotsGrid');
     grid.innerHTML = '';
@@ -802,24 +810,23 @@
       if (horse) {
         filledCount++;
         const surfaceText = getSurfaceText(horse);
-        const distanceText = getDistanceText(horse);
+        const distLinesHtml = getDistanceLinesHtml(horse);
         const sexText = horse.sex || "-";
         const abilitiesHtml = getAbilityBadgeHtml(horse);
         const radarSvgHtml = createRadarSvgForHorse(horse);
-        const rarityBadge = cardRenderer.getRarityBadgeHtml(horse);
-        const genBadge = cardRenderer.getGenBadgeHtml(horse);
         
         div.className = `slot-card filled ${isSelected ? 'selected' : ''}`;
         
         div.innerHTML = `
           <div class="card-header-slot">
             <div class="card-name-slot" title="${horse.name}">${horse.name}</div>
-            <div style="display:flex; gap:2px; flex-shrink:0;">${genBadge}${rarityBadge}</div>
           </div>
           <div class="card-body-slot">
             <div class="card-details-slot">
-              <span>${surfaceText} ${distanceText}</span>
-              <span>脚:${horse.style || '-'} 性:${sexText}</span>
+              <div>${surfaceText}</div>
+              ${distLinesHtml}
+              <div>${horse.style || '-'}</div>
+              <div>${sexText}</div>
             </div>
             <div class="slot-radar-box">
               ${radarSvgHtml}
@@ -959,7 +966,7 @@
     
     poolList.forEach(({ horse }) => {
       const surfaceText = getSurfaceText(horse);
-      const distanceText = getDistanceText(horse);
+      const distLinesHtml = getDistanceLinesHtml(horse);
       const sexText = horse.sex || "-";
       const abilitiesHtml = getAbilityBadgeHtml(horse);
       const radarSvgHtml = createRadarSvgForHorse(horse);
@@ -971,8 +978,10 @@
         <div class="pool-name">${horse.name}</div>
         <div class="pool-radar-row">
           <div class="pool-surface-dist">
-            <div>${surfaceText} ${distanceText}</div>
-            <div>脚質:${horse.style || '-'} ${sexText}</div>
+            <div>${surfaceText}</div>
+            ${distLinesHtml}
+            <div>${horse.style || '-'}</div>
+            <div>${sexText}</div>
           </div>
           <div class="pool-radar-box">
             ${radarSvgHtml}
