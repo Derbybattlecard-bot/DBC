@@ -161,10 +161,65 @@
     /* モーダル共通 */
     .modal-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.7); display: none;
+      background: rgba(0, 0, 0, 0.75); display: none;
       justify-content: center; align-items: center; z-index: 1000;
+      backdrop-filter: blur(3px);
     }
     .modal-overlay.active { display: flex; }
+
+    /* ★ カード拡大モーダル専用スタイル（横65%、縦横比 86:59） */
+    .card-modal-wrapper {
+      width: 65vw;
+      max-width: 320px;
+      min-width: 230px;
+      aspect-ratio: 59 / 86;
+      pointer-events: auto;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.7), 0 0 0 2px rgba(212, 175, 55, 0.8);
+      overflow: hidden;
+      background: #ffffff;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #cardDetailContainer {
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      box-sizing: border-box;
+    }
+
+    /* カード内の画像スタイル調整（横幅65%指定） */
+    #cardDetailContainer img {
+      width: 65% !important;
+      height: auto !important;
+      max-height: 42% !important;
+      object-fit: contain !important;
+      margin: 8px auto !important;
+      display: block !important;
+      border-radius: 8px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+    }
+
+    /* バッジ風装飾スタイルの共通化 */
+    .badge-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: bold;
+      color: #ffffff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      border: 1px solid rgba(255,255,255,0.4);
+    }
+    .badge-style { background: linear-gradient(135deg, #e65c00, #F9D423); } /* 脚質バッジ */
+    .badge-gen { background: linear-gradient(135deg, #11998e, #38ef7d); color: #073014; } /* 世代バッジ */
+    .badge-type { background: linear-gradient(135deg, #3a7bd5, #3a6073); } /* タイプバッジ */
+
+    /* トレードモーダル用ボックス */
     .modal-box {
       background: #ffffff; border-radius: 8px; width: 92%; max-width: 400px;
       max-height: 85vh; overflow-y: auto;
@@ -208,9 +263,9 @@
   </div>
 </div>
 
-<!-- カード拡大表示モーダル -->
+<!-- ★ カード拡大表示モーダル（86:59比率・幅65%） -->
 <div class="modal-overlay" id="cardDetailModal" style="z-index: 2000;">
-  <div style="width: 90%; max-width: 320px; pointer-events: auto;">
+  <div class="card-modal-wrapper">
     <div id="cardDetailContainer"></div>
   </div>
 </div>
@@ -253,7 +308,7 @@
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
   import { createTradeListing } from './js/trade-service.js';
-  import { cardRenderer } from './js/card_renderer.js';
+  import { cardRenderer } from './card_renderer.js';
 
   let HORSES_ARRAY = [];
   let HORSES_MASTER = {};
@@ -290,7 +345,7 @@
     currentUser = user;
 
     try {
-      // カード描画レンダラーの初期化
+      // CardRenderer の初期化
       await cardRenderer.init();
 
       const res = await fetch('./data/horses_master.json');
@@ -383,7 +438,7 @@
         const canTrade = isObtained && item.count >= 2 && item.availableCount >= 2;
 
         return `
-          <div class="card-item ${isObtained ? '' : 'unobtained'}"
+          <div class="card-item ${isObtained ? '' : 'unobtained'}" 
                style="${isObtained ? 'cursor: pointer;' : ''}"
                ${isObtained ? `onclick="openCardModal('${strId}')"` : ''}>
             <div class="card-name" title="${h.name}">${isObtained ? h.name : '？？？？？'}</div>
@@ -397,17 +452,24 @@
     });
   }
 
-  // カード拡大表示モーダル処理
+  // ★ カード拡大表示モーダル処理（バッジ装飾の補助追加）
   window.openCardModal = (horseId) => {
     const horse = HORSES_MASTER[horseId];
     if (!horse) return;
 
-    const cardHtml = cardRenderer.renderCardUI(horse, 'large');
-    document.getElementById('cardDetailContainer').innerHTML = cardHtml;
+    let cardHtml = cardRenderer.renderCardUI(horse, 'large');
+
+    const container = document.getElementById('cardDetailContainer');
+    container.innerHTML = cardHtml;
+
+    // レンダリングされたテキスト要素内にバッジクラスを動的に適用
+    const badges = container.querySelectorAll('.running-style, .running_style, .gen-year, .style-badge');
+    badges.forEach(b => b.classList.add('badge-tag', 'badge-style'));
+
     document.getElementById('cardDetailModal').classList.add('active');
   };
 
-  // 背景タップでカード拡大表示モーダルを閉じる
+  // モーダル背景クリックで閉じる
   document.getElementById('cardDetailModal').addEventListener('click', (e) => {
     if (e.target.id === 'cardDetailModal') {
       document.getElementById('cardDetailModal').classList.remove('active');
