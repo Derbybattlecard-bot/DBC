@@ -16,6 +16,30 @@ const RARITY_BORDER_COLORS = {
 };
 const DEFAULT_BORDER_COLOR = '#9ca3af';
 
+// 脚質ごとのテーマカラー（レーダーチャート＆バッジ用）
+const STYLE_THEMES = {
+  // 逃げグループ（赤系）
+  '逃げ': { fill: 'rgba(239, 83, 80, 0.35)', border: '#e53935', point: '#c62828', bg: '#ffebee', text: '#c62828' },
+  '大逃': { fill: 'rgba(239, 83, 80, 0.35)', border: '#e53935', point: '#c62828', bg: '#ffebee', text: '#c62828' },
+  
+  // 先行グループ（オレンジ系）
+  '先行': { fill: 'rgba(255, 167, 38, 0.35)', border: '#fb8c00', point: '#ef6c00', bg: '#fff3e0', text: '#ef6c00' },
+  '好位': { fill: 'rgba(255, 167, 38, 0.35)', border: '#fb8c00', point: '#ef6c00', bg: '#fff3e0', text: '#ef6c00' },
+  
+  // 差し（緑系）
+  '差し': { fill: 'rgba(102, 187, 106, 0.35)', border: '#43a047', point: '#2e7d32', bg: '#e8f5e9', text: '#2e7d32' },
+  
+  // 追込（紫系）
+  '追込': { fill: 'rgba(171, 71, 188, 0.35)', border: '#ab47bc', point: '#7b1fa2', bg: '#f3e5f5', text: '#7b1fa2' },
+  
+  // 新色：自在・逃追グループ（ブルー系）
+  '自在': { fill: 'rgba(30, 136, 229, 0.35)', border: '#1e88e5', point: '#1565c0', bg: '#e3f2fd', text: '#1565c0' },
+  '逃追': { fill: 'rgba(30, 136, 229, 0.35)', border: '#1e88e5', point: '#1565c0', bg: '#e3f2fd', text: '#1565c0' },
+  
+  // デフォルト（緑系）
+  'default': { fill: 'rgba(45, 106, 55, 0.35)', border: '#2d6a37', point: '#1b4d23', bg: '#e8f5e9', text: '#2d6a37' }
+};
+
 export class CardRenderer {
   constructor() {
     this.horsesMap = new Map();
@@ -245,7 +269,7 @@ export class CardRenderer {
       ==================================================== */
       .crc-card-large {
         padding: 12px;
-        min-height: 380px;
+        min-height: 420px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -256,7 +280,7 @@ export class CardRenderer {
 
       /* 馬名：1行で独立表示 */
       .crc-card-large .crc-deck-name {
-        font-size: 22px;
+        font-size: 20px;
         font-weight: bold;
         line-height: 1.2;
         width: 100%;
@@ -266,10 +290,10 @@ export class CardRenderer {
         text-align: center;
       }
 
-      /* 画像枠：横幅を約66%にして中央寄せ */
+      /* 画像枠 */
       .crc-large-image-box {
         width: 66%;
-        height: 140px;
+        height: 130px;
         margin: 0 auto;
         background: #f2f7f3;
         border-radius: 6px;
@@ -296,29 +320,55 @@ export class CardRenderer {
 
       .crc-card-large .crc-rarity-badge,
       .crc-card-large .crc-gen-badge {
-        font-size: 15px;
+        font-size: 13px;
         padding: 2px 8px;
         border-radius: 6px;
       }
 
-      /* 芝ダート・距離・脚質・性別のフォント拡大 */
+      /* 芝ダート・距離・脚質・性別のフォント */
       .crc-card-large .crc-deck-details {
-        font-size: 20px;
-        line-height: 1.35;
-        gap: 4px;
-        font-weight: 500;
+        font-size: 14px;
+        line-height: 1.3;
+        gap: 2px;
+        font-weight: bold;
+        text-align: center;
       }
 
-      /* ステータスパラメータ表示 */
-      .crc-card-large .crc-deck-params {
-        font-size: 16px;
-        padding: 4px 6px;
-        border-radius: 6px;
+      /* レーダーチャート＆ランクの一体型コンテナ */
+      .crc-large-radar-section {
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        background: rgba(248, 250, 248, 0.8);
+        border: 1px solid #e2efe3;
+        border-radius: 8px;
+        padding: 6px;
+        margin: 4px 0;
       }
+      .crc-large-radar-chart {
+        width: 120px;
+        height: 120px;
+        flex-shrink: 0;
+      }
+      .crc-large-rank-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 2px;
+        font-size: 11px;
+      }
+      .crc-rank-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        border-bottom: 1px dashed #e0e0e0;
+        padding-bottom: 1px;
+      }
+      .crc-rank-label { color: #4e6b52; font-weight: bold; }
+      .crc-rank-val { font-weight: bold; color: #2d6a37; font-family: 'Consolas', 'Monaco', monospace; }
 
       /* アビリティボタン */
       .crc-card-large .crc-ability-btn {
-        font-size: 15px;
+        font-size: 13px;
         padding: 4px 0;
         border-radius: 4px;
       }
@@ -371,6 +421,18 @@ export class CardRenderer {
     return horse.distance || '-';
   }
 
+  rankToValue(rank) {
+    if (!rank) return 12;
+    const r = String(rank).toUpperCase();
+    if (r === 'SS') return 24;
+    if (r === 'S') return 21;
+    if (r === 'A') return 18;
+    if (r === 'B') return 15;
+    if (r === 'C') return 12;
+    const num = Number(rank);
+    return !isNaN(num) ? num : 12;
+  }
+
   getParamRank(val) {
     if (val === undefined || val === null || val === "" || isNaN(Number(val))) return "-";
     const num = Number(val);
@@ -388,6 +450,74 @@ export class CardRenderer {
       }
     }
     return undefined;
+  }
+
+  /**
+   * SVGで軽量・高速に描画する五角形レーダーチャート生成関数
+   */
+  generateRadarSVG(params, styleName = 'default') {
+    const theme = STYLE_THEMES[styleName] || STYLE_THEMES.default;
+    const labels = ['スピ', 'スタ', '瞬発', '持続', '根性'];
+    const values = [params.spdVal, params.stmVal, params.shpVal, params.jzkVal, params.gutVal];
+    const maxVal = 25;
+
+    const cx = 50, cy = 50, r = 35;
+    const angles = [
+      -Math.PI / 2,                  // 上 (スピ)
+      -Math.PI / 2 + (2 * Math.PI) / 5,  // 右上 (スタ)
+      -Math.PI / 2 + (4 * Math.PI) / 5,  // 右下 (瞬発)
+      -Math.PI / 2 + (6 * Math.PI) / 5,  // 左下 (持続)
+      -Math.PI / 2 + (8 * Math.PI) / 5   // 左上 (根性)
+    ];
+
+    let gridHtml = '';
+    [0.2, 0.4, 0.6, 0.8, 1.0].forEach(level => {
+      const pts = angles.map(a => `${cx + r * level * Math.cos(a)},${cy + r * level * Math.sin(a)}`).join(' ');
+      gridHtml += `<polygon points="${pts}" fill="none" stroke="rgba(0,0,0,0.08)" stroke-width="1"/>`;
+    });
+
+    let axisHtml = '';
+    angles.forEach(a => {
+      axisHtml += `<line x1="${cx}" y1="${cy}" x2="${cx + r * Math.cos(a)}" y2="${cy + r * Math.sin(a)}" stroke="rgba(0,0,0,0.1)" stroke-width="1"/>`;
+    });
+
+    const dataPtsArr = values.map((v, i) => {
+      const ratio = Math.min(1.0, Math.max(0.1, v / maxVal));
+      return {
+        x: cx + r * ratio * Math.cos(angles[i]),
+        y: cy + r * ratio * Math.sin(angles[i])
+      };
+    });
+    const dataPtsStr = dataPtsArr.map(p => `${p.x},${p.y}`).join(' ');
+
+    let pointsHtml = '';
+    dataPtsArr.forEach(p => {
+      pointsHtml += `<circle cx="${p.x}" cy="${p.y}" r="2" fill="${theme.point}" />`;
+    });
+
+    let labelsHtml = '';
+    const labelOffsets = [
+      { dx: 0, dy: -6 },   // 上
+      { dx: 6, dy: -1 },   // 右上
+      { dx: 5, dy: 6 },    // 右下
+      { dx: -5, dy: 6 },   // 左下
+      { dx: -6, dy: -1 }   // 左上
+    ];
+    angles.forEach((a, i) => {
+      const lx = cx + (r + 7) * Math.cos(a) + labelOffsets[i].dx;
+      const ly = cy + (r + 7) * Math.sin(a) + labelOffsets[i].dy;
+      labelsHtml += `<text x="${lx}" y="${ly}" font-size="7" font-weight="bold" fill="${theme.border}" text-anchor="middle" dominant-baseline="central">${labels[i]}</text>`;
+    });
+
+    return `
+      <svg viewBox="0 0 100 100" class="crc-radar-svg" style="width:100%; height:100%; overflow:visible;">
+        ${gridHtml}
+        ${axisHtml}
+        <polygon points="${dataPtsStr}" fill="${theme.fill}" stroke="${theme.border}" stroke-width="1.8"/>
+        ${pointsHtml}
+        ${labelsHtml}
+      </svg>
+    `;
   }
 
   getRarityBadgeHtml(horse) {
@@ -445,15 +575,31 @@ export class CardRenderer {
     const rarityBadgeHtml = this.getRarityBadgeHtml(horse);
     const genBadgeHtml = this.getGenBadgeHtml(horse);
 
-    const spd = this.getParamRank(this.getHorseParam(horse, ['speed', 'spd']));
-    const stm = this.getParamRank(this.getHorseParam(horse, ['stamina', 'stm']));
-    const shp = this.getParamRank(this.getHorseParam(horse, ['sharp', 'sharpness', 'agility']));
-    const jzk = this.getParamRank(this.getHorseParam(horse, ['jizoku', 'durability', 'tenacity']));
-    const gut = this.getParamRank(this.getHorseParam(horse, ['guts', 'stren']));
+    const spdParam = this.getHorseParam(horse, ['speed', 'spd']);
+    const stmParam = this.getHorseParam(horse, ['stamina', 'stm']);
+    const shpParam = this.getHorseParam(horse, ['sharp', 'sharpness', 'agility']);
+    const jzkParam = this.getHorseParam(horse, ['jizoku', 'durability', 'tenacity']);
+    const gutParam = this.getHorseParam(horse, ['guts', 'stren']);
 
-        // 1. デック用（コンパクト表示）
+    const spd = this.getParamRank(spdParam);
+    const stm = this.getParamRank(stmParam);
+    const shp = this.getParamRank(shpParam);
+    const jzk = this.getParamRank(jzkParam);
+    const gut = this.getParamRank(gutParam);
+
+    const paramsObj = {
+      spdVal: typeof spdParam === 'number' ? spdParam : this.rankToValue(spd),
+      stmVal: typeof stmParam === 'number' ? stmParam : this.rankToValue(stm),
+      shpVal: typeof shpParam === 'number' ? shpParam : this.rankToValue(shp),
+      jzkVal: typeof jzkParam === 'number' ? jzkParam : this.rankToValue(jzk),
+      gutVal: typeof gutParam === 'number' ? gutParam : this.rankToValue(gut)
+    };
+
+    const styleName = horse.style || horse.running_style || 'default';
+    const radarSvgHtml = this.generateRadarSVG(paramsObj, styleName);
+
+    // 1. デック用（コンパクト表示）
     if (mode === 'deck') {
-      // 画像パスの生成処理を追加
       const rawId = String(horse?.horse_id || horse?.id || '8801');
       const formattedId = rawId.padStart(4, '0');
       const imgPath = `./images/${formattedId}.jpg`;
@@ -465,125 +611,16 @@ export class CardRenderer {
             <div class="crc-deck-name">${horse.name}</div>
             ${genBadgeHtml}${rarityBadgeHtml}
           </div>
-          <!-- 画像と適性テキストを横並びにするレイアウト -->
           <div style="display: flex; gap: 6px; margin-top: 4px; margin-bottom: 2px;">
             <div style="width: 36px; height: 36px; flex-shrink: 0; border: 1px solid #b5d4ba; border-radius: 4px; overflow: hidden; background: #f2f7f3;">
               <img src="${imgPath}" onerror="this.onerror=null; this.src='${fallbackPath}';" style="width:100%; height:100%; object-fit:cover;" alt="horse">
             </div>
             <div class="crc-deck-details" style="flex-grow: 1; justify-content: center;">
               <span>${surfaceText} ${distanceText} 性別:${sexText}</span>
-              <span>脚:${horse.style || '-'}</span>
+              <span>脚:${styleName}</span>
             </div>
           </div>
           <div class="crc-deck-details">
             <div class="crc-deck-params">
               <span>ス:${spd}</span>
-              <span>タ:${stm}</span>
-              <span>瞬:${shp}</span>
-              <span>持:${jzk}</span>
-              <span>根:${gut}</span>
-            </div>
-          </div>
-          ${abilitiesHtml}
-        </div>`;
-    }
-
-
-    // 2. 拡大パターン（大型表示）
-    if (mode === 'large') {
-      // 馬IDを4桁（例: 9502）として取得
-      const rawId = String(horse.horse_id || horse.id || '8801');
-      const formattedId = rawId.padStart(4, '0');
       
-      // 画像パス（./images/9502.jpg）
-      const imgPath = `./images/${formattedId}.jpg`;
-      const fallbackPath = `./images/8801.jpg`;
-
-      return `
-        <div class="crc-card crc-card-large" style="border: 2px solid ${borderColor}; border-left: 6px solid${borderColor};">
-          <!-- 1行独立表示の馬名 -->
-          <div class="crc-deck-name" title="${horse.name}">${horse.name}</div>
-
-          <!-- 横幅2/3の画像ボックス -->
-          <div class="crc-large-image-box">
-            <img src="${imgPath}" alt="${horse.name}" onerror="this.onerror=null; this.src='${fallbackPath}';">
-          </div>
-
-          <!-- 画像の下に配置したバッジ類 -->
-          <div class="crc-large-badges-row">
-            ${genBadgeHtml}${rarityBadgeHtml}
-          </div>
-
-          <!-- 拡大表示用の詳細テキスト（適性・距離・脚質・性別） -->
-          <div class="crc-deck-details">
-            <div>${surfaceText} ${distanceText}</div>
-            <div>脚質:${horse.style || '-'} 性別:${sexText}</div>
-            <div class="crc-deck-params">
-              <span>ス:${spd}</span>
-              <span>タ:${stm}</span>
-              <span>瞬:${shp}</span>
-              <span>持:${jzk}</span>
-              <span>根:${gut}</span>
-            </div>
-          </div>
-          ${abilitiesHtml}
-        </div>`;
-    }
-
-    // 3. プール/一覧用（標準表示）
-    return `
-      <div class="crc-card crc-card-pool" style="border: 1px solid ${borderColor};">
-        <div class="crc-card-header">
-          <div class="crc-pool-name">${horse.name}</div>
-          <div style="display:flex; gap:3px;">
-            ${genBadgeHtml}${rarityBadgeHtml}
-          </div>
-        </div>
-        <div class="crc-pool-sub">${surfaceText} ${distanceText} ${sexText}</div>
-        <div class="crc-pool-stats-grid">
-          <div class="crc-stat-item"><span class="crc-stat-label">脚質</span><span class="crc-stat-val">${horse.style || '-'}</span></div>
-          <div class="crc-stat-item"><span class="crc-stat-label">スピ</span><span class="crc-stat-val">${spd}</span></div>
-          <div class="crc-stat-item"><span class="crc-stat-label">スタ</span><span class="crc-stat-val">${stm}</span></div>
-          <div class="crc-stat-item"><span class="crc-stat-label">瞬発</span><span class="crc-stat-val">${shp}</span></div>
-          <div class="crc-stat-item"><span class="crc-stat-label">持続</span><span class="crc-stat-val">${jzk}</span></div>
-          <div class="crc-stat-item"><span class="crc-stat-label">根性</span><span class="crc-stat-val">${gut}</span></div>
-        </div>
-        ${abilitiesHtml}
-      </div>`;
-  }
-
-  renderRaceTableRow(horseId, index) {
-    const horse = this.getHorse(horseId);
-    const frameNum = Math.floor(index / 2) + 1;
-    const frameClass = `w-${Math.min(frameNum, 8)}`;
-    const mark = index === 0 ? '◎' : index === 1 ? '○' : index === 2 ? '▲' : '';
-
-    if (!horse) {
-      return `
-        <tr>
-          <td><span class="${frameClass}">${frameNum}</span></td>
-          <td>-</td>
-          <td class="horse-name" style="color:#aaa;">(未設定: ID ${horseId})</td>
-          <td>-</td>
-          <td>-</td>
-        </tr>`;
-    }
-
-    const surfaceText = this.formatAptitude(
-      this.getHorseParam(horse, ['turf_potential', 'turf']),
-      this.getHorseParam(horse, ['dirt_potential', 'dirt'])
-    );
-    const distanceText = this.getDistanceText(horse);
-
-    return `
-      <tr>
-        <td><span class="${frameClass}">${frameNum}</span></td>
-        <td>${mark}</td>
-        <td class="horse-name">${horse.name}</td>
-        <td>${surfaceText}</td>
-        <td>${distanceText}</td>
-      </tr>`;
-  }
-}
-
-export const cardRenderer = new CardRenderer();
