@@ -124,15 +124,17 @@ export class CardRenderer {
         width: 100%;
         margin-bottom: 4px;
       }
-      .crc-deck-name {
-        font-weight: bold;
-        font-size: 12px;
-        color: #1a2e1d;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        line-height: 1.2;
-      }
+      /* 変更箇所: .crc-deck-name */
+.crc-deck-name {
+  font-weight: bold;
+  font-size: 11px; /* 12px → 11px に微調整 */
+  letter-spacing: -0.3px; /* 文字間隔をわずかに詰める */
+  color: #1a2e1d;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
       .crc-deck-body {
         display: flex;
         align-items: center;
