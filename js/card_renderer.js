@@ -1,4 +1,4 @@
-// レアリティごとのカード外枠カラー（card_design.jsonより移植・集約）
+// レアリティごとのカード外枠カラー
 const RARITY_BORDER_COLORS = {
   ULR: '#d4af37', // ULTRA LEGEND
   INF: '#e0a800', // INFINITE
@@ -16,7 +16,7 @@ const RARITY_BORDER_COLORS = {
 };
 const DEFAULT_BORDER_COLOR = '#9ca3af';
 
-// 脚質ごとのテーマカラー（レーダーチャート＆バッジ用）
+// 脚質ごとのテーマカラー
 const STYLE_THEMES = {
   '逃げ': { fill: 'rgba(239, 83, 80, 0.35)', border: '#e53935', point: '#c62828', bg: '#ffebee', text: '#c62828' },
   '大逃': { fill: 'rgba(239, 83, 80, 0.35)', border: '#e53935', point: '#c62828', bg: '#ffebee', text: '#c62828' },
@@ -83,52 +83,11 @@ export class CardRenderer {
         box-shadow: 0 3px 8px rgba(0,0,0,0.12);
       }
 
-      .crc-rarity-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 1px 4px;
-        font-size: 8.5px;
-        font-weight: 900;
-        border-radius: 6px;
-        border: 1px solid #c29b1d;
-        background: linear-gradient(135deg, #ffffff 0%, #f4f4f4 100%);
-        color: #c29b1d;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.12);
-        letter-spacing: 0.5px;
-        line-height: 1.1;
-        white-space: nowrap;
-      }
-      .crc-rarity-badge.rarity-ur {
-        background: linear-gradient(135deg, #fff2cb 0%, #ffd700 100%);
-        color: #6b4d00;
-        border-color: #d4af37;
-      }
-      .crc-rarity-badge.rarity-ssr {
-        background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
-        color: #ffffff;
-        border-color: #e63956;
-      }
-
-      .crc-gen-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 1px 3px;
-        font-size: 8.5px;
-        font-weight: bold;
-        border-radius: 3px;
-        background: #2d6a37;
-        color: #ffffff;
-        line-height: 1.1;
-        white-space: nowrap;
-      }
-
       .crc-abilities-row {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 1.5px;
-        margin-top: 2px;
+        margin-top: 4px;
         width: 100%;
         box-sizing: border-box;
       }
@@ -154,35 +113,25 @@ export class CardRenderer {
 
       /* デック用カードレイアウト最適化 */
       .crc-card-deck {
-        padding: 4px 6px;
-        min-height: 105px;
+        padding: 6px;
+        min-height: 135px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
         font-size: 11px;
       }
       .crc-deck-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 4px;
         width: 100%;
-        margin-bottom: 2px;
+        margin-bottom: 4px;
       }
       .crc-deck-name {
         font-weight: bold;
-        font-size: 11.5px;
+        font-size: 12px;
         color: #1a2e1d;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        flex: 1;
         line-height: 1.2;
-      }
-      .crc-deck-badges {
-        display: flex;
-        gap: 2px;
-        flex-shrink: 0;
       }
       .crc-deck-body {
         display: flex;
@@ -205,18 +154,14 @@ export class CardRenderer {
         flex-direction: column;
         gap: 1px;
         color: #4e6b52;
-        font-size: 9.5px;
-        line-height: 1.1;
+        font-size: 10px;
+        font-weight: bold;
+        line-height: 1.2;
         flex: 1;
       }
-      .crc-deck-details span {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
       .crc-deck-radar {
-        width: 50px;
-        height: 50px;
+        width: 65px;
+        height: 65px;
         flex-shrink: 0;
       }
 
@@ -259,27 +204,6 @@ export class CardRenderer {
     return this.horsesMap.get(String(horseId));
   }
 
-  getGenerationYear(horseOrId) {
-    const horse = typeof horseOrId === 'object' ? horseOrId : this.getHorse(horseOrId);
-    let idStr = String(horse?.horse_id || horse?.id || horseOrId || '');
-
-    if (idStr.length >= 2) {
-      const yyNum = parseInt(idStr.substring(0, 2), 10);
-      if (!isNaN(yyNum)) {
-        const century = yyNum >= 50 ? '19' : '20';
-        return `${century}${idStr.substring(0, 2)}`;
-      }
-    }
-    if (!horse) return '----';
-    const year = horse.generation_year || horse.birth_year || horse.generation || horse.gen_year;
-    return year ? String(year) : '----';
-  }
-
-  getGenYearTwoDigits(horseOrId) {
-    const yearStr = this.getGenerationYear(horseOrId);
-    return yearStr.length >= 4 ? yearStr.slice(-2) : '--';
-  }
-
   formatAptitude(turf, dirt) {
     const t = Number(turf) || 0;
     const d = Number(dirt) || 0;
@@ -289,11 +213,20 @@ export class CardRenderer {
     return '-';
   }
 
-  getDistanceText(horse) {
+  getDistanceLinesHtml(horse) {
     const min = horse.min_distance || horse.distance_min;
     const max = horse.max_distance || horse.distance_max;
-    if (min && max) return `${min}-${max}m`;
-    return horse.distance || '-';
+    if (min && max) {
+      return `<div>${min}m</div><div>${max}m</div>`;
+    }
+    if (horse.distance) {
+      const parts = String(horse.distance).split('-');
+      if (parts.length === 2) {
+        return `<div>${parts[0]}m</div><div>${parts[1]}m</div>`;
+      }
+      return `<div>${horse.distance}</div>`;
+    }
+    return `<div>-</div>`;
   }
 
   rankToValue(rank) {
@@ -392,16 +325,6 @@ export class CardRenderer {
     `;
   }
 
-  getRarityBadgeHtml(horse) {
-    const rarity = (horse.rarity || 'N').toUpperCase();
-    return `<span class="crc-rarity-badge rarity-${rarity.toLowerCase()}">${rarity}</span>`;
-  }
-
-  getGenBadgeHtml(horse) {
-    const gen2 = this.getGenYearTwoDigits(horse);
-    return `<span class="crc-gen-badge">${gen2}世代</span>`;
-  }
-
   getAbilityBadgesHtml(horse) {
     let abilities = [];
     if (Array.isArray(horse.ability)) {
@@ -439,11 +362,9 @@ export class CardRenderer {
       this.getHorseParam(horse, ['turf_potential', 'turf']),
       this.getHorseParam(horse, ['dirt_potential', 'dirt'])
     );
-    const distanceText = this.getDistanceText(horse);
+    const distLinesHtml = this.getDistanceLinesHtml(horse);
     const sexText = horse.sex || '-';
     const abilitiesHtml = this.getAbilityBadgesHtml(horse);
-    const rarityBadgeHtml = this.getRarityBadgeHtml(horse);
-    const genBadgeHtml = this.getGenBadgeHtml(horse);
 
     const spdParam = this.getHorseParam(horse, ['speed', 'spd']);
     const stmParam = this.getHorseParam(horse, ['stamina', 'stm']);
@@ -451,24 +372,18 @@ export class CardRenderer {
     const jzkParam = this.getHorseParam(horse, ['jizoku', 'durability', 'tenacity']);
     const gutParam = this.getHorseParam(horse, ['guts', 'stren']);
 
-    const spd = this.getParamRank(spdParam);
-    const stm = this.getParamRank(stmParam);
-    const shp = this.getParamRank(shpParam);
-    const jzk = this.getParamRank(jzkParam);
-    const gut = this.getParamRank(gutParam);
-
     const paramsObj = {
-      spdVal: typeof spdParam === 'number' ? spdParam : this.rankToValue(spd),
-      stmVal: typeof stmParam === 'number' ? stmParam : this.rankToValue(stm),
-      shpVal: typeof shpParam === 'number' ? shpParam : this.rankToValue(shp),
-      jzkVal: typeof jzkParam === 'number' ? jzkParam : this.rankToValue(jzk),
-      gutVal: typeof gutParam === 'number' ? gutParam : this.rankToValue(gut)
+      spdVal: typeof spdParam === 'number' ? spdParam : this.rankToValue(this.getParamRank(spdParam)),
+      stmVal: typeof stmParam === 'number' ? stmParam : this.rankToValue(this.getParamRank(stmParam)),
+      shpVal: typeof shpParam === 'number' ? shpParam : this.rankToValue(this.getParamRank(shpParam)),
+      jzkVal: typeof jzkParam === 'number' ? jzkParam : this.rankToValue(this.getParamRank(jzkParam)),
+      gutVal: typeof gutParam === 'number' ? gutParam : this.rankToValue(this.getParamRank(gutParam))
     };
 
     const styleName = horse.style || horse.running_style || 'default';
     const radarSvgHtml = this.generateRadarSVG(paramsObj, styleName);
 
-    // 1. デック用（コンパクト表示・レイアウト最適化）
+    // 1. デック用（バッジ削除・名前1行・65pxレーダー・ステータス改行表示）
     if (mode === 'deck') {
       const rawId = String(horse?.horse_id || horse?.id || '8801');
       const formattedId = rawId.padStart(4, '0');
@@ -479,15 +394,16 @@ export class CardRenderer {
         <div class="crc-card crc-card-deck" style="border: 1px solid ${borderColor}; border-left: 4px solid ${borderColor};">
           <div class="crc-deck-header">
             <div class="crc-deck-name" title="${horse.name}">${horse.name}</div>
-            <div class="crc-deck-badges">${genBadgeHtml}${rarityBadgeHtml}</div>
           </div>
           <div class="crc-deck-body">
             <div class="crc-deck-img-box">
               <img src="${imgPath}" onerror="this.onerror=null; this.src='${fallbackPath}';" style="width:100%; height:100%; object-fit:cover;" alt="horse">
             </div>
             <div class="crc-deck-details">
-              <span>${surfaceText} ${distanceText}</span>
-              <span>脚:${styleName} 性:${sexText}</span>
+              <div>${surfaceText}</div>
+              ${distLinesHtml}
+              <div>${styleName}</div>
+              <div>${sexText}</div>
             </div>
             <div class="crc-deck-radar">
               ${radarSvgHtml}
@@ -502,24 +418,13 @@ export class CardRenderer {
     return `
       <div class="crc-card crc-card-large" style="border: 2px solid ${borderColor};">
         <div class="crc-deck-name">${horse.name}</div>
-        <div class="crc-large-badges-row">
-          ${genBadgeHtml}
-          ${rarityBadgeHtml}
-        </div>
         <div class="crc-deck-details">
-          <span>${surfaceText} ${distanceText} 性別:${sexText}</span>
+          <span>${surfaceText} 性別:${sexText}</span>
           <span>脚質: ${styleName}</span>
         </div>
         <div class="crc-large-radar-section">
           <div class="crc-large-radar-chart">
             ${radarSvgHtml}
-          </div>
-          <div class="crc-large-rank-grid">
-            <div class="crc-rank-row"><span class="crc-rank-label">スピード</span><span class="crc-rank-val">${spd}</span></div>
-            <div class="crc-rank-row"><span class="crc-rank-label">スタミナ</span><span class="crc-rank-val">${stm}</span></div>
-            <div class="crc-rank-row"><span class="crc-rank-label">瞬発力</span><span class="crc-rank-val">${shp}</span></div>
-            <div class="crc-rank-row"><span class="crc-rank-label">勝負根性</span><span class="crc-rank-val">${jzk}</span></div>
-            <div class="crc-rank-row"><span class="crc-rank-label">柔軟性</span><span class="crc-rank-val">${gut}</span></div>
           </div>
         </div>
         ${abilitiesHtml}
