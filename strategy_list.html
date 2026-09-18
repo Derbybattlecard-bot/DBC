@@ -326,9 +326,7 @@
     'default': { fill: 'rgba(45, 106, 55, 0.35)', border: '#2d6a37', point: '#1b4d23', bg: '#e8f5e9', badgeText: '#2d6a37' }
   };
 
-  // 全16作戦の寸評（数値完全排除）
-  const STRATEGY_COMMENTS = {
-    // 全16作戦の寸評 ＆ 得意な展開
+  // 全16作戦の寸評 ＆ 得意な展開
   const STRATEGY_DETAILS = {
     'NIGE_01': {
       comment: 'スピードと高い持続力を備え、後続の競りかけを根性で跳ね返して逃げ粘る真っ向勝負型。',
@@ -394,8 +392,7 @@
       comment: '極限の瞬発力を持つロマン型。直線のひと伸び・爆発力だけに全てを賭ける一撃必殺の勝負師。',
       best: '超ハイペース、ハイペース、極端な前崩れ展開'
     }
-  
-
+  };
 
   function getTurfVal(h) { return Number(h.turf_potential ?? h.turf) || 0; }
   function getDirtVal(h) { return Number(h.dirt_potential ?? h.dirt) || 0; }
@@ -507,7 +504,7 @@
     renderStrategyGrid();
   };
 
-  // 作戦名鑑（レーダーチャート＋寸評）描画
+  // 作戦名鑑（レーダーチャート＋寸評・得意展開）描画
   function renderStrategyGrid() {
     // 既存のチャートインスタンスを破棄
     chartInstances.forEach(c => c.destroy());
@@ -523,7 +520,10 @@
       card.className = 'strat-card';
 
       const colors = STYLE_COLORS[strat.style] || STYLE_COLORS.default;
-      const commentText = STRATEGY_COMMENTS[strat.strategy_id] || '特筆すべき特徴を持ったバランス型作戦。';
+      const detail = STRATEGY_DETAILS[strat.strategy_id] || {
+        comment: '特筆すべき特徴を持ったバランス型作戦。',
+        best: '展開不問'
+      };
       const canvasId = `chart_${strat.strategy_id}`;
 
       card.innerHTML = `
@@ -538,7 +538,8 @@
             <canvas id="${canvasId}"></canvas>
           </div>
           <div class="comment-box" style="border-left-color: ${colors.border};">
-            <strong>【寸評】</strong><br>${commentText}
+            <strong>【寸評】</strong><br>${detail.comment}<br>
+            <strong style="margin-top: 6px; display: inline-block;">【得意な展開】</strong><br>${detail.best}
           </div>
         </div>
       `;
