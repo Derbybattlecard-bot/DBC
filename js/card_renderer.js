@@ -51,7 +51,7 @@ export class CardRenderer {
     }
   }
 
-  injectStyles() {
+    injectStyles() {
     if (document.getElementById('card-renderer-styles')) return;
 
     const style = document.createElement('style');
@@ -70,10 +70,12 @@ export class CardRenderer {
         transition: transform 0.1s ease, box-shadow 0.1s ease;
       }
 
+      /* アビリティボタンコンテナ：flex化して中央揃え */
       .crc-abilities-row {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 4px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 6px;
         width: 100%;
         box-sizing: border-box;
       }
@@ -82,7 +84,7 @@ export class CardRenderer {
         border: 1px solid #2d6a37;
         color: #2d6a37;
         border-radius: 4px;
-        padding: 5px 0;
+        padding: 5px 12px;
         font-size: 10px;
         font-weight: bold;
         text-align: center;
@@ -91,11 +93,11 @@ export class CardRenderer {
         overflow: hidden;
         text-overflow: ellipsis;
         box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        max-width: 30%;
       }
+      /* 空枠は非表示にしてアビリティが存在する分だけ中央寄せ */
       .crc-ability-btn.empty {
-        visibility: hidden;
-        border-color: transparent;
-        background: transparent;
+        display: none;
       }
 
       .crc-card-deck {
@@ -181,6 +183,7 @@ export class CardRenderer {
         object-fit: cover;
       }
 
+      /* 情報ブロック：幅80%＆中央配置 */
       .crc-large-info-block {
         background: linear-gradient(135deg, #f4faf5 0%, #e8f5e9 100%);
         border-radius: 8px;
@@ -190,7 +193,9 @@ export class CardRenderer {
         gap: 3px;
         border: 1px solid #a3d9a5;
         flex-shrink: 0;
-        margin-bottom: 4px;
+        width: 80%;
+        margin: 0 auto 4px;
+        box-sizing: border-box;
       }
       .crc-info-main-row {
         display: flex;
@@ -284,12 +289,18 @@ export class CardRenderer {
         font-weight: 500;
       }
 
+      /* アビリティボトムエリア：中央配置 */
       .crc-large-bottom-section {
         flex-shrink: 0;
+        display: flex;
+        justify-content: center;
+        width: 100%;
       }
     `;
     document.head.appendChild(style);
   }
+
+     
 
   getHorse(horseId) {
     if (!horseId) return null;
