@@ -347,7 +347,7 @@
 
       usedCardsHistory = globalUserData?.cpu_battle_status?.used_cards_history || [];
       await initMatchupAndMatchData();
-      document.getElementById('syncStatus').textContent = "✅";
+      document.getElementById('syncStatus').textContent = "☁️";
     } catch (e) {
       console.error("データ取得失敗:", e);
       document.getElementById('syncStatus').textContent = "❌ エラー";
@@ -508,6 +508,46 @@
     }
   }
 
+  // ★ AI予想屋による展開予想ロジック ★
+  function getPacePrediction(cpuHorse, mobIds) {
+    let nigeCount = 0;
+
+    const cpuStyle = getHorseLegStyle(cpuHorse);
+    if (cpuStyle.includes('逃')) nigeCount++;
+
+    mobIds.forEach(mId => {
+      const mHorse = HORSES_MASTER[String(mId)] || {};
+      const mStyle = getHorseLegStyle(mHorse);
+      if (mStyle.includes('逃')) nigeCount++;
+    });
+
+    if (nigeCount === 0) {
+      return {
+        title: '超スローペース予想 🐢',
+        desc: '逃げ馬不在（0頭）。押し出された馬がスローで逃げる前残り展開か。',
+        bg: '#e8f5e9', border: '#a5d6a7', text: '#2e7d32'
+      };
+    } else if (nigeCount === 1) {
+      return {
+        title: '単騎逃げ・マイペース予想 🐎',
+        desc: '同型不在で逃げ馬1頭が楽に単騎マイペースで運ぶ展開。',
+        bg: '#e3f2fd', border: '#90caf9', text: '#1565c0'
+      };
+    } else if (nigeCount === 2) {
+      return {
+        title: 'ミドルペース予想 ⚖️',
+        desc: '逃げ馬2頭による適度な競り合い。力通りに決まりやすい展開。',
+        bg: '#fff8e1', border: '#ffe082', text: '#f57f17'
+      };
+    } else {
+      return {
+        title: `ハイペース激戦予想 🔥 (逃げ${nigeCount}頭)`,
+        desc: `逃げ馬が${nigeCount}頭と多数競合！激しいハナ争いで前崩れ・差し追込の展開注意。`,
+        bg: '#ffebee', border: '#ef9a9a', text: '#c62828'
+      };
+    }
+  }
+
   // ─── UIレンダリング ───
 
   function renderEntryCards() {
@@ -521,7 +561,6 @@
 
       const surfaceClass = (race.surface && race.surface.includes('芝')) ? 'surface-turf' : 'surface-dirt';
       const sexLabel = race.sex ? ` (${race.sex})` : '';
-      const trackCond = currentTrackConditions[rIdx] || '良';
 
       // CPU馬とモブ馬の情報を事前構築
       const cpuEntry = currentCpuEntries[rIdx] || {};
@@ -529,6 +568,9 @@
       const cpuPt = getHorsePotential(cpuHorse, race.surface);
 
       const mobIds = currentRacesMobIds[rIdx] || currentRacesMobIds[String(rIdx)] || [];
+
+      // ★ AI展開予想の取得 ★
+      const paceInfo = getPacePrediction(cpuHorse, mobIds);
 
       let mobRowsHtml = '';
       mobIds.forEach((mId) => {
@@ -549,7 +591,7 @@
           <span class="race-title">第${race.race_num}戦: ${race.race_name}</span>
           <div class="race-cond-group">
             <span class="race-cond-badge ${surfaceClass}">${race.surface} ${race.track} ${race.distance}m${sexLabel}</span>
-            <span class="race-cond-badge cond-${trackCond}">馬場:${trackCond}</span>
+            <span class="race-cond-badge" style="background-color: #78909C;">馬場:未確定</span>
           </div>
         </div>
         <select class="select-horse-dropdown" id="selectRace${rIdx}" onchange="onHorseSelected(${rIdx}, this.value)">
@@ -562,35 +604,43 @@
 
         <details class="race-grid-toggle">
           <summary class="race-grid-summary">📋 出走メンバー（全16頭）を確認する</summary>
-          <div style="padding: 4px 6px; font-size: 10px; color: #666;">※馬番（枠順）は作戦指示完了後にランダム決定されます。</div>
-          <table class="race-grid-table">
-            <thead>
-              <tr>
-                <th>馬番</th>
-                <th>馬名</th>
-                <th>性</th>
-                <th>Pt</th>
-                <th>脚質</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr class="row-player" id="playerRowRace${rIdx}">
-                <td>-</td>
-                <td style="text-align:left;">（選択中） (自馬)</td>
-                <td>-</td>
-                <td>0</td>
-                <td>-</td>
-              </tr>
-              <tr class="row-cpu">
-                <td>-</td>
-                <td style="text-align:left;">${cpuHorse.name || 'CPU'} (ライバル)</td>
-                <td>${cpuHorse.sex || '牡'}</td>
-                <td>${cpuPt}</td>
-                <td>${getHorseLegStyle(cpuHorse)}</td>
-              </tr>
-              ${mobRowsHtml}
-            </tbody>
-          </table>
+          <div style="padding: 8px;">
+            <!-- ★ AI予想屋の展開診断 ★ -->
+            <div style="background:${paceInfo.bg}; border:1px solid ${paceInfo.border}; padding:6px 10px; border-radius:6px; margin-bottom:8px; font-size:11px; color:${paceInfo.text}; text-align:left;">
+              <strong>🤖 AI予想屋の展開診断: ${paceInfo.title}</strong><br>
+              <span style="color:#444; font-weight:normal;">${paceInfo.desc}</span>
+            </div>
+
+            <div style="font-size: 10px; color: #666; margin-bottom:4px; text-align:left;">※馬番（枠順）は作戦指示完了後にランダム決定されます。</div>
+            <table class="race-grid-table">
+              <thead>
+                <tr>
+                  <th>馬番</th>
+                  <th>馬名</th>
+                  <th>性</th>
+                  <th>Pt</th>
+                  <th>脚質</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="row-player" id="playerRowRace${rIdx}">
+                  <td>-</td>
+                  <td style="text-align:left;">（選択中） (自馬)</td>
+                  <td>-</td>
+                  <td>0</td>
+                  <td>-</td>
+                </tr>
+                <tr class="row-cpu">
+                  <td>-</td>
+                  <td style="text-align:left;">${cpuHorse.name || 'CPU'} (ライバル)</td>
+                  <td>${cpuHorse.sex || '牡'}</td>
+                  <td>${cpuPt}</td>
+                  <td>${getHorseLegStyle(cpuHorse)}</td>
+                </tr>
+                ${mobRowsHtml}
+              </tbody>
+            </table>
+          </div>
         </details>
       `;
       container.appendChild(card);
