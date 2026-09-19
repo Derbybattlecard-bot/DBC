@@ -34,7 +34,24 @@
     box-shadow: 0 0 10px rgba(0,255,102,0.2);
     margin-bottom: 10px;
   }
+  .race-header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
   .race-num-badge { color: var(--gold-color); font-size: 0.85em; font-weight: bold; }
+  .btn-header-reset {
+    background: rgba(255, 68, 68, 0.2);
+    border: 1px solid var(--cpu-color);
+    color: #ffaaaa;
+    font-size: 0.75em;
+    border-radius: 4px;
+    padding: 2px 8px;
+    cursor: pointer;
+  }
+  .btn-header-reset:hover { background: rgba(255, 68, 68, 0.4); }
+
   .race-venue-dist { font-size: 1.2em; font-weight: bold; color: #fff; margin: 2px 0; }
   .race-condition-badge {
     display: inline-block; background: #2a352c; color: var(--accent-green);
@@ -114,26 +131,24 @@
   .p1-name { color: var(--player-color) !important; font-weight: bold; }
   .p2-name { color: var(--cpu-color) !important; font-weight: bold; }
 
- /* 実況枠の余白を少し調整 */
-#commentary-box { 
-  background: #050515; 
-  color: #ffffff; 
-  border: 2px double var(--accent-green); 
-  padding: 10px 12px; 
-  border-radius: 6px; 
-  min-height: 50px; 
-  font-size: 0.85em; 
-  margin-bottom: 10px; 
-  line-height: 1.4; 
-}
+  /* 実況枠 */
+  #commentary-box { 
+    background: #050515; 
+    color: #ffffff; 
+    border: 2px double var(--accent-green); 
+    padding: 10px 12px; 
+    border-radius: 6px; 
+    min-height: 50px; 
+    font-size: 0.85em; 
+    margin-bottom: 10px; 
+    line-height: 1.4; 
+  }
 
-/* 実況枠の中に入れるボタンのスタイル調整 */
-#commentary-box .btn-next {
-  margin-top: 8px;
-  padding: 10px;
-  font-size: 1em;
-}
-
+  #commentary-box .btn-next {
+    margin-top: 8px;
+    padding: 10px;
+    font-size: 1em;
+  }
 
   /* 4. 対戦ミニカード */
   .vs-container { display: flex; justify-content: center; align-items: center; gap: 12px; margin-bottom: 12px; }
@@ -180,7 +195,8 @@
   }
   .summary-label { color: var(--gold-color); font-weight: bold; }
 
-  #final-series-modal {
+  /* モーダル共通 */
+  #final-series-modal, #error-modal {
     display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.92); z-index: 100; padding: 20px 10px; box-sizing: border-box; overflow-y: auto;
   }
@@ -191,7 +207,25 @@
   .series-winner-title { font-size: 1.6em; font-weight: bold; color: var(--gold-color); margin-bottom: 10px; }
   .series-score-box { font-size: 1.2em; font-weight: bold; background: #000; border: 1px solid #444; padding: 10px; margin: 10px 0; border-radius: 6px; }
 
-  /* NEW RECORD バッジのスタイル */
+  /* エラーモーダル用スタイル */
+  .error-modal-content {
+    background: var(--panel-bg); border: 2px solid var(--cpu-color); border-radius: 8px;
+    padding: 20px; max-width: 450px; margin: 80px auto; text-align: center;
+    box-shadow: 0 0 25px rgba(255, 68, 68, 0.6);
+  }
+  .error-title { color: var(--cpu-color); font-size: 1.3em; font-weight: bold; margin-bottom: 10px; }
+  .error-msg { font-size: 0.9em; margin-bottom: 20px; line-height: 1.5; color: #ddd; }
+  .btn-reset {
+    background: linear-gradient(135deg, #cc2222, #990000); color: #fff; font-weight: bold;
+    font-size: 1em; cursor: pointer; border: 1px solid #ff6666; width: 100%; padding: 12px;
+    border-radius: 6px; margin-bottom: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+  }
+  .btn-secondary {
+    background: #333; color: #ccc; font-weight: bold; font-size: 0.9em; cursor: pointer;
+    border: 1px solid #555; width: 100%; padding: 10px; border-radius: 6px;
+  }
+
+  /* NEW RECORD バッジ */
   .new-record-badge {
     display: none;
     background: linear-gradient(135deg, #ffcc00, #ff9900);
@@ -214,7 +248,10 @@
 <body>
 <div id="race-view">
   <div class="race-title-panel">
-    <div class="race-num-badge" id="display-race-num">RACE 1 / 5</div>
+    <div class="race-header-top">
+      <div class="race-num-badge" id="display-race-num">RACE 1 / 5</div>
+      <button class="btn-header-reset" onclick="resetBattleStatus()">⚠️ リセット</button>
+    </div>
     <div class="race-venue-dist" id="display-race-title">---</div>
     <span class="race-condition-badge" id="display-race-cond">馬場: ---</span>
   </div>
@@ -283,7 +320,7 @@
   <div class="modal-content">
     <div class="series-winner-title" id="series-result-title">🏆 シリーズ覇者 決定！</div>
     
-    <!-- ★ NEW RECORD 表示要素 -->
+    <!-- NEW RECORD 表示要素 -->
     <div id="new-record-badge" class="new-record-badge">✨ NEW RECORD!! ✨</div>
 
     <div class="series-score-box" id="series-score-detail">---</div>
@@ -294,6 +331,16 @@
       <tbody id="series-history-body"></tbody>
     </table>
     <button class="btn-next" id="modalNextBtn" style="margin-top: 20px;" onclick="goToNextSeries()">🔄 次のシリーズへ進む</button>
+  </div>
+</div>
+
+<!-- エラー / データクリアモーダル -->
+<div id="error-modal">
+  <div class="error-modal-content">
+    <div class="error-title">⚠️ エラー発生 / データ異常</div>
+    <div class="error-msg" id="error-modal-msg">対戦データに問題が発生したか、正しく読み込めませんでした。</div>
+    <button class="btn-reset" onclick="resetBattleStatus()">🧹 対戦ステータスをクリアして最初からやり直す</button>
+    <button class="btn-secondary" onclick="window.location.href='battle.html'">🔙 対戦画面（battle.html）に戻る</button>
   </div>
 </div>
 
@@ -347,6 +394,40 @@ let currentTrackConfig = TRACK_DIRECTION_MASTER["右回り"];
 let currentRaceInfo = null;
 let raceInfo = null;
 
+window.showErrorModal = function(msg) {
+  const msgEl = document.getElementById('error-modal-msg');
+  if (msgEl) msgEl.textContent = msg;
+  const modal = document.getElementById('error-modal');
+  if (modal) modal.style.display = "block";
+};
+
+window.resetBattleStatus = async function() {
+  if (!confirm("対戦ステータス（進行データ・選出カード）をクリアして、真っさらな対戦画面に戻りますか？")) {
+    return;
+  }
+  try {
+    if (currentUser) {
+      await setDoc(doc(db, "users", currentUser.uid), {
+        cpu_battle_status: {
+          is_active: false,
+          current_match: null,
+          series_wins: 0,
+          series_losses: 0,
+          current_round: 1,
+          used_cards_history: [],
+          total_1st_places: globalUserData?.cpu_battle_status?.total_1st_places || 0
+        }
+      }, { merge: true });
+    }
+    alert("対戦ステータスを初期化しました。");
+    window.location.href = 'battle.html';
+  } catch (err) {
+    console.error("リセットエラー:", err);
+    alert("初期化に失敗しました。画面を再読み込みします。");
+    window.location.href = 'battle.html';
+  }
+};
+
 onAuthStateChanged(auth, async (user) => {
   if (!user) { window.location.href = 'auth.html'; return; }
   currentUser = user;
@@ -357,7 +438,8 @@ onAuthStateChanged(auth, async (user) => {
     if (userDoc.exists()) globalUserData = userDoc.data();
 
     await loadMasterData();
-    buildRaceGridsFromFirebase();
+    const isSuccess = buildRaceGridsFromFirebase();
+    if (!isSuccess) return;
 
     const status = globalUserData?.cpu_battle_status || {};
     const currentMatch = status.current_match || {};
@@ -376,7 +458,7 @@ onAuthStateChanged(auth, async (user) => {
     }
   } catch (err) {
     console.error(err);
-    alert("データの読み込みに失敗しました。");
+    showErrorModal("データの読み込みに失敗しました。対戦データが正常でない可能性があります。");
   }
 });
 
@@ -414,7 +496,7 @@ async function loadMasterData() {
     }
   } catch (error) {
     console.error("マスターデータの読み込み失敗:", error);
-    alert("マスターデータの読み込みに失敗しました。");
+    showErrorModal("マスターデータの読み込みに失敗しました。設定ファイルを確認してください。");
   }
 }
 
@@ -426,10 +508,9 @@ function buildRaceGridsFromFirebase() {
   const racesMobIds = currentMatch.races_mob_ids || {};
   const racesMobGates = currentMatch.races_mob_gates || [];
 
-  if (playerEntries.length < 5) {
-    alert("対戦エントリーデータが見つかりません。シリーズ発表画面へ戻ります。");
-    window.location.href = 'battle.html';
-    return;
+  if (!playerEntries || playerEntries.length < 5) {
+    showErrorModal("対戦エントリーデータが見つからないか不完全です。対戦ステータスをクリアして最初からやり直してください。");
+    return false;
   }
 
   fullRaceGrids = [];
@@ -438,6 +519,10 @@ function buildRaceGridsFromFirebase() {
     const grid = [];
 
     const pEntry = playerEntries[rIdx];
+    if (!pEntry) {
+      showErrorModal("プレイヤーのレース出走登録データが正常ではありません。");
+      return false;
+    }
     const pMaster = HORSES_MASTER[pEntry.horse_id] || { name: "自馬", horse_id: pEntry.horse_id };
     grid.push({
       ...pMaster,
@@ -483,9 +568,9 @@ function buildRaceGridsFromFirebase() {
     });
 
     grid.sort((a, b) => (a.gate_number || 0) - (b.gate_number || 0));
-
     fullRaceGrids.push(grid);
   }
+  return true;
 }
 
 function ensureStats(h) {
@@ -653,7 +738,6 @@ function renderLanes() {
   let htmlBuffer = "";
   activeHorses.forEach((h, i) => {
     let nameClass = h.isPlayer ? "p1-name" : (h.isCpu ? "p2-name" : "");
-    const gateNum = h.gate_number || (i + 1);
     htmlBuffer += `
       <div class="horse-lane">
         <div class="horse-icon" id="horse-icon-${i}" style="left: ${initialLeftPx}px;">
@@ -744,18 +828,6 @@ function processAbilityQueue() {
       processAbilityQueue();
     }, 400);
   }, 2000);
-}
-
-function queueAbilities(targetHorses) {
-  targetHorses.forEach(h => {
-    if (h.activated_abilities && h.activated_abilities.length > 0) {
-      h.activated_abilities.forEach(abName => {
-        const msg = (h.popup_messages && h.popup_messages[abName]) || abName;
-        abilityQueue.push({ horse: h, abilityName: abName, popupMessage: msg });
-      });
-    }
-  });
-  processAbilityQueue();
 }
 
 async function startRace() {
@@ -947,8 +1019,9 @@ async function startRace() {
       }, 100);
     }, 1500);
   }, 12600); 
-  }
-  function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear", moveDir = "left_to_right") {
+}
+
+function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear", moveDir = "left_to_right") {
   const trackContainer = document.getElementById('track-container');
   if (!trackContainer) return;
   const trackWidth = trackContainer.clientWidth - 20;
@@ -1004,7 +1077,7 @@ function renderResults(scoredList) {
           <span class="horse-sub-info">[${horseStyle}] ${tacticName} (Lv.${tacticLevel})</span>
         </td>
         <td>
-          <strong>${item.positionRank}番手</strong>
+         <strong>${item.positionRank}番手</strong>
           <span class="pos-info">(${item.positionPoint}pt)</span>
         </td>
         <td><strong style="color:var(--gold-color); font-size:1.1em;">${Math.floor(item.finalScore)}</strong></td>
@@ -1032,20 +1105,15 @@ function showFinalSeriesResult() {
     titleEl.innerHTML = `💀 CPUの勝利...<br><span style="font-size:0.7em; color:#fff;">悔しさを胸に次回へ挑戦！</span>`;
   }
 
-  // ----------------------------------------------------
-  // ★ NEW RECORD 表示判定
-  // ----------------------------------------------------
   const status = globalUserData?.cpu_battle_status || {};
   const seriesId = status.selected_series_id || (status.series_lineup ? status.series_lineup[(status.current_round || 1) - 1] : null);
   
-  // 自馬の全5戦の合計着順を算出
   const currentTotalRank = seriesHistory.reduce((sum, h) => sum + (h.pRank || 0), 0);
   const existingBestRecords = globalUserData?.series_best_records || {};
   const currentBest = seriesId ? existingBestRecords[seriesId] : null;
 
   const recordBadgeEl = document.getElementById('new-record-badge');
   if (recordBadgeEl) {
-    // 過去記録が存在しない、または今回の合計着順が過去より小さい（好成績）場合
     if (seriesId && seriesHistory.length === 5 && (!currentBest || currentTotalRank < currentBest.best_score)) {
       recordBadgeEl.style.display = "block";
     } else {
@@ -1107,21 +1175,14 @@ window.goToNextSeries = async function() {
   const p1stCount = seriesHistory.filter(h => h.pRank === 1).length;
   const updatedTotal1st = (status.total_1st_places || 0) + p1stCount;
 
-  // ----------------------------------------------------
-  // ★ シリーズ最高成績（series_best_records）更新ロジック ★
-  // ----------------------------------------------------
   const seriesId = status.selected_series_id || (status.series_lineup ? status.series_lineup[(status.current_round || 1) - 1] : null);
-  
-  // 自馬の全5戦の着順合計を算出
   const currentTotalRank = seriesHistory.reduce((sum, h) => sum + (h.pRank || 0), 0);
 
-  // 既存の最高記録を取得して比較
   const existingBestRecords = globalUserData?.series_best_records || {};
   const currentBest = seriesId ? existingBestRecords[seriesId] : null;
 
   let updatedBestRecords = { ...existingBestRecords };
 
-  // 過去の記録がない、または今回の方が合計着順が少ない（良い成績）場合に更新
   if (seriesId && usedIds.length === 5) {
     if (!currentBest || currentTotalRank < currentBest.best_score) {
       updatedBestRecords[seriesId] = {
@@ -1144,7 +1205,6 @@ window.goToNextSeries = async function() {
   };
 
   try {
-    // cpu_battle_status と series_best_records を同時にセット
     await setDoc(doc(db, "users", currentUser.uid), {
       cpu_battle_status: updatedCpuBattleStatus,
       series_best_records: updatedBestRecords
