@@ -311,7 +311,6 @@
     return horse.running_style || horse.leg_style || horse.style || horse.strategy || '先行';
   }
 
-  // フォールバック用: 脚質ごとの初期作戦取得
   function getDefaultStrategyForStyle(style) {
     if (!style) return null;
     const s = String(style);
@@ -333,27 +332,22 @@
     return match ? (match.name || match.strategy_name || match.strategy) : null;
   }
 
-  // ★ 修正版: 出走馬が所属するデックを自動判定して作戦を取得する関数
   function getInitialStrategyForHorse(pEntry, rIdx) {
     if (!pEntry) return null;
 
-    // 1. この画面で手動変更された場合
     if (pEntry.isCustomized && pEntry.strategy) {
       const match = STRATEGY_MASTER.find(s => s.strategy_id === pEntry.strategy || s.name === pEntry.strategy);
       return match ? (match.name || match.strategy_name || match.strategy) : pEntry.strategy;
     }
 
-    // 2. 出走馬の所属デックを特定（馬IDが含まれるデックを検索、無ければ保存された選択インデックスを使用）
     let targetDeck = null;
 
     if (globalUserData?.decks && Array.isArray(globalUserData.decks)) {
-      // 出走馬の ID が含まれるデックを検索（メイン/サブ等の違いを自動解決）
       targetDeck = globalUserData.decks.find(deck => 
         Array.isArray(deck.horse_ids) && pEntry.horse_id && deck.horse_ids.map(String).includes(String(pEntry.horse_id))
       );
     }
 
-    // 自動検知できない場合は保存されたインデックスを使用
     if (!targetDeck) {
       const savedDeckIdx = globalUserData?.cpu_battle_status?.selected_deck_idx 
         ?? globalUserData?.cpu_battle_status?.current_match?.selected_deck_idx 
@@ -362,11 +356,9 @@
       targetDeck = globalUserData?.decks?.[savedDeckIdx];
     }
 
-    // デックから作戦を取得
     if (targetDeck && targetDeck.default_strategies) {
       let defaultStratId = null;
 
-      // 馬のIDがデック内の何番目に配置されているか検索
       if (pEntry.horse_id && Array.isArray(targetDeck.horse_ids)) {
         const foundIdx = targetDeck.horse_ids.findIndex(id => String(id) === String(pEntry.horse_id));
         if (foundIdx !== -1 && targetDeck.default_strategies[foundIdx]) {
@@ -374,7 +366,6 @@
         }
       }
 
-      // 見つからない場合は枠順(slot_idx)または配列順(rIdx)でフォールバック
       if (!defaultStratId) {
         const slotIdx = pEntry.slot_idx !== undefined ? pEntry.slot_idx : rIdx;
         if (targetDeck.default_strategies[slotIdx]) {
@@ -382,14 +373,12 @@
         }
       }
 
-      // IDに対応する作戦名を取得
       if (defaultStratId) {
         const match = STRATEGY_MASTER.find(s => s.strategy_id === defaultStratId || s.name === defaultStratId);
         if (match) return match.name || match.strategy_name || match.strategy;
       }
     }
 
-    // 3. デックに未設定の場合のフォールバック (脚質に応じた作戦)
     const pHorse = HORSES_MASTER[String(pEntry.horse_id)];
     const pStyle = getHorseStyle(pHorse);
     return getDefaultStrategyForStyle(pStyle) || "先行して粘り込み";
@@ -429,7 +418,6 @@
       const pPt = getHorsePt(pHorse, race.surface);
       const pStyle = getHorseStyle(pHorse);
 
-      // 初期作戦の割り当て
       if (!pEntry.isCustomized) {
         const initStrat = getInitialStrategyForHorse(pEntry, rIdx);
         pEntry.strategy = initStrat;
@@ -468,7 +456,6 @@
           const sName = s.name || s.strategy_name || s.strategy || cat.title;
           const sId = s.strategy_id || sName;
           
-          // 作戦名 (sName) または 作戦ID (sId) のどちらかと一致する場合に selected に設定
           const isSelected = pEntry.strategy === sName || pEntry.strategy === sId;
           stratOptionsHtml += `<option value="${sName}" ${isSelected ? 'selected' : ''}>${sName}</option>`;
         });
@@ -591,7 +578,7 @@
       limitEl.textContent = '合計オーバー';
       limitEl.className = 'status-val error';
       goBtn.disabled = true;
-} else {
+    } else {
       lvlEl.className = 'status-val ok';
       limitEl.textContent = 'OK';
       limitEl.className = 'status-val ok';
