@@ -120,7 +120,7 @@ function generateRaceCommentary(raceData) {
     if (pRank < cRank) {
       phase3Text += `${player.name}は絶好の手応えで${pRank}番手をキープ！追う${cpu.name}は後方${cRank}番手から前を狙う！`;
     } else if (pRank > cRank) {
-      phase3Text += `${cpu.name}が${cRank}番手でレースを引っ張る！${player.name}は${pRank}番手からじっくりと機会を伺う！`;
+      phase3Text += `${cpu.name}が${cRank}番手でレースを引っ算する！${player.name}は${pRank}番手からじっくりと機会を伺う！`;
     } else {
       phase3Text += `${player.name}と${cpu.name}、${pRank}番手付近でぴたりと並んで第4コーナーを回ってきます！`;
     }
@@ -559,6 +559,11 @@ function applyPhase3Abilities(resultList, raceInfo, trackCondition, racePace) {
   firstHorse.activated_abilities = firstHorse.activated_abilities || [];
 }
 
+/**
+ * Phase 4: 直線〜展開による強力発動系アビリティのバフ計算
+ * (大逃亡、王道、絶対王者、電光石火、まくり系、レコードホルダー等)
+ * バフ値は「対象馬のポテンシャル - 10」を総加点へ直接加算する
+ */
 function applyPhase4Abilities(horse, pace, branchName) {
   if (!isEligibleForAbility(horse)) return 0;
   if (!horse.ability || !Array.isArray(horse.ability)) return 0;
@@ -567,31 +572,35 @@ function applyPhase4Abilities(horse, pace, branchName) {
   horse.activated_abilities = horse.activated_abilities || [];
   let extraScore = 0;
 
+  // 動的なバフ値計算: (ポテンシャル - 10)
+  const currentPot = horse.calc_potential ?? horse.potential ?? 14;
+  const dynamicBuff = currentPot - 10;
+
   horse.ability.forEach(abilityName => {
     let triggered = false;
 
     if (abilityName === "大逃亡") {
       if (branchName.includes("前崩れ")) {
-        extraScore += 10;
+        extraScore += dynamicBuff;
         triggered = true;
       }
     }
 
     if (abilityName === "王道" || abilityName === "絶対王者") {
       if (branchName.includes("波乱")) {
-        extraScore += 10;
+        extraScore += dynamicBuff;
         triggered = true;
       }
     }
 
     const isMakuri = /まくり|マクリ|捲り/.test(abilityName);
     if ((abilityName === "電光石火" || isMakuri) && branchName.includes("前残り")) {
-      extraScore += 10;
+      extraScore += dynamicBuff;
       triggered = true;
     }
 
     if (abilityName === "レコードホルダー" && (branchName.includes("レコード決着") || branchName.includes("スピード勝負"))) {
-      extraScore += 5;
+      extraScore += dynamicBuff;
       triggered = true;
       horse.straight_popup_trigger = true;
       horse.commentary_trigger = "レコードホルダー";
@@ -962,9 +971,4 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     branch: selectedBranch,
     commentary: commentaryData
   };
-}
-
-
-
-
-
+    }
