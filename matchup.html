@@ -79,6 +79,36 @@
   .status-val.error { color: var(--danger-color); }
   .status-val.ok { color: var(--accent-color); }
 
+  .quick-tools-bar {
+    display: flex;
+    gap: 8px;
+  }
+  .btn-auto-select {
+    flex: 2;
+    background: linear-gradient(135deg, #2e7d32, #1b5e20);
+    color: white;
+    border: none;
+    padding: 9px;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 12px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    transition: all 0.1s;
+  }
+  .btn-auto-select:active { transform: translateY(1px); }
+  .btn-clear-select {
+    flex: 1;
+    background: #ffffff;
+    color: #666;
+    border: 1px solid #ccc;
+    padding: 9px;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
   .entry-card {
     background: var(--panel-bg);
     border: 1px solid var(--border-color);
@@ -195,6 +225,11 @@
     </div>
   </div>
 
+  <div class="quick-tools-bar">
+    <button class="btn-auto-select" onclick="autoSelectEntries()">⚡ おまかせ自動エントリー</button>
+    <button class="btn-clear-select" onclick="clearAllEntries()">リセット</button>
+  </div>
+
   <div id="entryList" style="display:flex; flex-direction:column; gap:10px;"></div>
 
   <div class="action-group">
@@ -240,13 +275,10 @@
       // ─── 進行状況に応じた段階的リダイレクト処理 ───
       const status = globalUserData?.cpu_battle_status;
       if (status && status.current_match) {
-        // ① 出走馬および作戦の両方が確定している場合 → レース結果画面へ
         if (status.current_match.full_race_grids) {
           window.location.href = 'race_result.html';
           return;
-        }
-        // ② 出走馬（チーム）のみ確定しており、作戦が未確定の場合 → 作戦指示画面へ
-        else if (status.current_match.player_entries && status.current_match.player_entries.length > 0) {
+        } else if (status.current_match.player_entries && status.current_match.player_entries.length > 0) {
           window.location.href = 'strategy.html';
           return;
         }
@@ -585,6 +617,76 @@
       startBtn.disabled = true;
     }
   }
+
+  // ─── おまかせ自動エントリー機能 ───
+
+  window.autoSelectEntries = function() {
+    const races = currentSeries.rounds[0].races;
+    const limits = currentSeries.potential_limit || { min_potential_per_race: 15, max_total_potential: 95 };
+    const maxTotal = limits.max_total_potential || 95;
+    const minPerRace = limits.min_potential_per_race || 15;
+
+    // 出走可能（未使用または連闘持ち）な馬をフィルタリング
+    const availableHorses = deckHorses.filter(h => {
+      const hasContinuous = Array.isArray(h.ability) && (h.ability.includes("鉄女") || h.ability.includes("連闘"));
+      const isUsed = (usedCardsHistory.includes(h.horse_id) || usedCardsHistory.includes(h.name)) && !hasContinuous;
+      return !isUsed;
+    });
+
+    // 5つのレース全てを満たす組み合わせをバックトラッキング探索
+    function searchCombo(raceIdx, currentCombo, currentSum) {
+      if (raceIdx === races.length) {
+        return currentSum <= maxTotal ? currentCombo : null;
+      }
+
+      const race = races[raceIdx];
+      const raceSexLimit = race.sex || currentSeries.sex || "制限なし";
+
+      const candidates = availableHorses.filter(h => {
+        if (currentCombo.some(item => item.horse_id === h.horse_id)) return false;
+        if (!isValidSex(h.sex || "牡馬", raceSexLimit)) return false;
+        if (!isValidSurface(h, race.surface)) return false;
+        if (!isValidDistance(h, race.distance)) return false;
+
+        const pt = getHorsePotential(h, race.surface);
+        if (pt < minPerRace) return false;
+        if (currentSum + pt > maxTotal) return false;
+
+        return true;
+      });
+
+      // ポテンシャルの高い順に優先選定
+      candidates.sort((a, b) => getHorsePotential(b, race.surface) - getHorsePotential(a, race.surface));
+
+      for (const horse of candidates) {
+        const pt = getHorsePotential(horse, race.surface);
+        const res = searchCombo(raceIdx + 1, [...currentCombo, horse], currentSum + pt);
+        if (res) return res;
+      }
+
+      return null;
+    }
+
+    const bestCombo = searchCombo(0, [], 0);
+
+    if (bestCombo) {
+      bestCombo.forEach((horse, idx) => {
+        window.onHorseSelected(idx, horse.horse_id);
+      });
+    } else {
+      alert("現在のデッキ内カードでは、全5レースの条件（性別・適性・距離・合計ポテンシャル制限）をすべて満たす出走組み合わせが見つかりませんでした。");
+    }
+  };
+
+  window.clearAllEntries = function() {
+    selectedEntries = [null, null, null, null, null];
+    currentSeries.rounds[0].races.forEach((_, idx) => {
+      const preview = document.getElementById(`previewRace${idx}`);
+      preview.innerHTML = `<span>ポテンシャル: - | 脚質: - | 性別: -</span><span>適性: -</span>`;
+    });
+    populateDropdowns();
+    updateStatus();
+  };
 
   window.giveUpSeries = async function() {
     if (!confirm("このシリーズをギブアップ（不戦敗）しますか？")) return;
