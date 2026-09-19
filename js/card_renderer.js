@@ -116,18 +116,17 @@ export class CardRenderer {
       .crc-deck-details { display: flex; flex-direction: column; gap: 1px; color: #4e6b52; font-size: 10px; font-weight: bold; line-height: 1.2; flex: 1; }
       .crc-deck-radar { width: 65px; height: 65px; flex-shrink: 0; }
 
-      /* 大型カード：左右15%ずつのブランク領域（コンテンツ幅70%） */
+      /* 大型カードレイアウト */
       .crc-card-large {
         width: 100%;
         height: 100%;
-        aspect-ratio: 59 / 86;
-        padding: 10px 15%;
+        padding: 12px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
         border-radius: 12px;
         background: #ffffff;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
         box-sizing: border-box;
         overflow: hidden;
       }
@@ -174,7 +173,7 @@ export class CardRenderer {
         display: flex;
         justify-content: center;
         align-items: center;
-        margin: 4px 0;
+        margin: 6px 0;
         flex-shrink: 0;
         width: 100%;
       }
@@ -193,42 +192,40 @@ export class CardRenderer {
         object-fit: cover;
       }
 
-      .crc-large-info-block {
-        background: linear-gradient(135deg, #f4faf5 0%, #e8f5e9 100%);
-        border-radius: 8px;
-        padding: 5px 8px;
+      /* 中段：レーダー(左)＋縦並びバッチ類(右) */
+      .crc-large-mid-section {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin: 6px 0;
+        width: 100%;
+      }
+      .crc-large-radar-wrap {
+        width: 110px;
+        height: 110px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .crc-large-badges-col {
         display: flex;
         flex-direction: column;
-        gap: 3px;
-        border: 1px solid #a3d9a5;
-        flex-shrink: 0;
-        width: 100%;
-        box-sizing: border-box;
-        margin-bottom: 6px;
+        gap: 5px;
+        flex: 1;
+        align-items: flex-start;
+        justify-content: center;
+        min-width: 0;
       }
-      .crc-info-main-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-      .crc-info-sub-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 10px;
-        font-weight: bold;
-        color: #3e6343;
-        border-top: 1px dashed #c2dfc6;
-        padding-top: 3px;
-        margin-top: 1px;
-      }
-      
+
       .crc-potential-badge {
-        font-size: 12px;
+        display: inline-block;
+        font-size: 11px;
         font-weight: 900;
         color: #0d4220;
         background: #ffffff;
-        padding: 2px 7px;
+        padding: 2px 8px;
         border-radius: 4px;
         border: 1.5px solid #2d6a37;
         box-shadow: 0 1px 2px rgba(0,0,0,0.05);
@@ -239,35 +236,46 @@ export class CardRenderer {
         align-items: center;
         gap: 4px;
         color: #ffffff;
-        padding: 3px 8px;
+        padding: 2px 8px;
         border-radius: 12px;
         font-size: 11px;
         font-weight: 900;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         text-shadow: 0 1px 2px rgba(0,0,0,0.4);
-        letter-spacing: 0.5px;
       }
 
-      .crc-large-mid-section {
-        display: flex;
-        align-items: stretch;
-        justify-content: space-between;
-        gap: 6px;
-        flex: 1;
-        min-height: 0;
-        width: 100%;
-      }
-      .crc-large-radar-wrap {
-        width: 110px;
-        height: 100%;
-        flex-shrink: 0;
-        display: flex;
+      .crc-ability-badge {
+        display: inline-flex;
         align-items: center;
-        justify-content: center;
+        gap: 4px;
+        background: #e8f5e9;
+        color: #1b4d23;
+        border: 1.5px solid #2d6a37;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 10px;
+        font-weight: bold;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+        box-sizing: border-box;
       }
+
+      .crc-meta-info-row {
+        font-size: 10px;
+        font-weight: bold;
+        color: #3e6343;
+        margin-top: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+      }
+
+      /* 最下部：コメントエリア */
       .crc-large-comment-box {
-        flex: 1;
-        height: 100%;
+        width: 100%;
         background: #f8faf8;
         border-radius: 6px;
         border: 1px solid #c2dfc6;
@@ -276,45 +284,21 @@ export class CardRenderer {
         display: flex;
         flex-direction: column;
         justify-content: flex-start;
-        overflow-y: auto;
+        margin-top: 4px;
       }
       .crc-comment-title {
-        font-size: 9px;
+        font-size: 10px;
         font-weight: bold;
         color: #1b4d23;
-        margin-bottom: 3px;
+        margin-bottom: 2px;
         border-bottom: 1px dotted #b5d4ba;
         padding-bottom: 2px;
       }
       .crc-comment-text {
-        font-size: 9px;
+        font-size: 9.5px;
         color: #2e4732;
         line-height: 1.35;
         font-weight: 500;
-        margin-bottom: 6px;
-      }
-
-      .crc-large-ability-section {
-        border-top: 1px dotted #b5d4ba;
-        padding-top: 4px;
-        margin-top: auto;
-      }
-      .crc-large-ability-title {
-        font-size: 9px;
-        font-weight: bold;
-        color: #1b4d23;
-        margin-bottom: 2px;
-      }
-      .crc-large-ability-list {
-        margin: 0;
-        padding-left: 14px;
-        font-size: 9px;
-        color: #2d6a37;
-        font-weight: bold;
-        line-height: 1.3;
-      }
-      .crc-large-ability-list li {
-        margin-bottom: 1px;
       }
     `;
     document.head.appendChild(style);
@@ -493,22 +477,6 @@ export class CardRenderer {
     return html;
   }
 
-  getAbilityListHtml(horse) {
-    const abilities = this.getRawAbilities(horse).filter(a => a && String(a).trim() !== '');
-    if (abilities.length === 0) return '';
-
-    let html = `
-      <div class="crc-large-ability-section">
-        <div class="crc-large-ability-title">【アビリティ】</div>
-        <ul class="crc-large-ability-list">
-    `;
-    abilities.forEach(ab => {
-      html += `<li>${ab}</li>`;
-    });
-    html += `</ul></div>`;
-    return html;
-  }
-
   renderCardUI(horseId, mode = 'deck') {
     let horse = this.getHorse(horseId);
     if (!horse && typeof horseId === 'object' && horseId !== null) {
@@ -578,44 +546,53 @@ export class CardRenderer {
     }
 
     const commentText = horse.comment || horse.description || horse.memo || `${horse.name}。血統と能力に恵まれた競走馬。`;
-    const abilityListHtml = this.getAbilityListHtml(horse);
+    const abilities = this.getRawAbilities(horse).filter(a => a && String(a).trim() !== '');
+    const abilityText = abilities.length > 0 ? abilities.join(' / ') : '-';
 
     return `
       <div class="crc-card crc-card-large" style="border: 3px solid ${borderColor};">
+        <!-- 1. ヘッダー -->
         <div class="crc-large-header">
           <div class="crc-large-name" title="${horse.name}">${horse.name}</div>
           <div class="crc-rarity-badge" style="background: ${borderColor};">${rarityKey}</div>
         </div>
 
+        <!-- 2. 画像 -->
         <div class="crc-large-hero-wrap">
           <div class="crc-large-hero-img">
             <img src="${imgPath}" onerror="this.onerror=null; this.src='${fallbackPath}';" alt="${horse.name}">
           </div>
         </div>
 
-        <div class="crc-large-info-block">
-          <div class="crc-info-main-row">
-            <span class="crc-potential-badge">${surfaceText}</span>
-            <span class="crc-style-badge" style="background: ${styleTheme.grad};">
-              ${styleTheme.icon} ${styleName}
-            </span>
-          </div>
-          <div class="crc-info-sub-row">
-            <span>距離: ${distText}</span>
-            <span>性別: ${sexText}</span>
-            <span>${genText}</span>
-          </div>
-        </div>
-
+        <!-- 3. 中段 (レーダー ＋ 右側に縦並びのバッチ類・情報行) -->
         <div class="crc-large-mid-section">
           <div class="crc-large-radar-wrap">
             ${radarSvgHtml}
           </div>
-          <div class="crc-large-comment-box">
-            <div class="crc-comment-title">【特徴・メモ】</div>
-            <div class="crc-comment-text">${commentText}</div>
-            ${abilityListHtml}
+          <div class="crc-large-badges-col">
+            <div>
+              <span class="crc-potential-badge">${surfaceText}</span>
+            </div>
+            <div>
+              <span class="crc-style-badge" style="background: ${styleTheme.grad};">
+                ${styleTheme.icon} ${styleName}
+              </span>
+            </div>
+            <div>
+              <span class="crc-ability-badge">
+                ✨ ${abilityText}
+              </span>
+            </div>
+            <div class="crc-meta-info-row">
+              距離: ${distText} &nbsp;性別: ${sexText} &nbsp;${genText}
+            </div>
           </div>
+        </div>
+
+        <!-- 4. 最下部 (コメント) -->
+        <div class="crc-large-comment-box">
+          <div class="crc-comment-title">【特徴・メモ】</div>
+          <div class="crc-comment-text">${commentText}</div>
         </div>
       </div>
     `;
@@ -628,3 +605,4 @@ if (typeof window !== 'undefined') {
   window.CardRenderer = CardRenderer;
   window.cardRenderer = cardRenderer;
 }
+ 
