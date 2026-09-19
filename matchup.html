@@ -16,6 +16,8 @@
     --turf-color: #4CAF50;
     --dirt-color: #8D6E63;
     --danger-color: #d9534f;
+    --player-bg: #e3f2fd;
+    --cpu-bg: #ffebee;
   }
   body {
     font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
@@ -126,6 +128,7 @@
     padding-bottom: 6px;
   }
   .race-title { font-weight: bold; font-size: 13px; color: var(--accent-color); }
+  .race-cond-group { display: flex; gap: 4px; align-items: center; }
   .race-cond-badge {
     font-size: 10px;
     padding: 2px 6px;
@@ -135,6 +138,11 @@
   }
   .surface-turf { background-color: var(--turf-color); }
   .surface-dirt { background-color: var(--dirt-color); }
+
+  .cond-良 { background-color: #2e7d32; }
+  .cond-稍重 { background-color: #f57f17; }
+  .cond-重 { background-color: #e65100; }
+  .cond-不良 { background-color: #c62828; }
 
   .select-horse-dropdown {
     width: 100%;
@@ -156,6 +164,38 @@
     padding: 6px 8px;
     border-radius: 4px;
   }
+
+  /* アコーディオン & 出馬表テーブル スタイル */
+  details.race-grid-toggle {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 11px;
+    margin-top: 4px;
+  }
+  summary.race-grid-summary {
+    padding: 6px 10px;
+    font-weight: bold;
+    color: var(--accent-color);
+    cursor: pointer;
+    user-select: none;
+    background: #f9f9f9;
+    border-radius: 6px;
+  }
+  .race-grid-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 4px;
+  }
+  .race-grid-table th, .race-grid-table td {
+    border: 1px solid #e0e0e0;
+    padding: 4px 6px;
+    text-align: center;
+    font-size: 10px;
+  }
+  .race-grid-table th { background: #eee; }
+  .row-player { background-color: var(--player-bg); font-weight: bold; }
+  .row-cpu { background-color: var(--cpu-bg); font-weight: bold; }
 
   .action-group {
     display: flex;
@@ -253,6 +293,11 @@
   let selectedEntries = [null, null, null, null, null];
   let usedCardsHistory = [];
 
+  // 対戦相手・馬場状態データ
+  let currentCpuEntries = [];
+  let currentRacesMobIds = {};
+  let currentTrackConditions = [];
+
   async function fetchJsonSafe(filename) {
     const candidatePaths = [`./data/${filename}`, `data/${filename}`, `/data/${filename}`];
     for (const path of candidatePaths) {
@@ -279,6 +324,7 @@
           window.location.href = 'race_result.html';
           return;
         } else if (status.current_match.player_entries && status.current_match.player_entries.length > 0) {
+          // すでに自馬登録が完了している場合は strategy.html へ
           window.location.href = 'strategy.html';
           return;
         }
@@ -291,11 +337,16 @@
 
       SERIES_MASTER = seriesData;
       if (Array.isArray(horsesData)) {
-        horsesData.forEach(h => { HORSES_MASTER[h.horse_id] = h; });
+        horsesData.forEach(h => { 
+          const idStr = String(h.horse_id);
+          HORSES_MASTER[idStr] = h;
+          const paddedId = idStr.padStart(4, '0');
+          if (idStr !== paddedId) HORSES_MASTER[paddedId] = h;
+        });
       }
 
       usedCardsHistory = globalUserData?.cpu_battle_status?.used_cards_history || [];
-      initMatchup();
+      await initMatchupAndMatchData();
       document.getElementById('syncStatus').textContent = "✅";
     } catch (e) {
       console.error("データ取得失敗:", e);
@@ -303,7 +354,7 @@
     }
   });
 
-  function initMatchup() {
+  async function initMatchupAndMatchData() {
     const status = globalUserData?.cpu_battle_status || {};
     const seriesId = status.selected_series_id || (status.series_lineup ? status.series_lineup[(status.current_round || 1) - 1] : null);
     const deckIdx = typeof status.selected_deck_index === 'number' ? status.selected_deck_index : 0;
@@ -322,7 +373,41 @@
     document.getElementById('sexLimitDisplay').textContent = sexLimit;
 
     const deck = (globalUserData?.decks || [])[deckIdx] || { horse_ids: [] };
-    deckHorses = (deck.horse_ids || []).map(id => HORSES_MASTER[id]).filter(h => h !== undefined);
+    deckHorses = (deck.horse_ids || []).map(id => HORSES_MASTER[String(id)]).filter(h => h !== undefined);
+
+    // ★ モブ馬・CPU・馬場の固定・確定処理 ★
+    const currentMatch = status.current_match || {};
+    const races = currentSeries.rounds[0].races;
+
+    if (currentMatch.cpu_entries && currentMatch.races_mob_ids && currentMatch.races_track_conditions) {
+      // すでにこのラウンドの相手データが確定済みなら保持・再利用（デック変えて戻っても固定）
+      currentCpuEntries = currentMatch.cpu_entries;
+      currentRacesMobIds = currentMatch.races_mob_ids;
+      currentTrackConditions = currentMatch.races_track_conditions;
+    } else {
+      // 未作成の場合は、このタイミングでモブ馬・CPU・馬場状態を確定して Firestore に保存
+      currentTrackConditions = generateTrackConditions(currentSeries);
+      const generated = generateCpuAndMobEntries(races);
+      currentCpuEntries = generated.cpuEntries;
+      currentRacesMobIds = generated.racesMobIds;
+
+      const updatedStatus = {
+        ...status,
+        current_match: {
+          ...currentMatch,
+          cpu_entries: currentCpuEntries,
+          races_mob_ids: currentRacesMobIds,
+          races_track_conditions: currentTrackConditions
+        }
+      };
+
+      await setDoc(doc(db, "users", currentUser.uid), {
+        cpu_battle_status: updatedStatus
+      }, { merge: true });
+
+      if (!globalUserData) globalUserData = {};
+      globalUserData.cpu_battle_status = updatedStatus;
+    }
 
     renderEntryCards();
     updateStatus();
@@ -436,11 +521,36 @@
 
       const surfaceClass = (race.surface && race.surface.includes('芝')) ? 'surface-turf' : 'surface-dirt';
       const sexLabel = race.sex ? ` (${race.sex})` : '';
+      const trackCond = currentTrackConditions[rIdx] || '良';
+
+      // CPU馬とモブ馬の情報を事前構築
+      const cpuEntry = currentCpuEntries[rIdx] || {};
+      const cpuHorse = HORSES_MASTER[String(cpuEntry.horse_id)] || {};
+      const cpuPt = getHorsePotential(cpuHorse, race.surface);
+
+      const mobIds = currentRacesMobIds[rIdx] || currentRacesMobIds[String(rIdx)] || [];
+
+      let mobRowsHtml = '';
+      mobIds.forEach((mId) => {
+        const mHorse = HORSES_MASTER[String(mId)] || {};
+        mobRowsHtml += `
+          <tr>
+            <td>-</td>
+            <td style="text-align:left;">${mHorse.name || 'モブ馬'}</td>
+            <td>${mHorse.sex || '牡'}</td>
+            <td>${getHorsePotential(mHorse, race.surface)}</td>
+            <td>${getHorseLegStyle(mHorse)}</td>
+          </tr>
+        `;
+      });
 
       card.innerHTML = `
         <div class="race-info-header">
           <span class="race-title">第${race.race_num}戦: ${race.race_name}</span>
-          <span class="race-cond-badge ${surfaceClass}">${race.surface} ${race.track} ${race.distance}m${sexLabel}</span>
+          <div class="race-cond-group">
+            <span class="race-cond-badge ${surfaceClass}">${race.surface} ${race.track} ${race.distance}m${sexLabel}</span>
+            <span class="race-cond-badge cond-${trackCond}">馬場:${trackCond}</span>
+          </div>
         </div>
         <select class="select-horse-dropdown" id="selectRace${rIdx}" onchange="onHorseSelected(${rIdx}, this.value)">
           <option value="">-- 出走馬を選択してください --</option>
@@ -449,6 +559,39 @@
           <span>ポテンシャル: - | 脚質: - | 性別: -</span>
           <span>適性: -</span>
         </div>
+
+        <details class="race-grid-toggle">
+          <summary class="race-grid-summary">📋 出走メンバー（全16頭）を確認する</summary>
+          <div style="padding: 4px 6px; font-size: 10px; color: #666;">※馬番（枠順）は作戦指示完了後にランダム決定されます。</div>
+          <table class="race-grid-table">
+            <thead>
+              <tr>
+                <th>馬番</th>
+                <th>馬名</th>
+                <th>性</th>
+                <th>Pt</th>
+                <th>脚質</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="row-player" id="playerRowRace${rIdx}">
+                <td>-</td>
+                <td style="text-align:left;">（選択中） (自馬)</td>
+                <td>-</td>
+                <td>0</td>
+                <td>-</td>
+              </tr>
+              <tr class="row-cpu">
+                <td>-</td>
+                <td style="text-align:left;">${cpuHorse.name || 'CPU'} (ライバル)</td>
+                <td>${cpuHorse.sex || '牡'}</td>
+                <td>${cpuPt}</td>
+                <td>${getHorseLegStyle(cpuHorse)}</td>
+              </tr>
+              ${mobRowsHtml}
+            </tbody>
+          </table>
+        </details>
       `;
       container.appendChild(card);
     });
@@ -471,7 +614,7 @@
 
       deckHorses.forEach(horse => {
         const horseSex = horse.sex || "牡馬";
-        const isChosenElsewhere = selectedEntries.some((id, idx) => idx !== rIdx && id === horse.horse_id);
+        const isChosenElsewhere = selectedEntries.some((id, idx) => idx !== rIdx && String(id) === String(horse.horse_id));
         
         const hasContinuousAbility = Array.isArray(horse.ability) && (horse.ability.includes("鉄女") || horse.ability.includes("連闘"));
         const isUsedPrevious = (usedCardsHistory.includes(horse.horse_id) || usedCardsHistory.includes(horse.name)) && !hasContinuousAbility;
@@ -513,7 +656,7 @@
             opt.textContent = horseInfoText;
           }
           
-          if (horse.horse_id === currentVal) opt.selected = true;
+          if (String(horse.horse_id) === String(currentVal)) opt.selected = true;
           select.appendChild(opt);
         }
       });
@@ -524,8 +667,10 @@
     selectedEntries[raceIdx] = horseId || null;
     
     const preview = document.getElementById(`previewRace${raceIdx}`);
-    if (horseId && HORSES_MASTER[horseId]) {
-      const horse = HORSES_MASTER[horseId];
+    const playerRow = document.getElementById(`playerRowRace${raceIdx}`);
+
+    if (horseId && HORSES_MASTER[String(horseId)]) {
+      const horse = HORSES_MASTER[String(horseId)];
       const race = currentSeries.rounds[0].races[raceIdx];
       const sex = horse.sex || "牡馬";
       const pt = getHorsePotential(horse, race.surface);
@@ -538,8 +683,27 @@
         <span><strong>${surfaceLabel}${pt}</strong> | 脚質: <strong>${legStyle}</strong> | 性別: <strong>${sex}</strong></span>
         <span>適性: <strong>${surfaceText}</strong> | 距離: <strong>${distStr ? distStr + 'm' : '-'}</strong></span>
       `;
+
+      if (playerRow) {
+        playerRow.innerHTML = `
+          <td>-</td>
+          <td style="text-align:left;">${horse.name} (自馬)</td>
+          <td>${sex}</td>
+          <td>${pt}</td>
+          <td>${legStyle}</td>
+        `;
+      }
     } else {
       preview.innerHTML = `<span>ポテンシャル: - | 脚質: - | 性別: -</span><span>適性: -</span>`;
+      if (playerRow) {
+        playerRow.innerHTML = `
+          <td>-</td>
+          <td style="text-align:left;">（選択中） (自馬)</td>
+          <td>-</td>
+          <td>0</td>
+          <td>-</td>
+        `;
+      }
     }
 
     populateDropdowns();
@@ -558,9 +722,9 @@
     let hasDistError = false;
 
     selectedEntries.forEach((id, rIdx) => {
-      if (id && HORSES_MASTER[id]) {
+      if (id && HORSES_MASTER[String(id)]) {
         count++;
-        const horse = HORSES_MASTER[id];
+        const horse = HORSES_MASTER[String(id)];
         const race = races[rIdx];
         const pt = getHorsePotential(horse, race.surface);
         const raceSexLimit = race.sex || currentSeries.sex || "制限なし";
@@ -626,14 +790,12 @@
     const maxTotal = limits.max_total_potential || 95;
     const minPerRace = limits.min_potential_per_race || 15;
 
-    // 出走可能（未使用または連闘持ち）な馬をフィルタリング
     const availableHorses = deckHorses.filter(h => {
       const hasContinuous = Array.isArray(h.ability) && (h.ability.includes("鉄女") || h.ability.includes("連闘"));
       const isUsed = (usedCardsHistory.includes(h.horse_id) || usedCardsHistory.includes(h.name)) && !hasContinuous;
       return !isUsed;
     });
 
-    // 5つのレース全てを満たす組み合わせをバックトラッキング探索
     function searchCombo(raceIdx, currentCombo, currentSum) {
       if (raceIdx === races.length) {
         return currentSum <= maxTotal ? currentCombo : null;
@@ -643,7 +805,7 @@
       const raceSexLimit = race.sex || currentSeries.sex || "制限なし";
 
       const candidates = availableHorses.filter(h => {
-        if (currentCombo.some(item => item.horse_id === h.horse_id)) return false;
+        if (currentCombo.some(item => String(item.horse_id) === String(h.horse_id))) return false;
         if (!isValidSex(h.sex || "牡馬", raceSexLimit)) return false;
         if (!isValidSurface(h, race.surface)) return false;
         if (!isValidDistance(h, race.distance)) return false;
@@ -655,7 +817,6 @@
         return true;
       });
 
-      // ポテンシャルの高い順に優先選定
       candidates.sort((a, b) => getHorsePotential(b, race.surface) - getHorsePotential(a, race.surface));
 
       for (const horse of candidates) {
@@ -683,6 +844,16 @@
     currentSeries.rounds[0].races.forEach((_, idx) => {
       const preview = document.getElementById(`previewRace${idx}`);
       preview.innerHTML = `<span>ポテンシャル: - | 脚質: - | 性別: -</span><span>適性: -</span>`;
+      const playerRow = document.getElementById(`playerRowRace${idx}`);
+      if (playerRow) {
+        playerRow.innerHTML = `
+          <td>-</td>
+          <td style="text-align:left;">（選択中） (自馬)</td>
+          <td>-</td>
+          <td>0</td>
+          <td>-</td>
+        `;
+      }
     });
     populateDropdowns();
     updateStatus();
@@ -697,7 +868,8 @@
       const updatedStatus = {
         ...currentStatus,
         series_losses: (currentStatus.series_losses || 0) + 1,
-        current_round: (currentStatus.current_round || 1) + 1
+        current_round: (currentStatus.current_round || 1) + 1,
+        current_match: null // ラウンド終了に伴い対戦設定クリア
       };
 
       await setDoc(doc(db, "users", currentUser.uid), {
@@ -718,6 +890,8 @@
       alert("通信エラーが発生しました。再度お試しください。");
     }
   };
+
+  // ─── 抽選ユーティリティ ───
 
   function drawTrackCondition() {
     const rand = Math.random() * 100;
@@ -781,7 +955,7 @@
 
     const allHorses = Object.values(HORSES_MASTER);
 
-    const playerChosenIds = new Set(selectedEntries.map(id => String(id)));
+    const playerChosenIds = new Set(selectedEntries.filter(Boolean).map(id => String(id)));
 
     const cpuEntries = [];
     const racesMobIds = {};
@@ -906,21 +1080,18 @@
         strategy_level: 3
       }));
 
-      const races = currentSeries.rounds[0].races;
-      const trackConditions = generateTrackConditions(currentSeries);
-      
-      const { cpuEntries, racesMobIds } = generateCpuAndMobEntries(races);
-
       const safeUserData = globalUserData || {};
       const currentStatus = safeUserData.cpu_battle_status || {};
+      const currentMatch = currentStatus.current_match || {};
 
       const updatedStatus = {
         ...currentStatus,
         current_match: {
+          ...currentMatch,
           player_entries: formattedEntries,
-          cpu_entries: cpuEntries,
-          races_mob_ids: racesMobIds,
-          races_track_conditions: trackConditions
+          cpu_entries: currentCpuEntries,
+          races_mob_ids: currentRacesMobIds,
+          races_track_conditions: currentTrackConditions
         }
       };
 
