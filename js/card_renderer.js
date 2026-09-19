@@ -116,12 +116,12 @@ export class CardRenderer {
       .crc-deck-details { display: flex; flex-direction: column; gap: 1px; color: #4e6b52; font-size: 10px; font-weight: bold; line-height: 1.2; flex: 1; }
       .crc-deck-radar { width: 65px; height: 65px; flex-shrink: 0; }
 
-      /* 大型カード：左右10%ずつのブランク領域を確保 */
+      /* 大型カード：左右15%ずつのブランク領域（コンテンツ幅70%） */
       .crc-card-large {
         width: 100%;
         height: 100%;
         aspect-ratio: 59 / 86;
-        padding: 10px 10%;
+        padding: 10px 15%;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -136,20 +136,29 @@ export class CardRenderer {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        border-bottom: 2px solid #e2efe3;
-        padding-bottom: 3px;
+        border-bottom: 2px solid #c2dfc6;
+        padding-bottom: 4px;
         flex-shrink: 0;
         width: 100%;
       }
+
+      /* 馬名背景の装飾プレート */
       .crc-large-name {
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 900;
         color: #1a2e1d;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        max-width: 72%;
+        max-width: 70%;
+        background: linear-gradient(135deg, #e8f5e9 0%, #d0ebd3 100%);
+        padding: 3px 8px;
+        border-radius: 6px;
+        border-left: 3.5px solid #2d6a37;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        letter-spacing: -0.2px;
       }
+
       .crc-rarity-badge {
         font-size: 10px;
         font-weight: 900;
@@ -206,7 +215,7 @@ export class CardRenderer {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        font-size: 10.5px;
+        font-size: 10px;
         font-weight: bold;
         color: #3e6343;
         border-top: 1px dashed #c2dfc6;
@@ -215,11 +224,11 @@ export class CardRenderer {
       }
       
       .crc-potential-badge {
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 900;
         color: #0d4220;
         background: #ffffff;
-        padding: 2px 8px;
+        padding: 2px 7px;
         border-radius: 4px;
         border: 1.5px solid #2d6a37;
         box-shadow: 0 1px 2px rgba(0,0,0,0.05);
@@ -230,16 +239,15 @@ export class CardRenderer {
         align-items: center;
         gap: 4px;
         color: #ffffff;
-        padding: 3px 10px;
+        padding: 3px 8px;
         border-radius: 12px;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 900;
         box-shadow: 0 2px 4px rgba(0,0,0,0.25);
         text-shadow: 0 1px 2px rgba(0,0,0,0.4);
         letter-spacing: 0.5px;
       }
 
-      /* 中〜下部レイアウト：全幅・縦スペースの拡張 */
       .crc-large-mid-section {
         display: flex;
         align-items: stretch;
@@ -250,7 +258,7 @@ export class CardRenderer {
         width: 100%;
       }
       .crc-large-radar-wrap {
-        width: 120px;
+        width: 110px;
         height: 100%;
         flex-shrink: 0;
         display: flex;
@@ -271,7 +279,7 @@ export class CardRenderer {
         overflow-y: auto;
       }
       .crc-comment-title {
-        font-size: 9.5px;
+        font-size: 9px;
         font-weight: bold;
         color: #1b4d23;
         margin-bottom: 3px;
@@ -279,21 +287,20 @@ export class CardRenderer {
         padding-bottom: 2px;
       }
       .crc-comment-text {
-        font-size: 9.5px;
+        font-size: 9px;
         color: #2e4732;
         line-height: 1.35;
         font-weight: 500;
         margin-bottom: 6px;
       }
 
-      /* 正式名アビリティ表示スタイル */
       .crc-large-ability-section {
         border-top: 1px dotted #b5d4ba;
         padding-top: 4px;
         margin-top: auto;
       }
       .crc-large-ability-title {
-        font-size: 9.5px;
+        font-size: 9px;
         font-weight: bold;
         color: #1b4d23;
         margin-bottom: 2px;
@@ -301,7 +308,7 @@ export class CardRenderer {
       .crc-large-ability-list {
         margin: 0;
         padding-left: 14px;
-        font-size: 9.5px;
+        font-size: 9px;
         color: #2d6a37;
         font-weight: bold;
         line-height: 1.3;
@@ -466,7 +473,6 @@ export class CardRenderer {
     `;
   }
 
-  // アビリティ取得用共通処理
   getRawAbilities(horse) {
     if (Array.isArray(horse.ability)) return horse.ability;
     if (typeof horse.ability === 'string' && horse.ability) return [horse.ability];
@@ -474,7 +480,6 @@ export class CardRenderer {
     return [];
   }
 
-  // デッキ用アビリティバッジ表示
   getAbilityBadgesHtml(horse) {
     const abilities = this.getRawAbilities(horse);
     let html = '<div class="crc-abilities-row">';
@@ -488,7 +493,6 @@ export class CardRenderer {
     return html;
   }
 
-  // 大型カード・コメントボックス用 正式名アビリティリスト表示
   getAbilityListHtml(horse) {
     const abilities = this.getRawAbilities(horse).filter(a => a && String(a).trim() !== '');
     if (abilities.length === 0) return '';
@@ -618,7 +622,6 @@ export class CardRenderer {
   }
 }
 
-// インスタンスの生成・エクスポート追加部
 export const cardRenderer = new CardRenderer();
 
 if (typeof window !== 'undefined') {
