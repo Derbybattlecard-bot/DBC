@@ -139,11 +139,6 @@
   .surface-turf { background-color: var(--turf-color); }
   .surface-dirt { background-color: var(--dirt-color); }
 
-  .cond-良 { background-color: #2e7d32; }
-  .cond-稍重 { background-color: #f57f17; }
-  .cond-重 { background-color: #e65100; }
-  .cond-不良 { background-color: #c62828; }
-
   .select-horse-dropdown {
     width: 100%;
     padding: 6px 8px;
@@ -508,12 +503,9 @@
     }
   }
 
-  // ★ AI予想屋による展開予想ロジック ★
-  function getPacePrediction(cpuHorse, mobIds) {
+  // ★ AI予想屋によるモブ馬ベースの展開予想ロジック（対戦馬未発表仕様） ★
+  function getPacePrediction(mobIds) {
     let nigeCount = 0;
-
-    const cpuStyle = getHorseLegStyle(cpuHorse);
-    if (cpuStyle.includes('逃')) nigeCount++;
 
     mobIds.forEach(mId => {
       const mHorse = HORSES_MASTER[String(mId)] || {};
@@ -523,26 +515,26 @@
 
     if (nigeCount === 0) {
       return {
-        title: '超スローペース予想 🐢',
-        desc: '逃げ馬不在（0頭）。押し出された馬がスローで逃げる前残り展開か。',
+        title: 'スローペース傾向 🐢',
+        desc: 'モブ馬に明確な逃げ馬不在。対戦馬の脚質しだいで展開が一変する可能性あり。',
         bg: '#e8f5e9', border: '#a5d6a7', text: '#2e7d32'
       };
     } else if (nigeCount === 1) {
       return {
-        title: '単騎逃げ・マイペース予想 🐎',
-        desc: '同型不在で逃げ馬1頭が楽に単騎マイペースで運ぶ展開。',
+        title: '単騎逃げ気配 🐎',
+        desc: 'モブ馬に逃げ馬1頭。落ち着いたペースで運ばれやすい展開。',
         bg: '#e3f2fd', border: '#90caf9', text: '#1565c0'
       };
     } else if (nigeCount === 2) {
       return {
         title: 'ミドルペース予想 ⚖️',
-        desc: '逃げ馬2頭による適度な競り合い。力通りに決まりやすい展開。',
+        desc: 'モブ馬に逃げ馬2頭。平均的なペースで実力を発揮しやすい展開。',
         bg: '#fff8e1', border: '#ffe082', text: '#f57f17'
       };
     } else {
       return {
-        title: `ハイペース激戦予想 🔥 (逃げ${nigeCount}頭)`,
-        desc: `逃げ馬が${nigeCount}頭と多数競合！激しいハナ争いで前崩れ・差し追込の展開注意。`,
+        title: `ハイペース激戦注意 🔥 (モブ逃げ${nigeCount}頭)`,
+        desc: `モブ馬に逃げ馬が${nigeCount}頭！前崩れからの差し・追込決着に警戒。`,
         bg: '#ffebee', border: '#ef9a9a', text: '#c62828'
       };
     }
@@ -562,15 +554,10 @@
       const surfaceClass = (race.surface && race.surface.includes('芝')) ? 'surface-turf' : 'surface-dirt';
       const sexLabel = race.sex ? ` (${race.sex})` : '';
 
-      // CPU馬とモブ馬の情報を事前構築
-      const cpuEntry = currentCpuEntries[rIdx] || {};
-      const cpuHorse = HORSES_MASTER[String(cpuEntry.horse_id)] || {};
-      const cpuPt = getHorsePotential(cpuHorse, race.surface);
-
       const mobIds = currentRacesMobIds[rIdx] || currentRacesMobIds[String(rIdx)] || [];
 
-      // ★ AI展開予想の取得 ★
-      const paceInfo = getPacePrediction(cpuHorse, mobIds);
+      // ★ AI展開予想の取得（対戦馬未発表仕様） ★
+      const paceInfo = getPacePrediction(mobIds);
 
       let mobRowsHtml = '';
       mobIds.forEach((mId) => {
@@ -611,7 +598,7 @@
               <span style="color:#444; font-weight:normal;">${paceInfo.desc}</span>
             </div>
 
-            <div style="font-size: 10px; color: #666; margin-bottom:4px; text-align:left;">※馬番（枠順）は作戦指示完了後にランダム決定されます。</div>
+            <div style="font-size: 10px; color: #666; margin-bottom:4px; text-align:left;">※馬番（枠順）および対戦馬（ライバル）は作戦指示画面で発表されます。</div>
             <table class="race-grid-table">
               <thead>
                 <tr>
@@ -632,10 +619,10 @@
                 </tr>
                 <tr class="row-cpu">
                   <td>-</td>
-                  <td style="text-align:left;">${cpuHorse.name || 'CPU'} (ライバル)</td>
-                  <td>${cpuHorse.sex || '牡'}</td>
-                  <td>${cpuPt}</td>
-                  <td>${getHorseLegStyle(cpuHorse)}</td>
+                  <td style="text-align:left; color:#c62828;">？？？ (ライバル・作戦画面で発表)</td>
+                  <td>?</td>
+                  <td>?</td>
+                  <td>?</td>
                 </tr>
                 ${mobRowsHtml}
               </tbody>
