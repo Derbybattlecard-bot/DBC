@@ -89,7 +89,6 @@
   .title-over { color: #d9534f; }
   .modal-desc { font-size: 14px; color: #444; margin-bottom: 15px; line-height: 1.5; }
   
-  .  /* モーダル内の報酬カードコンテナ（外側の黄色枠・背景を解除） */
   .reward-box {
     padding: 5px 0;
     margin-bottom: 20px;
@@ -100,8 +99,6 @@
   .unlock-border { border: 4px solid #d4af37; }
   .unlock-list { text-align: left; background: #fdfaf0; padding: 10px; border-radius: 6px; font-size: 13px; margin: 15px 0; border: 1px dashed #d4af37; }
 
-  
-  /* モード選択カード用レイアウト */
   .mode-cards-container {
     display: flex;
     gap: 15px;
@@ -181,7 +178,6 @@
     cursor: not-allowed !important;
     opacity: 0.6;
   }
-
 </style>
 </head>
 <body>
@@ -196,7 +192,7 @@
     </div>
   </div>
 
-      <!-- モード選択パネル (新規対戦開始時) -->
+  <!-- モード選択パネル (新規対戦開始時) -->
   <div class="challenge-panel" id="modeSelectPanel" style="display: none;">
     <div class="challenge-label">＼ 挑戦する対戦モードを選択してください ／</div>
     <div class="series-title" style="margin-bottom: 15px;">対戦モード選択</div>
@@ -234,7 +230,6 @@
       </div>
     </div>
   </div>
-
 
   <div class="status-header" id="winLossHeader" style="display: none;">
     <div>現在の成績： <span class="win-loss-text" id="winCount">0</span>勝 <span class="win-loss-text" id="lossCount">0</span>敗</div>
@@ -476,8 +471,16 @@
     let status = globalUserData.cpu_battle_status;
 
     if (status && status.is_active) {
-      if (status.current_match) {
+      // ─── ステータス判別の修正箇所 ───
+      // 1. レース結果生成済みの場合は race_result.html へリダイレクト
+      if (status.current_match && status.current_match.full_race_grids) {
         window.location.href = 'race_result.html';
+        return;
+      }
+
+      // 2. 自馬エントリーが完了し作戦選択待ちの場合は strategy.html へリダイレクト
+      if (status.current_match && status.current_match.player_entries && status.current_match.player_entries.length > 0) {
+        window.location.href = 'strategy.html';
         return;
       }
 
@@ -836,7 +839,6 @@
     const status = globalUserData.cpu_battle_status || {};
     const deckType = status.deck_type || 2;
     
-    // 1デック制かつ2回戦以降の場合は強制的に1回戦目のデッキを選択固定
     if (deckType === 1 && status.current_round > 1) {
       idx = status.selected_deck_index || 0;
     }
@@ -956,10 +958,13 @@
 
     try {
       const currentStatus = globalUserData.cpu_battle_status || {};
+      
+      // デックを選び直して再度出走登録へ進む際、未登録の対戦設定（current_match）を初期化して再生成可能にする
       const updatedStatus = {
         ...currentStatus,
         selected_series_id: selectedSeries.series_id,
-        selected_deck_index: selectedDeckIndex
+        selected_deck_index: selectedDeckIndex,
+        current_match: null 
       };
 
       await setDoc(doc(db, "users", currentUser.uid), {
