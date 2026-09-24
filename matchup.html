@@ -992,7 +992,25 @@
 
     const allHorses = Object.values(HORSES_MASTER);
 
-    const playerChosenIds = new Set(selectedEntries.filter(Boolean).map(id => String(id)));
+    // デック2つ分（すべてのデック）に登録されている全馬のIDを取得して隔離対象にする
+    const allDeckHorseIds = new Set();
+    if (globalUserData && Array.isArray(globalUserData.decks)) {
+      globalUserData.decks.forEach(deck => {
+        if (deck && Array.isArray(deck.horse_ids)) {
+          deck.horse_ids.forEach(id => {
+            if (id !== null && id !== undefined && id !== '') {
+              allDeckHorseIds.add(String(id));
+            }
+          });
+        }
+      });
+    }
+
+    // デック内の全馬 ＋ 現在選択中の馬を除外リストとして結合
+    const excludedHorseIds = new Set([
+      ...allDeckHorseIds,
+      ...selectedEntries.filter(Boolean).map(id => String(id))
+    ]);
 
     const cpuEntries = [];
     const racesMobIds = {};
@@ -1006,8 +1024,9 @@
       const currentMaxPt = Math.min(defaultMaxPt, remainingCpuPtBudget - (remainingRaces - 1) * defaultMinPt);
       const currentMinPt = defaultMinPt;
 
+      // CPU対戦馬の抽選からデック内の全馬を除外
       const cpuUsedIds = new Set([
-        ...playerChosenIds,
+        ...excludedHorseIds,
         ...cpuEntries.map(c => String(c.horse_id))
       ]);
 
@@ -1045,7 +1064,8 @@
         strategy_level: Math.floor(Math.random() * 3) + 2
       });
 
-      const raceUsedIds = new Set([...playerChosenIds, cpuId]);
+      // モブ馬の抽選からもデック内の全馬を除外
+      const raceUsedIds = new Set([...excludedHorseIds, cpuId]);
 
       let mobPool = allHorses.filter(h => 
         isEligibleHorse(h, race, raceSexLimit, defaultMinPt, defaultMaxPt, raceUsedIds, true)
