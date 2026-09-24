@@ -210,16 +210,16 @@
   }
 
   /* スロット枠内の馬名 */
-.card-name-slot {
-  font-weight: bold;
-  font-size: 11px; /* 12px → 11px に微調整 */
-  letter-spacing: -0.3px; /* 文字間隔調整 */
-  color: var(--text-main);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.2;
-}
+  .card-name-slot {
+    font-weight: bold;
+    font-size: 11px;
+    letter-spacing: -0.3px;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+  }
 
   .card-body-slot {
     display: flex;
@@ -302,15 +302,15 @@
   .pool-card:hover { border-color: var(--accent-color); background-color: #f7fbf7; }
   
   /* プール枠内の馬名 */
-.pool-name {
-  font-weight: bold;
-  font-size: 11.5px; /* 12.5px → 11.5px に微調整 */
-  letter-spacing: -0.3px; /* 文字間隔調整 */
-  color: var(--text-main);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+  .pool-name {
+    font-weight: bold;
+    font-size: 11.5px;
+    letter-spacing: -0.3px;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .pool-surface-dist {
     font-size: 10px;
     color: var(--text-sub);
@@ -322,17 +322,17 @@
     flex: 1;
   }
 
-/* プール枠内のレーダーチャート行（中央寄せに調整） */
-.pool-radar-row {
-  display: flex;
-  align-items: center;
-  justify-content: center; /* space-between から center に変更 */
-  gap: 12px; /* 要素間の余白を確保 */
-  background: #f8faf8;
-  border: 1px solid #e2efe3;
-  border-radius: 4px;
-  padding: 4px 8px;
-}
+  /* プール枠内のレーダーチャート行 */
+  .pool-radar-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: #f8faf8;
+    border: 1px solid #e2efe3;
+    border-radius: 4px;
+    padding: 4px 8px;
+  }
   .pool-radar-box {
     width: 65px;
     height: 65px;
@@ -641,14 +641,18 @@
 
       if (!globalUserData.decks || !Array.isArray(globalUserData.decks)) {
         globalUserData.decks = [
-          { deck_name: "メインデッキ 1", horse_ids: new Array(18).fill(null) },
-          { deck_name: "メインデッキ 2", horse_ids: new Array(18).fill(null) }
+          { deck_name: "メインデッキ 1", horse_ids: new Array(18).fill(null), default_strategies: new Array(18).fill(null) },
+          { deck_name: "メインデッキ 2", horse_ids: new Array(18).fill(null), default_strategies: new Array(18).fill(null) }
         ];
       }
       globalUserData.decks.forEach(deck => {
         if (!deck.horse_ids) deck.horse_ids = new Array(18).fill(null);
+        if (!deck.default_strategies) deck.default_strategies = new Array(18).fill(null);
         while (deck.horse_ids.length < 18) {
           deck.horse_ids.push(null);
+        }
+        while (deck.default_strategies.length < 18) {
+          deck.default_strategies.push(null);
         }
       });
       if (!globalUserData.saved_deck_slots || !Array.isArray(globalUserData.saved_deck_slots)) {
@@ -737,7 +741,8 @@
     const currentDeck = globalUserData.decks[activeDeckIdx];
     globalUserData.saved_deck_slots[slotIdx] = {
       deck_name: currentDeck.deck_name || `メインデッキ ${activeDeckIdx + 1}`,
-      horse_ids: [...currentDeck.horse_ids]
+      horse_ids: [...currentDeck.horse_ids],
+      default_strategies: currentDeck.default_strategies ? [...currentDeck.default_strategies] : new Array(18).fill(null)
     };
     syncSave();
     renderStorageSlots();
@@ -755,7 +760,9 @@
       return;
     }
     const savedIds = Array.isArray(slotData) ? slotData : slotData.horse_ids;
+    const savedStrats = slotData.default_strategies || new Array(18).fill(null);
     const savedName = (slotData && slotData.deck_name) || `ロードデッキ #${slotIdx + 1}`;
+    
     if (!savedIds || !Array.isArray(savedIds)) {
       alert(`スロット #${slotIdx + 1} のデータ構造が不正です。`);
       return;
@@ -770,26 +777,47 @@
     }
     let missingCount = 0;
     let duplicateCount = 0;
-    const cleanedIds = savedIds.map(horseId => {
-      if (!horseId) return null;
+    
+    // 馬IDのバリデーションと同時に作戦設定も同期調整
+    const cleanedIds = [];
+    const cleanedStrats = [];
+
+    savedIds.forEach((horseId, idx) => {
+      if (!horseId) {
+        cleanedIds.push(null);
+        cleanedStrats.push(null);
+        return;
+      }
       const strId = String(horseId);
       const cardInfo = inventory[strId] || inventory[horseId];
       const count = (typeof cardInfo === 'object' && cardInfo !== null) ? (cardInfo.count || 1) : (cardInfo || 0);
       if (!cardInfo || count <= 0) {
         missingCount++;
-        return null;
+        cleanedIds.push(null);
+        cleanedStrats.push(null); // 馬がない場合は作戦もクリア
+        return;
       }
       if (otherDeckAssigned.has(strId)) {
         duplicateCount++;
-        return null;
+        cleanedIds.push(null);
+        cleanedStrats.push(null); // 馬が重複して外れる場合は作戦もクリア
+        return;
       }
       otherDeckAssigned.add(strId);
-      return strId;
+      cleanedIds.push(strId);
+      cleanedStrats.push(savedStrats[idx] || null);
     });
-    while (cleanedIds.length < 18) cleanedIds.push(null);
+
+    while (cleanedIds.length < 18) {
+      cleanedIds.push(null);
+      cleanedStrats.push(null);
+    }
+
     globalUserData.decks[activeDeckIdx].deck_name = savedName;
     globalUserData.decks[activeDeckIdx].horse_ids = cleanedIds.slice(0, 18);
+    globalUserData.decks[activeDeckIdx].default_strategies = cleanedStrats.slice(0, 18);
     selectedSlotIndex = null;
+    
     syncSave();
     renderAll();
     let msg = `スロット #${slotIdx + 1} の「${savedName}」をロードしました！`;
@@ -856,12 +884,20 @@
     renderDeck();
   }
 
+  // ★ 馬を外す処理（プランC: 作戦もnullにクリア）
   function removeCardFromSlot(idx) {
     if (isLocked) {
       alert("CPU対戦中はデックを変更できません。");
       return;
     }
-    globalUserData.decks[activeDeckIdx].horse_ids[idx] = null;
+    const currentDeck = globalUserData.decks[activeDeckIdx];
+    if (!currentDeck.default_strategies) {
+      currentDeck.default_strategies = new Array(18).fill(null);
+    }
+    
+    currentDeck.horse_ids[idx] = null;
+    currentDeck.default_strategies[idx] = null; // 作戦クリア
+
     selectedSlotIndex = idx;
     syncSave();
     renderDeck();
@@ -1003,24 +1039,34 @@
     }
   }
   
+  // ★ 馬を追加・入れ替える処理（プランC: 馬が変わった枠の作戦をnullにクリア）
   function addCardToDeck(horseId) {
     if (isLocked) {
       alert("CPU対戦中はデックを変更できません。");
       return;
     }
-    const currentSlots = globalUserData.decks[activeDeckIdx].horse_ids;
-    if (selectedSlotIndex !== null) {
-      currentSlots[selectedSlotIndex] = horseId;
+    const currentDeck = globalUserData.decks[activeDeckIdx];
+    if (!currentDeck.default_strategies) {
+      currentDeck.default_strategies = new Array(18).fill(null);
+    }
+
+    let targetIdx = selectedSlotIndex;
+    if (targetIdx === null) {
+      targetIdx = currentDeck.horse_ids.findIndex(s => s === null);
+    }
+
+    if (targetIdx !== -1 && targetIdx !== null) {
+      currentDeck.horse_ids[targetIdx] = horseId;
+      
+      // 馬が新しく配置・入れ替えられたため、該当枠の作戦を未設定（null）にクリアする
+      currentDeck.default_strategies[targetIdx] = null;
+      
       selectedSlotIndex = null;
     } else {
-      const emptyIdx = currentSlots.findIndex(s => s === null);
-      if (emptyIdx !== -1) {
-        currentSlots[emptyIdx] = horseId;
-      } else {
-        alert("18スロット満杯です。");
-        return;
-      }
+      alert("18スロット満杯です。");
+      return;
     }
+
     syncSave();
     renderDeck();
     renderPool();
