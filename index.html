@@ -279,6 +279,63 @@
     .race-table th { background: #2d6a37; color: #ffffff; padding: 5px 2px; }
     .race-table td { padding: 4px 2px; border-bottom: 1px solid #ebf4ec; }
     .race-table tr:nth-child(even) { background: #f7fbf7; }
+
+    /* --- カード拡大表示モーダル --- */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.7); display: none;
+      justify-content: center; align-items: center; z-index: 2000;
+      backdrop-filter: blur(2px);
+    }
+    .modal-overlay.active { display: flex; }
+    .card-modal-wrapper {
+      width: 82vw;
+      max-width: 325px;
+      aspect-ratio: 59 / 86;
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      position: relative;
+    }
+
+    /* 獲得済みカードのタップアニメーション */
+    .bonus-card.obtained {
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+    .bonus-card.obtained:active {
+      transform: scale(0.96);
+    }
+
+    /* --- リーチ演出（3枚目スロット） --- */
+    .bonus-card.reach-slot {
+      background: linear-gradient(135deg, #fff0f0 0%, #ffe6e6 100%);
+      border: 2px solid #e63956;
+      animation: reachPulse 1.2s infinite alternate;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 4px;
+    }
+    @keyframes reachPulse {
+      0% { box-shadow: 0 0 4px rgba(230, 57, 86, 0.4); border-color: #e63956; }
+      100% { box-shadow: 0 0 12px rgba(230, 57, 86, 0.9); border-color: #ff0000; }
+    }
+    .reach-title {
+      font-weight: 900;
+      font-size: 12px;
+      color: #e63956;
+      margin-bottom: 4px;
+    }
+    .reach-desc {
+      font-size: 8.5px;
+      font-weight: bold;
+      color: #a82339;
+      line-height: 1.3;
+    }
   </style>
 </head>
 <body>
@@ -322,6 +379,11 @@
       </tbody>
     </table>
   </div>
+</div>
+
+<!-- カード詳細拡大表示モーダル -->
+<div class="modal-overlay" id="cardDetailModal">
+  <div class="card-modal-wrapper" id="cardDetailBox"></div>
 </div>
 
 <script type="module">
@@ -507,6 +569,18 @@
 
     const cards = state.today_cards || [];
 
+    // リーチ判定 (2枚引いていて、誕生年下1桁が同じか)
+    let isReach = false;
+    let reachDigit = null;
+    if (cards.length === 2) {
+      const d1 = getGenYearLastDigit(cards[0].horse_id);
+      const d2 = getGenYearLastDigit(cards[1].horse_id);
+      if (d1 === d2) {
+        isReach = true;
+        reachDigit = d1;
+      }
+    }
+
     for (let i = 0; i < 3; i++) {
       if (i < cards.length) {
         const item = cards[i];
@@ -523,7 +597,7 @@
           const radarSvgHtml = createRadarSvgForHorse(horse);
 
           container.innerHTML += `
-            <div class="bonus-card">
+            <div class="bonus-card obtained" onclick="openCardDetail('${item.horse_id}')">
               <div class="bonus-card-header">
                 <span class="gen-year">${genYear}年</span>
                 <span class="slot-num">${lastDigit}</span>
@@ -545,7 +619,7 @@
             </div>`;
         } else {
           container.innerHTML += `
-            <div class="bonus-card">
+            <div class="bonus-card obtained" onclick="openCardDetail('${item.horse_id}')">
               <div class="bonus-card-header">
                 <span class="gen-year">${genYear}年</span>
                 <span class="slot-num">${lastDigit}</span>
@@ -556,7 +630,16 @@
             </div>`;
         }
       } else {
-        container.innerHTML += `<div class="bonus-card empty">${i + 1}枚目 未獲得</div>`;
+        // 3枚目でリーチ時の演出表示
+        if (i === 2 && isReach) {
+          container.innerHTML += `
+            <div class="bonus-card reach-slot">
+              <div class="reach-title">🔥 リーチ!! 🔥</div>
+              <div class="reach-desc">3枚目で【<strong>${reachDigit}</strong>】が出れば<br>明日確変発生！</div>
+            </div>`;
+        } else {
+          container.innerHTML += `<div class="bonus-card empty">${i + 1}枚目 未獲得</div>`;
+        }
       }
     }
 
@@ -734,6 +817,21 @@
 
   document.getElementById('tabMain1').onclick = () => switchTab(0);
   document.getElementById('tabMain2').onclick = () => switchTab(1);
+
+  // カード拡大表示用関数
+  window.openCardDetail = (horseId) => {
+    if (!cardRenderer) return;
+    const cardHtml = cardRenderer.renderCardUI(horseId, 'large');
+    document.getElementById('cardDetailBox').innerHTML = cardHtml;
+    document.getElementById('cardDetailModal').classList.add('active');
+  };
+
+  // モーダル背景タップで閉じる
+  document.getElementById('cardDetailModal').addEventListener('click', (e) => {
+    if (e.target.id === 'cardDetailModal') {
+      document.getElementById('cardDetailModal').classList.remove('active');
+    }
+  });
 </script>
 </body>
 </html>
