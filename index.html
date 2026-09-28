@@ -393,6 +393,7 @@
   
   import { cardRenderer } from './js/card_renderer.js';
   import { drawBonusCard, getGenYearLastDigit, playFourthCornerCutIn, getGenerationYear } from './js/login_bonus.js';
+
   let globalUserData = null;
   let currentUser = null;
   let activeDeckIndex = 0;
@@ -410,6 +411,17 @@
     if (t > 0 && d > 0) return t === d ? `芝/ダ${t}` : `芝${t}ダ${d}`;
     if (t > 0) return `芝${t}`;
     if (d > 0) return `ダ${d}`;
+    return "-";
+  }
+
+  // 芝・ダート適性をシンプルにフォーマットする関数（出馬表用）
+  function formatAptitudeSimple(horse) {
+    const turf = Number(horse.turf_potential ?? horse.turf ?? 0);
+    const dirt = Number(horse.dirt_potential ?? horse.dirt ?? 0);
+
+    if (turf > 0 && dirt > 0) return `芝${turf} ダ${dirt}`;
+    if (turf > 0) return `芝${turf}`;
+    if (dirt > 0) return `ダ${dirt}`;
     return "-";
   }
 
@@ -584,7 +596,11 @@
       if (i < cards.length) {
         const item = cards[i];
         const horse = cardRenderer.getHorse ? cardRenderer.getHorse(item.horse_id) : null;
-        const genYear = cardRenderer.getGenerationYear ? cardRenderer.getGenerationYear(horse || item.horse_id) : '-';
+        
+        // 世代年表示の修正（西暦4桁から下2桁を取得）
+        const fullYear = getGenerationYear(horse || item.horse_id);
+        const genYear = (fullYear && fullYear !== '----') ? fullYear.slice(-2) : '--';
+        
         const lastDigit = getGenYearLastDigit(item.horse_id);
         const horseName = horse ? horse.name : item.horse_id;
 
@@ -777,9 +793,8 @@
       const mark = markMap.get(hId) || 'ー';
       const style = horse.style || horse.running_style || horse.leg_style || '-';
 
-      const aptitude = cardRenderer.formatAptitude 
-        ? cardRenderer.formatAptitude(horse.turf_potential ?? horse.turf, horse.dirt_potential ?? horse.dirt)
-        : (horse.turf ? `芝${horse.turf}` : (horse.dirt ? `ダ${horse.dirt}` : '-'));
+      // 芝・ダート適性のシンプル化修正適用箇所
+      const aptitude = formatAptitudeSimple(horse);
 
       let distance = '-';
       if (cardRenderer.getDistanceText) {
