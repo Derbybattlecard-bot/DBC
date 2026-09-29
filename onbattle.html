@@ -28,19 +28,6 @@
   .challenge-label { font-size: 12px; font-weight: bold; color: #6b7280; margin-bottom: 2px; }
   .match-type-tag { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--accent-orange); color: #fff; padding: 4px 14px; border-radius: 12px; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
   .series-title { font-size: 18px; font-weight: bold; color: var(--accent-color); margin-bottom: 10px; margin-top: 4px; }
-  
-  /* デッキ選択パネル */
-  .deck-select-panel { background-color: var(--panel-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-  .deck-options { display: flex; gap: 10px; }
-  .deck-card { flex: 1; background: #fff; border: 2px solid var(--border-color); border-radius: 8px; padding: 10px; cursor: pointer; text-align: center; transition: all 0.2s; }
-  .deck-card.selected { border-color: var(--accent-color); background-color: #faf5ff; box-shadow: 0 0 0 2px var(--accent-color); transform: scale(1.01); }
-  .deck-title { font-weight: bold; font-size: 13px; color: var(--accent-color); margin-bottom: 2px; }
-
-  .deck-table-container { background: #ffffff; border: 1px solid var(--border-color); border-radius: 8px; max-height: 220px; overflow-y: auto; }
-  .deck-table { width: 100%; border-collapse: collapse; font-size: 10.5px; text-align: center; }
-  .deck-table th { background-color: var(--accent-color); color: #ffffff; padding: 6px 2px; position: sticky; top: 0; white-space: nowrap; z-index: 10; }
-  .deck-table td { padding: 5px 2px; border-bottom: 1px solid #f3e8ff; white-space: nowrap; }
-  .horse-name-cell { text-align: left; font-weight: bold; padding-left: 4px !important; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
 
   /* シリーズBANパネル */
   .ban-select-panel { background-color: var(--panel-bg); padding: 15px; border-radius: 12px; border: 2px solid var(--accent-orange); display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
@@ -52,9 +39,23 @@
   .ban-card-name { font-weight: bold; font-size: 13px; color: var(--text-main); }
   .ban-tag { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: bold; background: #e5e7eb; color: #4b5563; }
   .ban-card.selected .ban-tag { background: var(--danger-color); color: #fff; }
+  
+  /* デッキ選択パネル */
+  .deck-select-panel { background-color: var(--panel-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: all 0.3s ease; }
+  .deck-select-panel.disabled { opacity: 0.4; pointer-events: none; filter: grayscale(80%); }
+  .deck-options { display: flex; gap: 10px; }
+  .deck-card { flex: 1; background: #fff; border: 2px solid var(--border-color); border-radius: 8px; padding: 10px; cursor: pointer; text-align: center; transition: all 0.2s; }
+  .deck-card.selected { border-color: var(--accent-color); background-color: #faf5ff; box-shadow: 0 0 0 2px var(--accent-color); transform: scale(1.01); }
+  .deck-title { font-weight: bold; font-size: 13px; color: var(--accent-color); margin-bottom: 2px; }
+
+  .deck-table-container { background: #ffffff; border: 1px solid var(--border-color); border-radius: 8px; max-height: 220px; overflow-y: auto; }
+  .deck-table { width: 100%; border-collapse: collapse; font-size: 10.5px; text-align: center; }
+  .deck-table th { background-color: var(--accent-color); color: #ffffff; padding: 6px 2px; position: sticky; top: 0; white-space: nowrap; z-index: 10; }
+  .deck-table td { padding: 5px 2px; border-bottom: 1px solid #f3e8ff; white-space: nowrap; }
+  .horse-name-cell { text-align: left; font-weight: bold; padding-left: 4px !important; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
 
   .btn-start { background: linear-gradient(135deg, #f97316, #ea580c); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; box-shadow: 0 4px 0 #c2410c; width: 100%; transition: all 0.1s; }
-  .btn-start:disabled { background: #9ca3af; box-shadow: none; cursor: not-allowed; }
+  .btn-start:disabled { background: #9ca3af; box-shadow: none; cursor: not-allowed; opacity: 0.6; }
   .btn-start:active:not(:disabled) { transform: translateY(4px); box-shadow: none; }
 
   /* 待機モーダル */
@@ -80,12 +81,21 @@
     <div class="match-type-tag" id="onlineMatchTag">ONLINE MATCH</div>
     <div class="challenge-label">＼ オンライン対戦 準備画面 ／</div>
     <div class="series-title" id="onlineStatusTitle">対戦相手と接続中…</div>
-    <div style="font-size: 12px; color: #6b7280;" id="onlineSubText">デッキとBANシリーズを選択してください</div>
+    <div style="font-size: 12px; color: #6b7280;" id="onlineSubText">最初に相手のBANシリーズを選択してください</div>
   </div>
 
-  <!-- 1. デッキ選択 -->
-  <div class="deck-select-panel" id="deckPanel">
-    <h3 style="margin:0; text-align: center; color: var(--accent-color);">① 使用デッキを選択</h3>
+  <!-- 1. シリーズBAN（相手の持ち込みから1つ排除） -->
+  <div class="ban-select-panel" id="banPanel">
+    <div class="ban-title">① 相手のシリーズを1つ除外（BAN）</div>
+    <div style="font-size: 11px; text-align: center; color: #6b7280;">相手が登録した3つのシリーズから、使用させたくないものを1つ選んでください。</div>
+    <div class="ban-options" id="banContainer">
+      <div style="text-align:center; color:#9ca3af; padding:10px;">相手のシリーズ情報を取得中…</div>
+    </div>
+  </div>
+
+  <!-- 2. デッキ選択（BAN選択後に解除される） -->
+  <div class="deck-select-panel disabled" id="deckPanel">
+    <h3 style="margin:0; text-align: center; color: var(--accent-color);" id="deckPanelTitle">② 使用デッキを選択 (BAN選択後に解除)</h3>
     <div class="deck-options">
       <div class="deck-card selected" id="deckCard0" onclick="selectDeck(0)">
         <div class="deck-title" id="deckName0">メインデッキ 1</div>
@@ -112,17 +122,8 @@
       </table>
     </div>
   </div>
-
-  <!-- 2. シリーズBAN（相手の持ち込みから1つ排除） -->
-  <div class="ban-select-panel" id="banPanel">
-    <div class="ban-title">② 相手のシリーズを1つ除外（BAN）</div>
-    <div style="font-size: 11px; text-align: center; color: #6b7280;">相手が登録した3つのシリーズから、使用させたくないものを1つ選んでください。</div>
-    <div class="ban-options" id="banContainer">
-      <div style="text-align:center; color:#9ca3af; padding:10px;">相手のシリーズ情報を取得中…</div>
-    </div>
-  </div>
   
-  <button class="btn-start" id="btnReady" onclick="setPlayerReady()">準備完了（対戦開始）</button>
+  <button class="btn-start" id="btnReady" onclick="setPlayerReady()" disabled>相手のシリーズをBANしてください</button>
 </div>
 
 <!-- 相手の準備待ちモーダル -->
@@ -167,7 +168,10 @@
     currentUser = user;
     try {
       const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) globalUserData = userDoc.data();
+      if (userDoc.exists()) {
+        globalUserData = userDoc.data();
+        document.getElementById('userWinsBadge').textContent = `通算 ${globalUserData.total_wins || 0} 勝`;
+      }
 
       // マスタデータ読み込み
       const horsesArr = await fetchJsonSafely('./data/horses_master.json');
@@ -177,7 +181,6 @@
         const seriesArr = await fetchJsonSafely('./data/series_master.json');
         seriesArr.forEach(s => SERIES_MASTER[s.series_id || s.id] = s);
       } catch (e) {
-        // ダミー/フォールバック
         SERIES_MASTER = {
           "s1": { name: "クラシック三冠" }, "s2": { name: "短距離王座" }, "s3": { name: "ダート強者" },
           "s4": { name: "牝馬限定戦" }, "s5": { name: "長距離ステイヤーズ" }, "s6": { name: "グランプリ" }
@@ -199,9 +202,9 @@
     }
   });
 
-  // 自分の登録シリーズ3つをルームに初期登録する
+  // 自分の登録シリーズ3つ（series.htmlで設定されたselected_online_series）をルームに初期登録する
   async function registerMySeries() {
-    const mySeries = globalUserData.registered_series || ["s1", "s2", "s3"]; // デフォルト例
+    const mySeries = globalUserData.selected_online_series || ["s1", "s2", "s3"];
     const roomRef = doc(db, "online_matches", roomId);
     const updateData = (role === 'host') ? { player1_series: mySeries } : { player2_series: mySeries };
     await setDoc(roomRef, updateData, { merge: true });
@@ -218,6 +221,10 @@
   }
 
   window.selectDeck = function(idx) {
+    if (selectedBanIndex === null) {
+      alert("先に相手のシリーズを1つBAN（除外）してください。");
+      return;
+    }
     selectedDeckIndex = idx;
     document.getElementById('deckCard0').classList.toggle('selected', idx === 0);
     document.getElementById('deckCard1').classList.toggle('selected', idx === 1);
@@ -304,13 +311,14 @@
     container.innerHTML = '';
 
     seriesList.forEach((sId, idx) => {
-      const seriesObj = SERIES_MASTER[sId] || { name: `シリーズ (${sId})` };
+      const seriesObj = SERIES_MASTER[sId] || { series_name: `シリーズ (${sId})`, name: `シリーズ (${sId})` };
+      const sName = seriesObj.series_name || seriesObj.name;
       const card = document.createElement('div');
       card.className = 'ban-card';
       card.id = `banCard_${idx}`;
       card.onclick = () => selectBan(idx);
       card.innerHTML = `
-        <span class="ban-card-name">🏆 ${seriesObj.name}</span>
+        <span class="ban-card-name">🏆 ${sName}</span>
         <span class="ban-tag">選択してBAN</span>
       `;
       container.appendChild(card);
@@ -323,6 +331,15 @@
       const el = document.getElementById(`banCard_${i}`);
       if (el) el.classList.toggle('selected', i === idx);
     });
+
+    // BANが選択されたらデッキパネルのロックを解除して準備完了ボタンを有効化
+    const deckPanel = document.getElementById('deckPanel');
+    deckPanel.classList.remove('disabled');
+    document.getElementById('deckPanelTitle').textContent = "② 使用デッキを選択";
+
+    const btnReady = document.getElementById('btnReady');
+    btnReady.disabled = false;
+    btnReady.textContent = "準備完了（対戦開始）";
   };
 
   // 準備完了ボタン
