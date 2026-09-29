@@ -65,12 +65,12 @@
     border-radius: 4px;
   }
 
-  /* シリーズBANパネル (新3行デザイン) */
+  /* シリーズ除外（BAN）パネル */
   .ban-select-panel { background-color: var(--panel-bg); padding: 15px; border-radius: 12px; border: 2px solid var(--accent-orange); display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
   .ban-title { font-size: 14px; font-weight: bold; color: var(--accent-orange); text-align: center; }
   .ban-options { display: flex; flex-direction: column; gap: 10px; }
   
-  /* 3行レイアウト用BANカード */
+  /* 除外カードデザイン */
   .ban-card {
     background: #fff;
     border: 2px solid var(--border-color);
@@ -83,10 +83,10 @@
     transition: all 0.2s;
     box-shadow: 0 2px 5px rgba(0,0,0,0.03);
   }
-  .ban-card:hover { border-color: var(--accent-orange); }
-  .ban-card.selected { border-color: var(--danger-color); background-color: #fef2f2; }
+  .ban-card:hover { border-color: var(--accent-orange); transform: translateY(-1px); }
+  .ban-card.selected { border-color: var(--danger-color); background-color: #fef2f2; box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2); }
   
-  /* 1行目: カテゴリ ＆ BANボタン */
+  /* 1行目: カテゴリ ＆ 除外ボタン */
   .ban-card-row1 {
     display: flex;
     justify-content: space-between;
@@ -102,18 +102,31 @@
     padding: 2px 8px;
     border-radius: 4px;
   }
+  
+  /* 「除外」ボタン */
   .ban-tag {
     font-size: 11px;
-    padding: 4px 10px;
+    padding: 4px 12px;
     border-radius: 6px;
     font-weight: bold;
-    background: #e5e7eb;
-    color: #4b5563;
+    background: #fff7ed;
+    color: #c2410c;
+    border: 1.5px solid #f97316;
     white-space: nowrap;
+    transition: all 0.2s;
   }
-  .ban-card.selected .ban-tag { background: var(--danger-color); color: #fff; }
+  .ban-card:hover .ban-tag {
+    background: #f97316;
+    color: #ffffff;
+  }
+  .ban-card.selected .ban-tag { 
+    background: var(--danger-color); 
+    color: #ffffff; 
+    border-color: var(--danger-color);
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+  }
 
-  /* 2行目: シリーズタイトル (横いっぱいに表示) */
+  /* 2行目: シリーズタイトル */
   .ban-card-title {
     font-size: 15px;
     font-weight: 800;
@@ -173,7 +186,7 @@
     <div class="match-type-tag" id="onlineMatchTag">ONLINE MATCH</div>
     <div class="challenge-label">＼ オンライン対戦 準備画面 ／</div>
     <div class="opponent-display" id="opponentNameDisplay">VS 対戦相手を取得中…</div>
-    <div class="sub-status" id="onlineSubText">相手のシリーズを1つBAN（除外）してからデッキを選択してください</div>
+    <div class="sub-status" id="onlineSubText">相手のシリーズを1つ「除外」してからデッキを選択してください</div>
   </div>
 
   <!-- 自分の登録シリーズ確認 -->
@@ -184,18 +197,18 @@
     </div>
   </div>
 
-  <!-- 1. シリーズBAN（相手の持ち込みから1つ排除） -->
+  <!-- 1. シリーズ除外選択 -->
   <div class="ban-select-panel" id="banPanel">
-    <div class="ban-title">① 相手のシリーズを1つ除外（BAN）</div>
+    <div class="ban-title">① 相手のシリーズを1つ除外</div>
     <div style="font-size: 11px; text-align: center; color: #6b7280;">相手が持ち込んだ3つのシリーズから、拒否したいシリーズを1つ選んでください。</div>
     <div class="ban-options" id="banContainer">
       <div style="text-align:center; color:#9ca3af; padding:10px;">相手のシリーズ情報を取得中…</div>
     </div>
   </div>
 
-  <!-- 2. デッキ選択（BAN選択後に解除される） -->
+  <!-- 2. デッキ選択 -->
   <div class="deck-select-panel disabled" id="deckPanel">
-    <h3 style="margin:0; text-align: center; color: var(--accent-color);" id="deckPanelTitle">② 使用デッキを選択 (BAN選択後に解除)</h3>
+    <h3 style="margin:0; text-align: center; color: var(--accent-color);" id="deckPanelTitle">② 使用デッキを選択 (除外選択後に解除)</h3>
     <div class="deck-options">
       <div class="deck-card selected" id="deckCard0" onclick="selectDeck(0)">
         <div class="deck-title" id="deckName0">メインデッキ 1</div>
@@ -223,7 +236,7 @@
     </div>
   </div>
   
-  <button class="btn-start" id="btnReady" onclick="setPlayerReady()" disabled>相手のシリーズをBANしてください</button>
+  <button class="btn-start" id="btnReady" onclick="setPlayerReady()" disabled>相手のシリーズを1つ除外してください</button>
 </div>
 
 <!-- 相手の準備待ちモーダル -->
@@ -251,7 +264,7 @@
   let opponentSeriesList = [];
 
   let isNavigatingAway = false;
-  let waitingTimeoutTimer = null; // タイムアウト用タイマー
+  let waitingTimeoutTimer = null;
 
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('roomId');
@@ -259,38 +272,71 @@
 
   let roomUnsubscribe = null;
 
-  async function fetchJsonSafely(url) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`${url} 取得失敗`);
-    return await res.json();
+  // 安全なJSON取得関数（ルート絶対パス 優先）
+  async function fetchJsonSafely(path) {
+    try {
+      const res = await fetch(path);
+      if (res.ok) return await res.json();
+    } catch (e) {}
+    // 相対パスフォールバック
+    const fallbackPath = path.startsWith('/') ? '.' + path : './' + path;
+    const res2 = await fetch(fallbackPath);
+    if (!res2.ok) throw new Error(`Fetch failed: ${path}`);
+    return await res2.json();
+  }
+
+  // シリーズマスタ読み込み専用関数
+  async function loadSeriesMaster() {
+    try {
+      const seriesData = await fetchJsonSafely('/data/series_master.json');
+      SERIES_MASTER = {};
+      if (Array.isArray(seriesData)) {
+        seriesData.forEach(s => {
+          const id = s.series_id || s.id || s.code;
+          if (id) SERIES_MASTER[id] = s;
+        });
+      } else if (typeof seriesData === 'object') {
+        SERIES_MASTER = seriesData;
+      }
+      console.log("シリーズマスタ読み込み成功:", Object.keys(SERIES_MASTER).length, "件");
+    } catch (e) {
+      console.error("シリーズマスタの読み込みに失敗しました:", e);
+    }
+  }
+
+  // 馬マスタ読み込み関数
+  async function loadHorsesMaster() {
+    try {
+      const horsesArr = await fetchJsonSafely('/data/horses_master.json');
+      HORSES_MASTER = {};
+      if (Array.isArray(horsesArr)) {
+        horsesArr.forEach(h => HORSES_MASTER[h.horse_id] = h);
+      }
+    } catch (e) {
+      console.error("馬マスタの読み込みに失敗しました:", e);
+    }
   }
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = 'auth.html'; return; }
     currentUser = user;
     try {
+      // ユーザー情報取得
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) {
         globalUserData = userDoc.data();
         document.getElementById('userWinsBadge').textContent = `通算 ${globalUserData.total_wins || 0} 勝`;
       }
 
-      const horsesArr = await fetchJsonSafely('./data/horses_master.json');
-      horsesArr.forEach(h => HORSES_MASTER[h.horse_id] = h);
-
-      try {
-        const seriesData = await fetchJsonSafely('./data/series_master.json');
-        if (Array.isArray(seriesData)) {
-          seriesData.forEach(s => SERIES_MASTER[s.series_id || s.id] = s);
-        } else {
-          SERIES_MASTER = seriesData;
-        }
-      } catch (e) {
-        console.warn("シリーズマスタ読み込み失敗", e);
-      }
+      // マスタデータを【同期的に完了するまで待機】
+      await Promise.all([
+        loadHorsesMaster(),
+        loadSeriesMaster()
+      ]);
 
       document.getElementById('syncStatus').textContent = "✅";
       
+      // マスタ読み込み完了後に各描画とオンライン同期を実行
       renderMySeriesDisplay();
       renderDeckInfo();
       selectDeck(0);
@@ -311,7 +357,7 @@
     container.innerHTML = '';
 
     mySeriesIds.forEach(sId => {
-      const sObj = SERIES_MASTER[sId] || { series_name: sId, name: sId };
+      const sObj = SERIES_MASTER[sId] || {};
       const sName = sObj.series_name || sObj.name || sId;
       const category = sObj.category || sObj.series_category || "一般";
 
@@ -351,7 +397,7 @@
 
   window.selectDeck = function(idx) {
     if (selectedBanIndex === null) {
-      alert("先に相手のシリーズを1つBAN（除外）してください。");
+      alert("先に相手のシリーズを1つ「除外」してください。");
       return;
     }
     selectedDeckIndex = idx;
@@ -384,7 +430,6 @@
     }
   }
 
-  // ルーム状態のリアルタイム監視
   function initOnlineRoomWatch() {
     const roomRef = doc(db, "online_matches", roomId);
 
@@ -400,17 +445,11 @@
 
       const data = snapshot.data();
 
-      // ★【修正ポイント1】キャンセルの実行者に応じたメッセージ制御
       if (data.status === "cancelled") {
         if (!isNavigatingAway) {
           isNavigatingAway = true;
           closeWaitingModal();
-          
-          if (data.cancelled_by === currentUser.uid) {
-            // 自分が離脱した場合（リロード等）
-            console.log("自分が退室しました");
-          } else {
-            // 相手が離脱した場合
+          if (data.cancelled_by !== currentUser.uid) {
             alert("対戦相手が退室（または通信切断）しました。");
           }
           window.location.href = 'online.html';
@@ -434,9 +473,7 @@
             const uData = oppUserSnap.data();
             oppName = uData.nickname || uData.displayName || uData.name || uData.userName || oppName;
           }
-        } catch (err) {
-          console.warn("相手ユーザー情報の取得スキップ:", err);
-        }
+        } catch (err) {}
       }
 
       if (!oppName) {
@@ -467,11 +504,13 @@
     });
   }
 
+  // 除外カードの描画関数
   function renderBanOptions(seriesList) {
     const container = document.getElementById('banContainer');
     container.innerHTML = '';
 
     seriesList.forEach((sId, idx) => {
+      // SERIES_MASTER から正しいオブジェクトを取得
       const sObj = SERIES_MASTER[sId] || {};
       const sName = sObj.series_name || sObj.name || `シリーズ (${sId})`;
       const category = sObj.category || sObj.series_category || "一般シリーズ";
@@ -483,14 +522,16 @@
         conditionSummary = `条件: ${surfaces} / 全${races.length}レース`;
       }
 
+      const isSelected = (selectedBanIndex === idx);
+
       const card = document.createElement('div');
-      card.className = 'ban-card';
+      card.className = `ban-card ${isSelected ? 'selected' : ''}`;
       card.id = `banCard_${idx}`;
       card.onclick = () => selectBan(idx);
       card.innerHTML = `
         <div class="ban-card-row1">
           <span class="ban-category-badge">🏷 ${category}</span>
-          <span class="ban-tag">選択してBAN</span>
+          <span class="ban-tag" id="banTag_${idx}">${isSelected ? '🚫 除外中' : '選択して除外'}</span>
         </div>
         <div class="ban-card-title">🏆 ${sName}</div>
         <div class="ban-card-desc">📌 ${conditionSummary}</div>
@@ -502,8 +543,13 @@
   window.selectBan = function(idx) {
     selectedBanIndex = idx;
     [0, 1, 2].forEach(i => {
-      const el = document.getElementById(`banCard_${i}`);
-      if (el) el.classList.toggle('selected', i === idx);
+      const cardEl = document.getElementById(`banCard_${i}`);
+      const tagEl = document.getElementById(`banTag_${i}`);
+      if (cardEl) {
+        const isSel = (i === idx);
+        cardEl.classList.toggle('selected', isSel);
+        if (tagEl) tagEl.textContent = isSel ? '🚫 除外中' : '選択して除外';
+      }
     });
 
     const deckPanel = document.getElementById('deckPanel');
@@ -515,11 +561,10 @@
     btnReady.textContent = "準備完了（対戦開始）";
   };
 
-  // ★【修正ポイント2】準備完了処理と30秒タイムアウトの設定
   window.setPlayerReady = async function() {
     if (!roomId) return;
     if (selectedBanIndex === null) {
-      alert("除外（BAN）する相手のシリーズを1つ選択してください。");
+      alert("除外する相手のシリーズを1つ選択してください。");
       return;
     }
 
@@ -528,7 +573,6 @@
     readyBtn.textContent = "相手の選択を待っています…";
     document.getElementById('waitingModal').style.display = 'flex';
 
-    // 45秒間相手からの反応がない場合の安全タイムアウト
     if (waitingTimeoutTimer) clearTimeout(waitingTimeoutTimer);
     waitingTimeoutTimer = setTimeout(() => {
       if (document.getElementById('waitingModal').style.display === 'flex') {
@@ -611,7 +655,6 @@
 
   window.addEventListener('beforeunload', (e) => {
     if (roomId && !isNavigatingAway && currentUser) {
-      // リロードや閉じる際、自分がキャンセルしたことを明確に通知する
       updateDoc(doc(db, "online_matches", roomId), { 
         status: "cancelled", 
         cancelled_by: currentUser.uid 
@@ -619,7 +662,6 @@
     }
   });
 </script>
-
 
 </body>
 </html>
