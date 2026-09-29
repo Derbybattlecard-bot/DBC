@@ -247,13 +247,15 @@
   let SERIES_MASTER = {};
   
   let selectedDeckIndex = 0;
-  let selectedBanIndex = null; // BAN対象のインデックス(0, 1, 2)
-  let opponentSeriesList = []; // 相手のシリーズ3つ
+  let selectedBanIndex = null;
+  let opponentSeriesList = [];
 
   let isNavigatingAway = false;
+  let waitingTimeoutTimer = null; // タイムアウト用タイマー
+
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('roomId');
-  const role = urlParams.get('role'); // 'host' or 'guest'
+  const role = urlParams.get('role');
 
   let roomUnsubscribe = null;
 
@@ -273,7 +275,6 @@
         document.getElementById('userWinsBadge').textContent = `通算 ${globalUserData.total_wins || 0} 勝`;
       }
 
-      // マスタデータ読み込み
       const horsesArr = await fetchJsonSafely('./data/horses_master.json');
       horsesArr.forEach(h => HORSES_MASTER[h.horse_id] = h);
 
@@ -304,7 +305,6 @@
     }
   });
 
-  // 自分のシリーズ持ち込み情報を表示
   function renderMySeriesDisplay() {
     const mySeriesIds = globalUserData.selected_online_series || ["series_01", "series_02", "series_03"];
     const container = document.getElementById('mySeriesContainer');
@@ -322,7 +322,6 @@
     });
   }
 
-  // 自分の登録シリーズ3つとニックネームをルームに登録する
   async function registerMySeries() {
     const mySeries = globalUserData.selected_online_series || ["series_01", "series_02", "series_03"];
     const myName = globalUserData.nickname || globalUserData.displayName || globalUserData.name || "プレイヤー";
@@ -392,6 +391,7 @@
     roomUnsubscribe = onSnapshot(roomRef, async (snapshot) => {
       if (!snapshot.exists()) {
         if (!isNavigatingAway) {
+          closeWaitingModal();
           alert("対戦ルームが解散されました。");
           window.location.href = 'online.html';
         }
@@ -400,16 +400,24 @@
 
       const data = snapshot.data();
 
+      // ★【修正ポイント1】キャンセルの実行者に応じたメッセージ制御
       if (data.status === "cancelled") {
         if (!isNavigatingAway) {
           isNavigatingAway = true;
-          alert("対戦相手が退室しました。");
+          closeWaitingModal();
+          
+          if (data.cancelled_by === currentUser.uid) {
+            // 自分が離脱した場合（リロード等）
+            console.log("自分が退室しました");
+          } else {
+            // 相手が離脱した場合
+            alert("対戦相手が退室（または通信切断）しました。");
+          }
           window.location.href = 'online.html';
         }
         return;
       }
 
-      // 相手の表示名・UIDを多角的に検索取得
       const isHost = (role === 'host');
       let oppUid = isHost 
         ? (data.player2_uid || data.player2 || data.guest_uid)
@@ -419,7 +427,6 @@
         ? (data.player2_name || data.guest_name || data.guestName)
         : (data.player1_name || data.host_name || data.hostName);
 
-      // Firestore の users ドキュメントから最新のニックネームを取得（確実化）
       if (oppUid) {
         try {
           const oppUserSnap = await getDoc(doc(db, "users", oppUid));
@@ -438,15 +445,14 @@
 
       document.getElementById('opponentNameDisplay').textContent = `VS ${oppName} 選手`;
 
-      // 相手のシリーズ取得＆BAN選択UI作成
       const oppSeries = isHost ? data.player2_series : data.player1_series;
       if (oppSeries && oppSeries.length >= 3 && opponentSeriesList.length === 0) {
         opponentSeriesList = oppSeries;
         renderBanOptions(oppSeries);
       }
 
-      // 双方の準備完了（BAN・デッキ選択完了）判定
       if (data.player1_ready && data.player2_ready) {
+        closeWaitingModal();
         if (role === 'host' && !data.match_series) {
           await finalizeMatchSeries(data);
           return;
@@ -461,7 +467,6 @@
     });
   }
 
-  // 相手の3つのシリーズを新3行レイアウトで綺麗に表示
   function renderBanOptions(seriesList) {
     const container = document.getElementById('banContainer');
     container.innerHTML = '';
@@ -484,7 +489,7 @@
       card.onclick = () => selectBan(idx);
       card.innerHTML = `
         <div class="ban-card-row1">
-          <span class="ban-category-badge">🏷️️ ${category}</span>
+          <span class="ban-category-badge">🏷 ${category}</span>
           <span class="ban-tag">選択してBAN</span>
         </div>
         <div class="ban-card-title">🏆 ${sName}</div>
@@ -510,6 +515,7 @@
     btnReady.textContent = "準備完了（対戦開始）";
   };
 
+  // ★【修正ポイント2】準備完了処理と30秒タイムアウトの設定
   window.setPlayerReady = async function() {
     if (!roomId) return;
     if (selectedBanIndex === null) {
@@ -521,6 +527,15 @@
     readyBtn.disabled = true;
     readyBtn.textContent = "相手の選択を待っています…";
     document.getElementById('waitingModal').style.display = 'flex';
+
+    // 45秒間相手からの反応がない場合の安全タイムアウト
+    if (waitingTimeoutTimer) clearTimeout(waitingTimeoutTimer);
+    waitingTimeoutTimer = setTimeout(() => {
+      if (document.getElementById('waitingModal').style.display === 'flex') {
+        alert("相手からの応答がありません。通信が切断された可能性があります。");
+        leaveMatch();
+      }
+    }, 45000);
 
     const roomRef = doc(db, "online_matches", roomId);
     const selectedDeck = (globalUserData.decks || [])[selectedDeckIndex] || { horse_ids: [] };
@@ -542,9 +557,14 @@
       console.error("更新エラー:", err);
       alert("通信に失敗しました。");
       readyBtn.disabled = false;
-      document.getElementById('waitingModal').style.display = 'none';
+      closeWaitingModal();
     }
   };
+
+  function closeWaitingModal() {
+    if (waitingTimeoutTimer) clearTimeout(waitingTimeoutTimer);
+    document.getElementById('waitingModal').style.display = 'none';
+  }
 
   async function finalizeMatchSeries(roomData) {
     const p1Series = roomData.player1_series;
@@ -577,9 +597,12 @@
   window.leaveMatch = async function() {
     if (confirm("対戦を辞退してロビーに戻りますか？")) {
       isNavigatingAway = true;
-      if (roomId) {
+      if (roomId && currentUser) {
         try {
-          await updateDoc(doc(db, "online_matches", roomId), { status: "cancelled", cancelled_by: currentUser.uid });
+          await updateDoc(doc(db, "online_matches", roomId), { 
+            status: "cancelled", 
+            cancelled_by: currentUser.uid 
+          });
         } catch (e) {}
       }
       window.location.href = 'online.html';
@@ -587,13 +610,16 @@
   };
 
   window.addEventListener('beforeunload', (e) => {
-    if (roomId && !isNavigatingAway) {
-      updateDoc(doc(db, "online_matches", roomId), { status: "cancelled", cancelled_by: currentUser?.uid || "unknown" });
-      e.preventDefault();
-      e.returnValue = '';
+    if (roomId && !isNavigatingAway && currentUser) {
+      // リロードや閉じる際、自分がキャンセルしたことを明確に通知する
+      updateDoc(doc(db, "online_matches", roomId), { 
+        status: "cancelled", 
+        cancelled_by: currentUser.uid 
+      });
     }
   });
 </script>
+
 
 </body>
 </html>
