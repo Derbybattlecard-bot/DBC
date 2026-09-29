@@ -85,22 +85,8 @@
     display: flex;
     gap: 8px;
   }
-  .btn-auto-select {
-    flex: 2;
-    background: linear-gradient(135deg, #2e7d32, #1b5e20);
-    color: white;
-    border: none;
-    padding: 9px;
-    border-radius: 6px;
-    font-weight: bold;
-    font-size: 12px;
-    cursor: pointer;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-    transition: all 0.1s;
-  }
-  .btn-auto-select:active { transform: translateY(1px); }
   .btn-clear-select {
-    flex: 1;
+    width: 100%;
     background: #ffffff;
     color: #666;
     border: 1px solid #ccc;
@@ -261,7 +247,6 @@
   </div>
 
   <div class="quick-tools-bar">
-    <button class="btn-auto-select" onclick="autoSelectEntries()">⚡ おまかせ自動エントリー</button>
     <button class="btn-clear-select" onclick="clearAllEntries()">リセット</button>
   </div>
 
@@ -818,63 +803,6 @@
       startBtn.disabled = true;
     }
   }
-
-  // ─── おまかせ自動エントリー機能 ───
-
-  window.autoSelectEntries = function() {
-    const races = currentSeries.rounds[0].races;
-    const limits = currentSeries.potential_limit || { min_potential_per_race: 15, max_total_potential: 95 };
-    const maxTotal = limits.max_total_potential || 95;
-    const minPerRace = limits.min_potential_per_race || 15;
-
-    const availableHorses = deckHorses.filter(h => {
-      const hasContinuous = Array.isArray(h.ability) && (h.ability.includes("鉄女") || h.ability.includes("連闘"));
-      const isUsed = (usedCardsHistory.includes(h.horse_id) || usedCardsHistory.includes(h.name)) && !hasContinuous;
-      return !isUsed;
-    });
-
-    function searchCombo(raceIdx, currentCombo, currentSum) {
-      if (raceIdx === races.length) {
-        return currentSum <= maxTotal ? currentCombo : null;
-      }
-
-      const race = races[raceIdx];
-      const raceSexLimit = race.sex || currentSeries.sex || "制限なし";
-
-      const candidates = availableHorses.filter(h => {
-        if (currentCombo.some(item => String(item.horse_id) === String(h.horse_id))) return false;
-        if (!isValidSex(h.sex || "牡馬", raceSexLimit)) return false;
-        if (!isValidSurface(h, race.surface)) return false;
-        if (!isValidDistance(h, race.distance)) return false;
-
-        const pt = getHorsePotential(h, race.surface);
-        if (pt < minPerRace) return false;
-        if (currentSum + pt > maxTotal) return false;
-
-        return true;
-      });
-
-      candidates.sort((a, b) => getHorsePotential(b, race.surface) - getHorsePotential(a, race.surface));
-
-      for (const horse of candidates) {
-        const pt = getHorsePotential(horse, race.surface);
-        const res = searchCombo(raceIdx + 1, [...currentCombo, horse], currentSum + pt);
-        if (res) return res;
-      }
-
-      return null;
-    }
-
-    const bestCombo = searchCombo(0, [], 0);
-
-    if (bestCombo) {
-      bestCombo.forEach((horse, idx) => {
-        window.onHorseSelected(idx, horse.horse_id);
-      });
-    } else {
-      alert("現在のデッキ内カードでは、全5レースの条件（性別・適性・距離・合計ポテンシャル制限）をすべて満たす出走組み合わせが見つかりませんでした。");
-    }
-  };
 
   window.clearAllEntries = function() {
     selectedEntries = [null, null, null, null, null];
