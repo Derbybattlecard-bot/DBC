@@ -149,7 +149,16 @@
     try {
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) {
-        document.getElementById('userWinsBadge').textContent = `通算 ${userDoc.data().total_wins || 0} 勝`;
+        const userData = userDoc.data();
+        document.getElementById('userWinsBadge').textContent = `通算 ${userData.total_wins || 0} 勝`;
+
+        // オンライン対戦用シリーズの設定チェック
+        const selectedSeries = userData.selected_online_series || [];
+        if (!Array.isArray(selectedSeries) || selectedSeries.length < 3) {
+          alert("オンライン対戦を行うには、シリーズ図鑑で対戦用シリーズを3つ設定する必要があります。");
+          window.location.href = 'status.html'; // ステータス画面にリダイレクト（図鑑画面に飛ばす場合は変更してください）
+          return;
+        }
       }
       document.getElementById('syncStatus').textContent = "✅";
     } catch (err) {
