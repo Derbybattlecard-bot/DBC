@@ -259,7 +259,7 @@
   let SERIES_MASTER = {};
   let HORSES_MASTER = {};
   
-  let matchRaces = []; // 5戦分の合成レースデータ
+  let matchRaces = []; // 5戦分のレースデータ
   let deckHorses = [];
   let playerDeckIds = [];
   let oppDeckIds = [];
@@ -344,17 +344,31 @@
     }
     document.getElementById('opponentName').textContent = oppName || "対戦相手";
 
-    // 1. 5戦分のレースデータを合成
-    const matchSeriesIds = roomData.match_series || ["series_01", "series_01", "series_01", "series_01", "series_01"];
-    matchRaces = matchSeriesIds.map((sId, index) => {
-      const sObj = SERIES_MASTER[sId] || Object.values(SERIES_MASTER)[0];
-      const raceInfo = (sObj.rounds && sObj.rounds[0] && sObj.rounds[0].races && sObj.rounds[0].races[0]) 
-                        ? sObj.rounds[0].races[0] 
-                        : (sObj.races ? sObj.races[0] : {});
+    // 1. 対象シリーズから5戦分のレースデータを取得
+    const targetSeriesId = Array.isArray(roomData.match_series)
+      ? roomData.match_series[0]
+      : (roomData.match_series || roomData.series_id || "series_01");
 
+    const sObj = SERIES_MASTER[targetSeriesId] || Object.values(SERIES_MASTER)[0] || {};
+
+    // シリーズ内のレース一覧を取得 (races配列 または rounds構造に対応)
+    let rawRaces = [];
+    if (Array.isArray(sObj.races)) {
+      rawRaces = sObj.races;
+    } else if (Array.isArray(sObj.rounds)) {
+      if (sObj.rounds[0] && Array.isArray(sObj.rounds[0].races) && sObj.rounds[0].races.length >= 5) {
+        rawRaces = sObj.rounds[0].races;
+      } else {
+        rawRaces = sObj.rounds.map(r => (r.races && r.races[0]) ? r.races[0] : r);
+      }
+    }
+
+    // 1つのシリーズから第1戦〜第5戦までのレースを生成
+    matchRaces = Array.from({ length: 5 }, (_, index) => {
+      const raceInfo = rawRaces[index] || {};
       return {
         race_num: index + 1,
-        race_name: raceInfo.race_name || raceInfo.name || `第${index + 1}戦`,
+        race_name: raceInfo.race_name || raceInfo.name || raceInfo.title || `第${index + 1}戦`,
         surface: raceInfo.surface || "芝",
         distance: raceInfo.distance || 2000,
         sex: raceInfo.sex || sObj.sex || "制限なし",
