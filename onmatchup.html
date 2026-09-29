@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -54,7 +53,29 @@
     font-size: 12px;
   }
 
-  /* シリーズ情報表示パネル */
+  /* 相手の接続・準備状況表示 */
+  .opponent-status-panel {
+    background: #faf5ff;
+    border: 2px solid var(--accent-color);
+    border-radius: 8px;
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  .opponent-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: bold;
+    color: #fff;
+    background: #9ca3af;
+  }
+  .opponent-badge.ready { background: var(--success-color); }
+  .opponent-badge.selecting { background: var(--accent-orange); }
+
+  /* シリーズ情報表示パネル（配置変更後） */
   .series-info-panel {
     background: rgba(238, 242, 255, 0.95);
     border: 1px solid #c7d2fe;
@@ -82,28 +103,6 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-
-  /* 相手の接続・準備状況表示 */
-  .opponent-status-panel {
-    background: #faf5ff;
-    border: 2px solid var(--accent-color);
-    border-radius: 8px;
-    padding: 10px 15px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  }
-  .opponent-badge {
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: bold;
-    color: #fff;
-    background: #9ca3af;
-  }
-  .opponent-badge.ready { background: var(--success-color); }
-  .opponent-badge.selecting { background: var(--accent-orange); }
 
   .status-bar {
     background: var(--panel-bg);
@@ -237,21 +236,22 @@
     <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中</div>
   </div>
 
-  <!-- シリーズ情報表示領域 -->
-  <div class="series-info-panel">
-    <span class="title-label">対象シリーズ</span>
-    <span class="series-names" id="displaySeriesName">読み込み中...</span>
-  </div>
-
-  <!-- 相手のリアルタイム状態表示 -->
+  <!-- 1. 相手のリアルタイム状態表示 -->
   <div class="opponent-status-panel">
     <div>
       <span style="font-size: 10px; color: var(--text-sub); display: block;">対戦相手</span>
-      <strong id="opponentName" style="font-size: 13px;">対戦相手</strong>
+      <strong id="opponentName" style="font-size: 13px;">対戦相手を取得中...</strong>
     </div>
     <div id="opponentStatusBadge" class="opponent-badge selecting">選定中…</div>
   </div>
 
+  <!-- 2. シリーズ情報表示領域（ステータスバーの上へ移動） -->
+  <div class="series-info-panel">
+    <span class="title-label" id="seriesRoundLabel">対象シリーズ</span>
+    <span class="series-names" id="displaySeriesName">読み込み中...</span>
+  </div>
+
+  <!-- 3. ステータスバー -->
   <div class="status-bar">
     <div class="status-item">
       <span class="status-label">登録頭数</span>
@@ -294,21 +294,22 @@
   let SERIES_MASTER = {};
   let HORSES_MASTER = {};
   
-  let matchRaces = []; // 5戦分の合成レースデータ
+  let matchRaces = []; 
   let deckHorses = [];
   let playerDeckIds = [];
   let oppDeckIds = [];
-  let oppSelectedEntries = [null, null, null, null, null]; // 相手の仮選択(ドラフト)状況
+  let oppSelectedEntries = [null, null, null, null, null];
 
   let selectedEntries = [null, null, null, null, null];
   let racesMobData = {}; 
   let racesTrackConditions = [];
   let roomUnsubscribe = null;
   let isNavigatingAway = false;
+  let currentRoundIndex = 0; // 現在何回戦目か (0 = 第1戦)
 
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('roomId');
-  const role = urlParams.get('role'); // host または guest
+  const role = urlParams.get('role');
 
   async function fetchJsonSafe(filename) {
     const candidatePaths = [`./data/${filename}`, `data/${filename}`, `/data/${filename}`];
@@ -352,6 +353,19 @@
     }
   });
 
+  // 対戦相手の名前取得関数（強化版）
+  function resolveOpponentName(roomData) {
+    const isHost = (role === 'host');
+    const directName = isHost 
+      ? (roomData.guest_name || roomData.guestName || roomData.player2_name || roomData.p2_name)
+      : (roomData.host_name || roomData.hostName || roomData.player1_name || roomData.p1_name);
+
+    if (directName) return directName;
+
+    // Uidから推測されるデフォルト名
+    return isHost ? "ゲストプレイヤー" : "ホストプレイヤー";
+  }
+
   async function initMatchup() {
     const roomRef = doc(db, "online_matches", roomId);
     const roomSnap = await getDoc(roomRef);
@@ -364,22 +378,25 @@
 
     const roomData = roomSnap.data();
 
-    // 対戦相手の名前の表示設定
+    // 現在の回戦数を取得 (定義がなければ 0 = 第1戦)
+    currentRoundIndex = roomData.current_round !== undefined ? roomData.current_round : (roomData.current_race || 0);
+
+    // 対戦相手の名前表示
+    let oppName = resolveOpponentName(roomData);
     const oppUid = (role === 'host') ? (roomData.guest_uid || roomData.player2_uid) : (roomData.host_uid || roomData.player1_uid);
-    let oppName = (role === 'host') ? (roomData.guest_name || roomData.player2_name) : (roomData.host_name || roomData.player1_name);
     
     if (oppUid) {
       try {
         const oppUserSnap = await getDoc(doc(db, "users", oppUid));
         if (oppUserSnap.exists()) {
           const uData = oppUserSnap.data();
-          oppName = uData.nickname || uData.displayName || uData.name || oppName || "対戦相手";
+          oppName = uData.nickname || uData.displayName || uData.name || uData.userName || oppName;
         }
       } catch (err) {}
     }
-    document.getElementById('opponentName').textContent = oppName || "対戦相手";
+    document.getElementById('opponentName').textContent = oppName;
 
-    // 1. 5戦分のレースデータを合成
+    // 1. レースデータの読み込み
     const matchSeriesIds = roomData.match_series || ["series_01", "series_01", "series_01", "series_01", "series_01"];
     matchRaces = matchSeriesIds.map((sId, index) => {
       const sObj = SERIES_MASTER[sId] || Object.values(SERIES_MASTER)[0];
@@ -397,10 +414,10 @@
       };
     });
 
-    // シリーズ名の表示を更新（重複を省いて「, 」区切りで表示）
-    const seriesNameSet = new Set(matchRaces.map(r => r.series_name).filter(Boolean));
-    const displaySeriesText = Array.from(seriesNameSet).join(' / ') || "全シリーズ";
-    document.getElementById('displaySeriesName').textContent = displaySeriesText;
+    // 「現在の回戦」のシリーズ名のみをバッジに表示
+    const currentRace = matchRaces[currentRoundIndex] || matchRaces[0];
+    document.getElementById('seriesRoundLabel').textContent = `第${currentRace.race_num}戦 対象シリーズ`;
+    document.getElementById('displaySeriesName').textContent = currentRace.series_name || "対象シリーズ";
 
     // 2. 自分と相手のデッキ馬のID配列を取得
     playerDeckIds = (role === 'host') ? (roomData.player1_deck || []) : (roomData.player2_deck || []);
@@ -408,7 +425,7 @@
 
     deckHorses = playerDeckIds.map(id => HORSES_MASTER[id]).filter(h => h !== undefined);
 
-    // 3. モブ馬と馬場状態の共有生成（ホスト側で一括生成）
+    // 3. モブ馬と馬場状態の共有生成
     if (role === 'host' && !roomData.races_mob_ids) {
       const excludedIds = await fetchAllPlayersDeckHorseIds(roomData);
       const { mobIds, trackConditions } = generateSharedMobsAndTrack(matchRaces, excludedIds);
@@ -501,14 +518,20 @@
         return;
       }
 
-      // 相手のリアルタイム仮選択(ドラフト)状況の更新
+      // 名前が遅れて反映された場合の表示補正
+      const freshName = resolveOpponentName(data);
+      if (freshName && freshName !== "対戦相手を取得中...") {
+        document.getElementById('opponentName').textContent = freshName;
+      }
+
+      // 相手のドラフト状況同期
       const newOppDraft = (role === 'host') 
         ? (data.player2_draft || data.player2_entries || [null, null, null, null, null])
         : (data.player1_draft || data.player1_entries || [null, null, null, null, null]);
 
       if (JSON.stringify(oppSelectedEntries) !== JSON.stringify(newOppDraft)) {
         oppSelectedEntries = newOppDraft;
-        populateDropdowns(); // 相手の選択状況が変わったら自分の選択肢を動的更新
+        populateDropdowns();
       }
 
       const opponentReady = (role === 'host') ? data.player2_matchup_ready : data.player1_matchup_ready;
@@ -547,19 +570,16 @@
   }
   function getHorseLegStyle(horse) { return horse?.style || horse?.running_style || '-'; }
 
-  // ─── かぶり馬のプライオリティ（デック位置）判定 ───
+  // かぶり馬のプライオリティ判定
   function checkDuplicateHorsePriority(horseId) {
     const myIdx = playerDeckIds.findIndex(id => String(id) === String(horseId));
     const oppIdx = oppDeckIds.findIndex(id => String(id) === String(horseId));
 
-    // 相手のデックにこの馬が含まれていない場合は無条件で使用可能
     if (oppIdx === -1) return { canUse: true };
 
-    // デック内の位置（インデックス）を比較：小さい（上にある）方が優先
     if (myIdx < oppIdx) {
       return { canUse: true };
     } else if (myIdx > oppIdx) {
-      // 相手の方がデックの上にある場合：相手が既にいずれかの枠で「使用済（選択）」していれば自分も使用可
       const isOpponentUsed = oppSelectedEntries.some(id => String(id) === String(horseId));
       if (isOpponentUsed) {
         return { canUse: true };
@@ -567,7 +587,6 @@
         return { canUse: false, reason: "相手優先" };
       }
     } else {
-      // 全く同じインデックス位置にある場合：双方ともに使用不可
       return { canUse: false, reason: "同一位置不可" };
     }
   }
@@ -669,7 +688,6 @@
   window.onHorseSelected = function(raceIdx, horseId) {
     selectedEntries[raceIdx] = horseId || null;
 
-    // 自分の選択状況(ドラフト)をリアルタイムにFirestoreに同期
     const roomRef = doc(db, "online_matches", roomId);
     const draftField = (role === 'host') ? { player1_draft: selectedEntries } : { player2_draft: selectedEntries };
     updateDoc(roomRef, draftField).catch(e => console.error("Draft update failed:", e));
