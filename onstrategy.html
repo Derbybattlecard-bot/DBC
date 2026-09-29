@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DERBY BATTLE CARD - オンライン作戦指示 (onstrategy.html)</title>
+<style>
+  :root {
+    --bg-gradient: linear-gradient(135deg, #2e1065 0%, #4c1d95 50%, #5b21b6 100%);
+    --panel-bg: rgba(255, 255, 255, 0.95);
+    --accent-color: #6b21a8;
+    --accent-hover: #581c87;
+    --accent-orange: #f97316;
+    --text-main: #1e1b4b;
+    --text-sub: #4b5563;
+    --border-color: #ddd6fe;
+    --turf-color: #16a34a;
+    --dirt-color: #b45309;
+    --danger-color: #dc2626;
+    --success-color: #16a34a;
+    --player-bg: #eff6ff;
+    --opponent-bg: #fff1f2;
+  }
+  body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg-gradient);
+    background-attachment: fixed;
+    color: var(--text-main);
+    margin: 0;
+    padding: 15px;
+    font-size: 13px;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  .container { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 680px; padding-bottom: 30px; }
+  
+  .header-panel {
+    background-color: var(--panel-bg);
+    padding: 10px 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .btn-back {
+    background: #ffffff;
+    color: var(--danger-color);
+    border: 1.5px solid var(--danger-color);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 12px;
+  }
+
+  /* 相手のステータスパネル */
+  .opponent-status-panel {
+    background: #faf5ff;
+    border: 2px solid var(--accent-color);
+    border-radius: 8px;
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  .opponent-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: bold;
+    color: #fff;
+    background: #9ca3af;
+  }
+  .opponent-badge.ready { background: var(--success-color); }
+  .opponent-badge.selecting { background: var(--accent-orange); }
+
+  .status-bar {
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  }
+  .status-item { text-align: center; }
+  .status-label { font-size: 10px; color: var(--text-sub); display: block; margin-bottom: 2px; }
+  .status-val { font-size: 14px; font-weight: bold; }
+  .status-val.error { color: var(--danger-color); }
+  .status-val.ok { color: var(--success-color); }
+
+  .race-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  }
+  .race-info-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px dashed var(--border-color);
+    padding-bottom: 6px;
+  }
+  .race-title { font-weight: bold; font-size: 13px; color: var(--accent-color); }
+  .race-cond-group { display: flex; gap: 4px; align-items: center; }
+  .race-cond-badge {
+    font-size: 10.5px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: white;
+    font-weight: bold;
+  }
+  .surface-turf { background-color: var(--turf-color); }
+  .surface-dirt { background-color: var(--dirt-color); }
+  
+  .cond-良 { background-color: #16a34a; }
+  .cond-稍重 { background-color: #d97706; }
+  .cond-重 { background-color: #ea580c; }
+  .cond-不良 { background-color: #dc2626; }
+
+  /* 出走モブ脚質プレビュー */
+  .mob-field-preview {
+    background: #f3e8ff;
+    border: 1px solid #d8b4fe;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 11px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .mob-style-counts span {
+    margin-left: 6px;
+    font-weight: bold;
+  }
+
+  .my-horse-box {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 8px 10px;
+  }
+  .my-horse-title { font-weight: bold; color: var(--accent-color); font-size: 12px; margin-bottom: 6px; }
+
+  .strategy-select-group {
+    display: flex;
+    gap: 8px;
+  }
+  .select-strat {
+    flex: 2;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    font-size: 12px;
+    font-weight: bold;
+    background: #ffffff;
+  }
+  .select-level {
+    flex: 1;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    font-size: 12px;
+    font-weight: bold;
+    background: #ffffff;
+  }
+
+  details.race-grid-toggle {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 11px;
+  }
+  summary.race-grid-summary {
+    padding: 6px 10px;
+    font-weight: bold;
+    color: var(--accent-color);
+    cursor: pointer;
+    user-select: none;
+    background: #faf5ff;
+    border-radius: 6px;
+  }
+  .race-grid-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 4px;
+  }
+  .race-grid-table th, .race-grid-table td {
+    border: 1px solid #e2e8f0;
+    padding: 5px 6px;
+    text-align: center;
+    font-size: 11px;
+  }
+  .race-grid-table th { background: #f1f5f9; }
+  .row-player { background-color: var(--player-bg); font-weight: bold; }
+  .row-opponent { background-color: var(--opponent-bg); font-weight: bold; }
+
+  .btn-submit {
+    background: linear-gradient(135deg, #f97316, #ea580c);
+    color: white;
+    border: none;
+    padding: 15px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 16px;
+    cursor: pointer;
+    text-align: center;
+    box-shadow: 0 4px 0 #c2410c;
+    margin-top: 10px;
+  }
+  .btn-submit:disabled { background: #9ca3af; box-shadow: none; cursor: not-allowed; }
+
+  /* 待機モーダル */
+  .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 15px; }
+  .modal-content { background: #fff; border-radius: 12px; padding: 25px; width: 100%; max-width: 320px; text-align: center; }
+  .spinner { width: 40px; height: 40px; border: 4px solid #f3e8ff; border-top: 4px solid var(--accent-color); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px auto; }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header-panel">
+    <button class="btn-back" onclick="leaveMatch()">対戦降参・退室</button>
+    <h2 style="margin:0; font-size: 16px; color: var(--accent-color);">オンライン作戦指示</h2>
+    <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中</div>
+  </div>
+
+  <!-- 相手の作戦設定状況表示 -->
+  <div class="opponent-status-panel">
+    <div>
+      <span style="font-size: 10px; color: var(--text-sub); display: block;">対戦相手</span>
+      <strong id="opponentName" style="font-size: 13px;">対戦相手</strong>
+    </div>
+    <div id="opponentStatusBadge" class="opponent-badge selecting">作戦思案中…</div>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-item">
+      <span class="status-label">作戦設定状況</span>
+      <span class="status-val" id="stratConfigCount">5 / 5</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">合計作戦レベル</span>
+      <span class="status-val" id="totalLevelDisplay">0 / 18</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">制限判定</span>
+      <span class="status-val" id="limitStatus">確認中</span>
+    </div>
+  </div>
+
+  <div id="raceCardList" style="display:flex; flex-direction:column; gap:12px;"></div>
+
+  <button class="btn-submit" id="btnGoRace" disabled onclick="submitStrategies()">作戦確定・対戦開始！</button>
+</div>
+
+<!-- 相手の完了待ちモーダル -->
+<div class="modal-overlay" id="waitingModal">
+  <div class="modal-content">
+    <div class="spinner"></div>
+    <div style="font-size: 16px; font-weight: bold; color: var(--accent-color); margin-bottom: 6px;">相手の作戦決定を待っています…</div>
+    <div style="font-size: 12px; color: #6b7280;">作戦が揃うと自動的にレース結果画面へ進みます</div>
+  </div>
+</div>
+
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { doc, getDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  let currentUser = null;
+  let globalUserData = null;
+  let SERIES_MASTER = [];
+  let HORSES_MASTER = {};
+  let STRATEGY_MASTER = [];
+
+  let currentSeries = null;
+  let playerEntries = [];
+  let opponentEntries = [];
+  let racesMobIds = {};
+  let loadedTrackConditions = [];
+  
+  let myStrategies = [
+    { strategy: "", strategy_level: 3 },
+    { strategy: "", strategy_level: 3 },
+    { strategy: "", strategy_level: 3 },
+    { strategy: "", strategy_level: 3 },
+    { strategy: "", strategy_level: 3 }
+  ];
+
+  let roomUnsubscribe = null;
+  let isNavigatingAway = false;
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const roomId = urlParams.get('roomId');
+  const role = urlParams.get('role'); // host または guest
+
+  const MAX_TOTAL_LEVEL = 18;
+
+  async function fetchJsonSafe(filename) {
+    const candidatePaths = [`./data/${filename}`, `data/${filename}`, `/data/${filename}`];
+    for (const path of candidatePaths) {
+      try {
+        const res = await fetch(path);
+        if (res.ok) return await res.json();
+      } catch (e) {}
+    }
+    throw new Error(`${filename} 読み込み失敗`);
+  }
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { window.location.href = 'auth.html'; return; }
+    currentUser = user;
+
+    try {
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) globalUserData = userDoc.data();
+
+      const [seriesData, horsesData] = await Promise.all([
+        fetchJsonSafe('series_master.json'),
+        fetchJsonSafe('horses_master.json')
+      ]);
+
+      SERIES_MASTER = seriesData || [];
+      if (Array.isArray(horsesData)) {
+        horsesData.forEach(h => { 
+          const idStr = String(h.horse_id);
+          HORSES_MASTER[idStr] = h;
+          HORSES_MASTER[idStr.padStart(4, '0')] = h;
+        });
+      }
+
+      try {
+        const stratData = await fetchJsonSafe('strategy_master.json');
+        STRATEGY_MASTER = Array.isArray(stratData) && stratData.length > 0 ? stratData : getDefaultStrategies();
+      } catch (err) {
+        STRATEGY_MASTER = getDefaultStrategies();
+      }
+
+      document.getElementById('syncStatus').textContent = "✅ 準備完了";
+      initStrategyPage();
+
+    } catch (e) {
+      console.error("データ通信エラー:", e);
+      document.getElementById('syncStatus').textContent = "❌ エラー";
+    }
+  });
+
+  function getDefaultStrategies() {
+    return [
+      { strategy_id: "NIGE_01", name: "ハナにこだわる", category: "逃げ" },
+      { strategy_id: "SENKO_01", name: "先行して粘り込み", category: "先行" },
+      { strategy_id: "SASHI_01", name: "早目スパート", category: "差し" },
+      { strategy_id: "OIKOMI_01", name: "道中死んだふり", category: "追込" }
+    ];
+  }
+
+  function getHorsePt(horse, surface) {
+    if (!horse) return 0;
+    const isTurf = !surface || surface.includes('芝');
+    return isTurf ? (horse.turf_potential ?? horse.aptitude?.turf_potential ?? 0)
+                  : (horse.dirt_potential ?? horse.aptitude?.dirt_potential ?? 0);
+  }
+
+  function getHorseStyle(horse) {
+    if (!horse) return '先行';
+    return horse.running_style || horse.leg_style || horse.style || horse.strategy || '先行';
+  }
+
+  function getDefaultStrategyForStyle(style) {
+    if (!style) return "先行して粘り込み";
+    const s = String(style);
+    let catName = '先行';
+    if (s.includes('逃')) catName = '逃げ';
+    else if (s.includes('差')) catName = '差し';
+    else if (s.includes('追')) catName = '追込';
+
+    const match = STRATEGY_MASTER.find(item => item.category === catName || item.style === catName);
+    return match ? (match.name || match.strategy_name) : "先行して粘り込み";
+  }
+
+  async function initStrategyPage() {
+    if (!roomId) {
+      alert("対戦IDが指定されていません");
+      window.location.href = 'online.html';
+      return;
+    }
+
+    const roomRef = doc(db, "online_matches", roomId);
+    const roomSnap = await getDoc(roomRef);
+
+    if (!roomSnap.exists()) {
+      alert("対戦ルームが存在しません");
+      window.location.href = 'online.html';
+      return;
+    }
+
+    const roomData = roomSnap.data();
+    const seriesId = roomData.series_id || "series_01";
+    currentSeries = SERIES_MASTER.find(s => s.series_id === seriesId) || SERIES_MASTER[0] || {};
+
+    // ホスト / ゲストでの各データの割り当て
+    if (role === 'host') {
+      playerEntries = roomData.player1_entries || [];
+      opponentEntries = roomData.player2_entries || [];
+    } else {
+      playerEntries = roomData.player2_entries || [];
+      opponentEntries = roomData.player1_entries || [];
+    }
+
+    racesMobIds = roomData.races_mob_ids || {};
+    loadedTrackConditions = roomData.races_track_conditions || ['良', '良', '良', '良', '良'];
+
+    // 初期作戦の割り当て
+    playerEntries.forEach((hId, rIdx) => {
+      const horse = HORSES_MASTER[String(hId)];
+      const style = getHorseStyle(horse);
+      myStrategies[rIdx].strategy = getDefaultStrategyForStyle(style);
+      myStrategies[rIdx].strategy_level = 3;
+    });
+
+    renderRaceCards();
+    updateTotalStatus();
+    listenRoomStatus();
+  }
+
+  // リアルタイムリスナー (相手の完了検知 & 切断監視)
+  function listenRoomStatus() {
+    const roomRef = doc(db, "online_matches", roomId);
+    roomUnsubscribe = onSnapshot(roomRef, (snapshot) => {
+      if (!snapshot.exists()) return;
+      const data = snapshot.data();
+
+      if (data.status === "cancelled") {
+        if (!isNavigatingAway) {
+          isNavigatingAway = true;
+          alert("対戦相手が切断・退室しました。");
+          window.location.href = 'online.html';
+        }
+        return;
+      }
+
+      // 相手の作戦完了バッジ更新
+      const opponentReady = (role === 'host') ? data.player2_strategy_ready : data.player1_strategy_ready;
+      const badge = document.getElementById('opponentStatusBadge');
+      if (opponentReady) {
+        badge.textContent = "作戦決定完了！";
+        badge.className = "opponent-badge ready";
+      } else {
+        badge.textContent = "作戦思案中…";
+        badge.className = "opponent-badge selecting";
+      }
+
+      // 双方完了したら自動遷移（対戦結果画面へ）
+      if (data.player1_strategy_ready && data.player2_strategy_ready) {
+        if (roomUnsubscribe) roomUnsubscribe();
+        isNavigatingAway = true;
+        window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}`;
+      }
+    });
+  }
+
+  function renderRaceCards() {
+    const races = (currentSeries?.rounds && currentSeries.rounds[0]?.races) || [{},{},{},{},{}];
+    const container = document.getElementById('raceCardList');
+    container.innerHTML = '';
+
+    races.forEach((race, rIdx) => {
+      const myHorseId = playerEntries[rIdx];
+      const myHorse = HORSES_MASTER[String(myHorseId)] || {};
+      const myPt = getHorsePt(myHorse, race.surface);
+      const myStyle = getHorseStyle(myHorse);
+
+      const oppHorseId = opponentEntries[rIdx];
+      const oppHorse = HORSES_MASTER[String(oppHorseId)] || {};
+      const oppPt = getHorsePt(oppHorse, race.surface);
+      const oppStyle = getHorseStyle(oppHorse);
+
+      const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
+      const trackCond = loadedTrackConditions[rIdx] || '良';
+
+      // モブ馬脚質集計
+      const styleCounts = { "逃げ": 0, "先行": 0, "差し": 0, "追込": 0 };
+      mobIds.forEach(mId => {
+        const mob = HORSES_MASTER[String(mId)];
+        const style = getHorseStyle(mob);
+        if (styleCounts[style] !== undefined) styleCounts[style]++;
+      });
+
+      const card = document.createElement('div');
+      card.className = 'race-card';
+      const surfaceClass = (race.surface && race.surface.includes('芝')) ? 'surface-turf' : 'surface-dirt';
+
+      // 作戦ドロップダウン用HTML
+      let stratOptionsHtml = '';
+      const categories = [
+        { prefix: 'NIGE_',   catName: '逃げ', title: '【逃げ系】' },
+        { prefix: 'SENKO_',  catName: '先行', title: '【先行系】' },
+        { prefix: 'SASHI_',  catName: '差し', title: '【差し系】' },
+        { prefix: 'OIKOMI_', catName: '追込', title: '【追込系】' }
+      ];
+
+      categories.forEach(cat => {
+        stratOptionsHtml += `<optgroup label="${cat.title}">`;
+        const categoryStrats = STRATEGY_MASTER.filter(s => {
+          if (s.strategy_id) return s.strategy_id.startsWith(cat.prefix);
+          return s.category === cat.catName || s.style === cat.catName;
+        });
+        
+        categoryStrats.forEach(s => {
+          const sName = s.name || s.strategy_name || s.strategy;
+          const isSelected = myStrategies[rIdx].strategy === sName;
+          stratOptionsHtml += `<option value="${sName}" ${isSelected ? 'selected' : ''}>${sName}</option>`;
+        });
+        stratOptionsHtml += `</optgroup>`;
+      });
+
+      let levelOptionsHtml = '';
+      for (let lvl = 1; lvl <= 5; lvl++) {
+        levelOptionsHtml += `<option value="${lvl}" ${lvl === 3 ? 'selected' : ''}>Lv.${lvl}</option>`;
+      }
+
+      // 出走メンバー確認用テーブル（※枠順・馬番はまだ決定していないため非表示/- 表示）
+      let gridRowsHtml = `
+        <tr class="row-player">
+          <td>-</td>
+          <td style="text-align:left;">${myHorse.name || '自馬'} (自分)</td>
+          <td>${myHorse.sex || '牡'}</td>
+          <td>${myPt}</td>
+          <td>${myStyle}</td>
+        </tr>
+        <tr class="row-opponent">
+          <td>-</td>
+          <td style="text-align:left;">${oppHorse.name || '相手馬'} (対戦相手)</td>
+          <td>${oppHorse.sex || '牡'}</td>
+          <td>${oppPt}</td>
+          <td>${oppStyle}</td>
+        </tr>
+      `;
+
+      mobIds.forEach((mId) => {
+        const mHorse = HORSES_MASTER[String(mId)] || {};
+        gridRowsHtml += `
+          <tr>
+            <td>-</td>
+            <td style="text-align:left;">${mHorse.name || 'モブ馬'}</td>
+            <td>${mHorse.sex || '牡'}</td>
+            <td>${getHorsePt(mHorse, race.surface)}</td>
+            <td>${getHorseStyle(mHorse)}</td>
+          </tr>
+        `;
+      });
+
+      card.innerHTML = `
+        <div class="race-info-header">
+          <span class="race-title">第${race.race_num || rIdx+1}戦: ${race.race_name || 'レース'}</span>
+          <div class="race-cond-group">
+            <span class="race-cond-badge ${surfaceClass}">${race.surface || '芝'} ${race.distance || '2000'}m</span>
+            <span class="race-cond-badge cond-${trackCond}">馬場:${trackCond}</span>
+          </div>
+        </div>
+
+        <!-- 出走モブ脚質展開 -->
+        <div class="mob-field-preview">
+          <span style="font-weight:bold; color:var(--accent-color);">🏇 出走モブ脚質分布:</span>
+          <div class="mob-style-counts">
+            <span>逃:${styleCounts["逃げ"]}</span>
+            <span>先:${styleCounts["先行"]}</span>
+            <span>差:${styleCounts["差し"]}</span>
+            <span>追:${styleCounts["追込"]}</span>
+          </div>
+        </div>
+        
+        <div class="my-horse-box">
+          <div class="my-horse-title">出走馬: ${myHorse.name || '未設定'} (Pt:${myPt} / 得意:${myStyle})</div>
+          <div class="strategy-select-group">
+            <select class="select-strat" id="selectStrat${rIdx}" onchange="onStrategyChanged(${rIdx})">
+              ${stratOptionsHtml}
+            </select>
+            <select class="select-level" id="selectLevel${rIdx}" onchange="onStrategyChanged(${rIdx})">
+              ${levelOptionsHtml}
+            </select>
+          </div>
+        </div>
+
+        <details class="race-grid-toggle">
+          <summary class="race-grid-summary">📋 出走メンバー一覧（全16頭）を確認する</summary>
+          <div style="padding: 4px 6px; font-size: 10px; color: #666;">※枠順（馬番）はレース決定時にランダム抽選されます。</div>
+          <table class="race-grid-table">
+            <thead>
+              <tr>
+                <th>馬番</th>
+                <th>馬名</th>
+                <th>性</th>
+                <th>Pt</th>
+                <th>脚質</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${gridRowsHtml}
+            </tbody>
+          </table>
+        </details>
+      `;
+
+      container.appendChild(card);
+    });
+  }
+
+  window.onStrategyChanged = function(rIdx) {
+    const stratVal = document.getElementById(`selectStrat${rIdx}`).value;
+    const levelVal = parseInt(document.getElementById(`selectLevel${rIdx}`).value, 10);
+
+    myStrategies[rIdx].strategy = stratVal;
+    myStrategies[rIdx].strategy_level = levelVal;
+
+    updateTotalStatus();
+  };
+
+  function updateTotalStatus() {
+    let totalLvl = 0;
+    for (let rIdx = 0; rIdx < 5; rIdx++) {
+      const selectLvl = document.getElementById(`selectLevel${rIdx}`);
+      if (selectLvl) {
+        totalLvl += parseInt(selectLvl.value, 10) || 3;
+      }
+    }
+
+    const lvlEl = document.getElementById('totalLevelDisplay');
+    const limitEl = document.getElementById('limitStatus');
+    const goBtn = document.getElementById('btnGoRace');
+
+    lvlEl.textContent = `${totalLvl} / ${MAX_TOTAL_LEVEL}`;
+
+    if (totalLvl > MAX_TOTAL_LEVEL) {
+      lvlEl.className = 'status-val error';
+      limitEl.textContent = '合計オーバー';
+      limitEl.className = 'status-val error';
+      goBtn.disabled = true;
+    } else {
+      lvlEl.className = 'status-val ok';
+      limitEl.textContent = 'OK';
+      limitEl.className = 'status-val ok';
+      goBtn.disabled = false;
+    }
+  }
+
+  // 作戦確定送信
+  window.submitStrategies = async function() {
+    const btn = document.getElementById('btnGoRace');
+    btn.disabled = true;
+    document.getElementById('waitingModal').style.display = 'flex';
+
+    const roomRef = doc(db, "online_matches", roomId);
+    const updateData = (role === 'host') ? {
+      player1_strategies: myStrategies,
+      player1_strategy_ready: true
+    } : {
+      player2_strategies: myStrategies,
+      player2_strategy_ready: true
+    };
+
+    try {
+      await updateDoc(roomRef, updateData);
+    } catch (e) {
+      console.error("作戦保存エラー:", e);
+      alert("通信エラーが発生しました");
+      btn.disabled = false;
+      document.getElementById('waitingModal').style.display = 'none';
+    }
+  };
+
+  // 離脱処理
+  window.leaveMatch = async function() {
+    if (confirm("対戦を途中で退室しますか？（相手には不戦勝となります）")) {
+      isNavigatingAway = true;
+      if (roomId) {
+        try {
+          const roomRef = doc(db, "online_matches", roomId);
+          await updateDoc(roomRef, { status: "cancelled", cancelled_by: currentUser.uid });
+        } catch (e) {}
+      }
+      window.location.href = 'online.html';
+    }
+  };
+
+  window.addEventListener('beforeunload', () => {
+    if (roomId && !isNavigatingAway) {
+      const roomRef = doc(db, "online_matches", roomId);
+      updateDoc(roomRef, { status: "cancelled", cancelled_by: currentUser?.uid || "unknown" });
+    }
+  });
+</script>
+
+</body>
+</html>
