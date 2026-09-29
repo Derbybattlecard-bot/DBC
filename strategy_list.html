@@ -52,14 +52,15 @@
     text-decoration: none;
   }
 
-  /* メインタブ切替 */
+  /* メインタブ切替（1行収まり調整） */
   .view-tabs {
     display: flex;
     gap: 6px;
+    width: 100%;
   }
   .tab-btn {
     flex: 1;
-    padding: 8px 4px;
+    padding: 8px 2px;
     background: rgba(255, 255, 255, 0.7);
     border: 1px solid var(--border-color);
     border-radius: 6px;
@@ -67,7 +68,10 @@
     color: var(--text-sub);
     cursor: pointer;
     text-align: center;
-    font-size: 11.5px;
+    font-size: clamp(11px, 3.2vw, 13px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .tab-btn.active {
     background: var(--accent-color);
@@ -110,19 +114,25 @@
   }
   .filter-btn {
     flex: 1;
-    min-width: 60px;
-    padding: 4px 6px;
-    border: none;
+    min-width: 65px;
+    padding: 5px 6px;
+    border: 1px solid transparent;
     background: transparent;
     border-radius: 4px;
     font-size: 11px;
     font-weight: bold;
     color: var(--text-sub);
     cursor: pointer;
+    text-align: center;
   }
   .filter-btn.active {
     background: #e3f2fd;
     color: #1976d2;
+    border-color: #90caf9;
+  }
+  .filter-btn.locked {
+    opacity: 0.6;
+    background: #f0f0f0;
   }
 
   /* 作戦名鑑カード */
@@ -190,6 +200,12 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+    position: relative;
+  }
+  .ability-card.is-locked {
+    background: rgba(240, 240, 240, 0.85);
+    border-color: #cccccc;
+    opacity: 0.75;
   }
   .ability-header {
     display: flex;
@@ -203,10 +219,21 @@
     font-weight: bold;
     color: var(--accent-color);
   }
+  .ability-card.is-locked .ability-title {
+    color: #666;
+  }
   .ability-category {
     font-size: 10px;
     background: #e2efe3;
     color: var(--accent-color);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+  }
+  .lock-badge {
+    font-size: 10px;
+    background: #e0e0e0;
+    color: #666;
     padding: 2px 6px;
     border-radius: 3px;
     font-weight: bold;
@@ -220,21 +247,10 @@
     border-radius: 4px;
     border-left: 3px solid var(--accent-color);
   }
-  .ability-horses {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px;
-    margin-top: 2px;
-  }
-  .horse-tag {
-    font-size: 9.5px;
-    background: #ffffff;
-    border: 1px solid var(--border-color);
-    color: var(--text-main);
-    padding: 2px 6px;
-    border-radius: 10px;
-    font-weight: bold;
+  .ability-card.is-locked .ability-desc {
+    background: #e9e9e9;
+    border-left-color: #aaa;
+    color: #777;
   }
 
   /* デック出走表スタイル */
@@ -312,11 +328,11 @@
     <div id="syncStatus" style="font-size: 11px; color: var(--text-sub); font-weight: bold;">☁️ 読込中...</div>
   </div>
 
-  <!-- メインタブ切替 -->
+  <!-- メインタブ切替 (名称変更 & 1行に収める設定) -->
   <div class="view-tabs">
-    <div class="tab-btn active" id="tabBtnCatalog" onclick="switchMainTab('catalog')">作戦名鑑 (パラメータ)</div>
-    <div class="tab-btn" id="tabBtnSetting" onclick="switchMainTab('setting')">デック別 初期作戦設定</div>
-    <div class="tab-btn" id="tabBtnAbility" onclick="switchMainTab('ability')">🎴 獲得済アビリティ</div>
+    <div class="tab-btn active" id="tabBtnCatalog" onclick="switchMainTab('catalog')">作戦名鑑</div>
+    <div class="tab-btn" id="tabBtnSetting" onclick="switchMainTab('setting')">初期作戦設定</div>
+    <div class="tab-btn" id="tabBtnAbility" onclick="switchMainTab('ability')">アビリティ図鑑</div>
   </div>
 
   <!-- タブ1: 作戦名鑑 -->
@@ -365,19 +381,20 @@
     </div>
   </div>
 
-  <!-- タブ3: 獲得済アビリティ一覧 -->
+  <!-- タブ3: アビリティ図鑑 (勝利数段階解放) -->
   <div id="tabAbility" style="display: none; flex-direction: column; gap: 10px;">
     <div class="filter-group">
       <button class="filter-btn active" id="abFilterALL" onclick="filterAbilityCategory('ALL')">すべて</button>
-      <button class="filter-btn" id="abFilterStart" onclick="filterAbilityCategory('スタート・枠・馬番系')">スタート系</button>
-      <button class="filter-btn" id="abFilterField" onclick="filterAbilityCategory('競馬場・コース・環境系')">競馬場・環境</button>
-      <button class="filter-btn" id="abFilterStyle" onclick="filterAbilityCategory('脚質・距離・スピード系')">脚質・スピード</button>
-      <button class="filter-btn" id="abFilterMental" onclick="filterAbilityCategory('精神力・タイプ・実績系')">精神・実績</button>
-      <button class="filter-btn" id="abFilterType" onclick="filterAbilityCategory('芝・ダート・所属・運用特殊系')">特殊・タイプ</button>
+      <button class="filter-btn" id="abFilterStart" onclick="filterAbilityCategory('スタート・枠・馬番系')">スタート<br><small>(10勝~)</small></button>
+      <button class="filter-btn" id="abFilterField" onclick="filterAbilityCategory('競馬場・コース・環境系')">競馬場<br><small>(20勝~)</small></button>
+      <button class="filter-btn" id="abFilterStyle" onclick="filterAbilityCategory('脚質・距離・スピード系')">脚質・距離<br><small>(30勝~)</small></button>
+      <button class="filter-btn" id="abFilterMental" onclick="filterAbilityCategory('精神力・タイプ・実績系')">精神・実績<br><small>(40勝~)</small></button>
+      <button class="filter-btn" id="abFilterType" onclick="filterAbilityCategory('芝・ダート・所属・運用特殊系')">特殊・運用<br><small>(50勝~)</small></button>
     </div>
 
-    <div id="abilityCountNotice" style="font-size: 11px; color: var(--text-sub); font-weight: bold; background: var(--panel-bg); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color);">
-      獲得済馬から解放されたアビリティを表示中
+    <div id="abilityNotice" style="font-size: 11.5px; color: var(--text-main); font-weight: bold; background: var(--panel-bg); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+      <span>🏆 現在の通算勝利数: <span id="userWinsCount" style="color: var(--accent-color); font-size: 14px;">0</span> 勝</span>
+      <span id="unlockProgressText" style="font-size: 10.5px; color: var(--text-sub);"></span>
     </div>
 
     <div id="abilityGrid" class="strategy-grid"></div>
@@ -387,19 +404,28 @@
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc, updateDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   let currentUser = null;
   let globalUserData = null;
   let STRATEGY_MASTER = [];
   let HORSES_MASTER = {};
   let ABILITY_MASTER = {};
-  let obtainedAbilities = {}; // { ability_id: [ horseName1, horseName2 ] }
+  let totalWins = 0; // 通算勝利数
   
   let currentFilter = 'ALL';
   let currentAbilityCategory = 'ALL';
   let activeDeckIdx = 0;
   let chartInstances = [];
+
+  // カテゴリごとの解放必要勝利数設定
+  const UNLOCK_THRESHOLDS = {
+    'スタート・枠・馬番系': 10,
+    '競馬場・コース・環境系': 20,
+    '脚質・距離・スピード系': 30,
+    '精神力・タイプ・実績系': 40,
+    '芝・ダート・所属・運用特殊系': 50
+  };
 
   const STYLE_COLORS = {
     '逃げ': { fill: 'rgba(239, 83, 80, 0.35)', border: '#e53935', point: '#c62828', bg: '#ffebee', badgeText: '#c62828' },
@@ -468,6 +494,13 @@
         globalUserData = userDoc.data();
       }
 
+      // 通算勝利数の取得（total_wins -> wins -> stats.wins のフォールバック）
+      totalWins = Number(
+        globalUserData.total_wins ?? 
+        globalUserData.wins ?? 
+        globalUserData.stats?.wins ?? 0
+      );
+
       if (!globalUserData.decks || !Array.isArray(globalUserData.decks)) {
         globalUserData.decks = [
           { deck_name: "メインデッキ 1", horse_ids: new Array(18).fill(null), default_strategies: new Array(18).fill(null) },
@@ -481,7 +514,7 @@
         while (deck.default_strategies.length < 18) deck.default_strategies.push(null);
       });
 
-      // マスタデータおよびインベントリデータの読み込み
+      // マスタデータの読み込み
       const [stratData, horsesData, abilityData] = await Promise.all([
         fetchJsonSafe('strategy_master.json'),
         fetchJsonSafe('horses_master.json'),
@@ -494,37 +527,6 @@
       if (Array.isArray(horsesData)) {
         horsesData.forEach(h => { HORSES_MASTER[String(h.horse_id ?? h.id)] = h; });
       }
-
-      // 所持インベントリの取得（獲得済み馬のアビリティ抽出用）
-      const inventorySnap = await getDocs(collection(db, `users/${user.uid}/inventory`));
-      const userInventory = {};
-      inventorySnap.forEach(docSnap => {
-        userInventory[docSnap.id] = docSnap.data();
-      });
-
-      // 獲得済みの馬からアビリティを抽出・集計
-      obtainedAbilities = {};
-      Object.keys(HORSES_MASTER).forEach(horseId => {
-        const cardInfo = userInventory[horseId];
-        const count = (typeof cardInfo === 'object' && cardInfo !== null) ? (cardInfo.count || 1) : (cardInfo || 0);
-
-        // 獲得済み（枚数 > 0）の場合
-        if (count > 0) {
-          const horse = HORSES_MASTER[horseId];
-          const horseAbilities = horse.abilities || horse.ability || [];
-          const abList = Array.isArray(horseAbilities) ? horseAbilities : [horseAbilities];
-
-          abList.forEach(abId => {
-            if (!abId) return;
-            if (!obtainedAbilities[abId]) {
-              obtainedAbilities[abId] = [];
-            }
-            if (!obtainedAbilities[abId].includes(horse.name)) {
-              obtainedAbilities[abId].push(horse.name);
-            }
-          });
-        }
-      });
 
       renderStrategyGrid();
       renderDeckHorseSettings();
@@ -647,52 +649,76 @@
     });
   }
 
-  // 獲得済アビリティ描画
+  // アビリティ図鑑描画 (通算勝利数段階アンロック)
   function renderAbilityGrid() {
     const container = document.getElementById('abilityGrid');
     container.innerHTML = '';
 
-    const abKeys = Object.keys(obtainedAbilities);
-    let displayedCount = 0;
+    document.getElementById('userWinsCount').textContent = totalWins;
 
-    if (abKeys.length === 0) {
-      container.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--text-sub); font-weight: bold;">獲得済みの馬の中に所持アビリティが見つかりませんでした。</div>`;
-      document.getElementById('abilityCountNotice').textContent = `獲得済アビリティ: 0 種類`;
+    // 全体ロック判定 (10勝未満の場合)
+    if (totalWins < 10) {
+      document.getElementById('unlockProgressText').textContent = '🔒 図鑑解放まであと ' + (10 - totalWins) + ' 勝';
+      container.innerHTML = `
+        <div style="text-align: center; padding: 30px 15px; background: var(--panel-bg); border-radius: 8px; border: 1px solid var(--border-color);">
+          <div style="font-size: 32px; margin-bottom: 8px;">🔒</div>
+          <div style="font-weight: bold; font-size: 14px; color: var(--accent-color); margin-bottom: 6px;">アビリティ図鑑はまだ未解放です</div>
+          <div style="font-size: 11.5px; color: var(--text-sub);">レースで通算 <strong style="color: #e53935;">10勝</strong> 以上を達成すると図鑑が解放されます。<br>(現在: ${totalWins}勝)</div>
+        </div>
+      `;
       return;
     }
 
-    abKeys.forEach(abId => {
-      const abMaster = ABILITY_MASTER[abId];
-      if (!abMaster) return;
+    // 進行度テキストの更新
+    if (totalWins >= 50) {
+      document.getElementById('unlockProgressText').textContent = '🎉 全カテゴリ解放済み！';
+    } else {
+      const nextThreshold = [10, 20, 30, 40, 50].find(t => totalWins < t);
+      document.getElementById('unlockProgressText').textContent = `次カテゴリ解放まで あと ${nextThreshold - totalWins} 勝`;
+    }
 
-      if (currentAbilityCategory !== 'ALL' && abMaster.category !== currentAbilityCategory) {
+    const abEntries = Object.entries(ABILITY_MASTER);
+    let displayedCount = 0;
+
+    abEntries.forEach(([abId, abMaster]) => {
+      const category = abMaster.category || '特殊';
+      const reqWins = UNLOCK_THRESHOLDS[category] || 10;
+      const isLocked = totalWins < reqWins;
+
+      // フィルター適用
+      if (currentAbilityCategory !== 'ALL' && category !== currentAbilityCategory) {
         return;
       }
 
       displayedCount++;
-      const horsesList = obtainedAbilities[abId];
-      const horseTagsHtml = horsesList.map(hName => `<span class="horse-tag">🏇 ${hName}</span>`).join('');
 
       const card = document.createElement('div');
-      card.className = 'ability-card';
-      card.innerHTML = `
-        <div class="ability-header">
-          <span class="ability-title">✨ ${abMaster.name}</span>
-          <span class="ability-category">${abMaster.category || '特殊'}</span>
-        </div>
-        <div class="ability-desc">
-          ${abMaster.description}
-        </div>
-        <div class="ability-horses">
-          <span style="font-size: 10px; font-weight: bold; color: var(--text-sub);">所持馬:</span>
-          ${horseTagsHtml}
-        </div>
-      `;
+      card.className = `ability-card ${isLocked ? 'is-locked' : ''}`;
+      
+      if (isLocked) {
+        card.innerHTML = `
+          <div class="ability-header">
+            <span class="ability-title">🔒 ？？？？？</span>
+            <span class="lock-badge">🔒 通算 ${reqWins}勝で解放</span>
+          </div>
+          <div class="ability-desc">
+            通算 <strong>${reqWins}勝</strong> を達成するとこのアビリティの詳細が解放されます。（現在: ${totalWins}勝）
+          </div>
+        `;
+      } else {
+        card.innerHTML = `
+          <div class="ability-header">
+            <span class="ability-title">✨ ${abMaster.name}</span>
+            <span class="ability-category">${category}</span>
+          </div>
+          <div class="ability-desc">
+            ${abMaster.description}
+          </div>
+        `;
+      }
 
       container.appendChild(card);
     });
-
-    document.getElementById('abilityCountNotice').textContent = `獲得済アビリティ: ${displayedCount} 種類 表示中`;
 
     if (displayedCount === 0) {
       container.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--text-sub); font-weight: bold;">該当するカテゴリのアビリティはありません。</div>`;
