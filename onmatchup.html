@@ -181,7 +181,7 @@
 
   .btn-giveup {
     flex: 1;
-    background: #fef2f2;
+    background: #ffffff;
     color: var(--danger-color);
     border: 1.5px solid var(--danger-color);
     padding: 15px;
@@ -235,7 +235,7 @@
   <div id="entryList" style="display:flex; flex-direction:column; gap:10px;"></div>
 
   <div class="action-group">
-    <button class="btn-giveup" onclick="giveupEntries()">戦術的不戦敗<br><small style="font-size:9px; font-weight:normal;">(温存・ギブアップ)</small></button>
+    <button class="btn-giveup" onclick="leaveMatch()">辞退・退室</button>
     <button class="btn-submit" id="btnBattleStart" disabled onclick="submitEntries()">エントリー完了</button>
   </div>
 </div>
@@ -261,6 +261,10 @@
   
   let matchRaces = []; // 5戦分の合成レースデータ
   let deckHorses = [];
+  let playerDeckIds = [];
+  let oppDeckIds = [];
+  let oppSelectedEntries = [null, null, null, null, null]; // 相手の仮選択(ドラフト)状況
+
   let selectedEntries = [null, null, null, null, null];
   let racesMobData = {}; 
   let racesTrackConditions = [];
@@ -295,7 +299,6 @@
         fetchJsonSafe('horses_master.json')
       ]);
 
-      // シリーズマスタをIDキーのオブジェクトに変換
       if (Array.isArray(seriesData)) {
         seriesData.forEach(s => { SERIES_MASTER[s.series_id || s.id] = s; });
       } else {
@@ -326,18 +329,22 @@
 
     const roomData = roomSnap.data();
 
-    // 対戦相手の名前表示
-    const opponentUid = (role === 'host') ? roomData.guest_uid : roomData.host_uid;
-    if (opponentUid) {
+    // 対戦相手の名前の表示設定
+    const oppUid = (role === 'host') ? (roomData.guest_uid || roomData.player2_uid) : (roomData.host_uid || roomData.player1_uid);
+    let oppName = (role === 'host') ? (roomData.guest_name || roomData.player2_name) : (roomData.host_name || roomData.player1_name);
+    
+    if (oppUid) {
       try {
-        const oppDoc = await getDoc(doc(db, "users", opponentUid));
-        if (oppDoc.exists() && oppDoc.data().username) {
-          document.getElementById('opponentName').textContent = oppDoc.data().username;
+        const oppUserSnap = await getDoc(doc(db, "users", oppUid));
+        if (oppUserSnap.exists()) {
+          const uData = oppUserSnap.data();
+          oppName = uData.nickname || uData.displayName || uData.name || oppName || "対戦相手";
         }
-      } catch(e) {}
+      } catch (err) {}
     }
+    document.getElementById('opponentName').textContent = oppName || "対戦相手";
 
-    // 1. match_series（5戦分のシリーズID配列）から5戦分のレースデータを合成
+    // 1. 5戦分のレースデータを合成
     const matchSeriesIds = roomData.match_series || ["series_01", "series_01", "series_01", "series_01", "series_01"];
     matchRaces = matchSeriesIds.map((sId, index) => {
       const sObj = SERIES_MASTER[sId] || Object.values(SERIES_MASTER)[0];
@@ -355,9 +362,11 @@
       };
     });
 
-    // 2. 自分のデッキ馬を取得
-    const playerDeckIds = (role === 'host') ? roomData.player1_deck : roomData.player2_deck;
-    deckHorses = (playerDeckIds || []).map(id => HORSES_MASTER[id]).filter(h => h !== undefined);
+    // 2. 自分と相手のデッキ馬のID配列を取得
+    playerDeckIds = (role === 'host') ? (roomData.player1_deck || []) : (roomData.player2_deck || []);
+    oppDeckIds = (role === 'host') ? (roomData.player2_deck || []) : (roomData.player1_deck || []);
+
+    deckHorses = playerDeckIds.map(id => HORSES_MASTER[id]).filter(h => h !== undefined);
 
     // 3. モブ馬と馬場状態の共有生成（ホスト側で一括生成）
     if (role === 'host' && !roomData.races_mob_ids) {
@@ -452,6 +461,16 @@
         return;
       }
 
+      // 相手のリアルタイム仮選択(ドラフト)状況の更新
+      const newOppDraft = (role === 'host') 
+        ? (data.player2_draft || data.player2_entries || [null, null, null, null, null])
+        : (data.player1_draft || data.player1_entries || [null, null, null, null, null]);
+
+      if (JSON.stringify(oppSelectedEntries) !== JSON.stringify(newOppDraft)) {
+        oppSelectedEntries = newOppDraft;
+        populateDropdowns(); // 相手の選択状況が変わったら自分の選択肢を動的更新
+      }
+
       const opponentReady = (role === 'host') ? data.player2_matchup_ready : data.player1_matchup_ready;
       const badge = document.getElementById('opponentStatusBadge');
       if (badge) {
@@ -487,6 +506,36 @@
     return sexLimit.includes("牝") ? isMare : !isMare;
   }
   function getHorseLegStyle(horse) { return horse?.style || horse?.running_style || '-'; }
+
+  // ─── かぶり馬のプライオリティ（デック位置）判定 ───
+  function checkDuplicateHorsePriority(horseId) {
+    const myIdx = playerDeckIds.findIndex(id => String(id) === String(horseId));
+    const oppIdx = oppDeckIds.findIndex(id => String(id) === String(horseId));
+
+    // 相手のデックにこの馬が含まれていない場合は無条件で使用可能
+    if (oppIdx === -1) return { canUse: true };
+
+    // デック内の位置（インデックス）を比較：小さい（上にある）方が優先
+    if (myIdx < oppIdx) {
+      return { canUse: true };
+    } else if (myIdx > oppIdx) {
+      // 相手の方がデックの上にある場合：相手が既にいずれかの枠で「使用済（選択）」していれば自分も使用可
+      const isOpponentUsed = oppSelectedEntries.some(id => String(id) === String(horseId));
+      if (isOpponentUsed) {
+        return { canUse: true };
+      } else {
+        return { canUse: false, reason: "相手優先" };
+      }
+    } else {
+      // 全く同じインデックス位置の場合はホスト優先
+      if (role === 'host') {
+        return { canUse: true };
+      } else {
+        const isOpponentUsed = oppSelectedEntries.some(id => String(id) === String(horseId));
+        return isOpponentUsed ? { canUse: true } : { canUse: false, reason: "相手優先" };
+      }
+    }
+  }
 
   // ─── UI表示 ───
   function renderEntryCards() {
@@ -561,12 +610,16 @@
           opt.value = horse.horse_id;
           const info = `${horse.name} (${surfaceLabel}${pt} / ${legStyle} / ${horse.sex || '牡'})`;
 
+          const priorityCheck = checkDuplicateHorsePriority(horse.horse_id);
+
           if (!isValidSex(horse.sex, raceSexLimit)) {
             opt.textContent = `[性別不可] ${info}`; opt.disabled = true;
           } else if (!isValidSurface(horse, race.surface)) {
             opt.textContent = `[馬場不可] ${info}`; opt.disabled = true;
           } else if (pt < minPtPerRace) {
             opt.textContent = `[Pt不足] ${info}`; opt.disabled = true;
+          } else if (!priorityCheck.canUse) {
+            opt.textContent = `[相手優先] ${info}`; opt.disabled = true;
           } else {
             opt.textContent = info;
           }
@@ -580,8 +633,13 @@
 
   window.onHorseSelected = function(raceIdx, horseId) {
     selectedEntries[raceIdx] = horseId || null;
+
+    // 自分の選択状況(ドラフト)をリアルタイムにFirestoreに同期
+    const roomRef = doc(db, "online_matches", roomId);
+    const draftField = (role === 'host') ? { player1_draft: selectedEntries } : { player2_draft: selectedEntries };
+    updateDoc(roomRef, draftField).catch(e => console.error("Draft update failed:", e));
+
     const preview = document.getElementById(`previewRace${raceIdx}`);
-    
     if (horseId && HORSES_MASTER[horseId]) {
       const horse = HORSES_MASTER[horseId];
       const race = matchRaces[raceIdx];
@@ -631,35 +689,22 @@
     }
   }
 
-  // 通常のエントリー完了
   window.submitEntries = async function() {
     if (selectedEntries.includes(null)) {
       alert("全5戦の出走馬を選択してください。");
       return;
     }
 
-    sendEntriesToFirestore(selectedEntries);
-  };
-
-  // 戦術的不戦敗（全レース未出走扱い）
-  window.giveupEntries = async function() {
-    if (confirm("全5戦を不戦敗（出走馬なし）として確定しますか？\n※競走馬を温存し、次の作戦決定画面へ進みます。")) {
-      // 5戦すべて未選択（null）でエントリー送信
-      sendEntriesToFirestore([null, null, null, null, null]);
-    }
-  };
-
-  async function sendEntriesToFirestore(entries) {
     const startBtn = document.getElementById('btnBattleStart');
-    if (startBtn) startBtn.disabled = true;
+    startBtn.disabled = true;
     document.getElementById('waitingModal').style.display = 'flex';
 
     const roomRef = doc(db, "online_matches", roomId);
     const updateData = (role === 'host') ? {
-      player1_entries: entries,
+      player1_entries: selectedEntries,
       player1_matchup_ready: true
     } : {
-      player2_entries: entries,
+      player2_entries: selectedEntries,
       player2_matchup_ready: true
     };
 
@@ -668,14 +713,13 @@
     } catch (err) {
       console.error("エントリー保存エラー:", err);
       alert("通信エラーが発生しました。");
-      if (startBtn) startBtn.disabled = false;
+      startBtn.disabled = false;
       document.getElementById('waitingModal').style.display = 'none';
     }
-  }
+  };
 
-  // 対戦辞退（部屋を抜ける・キャンセル）
   window.leaveMatch = async function() {
-    if (confirm("対戦を辞退して退室しますか？\n（対戦自体がキャンセルになります）")) {
+    if (confirm("対戦を辞退して退室しますか？")) {
       isNavigatingAway = true;
       if (roomId) {
         try {
