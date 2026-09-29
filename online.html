@@ -250,7 +250,7 @@
     document.getElementById('searchingModal').style.display = "none";
   };
 
-  // 画面移動・タブ閉じ時の自動キュー削除処理（対戦画面への自動遷移時は削除を除外）
+  // 画面移動・タブ閉じ時の自動キュー削除処理
   window.addEventListener('beforeunload', () => {
     if (currentQueueId && !isNavigatingToBattle) {
       deleteDoc(doc(db, "match_queue", currentQueueId));
@@ -259,60 +259,6 @@
 
   function proceedToBattle(roomId, role, mode) {
     isNavigatingToBattle = true;
-    if (matchingUnsubscribe) matchingUnsubscribe();
-    window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${mode}`;
-  }
-</script>
-
-</body>
-</html>
-c(doc(db, "online_matches", roomId), {
-          player1: hostUid,
-          player2: currentUser.uid,
-          mode: matchedMode,
-          status: "ready",
-          created_at: new Date().toISOString()
-        });
-
-        proceedToBattle(roomId, "guest", matchedMode);
-      } else {
-        // 自身がホストとして待機
-        await setDoc(queueRef, {
-          host_uid: currentUser.uid,
-          mode: targetMode,
-          created_at: new Date().toISOString()
-        });
-
-        matchingUnsubscribe = onSnapshot(queueRef, (docSnap) => {
-          if (!docSnap.exists()) {
-            proceedToBattle(currentQueueId, "host", targetMode);
-          }
-        });
-      }
-    } catch (err) {
-      console.error("マッチングエラー:", err);
-      alert("マッチング処理に失敗しました");
-      cancelMatching();
-    }
-  };
-
-  window.cancelMatching = async function() {
-    if (matchingUnsubscribe) { matchingUnsubscribe(); matchingUnsubscribe = null; }
-    if (currentQueueId) {
-      try { await deleteDoc(doc(db, "match_queue", currentQueueId)); } catch (e) {}
-      currentQueueId = null;
-    }
-    document.getElementById('searchingModal').style.display = "none";
-  };
-
-  // 画面移動・タブ閉じ時の自動キュー削除処理
-  window.addEventListener('beforeunload', () => {
-    if (currentQueueId) {
-      deleteDoc(doc(db, "match_queue", currentQueueId));
-    }
-  });
-
-  function proceedToBattle(roomId, role, mode) {
     if (matchingUnsubscribe) matchingUnsubscribe();
     window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${mode}`;
   }
