@@ -424,9 +424,14 @@
     }
   };
 
-  window.addEventListener('beforeunload', () => {
+  // 離脱・リロード対策（誤操作による即時キャンセルを防止する確認ダイアログを表示）
+  window.addEventListener('beforeunload', (e) => {
     if (roomId && !isNavigatingAway) {
       updateDoc(doc(db, "online_matches", roomId), { status: "cancelled", cancelled_by: currentUser?.uid || "unknown" });
+      
+      // ブラウザ標準の「離脱確認ダイアログ」を表示
+      e.preventDefault();
+      e.returnValue = '';
     }
   });
 </script>
