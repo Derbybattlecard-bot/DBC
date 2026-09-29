@@ -256,13 +256,13 @@
 
   let currentUser = null;
   let globalUserData = null;
-  let SERIES_MASTER = [];
+  let SERIES_MASTER = {};
   let HORSES_MASTER = {};
   
-  let currentSeries = null;
+  let matchRaces = []; // 5戦分の合成レースデータ
   let deckHorses = [];
   let selectedEntries = [null, null, null, null, null];
-  let racesMobData = {}; // モブ馬の各レースデータ
+  let racesMobData = {}; 
   let racesTrackConditions = [];
   let roomUnsubscribe = null;
   let isNavigatingAway = false;
@@ -295,7 +295,13 @@
         fetchJsonSafe('horses_master.json')
       ]);
 
-      SERIES_MASTER = seriesData;
+      // シリーズマスタをIDキーのオブジェクトに変換
+      if (Array.isArray(seriesData)) {
+        seriesData.forEach(s => { SERIES_MASTER[s.series_id || s.id] = s; });
+      } else {
+        SERIES_MASTER = seriesData;
+      }
+
       if (Array.isArray(horsesData)) {
         horsesData.forEach(h => { HORSES_MASTER[h.horse_id] = h; });
       }
@@ -319,18 +325,35 @@
     }
 
     const roomData = roomSnap.data();
-    
-    // シリーズの確定 (指定がなければデフォルト)
-    const seriesId = roomData.series_id || "series_01";
-    currentSeries = SERIES_MASTER.find(s => s.series_id === seriesId) || SERIES_MASTER[0];
 
-    // 使用デッキ馬の読み込み (onbattle.htmlからセットされたもの)
+    // 1. match_series（5戦分のシリーズID配列）から5戦分のレースデータを合成
+    const matchSeriesIds = roomData.match_series || ["series_01", "series_01", "series_01", "series_01", "series_01"];
+    matchRaces = matchSeriesIds.map((sId, index) => {
+      const sObj = SERIES_MASTER[sId] || Object.values(SERIES_MASTER)[0];
+      // シリーズ内の最初のレース情報（または対象レース）を取得
+      const raceInfo = (sObj.rounds && sObj.rounds[0] && sObj.rounds[0].races && sObj.rounds[0].races[0]) 
+                        ? sObj.rounds[0].races[0] 
+                        : (sObj.races ? sObj.races[0] : {});
+
+      return {
+        race_num: index + 1,
+        race_name: raceInfo.race_name || raceInfo.name || `第${index + 1}戦`,
+        surface: raceInfo.surface || "芝",
+        distance: raceInfo.distance || 2000,
+        sex: raceInfo.sex || sObj.sex || "制限なし",
+        series_name: sObj.series_name || sObj.name || ""
+      };
+    });
+
+    // 2. 自分のデッキ馬を取得
     const playerDeckIds = (role === 'host') ? roomData.player1_deck : roomData.player2_deck;
     deckHorses = (playerDeckIds || []).map(id => HORSES_MASTER[id]).filter(h => h !== undefined);
 
-    // モブ馬と馬場状態の共有生成（ホストが生成して保存）
+    // 3. モブ馬と馬場状態の共有生成（ホスト側で一括生成）
     if (role === 'host' && !roomData.races_mob_ids) {
-      const { mobIds, trackConditions } = generateSharedMobsAndTrack(currentSeries);
+      const excludedIds = await fetchAllPlayersDeckHorseIds(roomData);
+      const { mobIds, trackConditions } = generateSharedMobsAndTrack(matchRaces, excludedIds);
+      
       await updateDoc(roomRef, {
         races_mob_ids: mobIds,
         races_track_conditions: trackConditions
@@ -347,52 +370,47 @@
     listenRoomStatus();
   }
 
-  // リアルタイム通信・離脱検知
-  function listenRoomStatus() {
-    const roomRef = doc(db, "online_matches", roomId);
-    roomUnsubscribe = onSnapshot(roomRef, (snapshot) => {
-      if (!snapshot.exists()) return;
-      const data = snapshot.data();
+  // 全プレイヤーのデッキ馬IDを取得（除外用）
+  async function fetchAllPlayersDeckHorseIds(roomData) {
+    const excludedSet = new Set();
+    const p1Uid = roomData.host_uid || roomData.player1_uid;
+    const p2Uid = roomData.guest_uid || roomData.player2_uid;
 
-      if (data.status === "cancelled") {
-        if (!isNavigatingAway) {
-          isNavigatingAway = true;
-          alert("対戦相手が切断・離脱しました。");
-          window.location.href = 'online.html';
+    try {
+      const docs = await Promise.all([
+        p1Uid ? getDoc(doc(db, "users", p1Uid)) : null,
+        p2Uid ? getDoc(doc(db, "users", p2Uid)) : null
+      ]);
+
+      docs.forEach(userDoc => {
+        if (userDoc && userDoc.exists()) {
+          const decks = userDoc.data().decks || [];
+          decks.forEach(deck => {
+            (deck.horse_ids || []).forEach(hId => {
+              if (hId !== null && hId !== undefined) excludedSet.add(String(hId));
+            });
+          });
         }
-        return;
-      }
+      });
+    } catch (err) {
+      console.error("全デック馬ID取得失敗:", err);
+    }
 
-      // 相手のエントリー状態更新
-      const opponentReady = (role === 'host') ? data.player2_matchup_ready : data.player1_matchup_ready;
-      const badge = document.getElementById('opponentStatusBadge');
-      if (opponentReady) {
-        badge.textContent = "エントリー完了！";
-        badge.className = "opponent-badge ready";
-      } else {
-        badge.textContent = "選定中…";
-        badge.className = "opponent-badge selecting";
-      }
+    (roomData.player1_deck || []).forEach(id => excludedSet.add(String(id)));
+    (roomData.player2_deck || []).forEach(id => excludedSet.add(String(id)));
 
-      // 両者の準備完了で作戦画面へ移行
-      if (data.player1_matchup_ready && data.player2_matchup_ready) {
-        if (roomUnsubscribe) roomUnsubscribe();
-        isNavigatingAway = true;
-        window.location.href = `onstrategy.html?roomId=${roomId}&role=${role}`;
-      }
-    });
+    return excludedSet;
   }
 
-  // ─── モブ馬 & 馬場状態生成 ───
-  function generateSharedMobsAndTrack(series) {
+  function generateSharedMobsAndTrack(races, excludedIds) {
     const allHorses = Object.values(HORSES_MASTER);
-    const races = series.rounds[0].races;
     const mobIds = {};
 
     races.forEach((race, rIdx) => {
       const mobPool = allHorses.filter(h => {
-        const pt = getHorsePotential(h, race.surface);
-        return pt > 0;
+        const hId = String(h.horse_id);
+        if (excludedIds.has(hId)) return false;
+        return getHorsePotential(h, race.surface) > 0;
       }).sort(() => Math.random() - 0.5);
 
       const selected = mobPool.slice(0, 14).map(m => String(m.horse_id));
@@ -408,6 +426,41 @@
     });
 
     return { mobIds, trackConditions };
+  }
+
+  function listenRoomStatus() {
+    const roomRef = doc(db, "online_matches", roomId);
+    roomUnsubscribe = onSnapshot(roomRef, (snapshot) => {
+      if (!snapshot.exists()) return;
+      const data = snapshot.data();
+
+      if (data.status === "cancelled") {
+        if (!isNavigatingAway) {
+          isNavigatingAway = true;
+          alert("対戦相手が切断・離脱しました。");
+          window.location.href = 'online.html';
+        }
+        return;
+      }
+
+      const opponentReady = (role === 'host') ? data.player2_matchup_ready : data.player1_matchup_ready;
+      const badge = document.getElementById('opponentStatusBadge');
+      if (badge) {
+        if (opponentReady) {
+          badge.textContent = "エントリー完了！";
+          badge.className = "opponent-badge ready";
+        } else {
+          badge.textContent = "選定中…";
+          badge.className = "opponent-badge selecting";
+        }
+      }
+
+      if (data.player1_matchup_ready && data.player2_matchup_ready) {
+        if (roomUnsubscribe) roomUnsubscribe();
+        isNavigatingAway = true;
+        window.location.href = `onstrategy.html?roomId=${roomId}&role=${role}`;
+      }
+    });
   }
 
   // ─── 汎用判定ロジック ───
@@ -428,18 +481,16 @@
 
   // ─── UI表示 ───
   function renderEntryCards() {
-    const races = currentSeries.rounds[0].races;
     const container = document.getElementById('entryList');
     container.innerHTML = '';
 
-    races.forEach((race, rIdx) => {
+    matchRaces.forEach((race, rIdx) => {
       const card = document.createElement('div');
       card.className = 'entry-card';
 
       const surfaceClass = (race.surface && race.surface.includes('芝')) ? 'surface-turf' : 'surface-dirt';
       const trackCond = racesTrackConditions[rIdx] || '良';
 
-      // モブ馬の脚質集計（戦略用）
       const mobList = racesMobData[rIdx] || [];
       const styleCounts = { "逃げ": 0, "先行": 0, "差し": 0, "追込": 0 };
       mobList.forEach(mId => {
@@ -450,11 +501,10 @@
 
       card.innerHTML = `
         <div class="race-info-header">
-          <span class="race-title">第${race.race_num}戦: ${race.race_name}</span>
+          <span class="race-title">第${race.race_num}戦: ${race.race_name} <small style="font-weight:normal; font-size:10px; color:#6b7280;">(${race.series_name})</small></span>
           <span class="race-cond-badge ${surfaceClass}">${race.surface} ${race.distance}m [${trackCond}]</span>
         </div>
         
-        <!-- 出走モブ馬展開プレビュー -->
         <div class="mob-field-preview">
           <span style="font-weight:bold; color:var(--accent-color);">🏇 出走モブ展開:</span>
           <div class="mob-style-counts">
@@ -480,13 +530,14 @@
   }
 
   function populateDropdowns() {
-    const races = currentSeries.rounds[0].races;
-    const limits = currentSeries.potential_limit || { min_potential_per_race: 15 };
+    const minPtPerRace = 15;
 
-    races.forEach((race, rIdx) => {
+    matchRaces.forEach((race, rIdx) => {
       const select = document.getElementById(`selectRace${rIdx}`);
+      if (!select) return;
+      
       const currentVal = selectedEntries[rIdx];
-      const raceSexLimit = race.sex || currentSeries.sex || "制限なし";
+      const raceSexLimit = race.sex || "制限なし";
       const surfaceLabel = getSurfaceLabel(race.surface);
 
       select.innerHTML = '<option value="">-- 出走馬を選択してください --</option>';
@@ -505,7 +556,7 @@
             opt.textContent = `[性別不可] ${info}`; opt.disabled = true;
           } else if (!isValidSurface(horse, race.surface)) {
             opt.textContent = `[馬場不可] ${info}`; opt.disabled = true;
-          } else if (pt < limits.min_potential_per_race) {
+          } else if (pt < minPtPerRace) {
             opt.textContent = `[Pt不足] ${info}`; opt.disabled = true;
           } else {
             opt.textContent = info;
@@ -524,7 +575,7 @@
     
     if (horseId && HORSES_MASTER[horseId]) {
       const horse = HORSES_MASTER[horseId];
-      const race = currentSeries.rounds[0].races[raceIdx];
+      const race = matchRaces[raceIdx];
       const pt = getHorsePotential(horse, race.surface);
       preview.innerHTML = `
         <span><strong>${getSurfaceLabel(race.surface)}${pt}</strong> | 脚質: <strong>${getHorseLegStyle(horse)}</strong> | 性: <strong>${horse.sex||'牡'}</strong></span>
@@ -539,134 +590,80 @@
   };
 
   function updateStatus() {
-    const races = currentSeries.rounds[0].races;
-    const limits = currentSeries.potential_limit || { max_total_potential: 95 };
-    
+    const maxTotalPt = 95;
     let totalPt = 0;
     let count = 0;
 
     selectedEntries.forEach((id, rIdx) => {
-      if (id && HORSES_MASTER[id]) {
+      if (id && HORSES_MASTER[id] && matchRaces[rIdx]) {
         count++;
-        totalPt += getHorsePotential(HORSES_MASTER[id], races[rIdx].surface);
+        totalPt += getHorsePotential(HORSES_MASTER[id], matchRaces[rIdx].surface);
       }
     });
 
     document.getElementById('registeredCount').textContent = `${count} / 5`;
     const ptEl = document.getElementById('totalPotential');
-    ptEl.textContent = `${totalPt} / ${limits.max_total_potential}`;
+    ptEl.textContent = `${totalPt} / ${maxTotalPt}`;
 
     const limitEl = document.getElementById('limitStatus');
     const startBtn = document.getElementById('btnBattleStart');
 
-  async function initMatchup() {
-    const roomRef = doc(db, "online_matches", roomId);
-    const roomSnap = await getDoc(roomRef);
+    const isAllSelected = count === 5;
+    const isPtValid = totalPt <= maxTotalPt;
 
-    if (!roomSnap.exists()) {
-      alert("対戦ルームが存在しません");
-      window.location.href = 'online.html';
+    if (isAllSelected && isPtValid) {
+      limitEl.textContent = "OK";
+      limitEl.className = "status-val ok";
+      startBtn.disabled = false;
+    } else {
+      limitEl.textContent = !isPtValid ? "Pt超過" : "未完了";
+      limitEl.className = "status-val error";
+      startBtn.disabled = true;
+    }
+  }
+
+  window.submitEntries = async function() {
+    if (selectedEntries.includes(null)) {
+      alert("全5戦の出走馬を選択してください。");
       return;
     }
 
-    const roomData = roomSnap.data();
-    const seriesId = roomData.series_id || "series_01";
-    currentSeries = SERIES_MASTER.find(s => s.series_id === seriesId) || SERIES_MASTER[0];
+    const startBtn = document.getElementById('btnBattleStart');
+    startBtn.disabled = true;
+    document.getElementById('waitingModal').style.display = 'flex';
 
-    // 自分の選択中デッキ馬の読み込み
-    const playerDeckIds = (role === 'host') ? roomData.player1_deck : roomData.player2_deck;
-    deckHorses = (playerDeckIds || []).map(id => HORSES_MASTER[id]).filter(h => h !== undefined);
-
-    // モブ馬と馬場状態の共有生成（ホスト側が実行）
-    if (role === 'host' && !roomData.races_mob_ids) {
-      // ① 両プレイヤーの全デック（2デック×2人分）の馬IDをすべて収集
-      const excludedIds = await fetchAllPlayersDeckHorseIds(roomData);
-      
-      // ② デックに含まれる馬をすべて除外した上でモブ馬・馬場状態を生成
-      const { mobIds, trackConditions } = generateSharedMobsAndTrack(currentSeries, excludedIds);
-      
-      await updateDoc(roomRef, {
-        races_mob_ids: mobIds,
-        races_track_conditions: trackConditions
-      });
-      racesMobData = mobIds;
-      racesTrackConditions = trackConditions;
-    } else {
-      racesMobData = roomData.races_mob_ids || {};
-      racesTrackConditions = roomData.races_track_conditions || Array(5).fill('良');
-    }
-
-    renderEntryCards();
-    updateStatus();
-    listenRoomStatus();
-  }
-
-  // 両プレイヤーの全デック（2デック×2名＝計4デック分）の馬IDを抽出
-  async function fetchAllPlayersDeckHorseIds(roomData) {
-    const excludedSet = new Set();
-    const p1Uid = roomData.host_uid || roomData.player1_uid;
-    const p2Uid = roomData.guest_uid || roomData.player2_uid;
+    const roomRef = doc(db, "online_matches", roomId);
+    const updateData = (role === 'host') ? {
+      player1_entries: selectedEntries,
+      player1_matchup_ready: true
+    } : {
+      player2_entries: selectedEntries,
+      player2_matchup_ready: true
+    };
 
     try {
-      const docs = await Promise.all([
-        p1Uid ? getDoc(doc(db, "users", p1Uid)) : null,
-        p2Uid ? getDoc(doc(db, "users", p2Uid)) : null
-      ]);
-
-      docs.forEach(userDoc => {
-        if (userDoc && userDoc.exists()) {
-          const decks = userDoc.data().decks || [];
-          decks.forEach(deck => {
-            (deck.horse_ids || []).forEach(hId => {
-              if (hId !== null && hId !== undefined) {
-                excludedSet.add(String(hId));
-              }
-            });
-          });
-        }
-      });
+      await updateDoc(roomRef, updateData);
     } catch (err) {
-      console.error("全デック馬ID取得失敗:", err);
+      console.error("エントリー保存エラー:", err);
+      alert("通信エラーが発生しました。");
+      startBtn.disabled = false;
+      document.getElementById('waitingModal').style.display = 'none';
     }
+  };
 
-    // 選択済みのメインデックデータからもフォールバック追加
-    (roomData.player1_deck || []).forEach(id => excludedSet.add(String(id)));
-    (roomData.player2_deck || []).forEach(id => excludedSet.add(String(id)));
-
-    return excludedSet;
-  }
-
-  // モブ馬生成（除外リスト適用）
-  function generateSharedMobsAndTrack(series, excludedIds) {
-    const allHorses = Object.values(HORSES_MASTER);
-    const races = series.rounds[0].races;
-    const mobIds = {};
-
-    races.forEach((race, rIdx) => {
-      // お互いのデックに含まれる馬（excludedIds）を完全排除
-      const mobPool = allHorses.filter(h => {
-        const hId = String(h.horse_id);
-        if (excludedIds.has(hId)) return false; // 重複除外
-
-        const pt = getHorsePotential(h, race.surface);
-        return pt > 0;
-      }).sort(() => Math.random() - 0.5);
-
-      const selected = mobPool.slice(0, 14).map(m => String(m.horse_id));
-      while (selected.length < 14) selected.push("0000");
-      mobIds[rIdx] = selected;
-    });
-
-    const trackConditions = Array.from({ length: 5 }, () => {
-      const rand = Math.random() * 100;
-      if (rand < 75) return '良';
-      if (rand < 93) return '稍重';
-      return '重';
-    });
-
-    return { mobIds, trackConditions };
-  }
+  window.leaveMatch = async function() {
+    if (confirm("対戦を辞退して退室しますか？")) {
+      isNavigatingAway = true;
+      if (roomId) {
+        try {
+          await updateDoc(doc(db, "online_matches", roomId), { status: "cancelled", cancelled_by: currentUser.uid });
+        } catch (e) {}
+      }
+      window.location.href = 'online.html';
+    }
+  };
 </script>
+
 
 </body>
 </html>
