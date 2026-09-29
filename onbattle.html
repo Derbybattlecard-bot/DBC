@@ -14,6 +14,7 @@
     --accent-orange-hover: #ea580c;
     --text-main: #1e1b4b;
     --border-color: #ddd6fe;
+    --danger-color: #ef4444;
   }
   body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--bg-gradient); color: var(--text-main); margin: 0; padding: 15px; font-size: 13px; display: flex; justify-content: center; min-height: 100vh; }
   .container { display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 720px; padding-bottom: 30px; }
@@ -22,25 +23,35 @@
   .btn-back { background: #ffffff; color: var(--accent-color); border: 1.5px solid var(--accent-color); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; text-decoration: none; }
   .header-right { display: flex; align-items: center; gap: 8px; }
   .wins-badge { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #78350f; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid #d97706; }
-  .streak-badge { background: linear-gradient(135deg, #f97316, #fdba74); color: #7c2d12; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid #ea580c; }
 
   .challenge-panel { background-color: var(--panel-bg); border: 2px solid var(--accent-color); border-radius: 12px; padding: 18px; text-align: center; position: relative; box-shadow: 0 6px 16px rgba(0,0,0,0.2); }
   .challenge-label { font-size: 12px; font-weight: bold; color: #6b7280; margin-bottom: 2px; }
   .match-type-tag { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--accent-orange); color: #fff; padding: 4px 14px; border-radius: 12px; font-size: 11px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
-  
   .series-title { font-size: 18px; font-weight: bold; color: var(--accent-color); margin-bottom: 10px; margin-top: 4px; }
   
+  /* デッキ選択パネル */
   .deck-select-panel { background-color: var(--panel-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
   .deck-options { display: flex; gap: 10px; }
   .deck-card { flex: 1; background: #fff; border: 2px solid var(--border-color); border-radius: 8px; padding: 10px; cursor: pointer; text-align: center; transition: all 0.2s; }
   .deck-card.selected { border-color: var(--accent-color); background-color: #faf5ff; box-shadow: 0 0 0 2px var(--accent-color); transform: scale(1.01); }
   .deck-title { font-weight: bold; font-size: 13px; color: var(--accent-color); margin-bottom: 2px; }
 
-  .deck-table-container { background: #ffffff; border: 1px solid var(--border-color); border-radius: 8px; max-height: 320px; overflow-y: auto; }
+  .deck-table-container { background: #ffffff; border: 1px solid var(--border-color); border-radius: 8px; max-height: 220px; overflow-y: auto; }
   .deck-table { width: 100%; border-collapse: collapse; font-size: 10.5px; text-align: center; }
   .deck-table th { background-color: var(--accent-color); color: #ffffff; padding: 6px 2px; position: sticky; top: 0; white-space: nowrap; z-index: 10; }
   .deck-table td { padding: 5px 2px; border-bottom: 1px solid #f3e8ff; white-space: nowrap; }
   .horse-name-cell { text-align: left; font-weight: bold; padding-left: 4px !important; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
+
+  /* シリーズBANパネル */
+  .ban-select-panel { background-color: var(--panel-bg); padding: 15px; border-radius: 12px; border: 2px solid var(--accent-orange); display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+  .ban-title { font-size: 14px; font-weight: bold; color: var(--accent-orange); text-align: center; }
+  .ban-options { display: flex; flex-direction: column; gap: 8px; }
+  .ban-card { background: #fff; border: 2px solid var(--border-color); border-radius: 8px; padding: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; }
+  .ban-card:hover { border-color: var(--accent-orange); }
+  .ban-card.selected { border-color: var(--danger-color); background-color: #fef2f2; }
+  .ban-card-name { font-weight: bold; font-size: 13px; color: var(--text-main); }
+  .ban-tag { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: bold; background: #e5e7eb; color: #4b5563; }
+  .ban-card.selected .ban-tag { background: var(--danger-color); color: #fff; }
 
   .btn-start { background: linear-gradient(135deg, #f97316, #ea580c); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; box-shadow: 0 4px 0 #c2410c; width: 100%; transition: all 0.1s; }
   .btn-start:disabled { background: #9ca3af; box-shadow: none; cursor: not-allowed; }
@@ -61,7 +72,6 @@
     <button class="btn-back" onclick="leaveMatch()">← 辞退して戻る</button>
     <div class="header-right">
       <div id="userWinsBadge" class="wins-badge">通算 0 勝</div>
-      <div id="userMax1stBadge" class="streak-badge">最多1着: 0回</div>     
       <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中</div>
     </div>
   </div>
@@ -70,11 +80,12 @@
     <div class="match-type-tag" id="onlineMatchTag">ONLINE MATCH</div>
     <div class="challenge-label">＼ オンライン対戦 準備画面 ／</div>
     <div class="series-title" id="onlineStatusTitle">対戦相手と接続中…</div>
-    <div style="font-size: 12px; color: #6b7280;" id="onlineSubText">使用するデッキを選択してください</div>
+    <div style="font-size: 12px; color: #6b7280;" id="onlineSubText">デッキとBANシリーズを選択してください</div>
   </div>
 
+  <!-- 1. デッキ選択 -->
   <div class="deck-select-panel" id="deckPanel">
-    <h3 style="margin:0; text-align: center; color: var(--accent-color);">対戦に使用するデッキを選択</h3>
+    <h3 style="margin:0; text-align: center; color: var(--accent-color);">① 使用デッキを選択</h3>
     <div class="deck-options">
       <div class="deck-card selected" id="deckCard0" onclick="selectDeck(0)">
         <div class="deck-title" id="deckName0">メインデッキ 1</div>
@@ -101,6 +112,15 @@
       </table>
     </div>
   </div>
+
+  <!-- 2. シリーズBAN（相手の持ち込みから1つ排除） -->
+  <div class="ban-select-panel" id="banPanel">
+    <div class="ban-title">② 相手のシリーズを1つ除外（BAN）</div>
+    <div style="font-size: 11px; text-align: center; color: #6b7280;">相手が登録した3つのシリーズから、使用させたくないものを1つ選んでください。</div>
+    <div class="ban-options" id="banContainer">
+      <div style="text-align:center; color:#9ca3af; padding:10px;">相手のシリーズ情報を取得中…</div>
+    </div>
+  </div>
   
   <button class="btn-start" id="btnReady" onclick="setPlayerReady()">準備完了（対戦開始）</button>
 </div>
@@ -109,7 +129,7 @@
 <div class="modal-overlay" id="waitingModal">
   <div class="modal-content">
     <div class="spinner"></div>
-    <div style="font-size: 16px; font-weight: bold; color: var(--accent-color); margin-bottom: 6px;">相手の準備完了を待っています…</div>
+    <div style="font-size: 16px; font-weight: bold; color: var(--accent-color); margin-bottom: 6px;">相手の選択・準備完了を待っています…</div>
     <div style="font-size: 12px; color: #6b7280;">しばらくそのままでお待ちください</div>
     <button class="btn-cancel" onclick="leaveMatch()">対戦をキャンセル</button>
   </div>
@@ -123,12 +143,16 @@
   let currentUser = null;
   let globalUserData = {};
   let HORSES_MASTER = {};
+  let SERIES_MASTER = {};
+  
   let selectedDeckIndex = 0;
-  let isNavigatingAway = false;
+  let selectedBanIndex = null; // BAN対象のインデックス(0, 1, 2)
+  let opponentSeriesList = []; // 相手のシリーズ3つ
 
+  let isNavigatingAway = false;
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('roomId');
-  const role = urlParams.get('role'); // host または guest
+  const role = urlParams.get('role'); // 'host' or 'guest'
 
   let roomUnsubscribe = null;
 
@@ -145,8 +169,20 @@
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) globalUserData = userDoc.data();
 
+      // マスタデータ読み込み
       const horsesArr = await fetchJsonSafely('./data/horses_master.json');
       horsesArr.forEach(h => HORSES_MASTER[h.horse_id] = h);
+
+      try {
+        const seriesArr = await fetchJsonSafely('./data/series_master.json');
+        seriesArr.forEach(s => SERIES_MASTER[s.series_id || s.id] = s);
+      } catch (e) {
+        // ダミー/フォールバック
+        SERIES_MASTER = {
+          "s1": { name: "クラシック三冠" }, "s2": { name: "短距離王座" }, "s3": { name: "ダート強者" },
+          "s4": { name: "牝馬限定戦" }, "s5": { name: "長距離ステイヤーズ" }, "s6": { name: "グランプリ" }
+        };
+      }
 
       document.getElementById('syncStatus').textContent = "✅";
       
@@ -154,15 +190,22 @@
       selectDeck(0);
 
       if (roomId) {
+        await registerMySeries();
         initOnlineRoomWatch();
-      } else {
-        document.getElementById('onlineStatusTitle').textContent = "単独テストモード";
       }
     } catch (err) {
       console.error("初期化エラー:", err);
       document.getElementById('syncStatus').textContent = "❌";
     }
   });
+
+  // 自分の登録シリーズ3つをルームに初期登録する
+  async function registerMySeries() {
+    const mySeries = globalUserData.registered_series || ["s1", "s2", "s3"]; // デフォルト例
+    const roomRef = doc(db, "online_matches", roomId);
+    const updateData = (role === 'host') ? { player1_series: mySeries } : { player2_series: mySeries };
+    await setDoc(roomRef, updateData, { merge: true });
+  }
 
   function renderDeckInfo() {
     const decks = globalUserData.decks || [];
@@ -205,12 +248,12 @@
     }
   }
 
-  // Firestoreのルーム状態監視（相手の準備完了・切断を検知）
+  // ルーム状態のリアルタイム監視
   function initOnlineRoomWatch() {
     const roomRef = doc(db, "online_matches", roomId);
     document.getElementById('onlineStatusTitle').textContent = "対戦相手が決定しました！";
 
-    roomUnsubscribe = onSnapshot(roomRef, (snapshot) => {
+    roomUnsubscribe = onSnapshot(roomRef, async (snapshot) => {
       if (!snapshot.exists()) {
         if (!isNavigatingAway) {
           alert("対戦ルームが解散されました。");
@@ -221,38 +264,78 @@
 
       const data = snapshot.data();
 
-      // 相手の離脱検知
       if (data.status === "cancelled") {
         if (!isNavigatingAway) {
           isNavigatingAway = true;
-          alert("対戦相手が退室・退出しました。");
+          alert("対戦相手が退室しました。");
           window.location.href = 'online.html';
         }
         return;
       }
 
-      const p1Ready = data.player1_ready;
-      const p2Ready = data.player2_ready;
+      // 相手のシリーズ取得＆BAN選択UI作成
+      const oppSeries = (role === 'host') ? data.player2_series : data.player1_series;
+      if (oppSeries && oppSeries.length >= 3 && opponentSeriesList.length === 0) {
+        opponentSeriesList = oppSeries;
+        renderBanOptions(oppSeries);
+      }
 
-      // お互いの準備完了検知
-      if (p1Ready && p2Ready) {
-        if (roomUnsubscribe) roomUnsubscribe();
-        isNavigatingAway = true;
-        window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}`;
+      // 双方の準備完了（BAN・デッキ選択完了）判定
+      if (data.player1_ready && data.player2_ready) {
+        // ホスト側が全5戦のシリーズを一括決定して書き込む
+        if (role === 'host' && !data.match_series) {
+          await finalizeMatchSeries(data);
+          return;
+        }
+
+        // シリーズ決定完了後にマッチアップ画面へ遷移
+        if (data.match_series) {
+          if (roomUnsubscribe) roomUnsubscribe();
+          isNavigatingAway = true;
+          window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}`;
+        }
       }
     });
   }
 
-  // 「準備完了」ボタン押下処理
+  // 相手の3つのシリーズを表示
+  function renderBanOptions(seriesList) {
+    const container = document.getElementById('banContainer');
+    container.innerHTML = '';
+
+    seriesList.forEach((sId, idx) => {
+      const seriesObj = SERIES_MASTER[sId] || { name: `シリーズ (${sId})` };
+      const card = document.createElement('div');
+      card.className = 'ban-card';
+      card.id = `banCard_${idx}`;
+      card.onclick = () => selectBan(idx);
+      card.innerHTML = `
+        <span class="ban-card-name">🏆 ${seriesObj.name}</span>
+        <span class="ban-tag">選択してBAN</span>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  window.selectBan = function(idx) {
+    selectedBanIndex = idx;
+    [0, 1, 2].forEach(i => {
+      const el = document.getElementById(`banCard_${i}`);
+      if (el) el.classList.toggle('selected', i === idx);
+    });
+  };
+
+  // 準備完了ボタン
   window.setPlayerReady = async function() {
-    if (!roomId) {
-      alert("ルームIDが存在しません");
+    if (!roomId) return;
+    if (selectedBanIndex === null) {
+      alert("除外（BAN）する相手のシリーズを1つ選択してください。");
       return;
     }
 
     const readyBtn = document.getElementById('btnReady');
     readyBtn.disabled = true;
-    readyBtn.textContent = "準備完了（待機中…）";
+    readyBtn.textContent = "相手の選択を待っています…";
     document.getElementById('waitingModal').style.display = 'flex';
 
     const roomRef = doc(db, "online_matches", roomId);
@@ -261,41 +344,72 @@
     const isHost = (role === 'host');
     const updateData = isHost ? {
       player1_deck: selectedDeck.horse_ids || [],
+      p1_banned_index: selectedBanIndex,
       player1_ready: true
     } : {
       player2_deck: selectedDeck.horse_ids || [],
+      p2_banned_index: selectedBanIndex,
       player2_ready: true
     };
 
     try {
-      await setDoc(roomRef, updateData, { merge: true });
+      await updateDoc(roomRef, updateData);
     } catch (err) {
-      console.error("準備状態更新エラー:", err);
+      console.error("更新エラー:", err);
       alert("通信に失敗しました。");
       readyBtn.disabled = false;
       document.getElementById('waitingModal').style.display = 'none';
     }
   };
 
-  // 離脱・キャンセル処理
+  // 【ホスト限定】5戦分のシリーズ決定ロジック
+  async function finalizeMatchSeries(roomData) {
+    const p1Series = roomData.player1_series; // P1の3つ
+    const p2Series = roomData.player2_series; // P2の3つ
+    
+    // BANされたものを除く（P1がBANしたP2のインデックス / P2がBANしたP1のインデックス）
+    const p1Kept = p1Series.filter((_, idx) => idx !== roomData.p2_banned_index);
+    const p2Kept = p2Series.filter((_, idx) => idx !== roomData.p1_banned_index);
+
+    // 全マスタから1つランダム（既存の4つと重複しないもの）
+    const allSeriesIds = Object.keys(SERIES_MASTER);
+    const existing = new Set([...p1Kept, ...p2Kept]);
+    const candidates = allSeriesIds.filter(id => !existing.has(id));
+    
+    let randomSeries = candidates.length > 0 
+      ? candidates[Math.floor(Math.random() * candidates.length)]
+      : allSeriesIds[Math.floor(Math.random() * allSeriesIds.length)];
+
+    // 5つのシリーズプールを作成してランダムシャッフル
+    const pool = [...p1Kept, ...p2Kept, randomSeries];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+
+    // Firestoreに書き込み
+    const roomRef = doc(db, "online_matches", roomId);
+    await updateDoc(roomRef, {
+      match_series: pool,
+      status: "in_match"
+    });
+  }
+
   window.leaveMatch = async function() {
     if (confirm("対戦を辞退してロビーに戻りますか？")) {
       isNavigatingAway = true;
       if (roomId) {
         try {
-          const roomRef = doc(db, "online_matches", roomId);
-          await updateDoc(roomRef, { status: "cancelled", cancelled_by: currentUser.uid });
+          await updateDoc(doc(db, "online_matches", roomId), { status: "cancelled", cancelled_by: currentUser.uid });
         } catch (e) {}
       }
       window.location.href = 'online.html';
     }
   };
 
-  // ブラウザ閉じ・タブ離脱時の通知処理
   window.addEventListener('beforeunload', () => {
     if (roomId && !isNavigatingAway) {
-      const roomRef = doc(db, "online_matches", roomId);
-      updateDoc(roomRef, { status: "cancelled", cancelled_by: currentUser?.uid || "unknown" });
+      updateDoc(doc(db, "online_matches", roomId), { status: "cancelled", cancelled_by: currentUser?.uid || "unknown" });
     }
   });
 </script>
