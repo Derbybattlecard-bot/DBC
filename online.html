@@ -43,6 +43,7 @@
 
   .btn-match { background: linear-gradient(135deg, #f97316, #ea580c); color: white; border: none; padding: 12px 24px; border-radius: 20px; font-weight: bold; font-size: 14px; cursor: pointer; text-align: center; box-shadow: 0 4px 0 #c2410c; width: 100%; max-width: 280px; transition: all 0.1s; }
   .btn-match:active { transform: translateY(2px); box-shadow: none; }
+  .btn-match:disabled { background: #9ca3af; box-shadow: none; cursor: not-allowed; opacity: 0.6; }
 
   .passcode-input-group { display: flex; gap: 8px; width: 100%; max-width: 280px; justify-content: center; }
   .passcode-input { width: 140px; text-align: center; font-size: 18px; font-weight: bold; letter-spacing: 4px; padding: 8px; border: 2px solid var(--border-color); border-radius: 8px; outline: none; }
@@ -125,9 +126,18 @@
   let matchingUnsubscribe = null;
   let currentQueueId = null;
   let isNavigatingToBattle = false;
+  let isOnlineAvailable = false; // 対戦可能フラグ
 
   let selectedRandomMode = 'light';
   let selectedPrivateMode = 'light';
+
+  // 対戦ボタンを全て無効化する関数
+  function disableMatchButtons() {
+    isOnlineAvailable = false;
+    document.querySelectorAll('.btn-match').forEach(btn => {
+      btn.disabled = true;
+    });
+  }
 
   // モード選択UI切り替え
   window.selectRandomMode = function(mode) {
@@ -155,10 +165,12 @@
         // オンライン対戦用シリーズの設定チェック
         const selectedSeries = userData.selected_online_series || [];
         if (!Array.isArray(selectedSeries) || selectedSeries.length < 3) {
+          disableMatchButtons(); // ボタンを無効化
           alert("オンライン対戦を行うには、シリーズ図鑑で対戦用シリーズを3つ設定する必要があります。");
-          window.location.href = 'status.html'; // ステータス画面にリダイレクト（図鑑画面に飛ばす場合は変更してください）
+          window.location.href = 'index.html'; // index.html へリダイレクト
           return;
         }
+        isOnlineAvailable = true;
       }
       document.getElementById('syncStatus').textContent = "✅";
     } catch (err) {
@@ -167,7 +179,7 @@
   });
 
   window.startMatching = async function(type) {
-    if (!currentUser) return;
+    if (!currentUser || !isOnlineAvailable) return;
     isNavigatingToBattle = false;
 
     let targetMode = selectedRandomMode;
