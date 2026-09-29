@@ -119,11 +119,12 @@
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   let currentUser = null;
   let matchingUnsubscribe = null;
   let currentQueueId = null;
+  let isNavigatingToBattle = false;
 
   let selectedRandomMode = 'light';
   let selectedPrivateMode = 'light';
@@ -158,6 +159,7 @@
 
   window.startMatching = async function(type) {
     if (!currentUser) return;
+    isNavigatingToBattle = false;
 
     let targetMode = selectedRandomMode;
     if (type === 'random') {
@@ -180,15 +182,91 @@
     try {
       const snap = await getDoc(queueRef);
 
-      if (snap.exists() && snap.data().host_uid !== currentUser.uid) {
+      if (snap.exists() && snap.data().host_uid !== currentUser.uid && !snap.data().matched_roomId) {
         // 既に入室しているプレイヤーがいる場合（ゲスト参加）
         const hostUid = snap.data().host_uid;
         const matchedMode = snap.data().mode || targetMode;
-        await deleteDoc(queueRef);
+        const newRoomId = `room_${Date.now()}`;
 
-        const roomId = `room_${Date.now()}`;
-        // 二重記述を修正 (doc(db, ...))
-        await setDoc(doc(db, "online_matches", roomId), {
+        // 1. 対戦ルームを作成
+        await setDoc(doc(db, "online_matches", newRoomId), {
+          player1: hostUid,
+          player2: currentUser.uid,
+          mode: matchedMode,
+          status: "ready",
+          created_at: new Date().toISOString()
+        });
+
+        // 2. Queueに作成したroomIdを書き込んでホストに通知
+        await updateDoc(queueRef, {
+          matched_roomId: newRoomId
+        });
+
+        proceedToBattle(newRoomId, "guest", matchedMode);
+      } else {
+        // 自身がホストとして待機
+        await setDoc(queueRef, {
+          host_uid: currentUser.uid,
+          mode: targetMode,
+          created_at: new Date().toISOString()
+        });
+
+        matchingUnsubscribe = onSnapshot(queueRef, async (docSnap) => {
+          if (docSnap.exists()) {
+            const queueData = docSnap.data();
+            if (queueData.matched_roomId) {
+              const matchedRoomId = queueData.matched_roomId;
+
+              if (matchingUnsubscribe) {
+                matchingUnsubscribe();
+                matchingUnsubscribe = null;
+              }
+
+              // ホスト側でキューを削除
+              try {
+                await deleteDoc(queueRef);
+              } catch (e) {
+                console.error("Queue削除エラー:", e);
+              }
+
+              proceedToBattle(matchedRoomId, "host", targetMode);
+            }
+          }
+        });
+      }
+    } catch (err) {
+      console.error("マッチングエラー:", err);
+      alert("マッチング処理に失敗しました");
+      cancelMatching();
+    }
+  };
+
+  window.cancelMatching = async function() {
+    if (matchingUnsubscribe) { matchingUnsubscribe(); matchingUnsubscribe = null; }
+    if (currentQueueId) {
+      try { await deleteDoc(doc(db, "match_queue", currentQueueId)); } catch (e) {}
+      currentQueueId = null;
+    }
+    document.getElementById('searchingModal').style.display = "none";
+  };
+
+  // 画面移動・タブ閉じ時の自動キュー削除処理（対戦画面への自動遷移時は削除を除外）
+  window.addEventListener('beforeunload', () => {
+    if (currentQueueId && !isNavigatingToBattle) {
+      deleteDoc(doc(db, "match_queue", currentQueueId));
+    }
+  });
+
+  function proceedToBattle(roomId, role, mode) {
+    isNavigatingToBattle = true;
+    if (matchingUnsubscribe) matchingUnsubscribe();
+    window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${mode}`;
+  }
+</script>
+
+</body>
+</html>
+c(doc(db, "online_matches", roomId), {
           player1: hostUid,
           player2: currentUser.uid,
           mode: matchedMode,
