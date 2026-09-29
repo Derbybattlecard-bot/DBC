@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DERBY BATTLE CARD - 作戦名鑑＆初期設定</title>
+<title>DERBY BATTLE CARD - 作戦名鑑＆展開図鑑</title>
 <!-- Chart.js CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
@@ -15,6 +15,7 @@
     --text-main: #1a2e1d;
     --text-sub: #4e6b52;
     --border-color: #b2d4b6;
+    --gold-accent: #d97706;
   }
   body {
     font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
@@ -55,7 +56,7 @@
   /* メインタブ切替（1行収まり調整） */
   .view-tabs {
     display: flex;
-    gap: 6px;
+    gap: 4px;
     width: 100%;
   }
   .tab-btn {
@@ -68,7 +69,7 @@
     color: var(--text-sub);
     cursor: pointer;
     text-align: center;
-    font-size: clamp(11px, 3.2vw, 13px);
+    font-size: clamp(10px, 2.9vw, 12.5px);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -79,60 +80,83 @@
     border-color: var(--accent-color);
   }
 
-  /* デックサブタブ切替 */
-  .deck-subtabs {
-    display: flex;
-    gap: 6px;
-    margin-bottom: 8px;
+  /* 作戦レベル解説パネル */
+  .level-info-box {
+    background: #fffbeb;
+    border: 1.5px solid #f59e0b;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 11.5px;
+    color: #78350f;
+    line-height: 1.55;
+    box-shadow: 0 2px 6px rgba(217, 119, 6, 0.1);
   }
-  .deck-tab-btn {
-    padding: 5px 14px;
-    background: #e2efe3;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
+  .level-info-title {
     font-weight: bold;
-    color: var(--text-sub);
-    cursor: pointer;
-    font-size: 12px;
-  }
-  .deck-tab-btn.active {
-    background: var(--accent-color);
-    color: white;
-    border-color: var(--accent-color);
+    font-size: 13px;
+    color: #b45309;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
 
-  /* フィルタータブ */
-  .filter-group {
-    display: flex;
-    gap: 4px;
+  /* 展開図鑑カードスタイル */
+  .dev-card {
     background: var(--panel-bg);
-    padding: 6px;
-    border-radius: 6px;
     border: 1px solid var(--border-color);
-    overflow-x: auto;
-    white-space: nowrap;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
-  .filter-btn {
-    flex: 1;
-    min-width: 65px;
-    padding: 5px 6px;
-    border: 1px solid transparent;
-    background: transparent;
-    border-radius: 4px;
-    font-size: 11px;
+  .dev-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px dashed var(--border-color);
+    padding-bottom: 6px;
+  }
+  .dev-title {
+    font-size: 13.5px;
     font-weight: bold;
-    color: var(--text-sub);
-    cursor: pointer;
-    text-align: center;
+    color: var(--accent-color);
   }
-  .filter-btn.active {
-    background: #e3f2fd;
-    color: #1976d2;
-    border-color: #90caf9;
+  .pace-badge {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: bold;
   }
-  .filter-btn.locked {
-    opacity: 0.6;
-    background: #f0f0f0;
+  .pace-slow { background: #e0f2fe; color: #0284c7; }
+  .pace-middle { background: #dcfce7; color: #15803d; }
+  .pace-high { background: #ffedd5; color: #c2410c; }
+  .pace-superhigh { background: #fee2e2; color: #b91c1c; }
+  .pace-chaos { background: #f3e8ff; color: #6b21a8; }
+
+  .dev-stats-box {
+    background: #ffffff;
+    border: 1px solid #c8e6c9;
+    border-radius: 6px;
+    padding: 8px 10px;
+  }
+  .dev-stats-main {
+    font-weight: bold;
+    font-size: 12px;
+    color: #1b5e20;
+    margin-bottom: 4px;
+  }
+  .dev-position {
+    font-weight: bold;
+    font-size: 11px;
+    color: #d97706;
+  }
+  .dev-desc {
+    font-size: 11px;
+    color: #4e6b52;
+    line-height: 1.45;
   }
 
   /* 作戦名鑑カード */
@@ -200,7 +224,6 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    position: relative;
   }
   .ability-card.is-locked {
     background: rgba(240, 240, 240, 0.85);
@@ -218,9 +241,6 @@
     font-size: 13.5px;
     font-weight: bold;
     color: var(--accent-color);
-  }
-  .ability-card.is-locked .ability-title {
-    color: #666;
   }
   .ability-category {
     font-size: 10px;
@@ -247,11 +267,6 @@
     border-radius: 4px;
     border-left: 3px solid var(--accent-color);
   }
-  .ability-card.is-locked .ability-desc {
-    background: #e9e9e9;
-    border-left-color: #aaa;
-    color: #777;
-  }
 
   /* デック出走表スタイル */
   .horse-setting-card {
@@ -259,6 +274,26 @@
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 12px;
+  }
+  .deck-subtabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .deck-tab-btn {
+    padding: 5px 14px;
+    background: #e2efe3;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-weight: bold;
+    color: var(--text-sub);
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .deck-tab-btn.active {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
   }
   .horse-list-table {
     width: 100%;
@@ -273,7 +308,6 @@
     vertical-align: middle;
   }
   .horse-list-table th { color: var(--text-sub); background: #f2f8f3; }
-
   .gate-num {
     display: inline-block;
     width: 20px;
@@ -286,7 +320,6 @@
     font-weight: bold;
     font-size: 11px;
   }
-
   .select-strat-def {
     width: 100%;
     padding: 4px;
@@ -296,7 +329,6 @@
     font-size: 11px;
     background: #ffffff;
   }
-
   .btn-submit {
     background: var(--accent-color);
     color: white;
@@ -310,12 +342,33 @@
     margin-top: 12px;
     box-shadow: 0 3px 0 var(--accent-hover);
   }
-  .btn-submit:hover {
-    background: var(--accent-hover);
+  .filter-group {
+    display: flex;
+    gap: 4px;
+    background: var(--panel-bg);
+    padding: 6px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    overflow-x: auto;
+    white-space: nowrap;
   }
-  .empty-slot {
-    color: #999;
-    font-style: italic;
+  .filter-btn {
+    flex: 1;
+    min-width: 65px;
+    padding: 5px 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: bold;
+    color: var(--text-sub);
+    cursor: pointer;
+    text-align: center;
+  }
+  .filter-btn.active {
+    background: #e3f2fd;
+    color: #1976d2;
+    border-color: #90caf9;
   }
 </style>
 </head>
@@ -324,13 +377,14 @@
 <div class="container">
   <div class="header-panel">
     <a href="index.html" class="btn-back">← 戻る</a>
-    <h2 style="margin:0; font-size: 15px; color: var(--accent-color);">作戦名鑑 ＆ アビリティ</h2>
+    <h2 style="margin:0; font-size: 15px; color: var(--accent-color);">作戦ルーム ＆ 図鑑</h2>
     <div id="syncStatus" style="font-size: 11px; color: var(--text-sub); font-weight: bold;">☁️ 読込中...</div>
   </div>
 
-  <!-- メインタブ切替 (名称変更 & 1行に収める設定) -->
+  <!-- メインタブ切替 -->
   <div class="view-tabs">
     <div class="tab-btn active" id="tabBtnCatalog" onclick="switchMainTab('catalog')">作戦名鑑</div>
+    <div class="tab-btn" id="tabBtnDev" onclick="switchMainTab('development')">展開図鑑</div>
     <div class="tab-btn" id="tabBtnSetting" onclick="switchMainTab('setting')">初期作戦設定</div>
     <div class="tab-btn" id="tabBtnAbility" onclick="switchMainTab('ability')">アビリティ図鑑</div>
   </div>
@@ -344,11 +398,142 @@
       <button class="filter-btn" onclick="filterStyle('差し')">差し</button>
       <button class="filter-btn" onclick="filterStyle('追込')">追込</button>
     </div>
-
     <div id="strategyGrid" class="strategy-grid"></div>
   </div>
 
-  <!-- タブ2: 初期作戦設定 -->
+  <!-- タブ2: 展開図鑑 (アンロック不要・最初から閲覧可) -->
+  <div id="tabDev" style="display: none; flex-direction: column; gap: 10px;">
+    <!-- 1番上：作戦レベルの説明 -->
+    <div class="level-info-box">
+      <div class="level-info-title">
+        <span>💡 基本事項：作戦レベルが与える影響</span>
+      </div>
+      作戦レベルが高いほど、レース結果における基礎加算Pt（<strong>作戦Lv × 2</strong>）が増加し、馬本来の能力がブレずに発揮されやすくなります。<br>
+      これにより、運や展開の乱数要素に左右されにくくなり、<strong>着順がより安定して上位に入りやすくなります。</strong>
+    </div>
+
+    <!-- 展開一覧 -->
+    <div class="strategy-grid">
+      <!-- 前残り展開 -->
+      <div class="dev-card">
+        <div class="dev-header">
+          <span class="dev-title">前残りの展開</span>
+          <span class="pace-badge pace-slow">スローペース系</span>
+        </div>
+        <div class="dev-stats-box">
+          <div class="dev-stats-main">決め手：ポテンシャル ＋ 瞬発 ＋ 持続</div>
+          <div class="dev-position">※優位な位置取り：前方グループ（逃げ・先行）</div>
+        </div>
+        <div class="dev-desc">スローペースで道中の消耗が少なく、前目で脚を溜めた馬がそのまま粘り切る展開。好位からの決め手と押し切り性能が鍵。</div>
+      </div>
+
+      <!-- 瞬発力勝負 -->
+      <div class="dev-card">
+        <div class="dev-header">
+          <span class="dev-title">瞬発力勝負の展開</span>
+          <span class="pace-badge pace-slow">スローペース系</span>
+        </div>
+        <div class="dev-stats-box">
+          <div class="dev-stats-main">決め手：ポテンシャル ＋ スピード ＋ 瞬発</div>
+          <div class="dev-position">※優位な位置取り：好位〜中団グループ</div>
+        </div>
+        <div class="dev-desc">直線に入るまでペースが上がらず、最後の直線での一瞬の切れ味・加速力がそのまま着順を大きく左右する展開。</div>
+      </div>
+
+      <!-- 総合力勝負 -->
+      <div class="dev-card">
+        <div class="dev-header">
+          <span class="dev-title">総合力勝負（平均ペース）</span>
+          <span class="pace-badge pace-middle">ミドルペース系</span>
+        </div>
+        <div class="dev-stats-box">
+          <div class="dev-stats-main">決め手：ポテンシャル ＋ スピード ＋ スタミナ</div>
+          <div class="dev-position">※優位な位置取り：全位置対等（位置取り不問）</div>
+        </div>
+        <div class="dev-desc">澱みのない引き締まった流れとなり、位置取りの有利不利が少ないフラットな展開。スピードとスタミナの総合能力が問われる。</div>
+      </div>
+
+      <!-- ロングスパート戦 -->
+      <div class="dev-card">
+        <div class="dev-header">
+          <span class="dev-title">ロングスパート戦</span>
+          <span class="pace-badge pace-middle">ミドルペース系</span>
+        </div>
+        <div class="dev-stats-box">
+          <div class="dev-stats-main">決め手：ポテンシャル ＋ スタミナ ＋ 持続</div>
+          <div class="dev-position">※優位な位置取り：好位〜中団上位</div>
+        </div>
+        <div class="dev-desc">3〜4コーナー手前から早めにスパートが始まる展開。バテずに長く良い脚を使い続けられる持続力とスタミナが必要。</div>
+      </div>
+
+      <!-- 前崩れの展開 -->
+      <div class="dev-card">
+        <div class="dev-header">
+          <span class="dev-title">前崩れの展開</span>
+          <span class="pace-badge pace-high">ハイペース系</span>
+        </div>
+        <div class="dev-stats-box">
+          <div class="dev-stats-main">決め手：ポテンシャル ＋ 瞬発 ＋ 根性</div>
+          <div class="dev-position">※優位な位置取り：後方グループ（差し・追込）</div>
+        </div>
+        <div class="dev-desc">前半から激しい先頭争いでペースが上がり、先行馬が直線で急失速する展開。後方で待機していた馬の強烈な追い込みが決まる。</div>
+      </div>
+
+      <!-- タフな消耗戦 -->
+      <div class="dev-card">
+        <div class="dev-header">
+          <span class="dev-title">タフな消耗戦</span>
+          <span class="pace-badge pace-high">ハイペース系</span>
+        </div>
+        <div class="dev-stats-box">
+          <div class="dev-stats-main">決め手：スタミナ ＋ 持続 ＋ 根性</div>
+          <div class="dev-position">※優位な位置取り：中団〜後方寄り</div>
+        </div>
+        <div class="dev-desc">道中から息の入れづらいハイペースが続き、最後の叩き合いで根性とタフさが極限まで試される消耗戦。</div>
+      </div>
+
+      <!-- 直線一気・極端な前崩れ -->
+      <div class="dev-card">
+        <div class="dev-header">
+          <span class="dev-title">直線一気・大波乱の展開</span>
+          <span class="pace-badge pace-superhigh">超ハイペース系</span>
+        </div>
+        <div class="dev-stats-box">
+          <div class="dev-stats-main">決め手：瞬発 ＋ 根性 ＋ 持続</div>
+          <div class="dev-position">※優位な位置取り：極後方（追込特化）</div>
+        </div>
+        <div class="dev-desc">大逃げや前陣の暴走により超ハイペースとなり、前線が全滅する極端な前崩れ展開。後方に死んだふりで控えた追込馬の一撃が決まる。</div>
+      </div>
+
+      <!-- 力比べ -->
+      <div class="dev-card">
+        <div class="dev-header">
+          <span class="dev-title">力比べの展開</span>
+          <span class="pace-badge pace-chaos">波乱・乱ペース系</span>
+        </div>
+        <div class="dev-stats-box">
+          <div class="dev-stats-main">決め手：ポテンシャル（評価3倍） ＋ 根性</div>
+          <div class="dev-position">※優位な位置取り：位置不問（格・底力重視）</div>
+        </div>
+        <div class="dev-desc">ペースの出入りが激しく、純粋な競走馬としての格・ポテンシャルが試される展開。ポテンシャルが高い馬が圧倒的に有利。</div>
+      </div>
+
+      <!-- 大物食い・波乱展開 -->
+      <div class="dev-card">
+        <div class="dev-header">
+          <span class="dev-title">波乱・大物食いの展開</span>
+          <span class="pace-badge pace-chaos">波乱・乱ペース系</span>
+        </div>
+        <div class="dev-stats-box">
+          <div class="dev-stats-main">決め手：（30 - 馬ポテンシャル） ＋ 単一適性値</div>
+          <div class="dev-position">※優位な位置取り：位置不問（波乱）</div>
+        </div>
+        <div class="dev-desc">展開が大きく乱れ、格上の馬が力を発揮しづらくなる波乱のレース。低ポテンシャルの格下馬が一発を狙える穴馬有利の展開。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- タブ3: 初期作戦設定 -->
   <div id="tabSetting" style="display: none; flex-direction: column; gap: 10px;">
     <div class="horse-setting-card">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -381,7 +566,7 @@
     </div>
   </div>
 
-  <!-- タブ3: アビリティ図鑑 (勝利数段階解放) -->
+  <!-- タブ4: アビリティ図鑑 (勝利数段階解放) -->
   <div id="tabAbility" style="display: none; flex-direction: column; gap: 10px;">
     <div class="filter-group">
       <button class="filter-btn active" id="abFilterALL" onclick="filterAbilityCategory('ALL')">すべて</button>
@@ -411,14 +596,13 @@
   let STRATEGY_MASTER = [];
   let HORSES_MASTER = {};
   let ABILITY_MASTER = {};
-  let totalWins = 0; // 通算勝利数
+  let totalWins = 0;
   
   let currentFilter = 'ALL';
   let currentAbilityCategory = 'ALL';
   let activeDeckIdx = 0;
   let chartInstances = [];
 
-  // カテゴリごとの解放必要勝利数設定
   const UNLOCK_THRESHOLDS = {
     'スタート・枠・馬番系': 10,
     '競馬場・コース・環境系': 20,
@@ -494,7 +678,6 @@
         globalUserData = userDoc.data();
       }
 
-      // 通算勝利数の取得（total_wins -> wins -> stats.wins のフォールバック）
       totalWins = Number(
         globalUserData.total_wins ?? 
         globalUserData.wins ?? 
@@ -514,7 +697,6 @@
         while (deck.default_strategies.length < 18) deck.default_strategies.push(null);
       });
 
-      // マスタデータの読み込み
       const [stratData, horsesData, abilityData] = await Promise.all([
         fetchJsonSafe('strategy_master.json'),
         fetchJsonSafe('horses_master.json'),
@@ -543,14 +725,17 @@
   // メインタブ切替
   window.switchMainTab = function(tabName) {
     const catalogEl = document.getElementById('tabCatalog');
+    const devEl = document.getElementById('tabDev');
     const settingEl = document.getElementById('tabSetting');
     const abilityEl = document.getElementById('tabAbility');
 
     document.getElementById('tabBtnCatalog').classList.toggle('active', tabName === 'catalog');
+    document.getElementById('tabBtnDev').classList.toggle('active', tabName === 'development');
     document.getElementById('tabBtnSetting').classList.toggle('active', tabName === 'setting');
     document.getElementById('tabBtnAbility').classList.toggle('active', tabName === 'ability');
 
     catalogEl.style.display = (tabName === 'catalog') ? 'flex' : 'none';
+    devEl.style.display = (tabName === 'development') ? 'flex' : 'none';
     settingEl.style.display = (tabName === 'setting') ? 'flex' : 'none';
     abilityEl.style.display = (tabName === 'ability') ? 'flex' : 'none';
   };
@@ -649,14 +834,13 @@
     });
   }
 
-  // アビリティ図鑑描画 (通算勝利数段階アンロック)
+  // アビリティ図鑑描画
   function renderAbilityGrid() {
     const container = document.getElementById('abilityGrid');
     container.innerHTML = '';
 
     document.getElementById('userWinsCount').textContent = totalWins;
 
-    // 全体ロック判定 (10勝未満の場合)
     if (totalWins < 10) {
       document.getElementById('unlockProgressText').textContent = '🔒 図鑑解放まであと ' + (10 - totalWins) + ' 勝';
       container.innerHTML = `
@@ -669,7 +853,6 @@
       return;
     }
 
-    // 進行度テキストの更新
     if (totalWins >= 50) {
       document.getElementById('unlockProgressText').textContent = '🎉 全カテゴリ解放済み！';
     } else {
@@ -685,10 +868,7 @@
       const reqWins = UNLOCK_THRESHOLDS[category] || 10;
       const isLocked = totalWins < reqWins;
 
-      // フィルター適用
-      if (currentAbilityCategory !== 'ALL' && category !== currentAbilityCategory) {
-        return;
-      }
+      if (currentAbilityCategory !== 'ALL' && category !== currentAbilityCategory) return;
 
       displayedCount++;
 
@@ -711,12 +891,9 @@
             <span class="ability-title">✨ ${abMaster.name}</span>
             <span class="ability-category">${category}</span>
           </div>
-          <div class="ability-desc">
-            ${abMaster.description}
-          </div>
+          <div class="ability-desc">${abMaster.description}</div>
         `;
       }
-
       container.appendChild(card);
     });
 
@@ -776,7 +953,6 @@
           </td>
         `;
       }
-
       tbody.appendChild(tr);
     }
   }
