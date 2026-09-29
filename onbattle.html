@@ -42,31 +42,95 @@
   .my-series-list {
     display: flex;
     gap: 8px;
-    margin-top: 4px;
+    margin-top: 6px;
     flex-wrap: wrap;
   }
   .my-series-chip {
     background: #ffffff;
     border: 1px solid var(--border-color);
-    padding: 3px 8px;
+    padding: 4px 10px;
     border-radius: 12px;
     font-weight: bold;
     font-size: 11px;
     color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .my-series-chip .chip-cat {
+    color: var(--accent-color);
+    font-size: 10px;
+    background: #f3e8ff;
+    padding: 1px 5px;
+    border-radius: 4px;
   }
 
-  /* シリーズBANパネル */
+  /* シリーズBANパネル (新3行デザイン) */
   .ban-select-panel { background-color: var(--panel-bg); padding: 15px; border-radius: 12px; border: 2px solid var(--accent-orange); display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
   .ban-title { font-size: 14px; font-weight: bold; color: var(--accent-orange); text-align: center; }
-  .ban-options { display: flex; flex-direction: column; gap: 8px; }
-  .ban-card { background: #fff; border: 2px solid var(--border-color); border-radius: 8px; padding: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; }
+  .ban-options { display: flex; flex-direction: column; gap: 10px; }
+  
+  /* 3行レイアウト用BANカード */
+  .ban-card {
+    background: #fff;
+    border: 2px solid var(--border-color);
+    border-radius: 10px;
+    padding: 12px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: all 0.2s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+  }
   .ban-card:hover { border-color: var(--accent-orange); }
   .ban-card.selected { border-color: var(--danger-color); background-color: #fef2f2; }
-  .ban-info-left { display: flex; flex-direction: column; gap: 2px; text-align: left; }
-  .ban-card-name { font-weight: bold; font-size: 14px; color: var(--text-main); }
-  .ban-card-desc { font-size: 11px; color: #6b7280; }
-  .ban-tag { font-size: 11px; padding: 4px 10px; border-radius: 6px; font-weight: bold; background: #e5e7eb; color: #4b5563; white-space: nowrap; }
+  
+  /* 1行目: カテゴリ ＆ BANボタン */
+  .ban-card-row1 {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+  .ban-category-badge {
+    font-size: 11px;
+    font-weight: bold;
+    color: var(--accent-color);
+    background: #f3e8ff;
+    border: 1px solid #d8b4fe;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .ban-tag {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-weight: bold;
+    background: #e5e7eb;
+    color: #4b5563;
+    white-space: nowrap;
+  }
   .ban-card.selected .ban-tag { background: var(--danger-color); color: #fff; }
+
+  /* 2行目: シリーズタイトル (横いっぱいに表示) */
+  .ban-card-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text-main);
+    line-height: 1.3;
+    word-break: break-word;
+  }
+
+  /* 3行目: コース条件など */
+  .ban-card-desc {
+    font-size: 11px;
+    color: #6b7280;
+    background: #f9fafb;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px dashed #e5e7eb;
+  }
   
   /* デッキ選択パネル */
   .deck-select-panel { background-color: var(--panel-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: all 0.3s ease; }
@@ -108,7 +172,7 @@
   <div class="challenge-panel" id="onlinePanel">
     <div class="match-type-tag" id="onlineMatchTag">ONLINE MATCH</div>
     <div class="challenge-label">＼ オンライン対戦 準備画面 ／</div>
-    <div class="opponent-display" id="opponentNameDisplay">VS 対戦相手を検索中…</div>
+    <div class="opponent-display" id="opponentNameDisplay">VS 対戦相手を取得中…</div>
     <div class="sub-status" id="onlineSubText">相手のシリーズを1つBAN（除外）してからデッキを選択してください</div>
   </div>
 
@@ -249,18 +313,30 @@
     mySeriesIds.forEach(sId => {
       const sObj = SERIES_MASTER[sId] || { series_name: sId, name: sId };
       const sName = sObj.series_name || sObj.name || sId;
+      const category = sObj.category || sObj.series_category || "一般";
+
       const chip = document.createElement('span');
       chip.className = 'my-series-chip';
-      chip.textContent = `🏆 ${sName}`;
+      chip.innerHTML = `<span class="chip-cat">${category}</span>🏆 ${sName}`;
       container.appendChild(chip);
     });
   }
 
-  // 自分の登録シリーズ3つをルームに登録する
+  // 自分の登録シリーズ3つとニックネームをルームに登録する
   async function registerMySeries() {
     const mySeries = globalUserData.selected_online_series || ["series_01", "series_02", "series_03"];
+    const myName = globalUserData.nickname || globalUserData.displayName || globalUserData.name || "プレイヤー";
     const roomRef = doc(db, "online_matches", roomId);
-    const updateData = (role === 'host') ? { player1_series: mySeries } : { player2_series: mySeries };
+    
+    const updateData = (role === 'host') ? { 
+      player1_series: mySeries,
+      player1_name: myName,
+      player1_uid: currentUser.uid
+    } : { 
+      player2_series: mySeries,
+      player2_name: myName,
+      player2_uid: currentUser.uid
+    };
     await setDoc(roomRef, updateData, { merge: true });
   }
 
@@ -309,16 +385,6 @@
     }
   }
 
-  function resolveOpponentName(data) {
-    const isHost = (role === 'host');
-    const directName = isHost 
-      ? (data.guest_name || data.guestName || data.player2_name || data.p2_name)
-      : (data.host_name || data.hostName || data.player1_name || data.p1_name);
-
-    if (directName) return directName;
-    return isHost ? "ゲストプレイヤー" : "ホストプレイヤー";
-  }
-
   // ルーム状態のリアルタイム監視
   function initOnlineRoomWatch() {
     const roomRef = doc(db, "online_matches", roomId);
@@ -343,10 +409,17 @@
         return;
       }
 
-      // 相手の表示名取得
-      let oppName = resolveOpponentName(data);
-      const oppUid = (role === 'host') ? (data.guest_uid || data.player2_uid) : (data.host_uid || data.player1_uid);
-      
+      // 相手の表示名・UIDを多角的に検索取得
+      const isHost = (role === 'host');
+      let oppUid = isHost 
+        ? (data.player2_uid || data.player2 || data.guest_uid)
+        : (data.player1_uid || data.player1 || data.host_uid);
+
+      let oppName = isHost 
+        ? (data.player2_name || data.guest_name || data.guestName)
+        : (data.player1_name || data.host_name || data.hostName);
+
+      // Firestore の users ドキュメントから最新のニックネームを取得（確実化）
       if (oppUid) {
         try {
           const oppUserSnap = await getDoc(doc(db, "users", oppUid));
@@ -354,12 +427,19 @@
             const uData = oppUserSnap.data();
             oppName = uData.nickname || uData.displayName || uData.name || uData.userName || oppName;
           }
-        } catch (err) {}
+        } catch (err) {
+          console.warn("相手ユーザー情報の取得スキップ:", err);
+        }
       }
+
+      if (!oppName) {
+        oppName = isHost ? "ゲストプレイヤー" : "ホストプレイヤー";
+      }
+
       document.getElementById('opponentNameDisplay').textContent = `VS ${oppName} 選手`;
 
       // 相手のシリーズ取得＆BAN選択UI作成
-      const oppSeries = (role === 'host') ? data.player2_series : data.player1_series;
+      const oppSeries = isHost ? data.player2_series : data.player1_series;
       if (oppSeries && oppSeries.length >= 3 && opponentSeriesList.length === 0) {
         opponentSeriesList = oppSeries;
         renderBanOptions(oppSeries);
@@ -381,7 +461,7 @@
     });
   }
 
-  // 相手の3つのシリーズと詳細情報をカード形式で発表・表示
+  // 相手の3つのシリーズを新3行レイアウトで綺麗に表示
   function renderBanOptions(seriesList) {
     const container = document.getElementById('banContainer');
     container.innerHTML = '';
@@ -395,7 +475,7 @@
       if (sObj.rounds && sObj.rounds[0] && sObj.rounds[0].races) {
         const races = sObj.rounds[0].races;
         const surfaces = [...new Set(races.map(r => r.surface || "芝"))].join("・");
-        conditionSummary = `条件: ${surfaces} / ${races.length}レース設定`;
+        conditionSummary = `条件: ${surfaces} / 全${races.length}レース`;
       }
 
       const card = document.createElement('div');
@@ -403,11 +483,12 @@
       card.id = `banCard_${idx}`;
       card.onclick = () => selectBan(idx);
       card.innerHTML = `
-        <div class="ban-info-left">
-          <span class="ban-card-name">🏆 ${sName}</span>
-          <span class="ban-card-desc">【${category}】 ${conditionSummary}</span>
+        <div class="ban-card-row1">
+          <span class="ban-category-badge">🏷️️ ${category}</span>
+          <span class="ban-tag">選択してBAN</span>
         </div>
-        <span class="ban-tag">選択してBAN</span>
+        <div class="ban-card-title">🏆 ${sName}</div>
+        <div class="ban-card-desc">📌 ${conditionSummary}</div>
       `;
       container.appendChild(card);
     });
