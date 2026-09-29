@@ -484,6 +484,9 @@
 </div>
 
 <script type="module">
+  // ===== 設定用定数 =====
+  const REQUIRED_WINS_FOR_ONLINE = 50; // オンライン対戦用シリーズ設定の解放に必要な勝利数
+
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -631,11 +634,11 @@
     const totalWins = globalUserData?.total_wins ?? globalUserData?.record?.wins ?? 0;
     const panelContainer = document.getElementById('onlineSelectContainer');
 
-    if (totalWins < 50) {
+    if (totalWins < REQUIRED_WINS_FOR_ONLINE) {
       panelContainer.innerHTML = `
         <div class="locked-panel">
           <div class="locked-title">🔒 オンライン対戦用シリーズ設定（ロック中）</div>
-          <div class="locked-desc">通算50勝を達成すると、対戦用シリーズ（3枠）を設定可能になります（現在: ${totalWins}勝）</div>
+          <div class="locked-desc">通算${REQUIRED_WINS_FOR_ONLINE}勝を達成すると、対戦用シリーズ（3枠）を設定可能になります（現在: ${totalWins}勝）</div>
         </div>
       `;
       return;
@@ -761,7 +764,7 @@
         `).join('');
 
         const isSelectedForOnline = selectedOnlineSeriesIds.includes(series.series_id);
-        const onlineBtnHtml = totalWins >= 50 ? `
+        const onlineBtnHtml = totalWins >= REQUIRED_WINS_FOR_ONLINE ? `
           <div class="online-select-action">
             <button class="btn-select-series ${isSelectedForOnline ? 'selected' : ''}" onclick="toggleOnlineSeries(event, '${series.series_id}')">
               ${isSelectedForOnline ? '✓ オンライン選出中' : '+ オンライン対戦用に設定'}
