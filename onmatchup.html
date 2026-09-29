@@ -181,7 +181,7 @@
 
   .btn-giveup {
     flex: 1;
-    background: #ffffff;
+    background: #fef2f2;
     color: var(--danger-color);
     border: 1.5px solid var(--danger-color);
     padding: 15px;
@@ -235,7 +235,7 @@
   <div id="entryList" style="display:flex; flex-direction:column; gap:10px;"></div>
 
   <div class="action-group">
-    <button class="btn-giveup" onclick="leaveMatch()">辞退・退室</button>
+    <button class="btn-giveup" onclick="giveupEntries()">戦術的不戦敗<br><small style="font-size:9px; font-weight:normal;">(温存・ギブアップ)</small></button>
     <button class="btn-submit" id="btnBattleStart" disabled onclick="submitEntries()">エントリー完了</button>
   </div>
 </div>
@@ -326,11 +326,21 @@
 
     const roomData = roomSnap.data();
 
+    // 対戦相手の名前表示
+    const opponentUid = (role === 'host') ? roomData.guest_uid : roomData.host_uid;
+    if (opponentUid) {
+      try {
+        const oppDoc = await getDoc(doc(db, "users", opponentUid));
+        if (oppDoc.exists() && oppDoc.data().username) {
+          document.getElementById('opponentName').textContent = oppDoc.data().username;
+        }
+      } catch(e) {}
+    }
+
     // 1. match_series（5戦分のシリーズID配列）から5戦分のレースデータを合成
     const matchSeriesIds = roomData.match_series || ["series_01", "series_01", "series_01", "series_01", "series_01"];
     matchRaces = matchSeriesIds.map((sId, index) => {
       const sObj = SERIES_MASTER[sId] || Object.values(SERIES_MASTER)[0];
-      // シリーズ内の最初のレース情報（または対象レース）を取得
       const raceInfo = (sObj.rounds && sObj.rounds[0] && sObj.rounds[0].races && sObj.rounds[0].races[0]) 
                         ? sObj.rounds[0].races[0] 
                         : (sObj.races ? sObj.races[0] : {});
@@ -370,7 +380,6 @@
     listenRoomStatus();
   }
 
-  // 全プレイヤーのデッキ馬IDを取得（除外用）
   async function fetchAllPlayersDeckHorseIds(roomData) {
     const excludedSet = new Set();
     const p1Uid = roomData.host_uid || roomData.player1_uid;
@@ -622,22 +631,35 @@
     }
   }
 
+  // 通常のエントリー完了
   window.submitEntries = async function() {
     if (selectedEntries.includes(null)) {
       alert("全5戦の出走馬を選択してください。");
       return;
     }
 
+    sendEntriesToFirestore(selectedEntries);
+  };
+
+  // 戦術的不戦敗（全レース未出走扱い）
+  window.giveupEntries = async function() {
+    if (confirm("全5戦を不戦敗（出走馬なし）として確定しますか？\n※競走馬を温存し、次の作戦決定画面へ進みます。")) {
+      // 5戦すべて未選択（null）でエントリー送信
+      sendEntriesToFirestore([null, null, null, null, null]);
+    }
+  };
+
+  async function sendEntriesToFirestore(entries) {
     const startBtn = document.getElementById('btnBattleStart');
-    startBtn.disabled = true;
+    if (startBtn) startBtn.disabled = true;
     document.getElementById('waitingModal').style.display = 'flex';
 
     const roomRef = doc(db, "online_matches", roomId);
     const updateData = (role === 'host') ? {
-      player1_entries: selectedEntries,
+      player1_entries: entries,
       player1_matchup_ready: true
     } : {
-      player2_entries: selectedEntries,
+      player2_entries: entries,
       player2_matchup_ready: true
     };
 
@@ -646,13 +668,14 @@
     } catch (err) {
       console.error("エントリー保存エラー:", err);
       alert("通信エラーが発生しました。");
-      startBtn.disabled = false;
+      if (startBtn) startBtn.disabled = false;
       document.getElementById('waitingModal').style.display = 'none';
     }
-  };
+  }
 
+  // 対戦辞退（部屋を抜ける・キャンセル）
   window.leaveMatch = async function() {
-    if (confirm("対戦を辞退して退室しますか？")) {
+    if (confirm("対戦を辞退して退室しますか？\n（対戦自体がキャンセルになります）")) {
       isNavigatingAway = true;
       if (roomId) {
         try {
@@ -663,7 +686,6 @@
     }
   };
 </script>
-
 
 </body>
 </html>
