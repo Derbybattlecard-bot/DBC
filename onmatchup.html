@@ -54,6 +54,35 @@
     font-size: 12px;
   }
 
+  /* シリーズ情報表示パネル */
+  .series-info-panel {
+    background: rgba(238, 242, 255, 0.95);
+    border: 1px solid #c7d2fe;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #3730a3;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  }
+  .series-info-panel .title-label {
+    font-weight: bold;
+    background: #4f46e5;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .series-info-panel .series-names {
+    font-weight: bold;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   /* 相手の接続・準備状況表示 */
   .opponent-status-panel {
     background: #faf5ff;
@@ -208,6 +237,12 @@
     <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中</div>
   </div>
 
+  <!-- シリーズ情報表示領域 -->
+  <div class="series-info-panel">
+    <span class="title-label">対象シリーズ</span>
+    <span class="series-names" id="displaySeriesName">読み込み中...</span>
+  </div>
+
   <!-- 相手のリアルタイム状態表示 -->
   <div class="opponent-status-panel">
     <div>
@@ -259,7 +294,7 @@
   let SERIES_MASTER = {};
   let HORSES_MASTER = {};
   
-  let matchRaces = []; // 5戦分のレースデータ
+  let matchRaces = []; // 5戦分の合成レースデータ
   let deckHorses = [];
   let playerDeckIds = [];
   let oppDeckIds = [];
@@ -344,37 +379,28 @@
     }
     document.getElementById('opponentName').textContent = oppName || "対戦相手";
 
-    // 1. 対象シリーズから5戦分のレースデータを取得
-    const targetSeriesId = Array.isArray(roomData.match_series)
-      ? roomData.match_series[0]
-      : (roomData.match_series || roomData.series_id || "series_01");
+    // 1. 5戦分のレースデータを合成
+    const matchSeriesIds = roomData.match_series || ["series_01", "series_01", "series_01", "series_01", "series_01"];
+    matchRaces = matchSeriesIds.map((sId, index) => {
+      const sObj = SERIES_MASTER[sId] || Object.values(SERIES_MASTER)[0];
+      const raceInfo = (sObj.rounds && sObj.rounds[0] && sObj.rounds[0].races && sObj.rounds[0].races[0]) 
+                        ? sObj.rounds[0].races[0] 
+                        : (sObj.races ? sObj.races[0] : {});
 
-    const sObj = SERIES_MASTER[targetSeriesId] || Object.values(SERIES_MASTER)[0] || {};
-
-    // シリーズ内のレース一覧を取得 (races配列 または rounds構造に対応)
-    let rawRaces = [];
-    if (Array.isArray(sObj.races)) {
-      rawRaces = sObj.races;
-    } else if (Array.isArray(sObj.rounds)) {
-      if (sObj.rounds[0] && Array.isArray(sObj.rounds[0].races) && sObj.rounds[0].races.length >= 5) {
-        rawRaces = sObj.rounds[0].races;
-      } else {
-        rawRaces = sObj.rounds.map(r => (r.races && r.races[0]) ? r.races[0] : r);
-      }
-    }
-
-    // 1つのシリーズから第1戦〜第5戦までのレースを生成
-    matchRaces = Array.from({ length: 5 }, (_, index) => {
-      const raceInfo = rawRaces[index] || {};
       return {
         race_num: index + 1,
-        race_name: raceInfo.race_name || raceInfo.name || raceInfo.title || `第${index + 1}戦`,
+        race_name: raceInfo.race_name || raceInfo.name || `第${index + 1}戦`,
         surface: raceInfo.surface || "芝",
         distance: raceInfo.distance || 2000,
         sex: raceInfo.sex || sObj.sex || "制限なし",
         series_name: sObj.series_name || sObj.name || ""
       };
     });
+
+    // シリーズ名の表示を更新（重複を省いて「, 」区切りで表示）
+    const seriesNameSet = new Set(matchRaces.map(r => r.series_name).filter(Boolean));
+    const displaySeriesText = Array.from(seriesNameSet).join(' / ') || "全シリーズ";
+    document.getElementById('displaySeriesName').textContent = displaySeriesText;
 
     // 2. 自分と相手のデッキ馬のID配列を取得
     playerDeckIds = (role === 'host') ? (roomData.player1_deck || []) : (roomData.player2_deck || []);
@@ -541,13 +567,8 @@
         return { canUse: false, reason: "相手優先" };
       }
     } else {
-      // 全く同じインデックス位置の場合はホスト優先
-      if (role === 'host') {
-        return { canUse: true };
-      } else {
-        const isOpponentUsed = oppSelectedEntries.some(id => String(id) === String(horseId));
-        return isOpponentUsed ? { canUse: true } : { canUse: false, reason: "相手優先" };
-      }
+      // 全く同じインデックス位置にある場合：双方ともに使用不可
+      return { canUse: false, reason: "同一位置不可" };
     }
   }
 
@@ -633,7 +654,7 @@
           } else if (pt < minPtPerRace) {
             opt.textContent = `[Pt不足] ${info}`; opt.disabled = true;
           } else if (!priorityCheck.canUse) {
-            opt.textContent = `[相手優先] ${info}`; opt.disabled = true;
+            opt.textContent = `[${priorityCheck.reason}] ${info}`; opt.disabled = true;
           } else {
             opt.textContent = info;
           }
