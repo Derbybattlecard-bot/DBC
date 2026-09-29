@@ -59,7 +59,7 @@
   }
   .tab-btn {
     flex: 1;
-    padding: 8px;
+    padding: 8px 4px;
     background: rgba(255, 255, 255, 0.7);
     border: 1px solid var(--border-color);
     border-radius: 6px;
@@ -67,6 +67,7 @@
     color: var(--text-sub);
     cursor: pointer;
     text-align: center;
+    font-size: 11.5px;
   }
   .tab-btn.active {
     background: var(--accent-color);
@@ -104,10 +105,13 @@
     padding: 6px;
     border-radius: 6px;
     border: 1px solid var(--border-color);
+    overflow-x: auto;
+    white-space: nowrap;
   }
   .filter-btn {
     flex: 1;
-    padding: 4px 0;
+    min-width: 60px;
+    padding: 4px 6px;
     border: none;
     background: transparent;
     border-radius: 4px;
@@ -174,6 +178,63 @@
     padding: 8px 10px;
     border-radius: 0 6px 6px 0;
     line-height: 1.5;
+  }
+
+  /* アビリティカードスタイル */
+  .ability-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .ability-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px dashed var(--border-color);
+    padding-bottom: 6px;
+  }
+  .ability-title {
+    font-size: 13.5px;
+    font-weight: bold;
+    color: var(--accent-color);
+  }
+  .ability-category {
+    font-size: 10px;
+    background: #e2efe3;
+    color: var(--accent-color);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+  }
+  .ability-desc {
+    font-size: 11.5px;
+    color: #2b3a2d;
+    line-height: 1.4;
+    background: rgba(244, 249, 245, 0.8);
+    padding: 8px 10px;
+    border-radius: 4px;
+    border-left: 3px solid var(--accent-color);
+  }
+  .ability-horses {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+  }
+  .horse-tag {
+    font-size: 9.5px;
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: bold;
   }
 
   /* デック出走表スタイル */
@@ -247,14 +308,15 @@
 <div class="container">
   <div class="header-panel">
     <a href="index.html" class="btn-back">← 戻る</a>
-    <h2 style="margin:0; font-size: 15px; color: var(--accent-color);">作戦名鑑 ＆ 初期作戦設定</h2>
+    <h2 style="margin:0; font-size: 15px; color: var(--accent-color);">作戦名鑑 ＆ アビリティ</h2>
     <div id="syncStatus" style="font-size: 11px; color: var(--text-sub); font-weight: bold;">☁️ 読込中...</div>
   </div>
 
-  <!-- タブ切替 -->
+  <!-- メインタブ切替 -->
   <div class="view-tabs">
-    <div class="tab-btn active" onclick="switchMainTab('catalog')">作戦名鑑 (パラメータ)</div>
-    <div class="tab-btn" onclick="switchMainTab('setting')">デック別 初期作戦設定</div>
+    <div class="tab-btn active" id="tabBtnCatalog" onclick="switchMainTab('catalog')">作戦名鑑 (パラメータ)</div>
+    <div class="tab-btn" id="tabBtnSetting" onclick="switchMainTab('setting')">デック別 初期作戦設定</div>
+    <div class="tab-btn" id="tabBtnAbility" onclick="switchMainTab('ability')">🎴 獲得済アビリティ</div>
   </div>
 
   <!-- タブ1: 作戦名鑑 -->
@@ -302,22 +364,43 @@
       <button class="btn-submit" style="width:100%;" onclick="saveDefaultStrategies()">初期作戦設定を保存する</button>
     </div>
   </div>
+
+  <!-- タブ3: 獲得済アビリティ一覧 -->
+  <div id="tabAbility" style="display: none; flex-direction: column; gap: 10px;">
+    <div class="filter-group">
+      <button class="filter-btn active" id="abFilterALL" onclick="filterAbilityCategory('ALL')">すべて</button>
+      <button class="filter-btn" id="abFilterStart" onclick="filterAbilityCategory('スタート・枠・馬番系')">スタート系</button>
+      <button class="filter-btn" id="abFilterField" onclick="filterAbilityCategory('競馬場・コース・環境系')">競馬場・環境</button>
+      <button class="filter-btn" id="abFilterStyle" onclick="filterAbilityCategory('脚質・距離・スピード系')">脚質・スピード</button>
+      <button class="filter-btn" id="abFilterMental" onclick="filterAbilityCategory('精神力・タイプ・実績系')">精神・実績</button>
+      <button class="filter-btn" id="abFilterType" onclick="filterAbilityCategory('芝・ダート・所属・運用特殊系')">特殊・タイプ</button>
+    </div>
+
+    <div id="abilityCountNotice" style="font-size: 11px; color: var(--text-sub); font-weight: bold; background: var(--panel-bg); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color);">
+      獲得済馬から解放されたアビリティを表示中
+    </div>
+
+    <div id="abilityGrid" class="strategy-grid"></div>
+  </div>
 </div>
 
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { doc, getDoc, updateDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   let currentUser = null;
   let globalUserData = null;
   let STRATEGY_MASTER = [];
   let HORSES_MASTER = {};
+  let ABILITY_MASTER = {};
+  let obtainedAbilities = {}; // { ability_id: [ horseName1, horseName2 ] }
+  
   let currentFilter = 'ALL';
+  let currentAbilityCategory = 'ALL';
   let activeDeckIdx = 0;
   let chartInstances = [];
 
-  // 脚質別のカラーテーマ
   const STYLE_COLORS = {
     '逃げ': { fill: 'rgba(239, 83, 80, 0.35)', border: '#e53935', point: '#c62828', bg: '#ffebee', badgeText: '#c62828' },
     '先行': { fill: 'rgba(255, 167, 38, 0.35)', border: '#fb8c00', point: '#ef6c00', bg: '#fff3e0', badgeText: '#ef6c00' },
@@ -326,72 +409,23 @@
     'default': { fill: 'rgba(45, 106, 55, 0.35)', border: '#2d6a37', point: '#1b4d23', bg: '#e8f5e9', badgeText: '#2d6a37' }
   };
 
-  // 全16作戦の寸評 ＆ 得意な展開
   const STRATEGY_DETAILS = {
-    'NIGE_01': {
-      comment: 'スピードと高い持続力を備え、後続の競りかけを根性で跳ね返して逃げ粘る真っ向勝負型。',
-      best: 'スローペース、単騎逃げ、前残り展開'
-    },
-    'NIGE_02': {
-      comment: 'スタミナと高い瞬発力を誇り、道中でしっかり息を入れて溜め逃げし、直線で一気に突き放す型。',
-      best: 'スローペース、マイペース落とし、後続牽制展開'
-    },
-    'NIGE_03': {
-      comment: '全能力のバランスが取れた万能型。展開の変化に左右されず安定したペースで逃げを刻める。',
-      best: 'ミドルペース、平均ペース、ペース乱れのない展開'
-    },
-    'NIGE_04': {
-      comment: 'スピードと持続力が圧倒的。後続の脚を削り取って追いすがる隙を与えない超高ラップの大逃げ仕様。',
-      best: 'ハイペース、縦長展開、後続の消耗戦'
-    },
-    'SENKO_01': {
-      comment: 'スタミナと根性で耐え抜くタフな粘り腰。前傾ラップや消耗戦になっても粘り強さを発揮する。',
-      best: 'ミドル〜ハイペース、タフな消耗戦、粘り合い'
-    },
-    'SENKO_02': {
-      comment: '持続力とスタミナを生かし、3〜4コーナーで早めに先頭へ躍り出てそのまま押し切る型。',
-      best: 'ミドル〜スローペース、ロングスパート戦、前有利の展開'
-    },
-    'SENKO_03': {
-      comment: '癖のないバランス型。相手やレース展開を問わず柔軟に好位をキープし安定して粘れる。',
-      best: 'ミドルペース、展開不問、平均ペース'
-    },
-    'SENKO_04': {
-      comment: '先行でありながら高い瞬発力を備え、好位の絶好位から鋭いキレ味で一気に抜け出す勝負型。',
-      best: 'スロー〜ミドルペース、瞬発力勝負、直線抜け出し'
-    },
-    'SASHI_01': {
-      comment: '持続力と瞬発力を併せ持ち、3〜4コーナーから長く脚を使って前陣へ押し寄せるロングスパート型。',
-      best: 'ミドル〜ハイペース、ロングスパート戦、持続力勝負'
-    },
-    'SASHI_02': {
-      comment: '突出した持続力と瞬発力を誇る。コーナーから外を豪快に捲り上がり、前を飲み込む力技。',
-      best: 'ハイペース、捲り差し展開、波乱・混戦'
-    },
-    'SASHI_03': {
-      comment: '鋭い瞬発力と高い根性に特化。直線まで体力を極力温存し、強烈な伸びと叩き合いで制する。',
-      best: 'ハイペース、後方有利展開、直線一気・叩き合い'
-    },
-    'SASHI_04': {
-      comment: '根性が高くバランスに優れる。目標とする先行馬にしっかり食らいついて競り落とすマーク屋。',
-      best: 'ミドル〜ハイペース、マーク対象が存在する展開、叩き合い'
-    },
-    'OIKOMI_01': {
-      comment: '豊かなスタミナと鋭い瞬発力を溜め込み、道中は死んだふりから直線一気に前を強襲する一発勝負型。',
-      best: '超ハイペース、ハイペース、前崩れ展開'
-    },
-    'OIKOMI_02': {
-      comment: '瞬発・持続・根性が高次元で融合。狭い馬群の隙間でも怯むことなく力強く突き抜けてくる。',
-      best: 'ハイペース、馬群凝縮の展開、激しい叩き合い'
-    },
-    'OIKOMI_03': {
-      comment: '追込随一の持続力と高い瞬発力を誇る。後方から3〜4コーナーで圧巻の脚を使って一気に捲り去る。',
-      best: '超ハイペース、ハイペース、ロングスパート・ロング捲り展開'
-    },
-    'OIKOMI_04': {
-      comment: '極限の瞬発力を持つロマン型。直線のひと伸び・爆発力だけに全てを賭ける一撃必殺の勝負師。',
-      best: '超ハイペース、ハイペース、極端な前崩れ展開'
-    }
+    'NIGE_01': { comment: 'スピードと高い持続力を備え、後続の競りかけを根性で跳ね返して逃げ粘る真っ向勝負型。', best: 'スローペース、単騎逃げ、前残り展開' },
+    'NIGE_02': { comment: 'スタミナと高い瞬発力を誇り、道中でしっかり息を入れて溜め逃げし、直線で一気に突き放す型。', best: 'スローペース、マイペース落とし、後続牽制展開' },
+    'NIGE_03': { comment: '全能力のバランスが取れた万能型。展開の変化に左右されず安定したペースで逃げを刻める。', best: 'ミドルペース、平均ペース、ペース乱れのない展開' },
+    'NIGE_04': { comment: 'スピードと持続力が圧倒的。後続の脚を削り取って追いすがる隙を与えない超高ラップの大逃げ仕様。', best: 'ハイペース、縦長展開、後続の消耗戦' },
+    'SENKO_01': { comment: 'スタミナと根性で耐え抜くタフな粘り腰。前傾ラップや消耗戦になっても粘り強さを発揮する。', best: 'ミドル〜ハイペース、タフな消耗戦、粘り合い' },
+    'SENKO_02': { comment: '持続力とスタミナを生かし、3〜4コーナーで早めに先頭へ躍り出てそのまま押し切る型。', best: 'ミドル〜スローペース、ロングスパート戦、前有利の展開' },
+    'SENKO_03': { comment: '癖のないバランス型。相手やレース展開を問わず柔軟に好位をキープし安定して粘れる。', best: 'ミドルペース、展開不問、平均ペース' },
+    'SENKO_04': { comment: '先行でありながら高い瞬発力を備え、好位の絶好位から鋭いキレ味で一気に抜け出す勝負型。', best: 'スロー〜ミドルペース、瞬発力勝負、直線抜け出し' },
+    'SASHI_01': { comment: '持続力と瞬発力を併せ持ち、3〜4コーナーから長く脚を使って前陣へ押し寄せるロングスパート型。', best: 'ミドル〜ハイペース、ロングスパート戦、持続力勝負' },
+    'SASHI_02': { comment: '突出した持続力と瞬発力を誇る。コーナーから外を豪快に捲り上がり、前を飲み込む力技。', best: 'ハイペース、捲り差し展開、波乱・混戦' },
+    'SASHI_03': { comment: '鋭い瞬発力と高い根性に特化。直線まで体力を極力温存し、強烈な伸びと叩き合いで制する。', best: 'ハイペース、後方有利展開、直線一気・叩き合い' },
+    'SASHI_04': { comment: '根性が高くバランスに優れる。目標とする先行馬にしっかり食らいついて競り落とすマーク屋。', best: 'ミドル〜ハイペース、マーク対象が存在する展開、叩き合い' },
+    'OIKOMI_01': { comment: '豊かなスタミナと鋭い瞬発力を溜め込み、道中は死んだふりから直線一気に前を強襲する一発勝負型。', best: '超ハイペース、ハイペース、前崩れ展開' },
+    'OIKOMI_02': { comment: '瞬発・持続・根性が高次元で融合。狭い馬群の隙間でも怯むことなく力強く突き抜けてくる。', best: 'ハイペース、馬群凝縮の展開、激しい叩き合い' },
+    'OIKOMI_03': { comment: '追込随一の持続力と高い瞬発力を誇る。後方から3〜4コーナーで圧巻の脚を使って一気に捲り去る。', best: '超ハイペース、ハイペース、ロングスパート・ロング捲り展開' },
+    'OIKOMI_04': { comment: '極限の瞬発力を持つロマン型。直線のひと伸び・爆発力だけに全てを賭ける一撃必殺の勝負師。', best: '超ハイペース、ハイペース、極端な前崩れ展開' }
   };
 
   function getTurfVal(h) { return Number(h.turf_potential ?? h.turf) || 0; }
@@ -434,7 +468,6 @@
         globalUserData = userDoc.data();
       }
 
-      // デックデータ初期構造補正
       if (!globalUserData.decks || !Array.isArray(globalUserData.decks)) {
         globalUserData.decks = [
           { deck_name: "メインデッキ 1", horse_ids: new Array(18).fill(null), default_strategies: new Array(18).fill(null) },
@@ -448,18 +481,55 @@
         while (deck.default_strategies.length < 18) deck.default_strategies.push(null);
       });
 
-      const [stratData, horsesData] = await Promise.all([
+      // マスタデータおよびインベントリデータの読み込み
+      const [stratData, horsesData, abilityData] = await Promise.all([
         fetchJsonSafe('strategy_master.json'),
-        fetchJsonSafe('horses_master.json')
+        fetchJsonSafe('horses_master.json'),
+        fetchJsonSafe('ability_master.json')
       ]);
 
       STRATEGY_MASTER = stratData || [];
+      ABILITY_MASTER = abilityData || {};
+
       if (Array.isArray(horsesData)) {
-        horsesData.forEach(h => { HORSES_MASTER[String(h.horse_id)] = h; });
+        horsesData.forEach(h => { HORSES_MASTER[String(h.horse_id ?? h.id)] = h; });
       }
+
+      // 所持インベントリの取得（獲得済み馬のアビリティ抽出用）
+      const inventorySnap = await getDocs(collection(db, `users/${user.uid}/inventory`));
+      const userInventory = {};
+      inventorySnap.forEach(docSnap => {
+        userInventory[docSnap.id] = docSnap.data();
+      });
+
+      // 獲得済みの馬からアビリティを抽出・集計
+      obtainedAbilities = {};
+      Object.keys(HORSES_MASTER).forEach(horseId => {
+        const cardInfo = userInventory[horseId];
+        const count = (typeof cardInfo === 'object' && cardInfo !== null) ? (cardInfo.count || 1) : (cardInfo || 0);
+
+        // 獲得済み（枚数 > 0）の場合
+        if (count > 0) {
+          const horse = HORSES_MASTER[horseId];
+          const horseAbilities = horse.abilities || horse.ability || [];
+          const abList = Array.isArray(horseAbilities) ? horseAbilities : [horseAbilities];
+
+          abList.forEach(abId => {
+            if (!abId) return;
+            if (!obtainedAbilities[abId]) {
+              obtainedAbilities[abId] = [];
+            }
+            if (!obtainedAbilities[abId].includes(horse.name)) {
+              obtainedAbilities[abId].push(horse.name);
+            }
+          });
+        }
+      });
 
       renderStrategyGrid();
       renderDeckHorseSettings();
+      renderAbilityGrid();
+
       document.getElementById('syncStatus').textContent = "✅ 準備完了";
 
     } catch (e) {
@@ -468,26 +538,22 @@
     }
   });
 
-  // タブ切り替え処理
+  // メインタブ切替
   window.switchMainTab = function(tabName) {
     const catalogEl = document.getElementById('tabCatalog');
     const settingEl = document.getElementById('tabSetting');
-    const tabs = document.querySelectorAll('.view-tabs .tab-btn');
+    const abilityEl = document.getElementById('tabAbility');
 
-    if (tabName === 'catalog') {
-      catalogEl.style.display = 'flex';
-      settingEl.style.display = 'none';
-      tabs[0].classList.add('active');
-      tabs[1].classList.remove('active');
-    } else {
-      catalogEl.style.display = 'none';
-      settingEl.style.display = 'flex';
-      tabs[0].classList.remove('active');
-      tabs[1].classList.add('active');
-    }
+    document.getElementById('tabBtnCatalog').classList.toggle('active', tabName === 'catalog');
+    document.getElementById('tabBtnSetting').classList.toggle('active', tabName === 'setting');
+    document.getElementById('tabBtnAbility').classList.toggle('active', tabName === 'ability');
+
+    catalogEl.style.display = (tabName === 'catalog') ? 'flex' : 'none';
+    settingEl.style.display = (tabName === 'setting') ? 'flex' : 'none';
+    abilityEl.style.display = (tabName === 'ability') ? 'flex' : 'none';
   };
 
-  // デック切り替えサブタブ
+  // デック切替サブタブ
   window.switchDeckTab = function(idx) {
     activeDeckIdx = idx;
     document.getElementById('deckTab0').classList.toggle('active', idx === 0);
@@ -495,18 +561,28 @@
     renderDeckHorseSettings();
   };
 
-  // 脚質フィルター処理
+  // 作戦脚質フィルター
   window.filterStyle = function(style) {
     currentFilter = style;
-    document.querySelectorAll('.filter-btn').forEach(btn => {
+    document.querySelectorAll('#tabCatalog .filter-btn').forEach(btn => {
       btn.classList.toggle('active', btn.textContent === style || (style === 'ALL' && btn.textContent === 'すべて'));
     });
     renderStrategyGrid();
   };
 
-  // 作戦名鑑（レーダーチャート＋寸評・得意展開）描画
+  // アビリティカテゴリフィルター
+  window.filterAbilityCategory = function(cat) {
+    currentAbilityCategory = cat;
+    document.querySelectorAll('#tabAbility .filter-btn').forEach(btn => {
+      const isAll = cat === 'ALL' && btn.id === 'abFilterALL';
+      const isMatch = btn.getAttribute('onclick')?.includes(`'${cat}'`);
+      btn.classList.toggle('active', isAll || isMatch);
+    });
+    renderAbilityGrid();
+  };
+
+  // 作戦名鑑描画
   function renderStrategyGrid() {
-    // 既存のチャートインスタンスを破棄
     chartInstances.forEach(c => c.destroy());
     chartInstances = [];
 
@@ -520,23 +596,16 @@
       card.className = 'strat-card';
 
       const colors = STYLE_COLORS[strat.style] || STYLE_COLORS.default;
-      const detail = STRATEGY_DETAILS[strat.strategy_id] || {
-        comment: '特筆すべき特徴を持ったバランス型作戦。',
-        best: '展開不問'
-      };
+      const detail = STRATEGY_DETAILS[strat.strategy_id] || { comment: '特筆すべき特徴を持ったバランス型作戦。', best: '展開不問' };
       const canvasId = `chart_${strat.strategy_id}`;
 
       card.innerHTML = `
         <div class="strat-header">
-          <div>
-            <span class="strat-title">${strat.name}</span>
-          </div>
+          <div><span class="strat-title">${strat.name}</span></div>
           <span class="strat-badge" style="background: ${colors.bg}; color: ${colors.badgeText};">${strat.style}</span>
         </div>
         <div class="card-body">
-          <div class="chart-container">
-            <canvas id="${canvasId}"></canvas>
-          </div>
+          <div class="chart-container"><canvas id="${canvasId}"></canvas></div>
           <div class="comment-box" style="border-left-color: ${colors.border};">
             <strong>【寸評】</strong><br>${detail.comment}<br>
             <strong style="margin-top: 6px; display: inline-block;">【得意な展開】</strong><br>${detail.best}
@@ -545,7 +614,6 @@
       `;
       container.appendChild(card);
 
-      // レーダーチャート生成
       const ctx = document.getElementById(canvasId).getContext('2d');
       const newChart = new Chart(ctx, {
         type: 'radar',
@@ -565,27 +633,73 @@
           maintainAspectRatio: false,
           scales: {
             r: {
-              min: 0,
-              max: 20,
-              ticks: { display: false, stepSize: 5 }, // 目盛り数値を非表示
-              pointLabels: {
-                font: { size: 9, weight: 'bold' },
-                color: colors.border
-              },
+              min: 0, max: 20,
+              ticks: { display: false, stepSize: 5 },
+              pointLabels: { font: { size: 9, weight: 'bold' }, color: colors.border },
               grid: { color: 'rgba(0,0,0,0.08)' },
               angleLines: { color: 'rgba(0,0,0,0.1)' }
             }
           },
-          plugins: {
-            legend: { display: false }
-          }
+          plugins: { legend: { display: false } }
         }
       });
       chartInstances.push(newChart);
     });
   }
 
-  // デックごとの出走表スタイル初期作戦設定描画 (1〜18枠)
+  // 獲得済アビリティ描画
+  function renderAbilityGrid() {
+    const container = document.getElementById('abilityGrid');
+    container.innerHTML = '';
+
+    const abKeys = Object.keys(obtainedAbilities);
+    let displayedCount = 0;
+
+    if (abKeys.length === 0) {
+      container.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--text-sub); font-weight: bold;">獲得済みの馬の中に所持アビリティが見つかりませんでした。</div>`;
+      document.getElementById('abilityCountNotice').textContent = `獲得済アビリティ: 0 種類`;
+      return;
+    }
+
+    abKeys.forEach(abId => {
+      const abMaster = ABILITY_MASTER[abId];
+      if (!abMaster) return;
+
+      if (currentAbilityCategory !== 'ALL' && abMaster.category !== currentAbilityCategory) {
+        return;
+      }
+
+      displayedCount++;
+      const horsesList = obtainedAbilities[abId];
+      const horseTagsHtml = horsesList.map(hName => `<span class="horse-tag">🏇 ${hName}</span>`).join('');
+
+      const card = document.createElement('div');
+      card.className = 'ability-card';
+      card.innerHTML = `
+        <div class="ability-header">
+          <span class="ability-title">✨ ${abMaster.name}</span>
+          <span class="ability-category">${abMaster.category || '特殊'}</span>
+        </div>
+        <div class="ability-desc">
+          ${abMaster.description}
+        </div>
+        <div class="ability-horses">
+          <span style="font-size: 10px; font-weight: bold; color: var(--text-sub);">所持馬:</span>
+          ${horseTagsHtml}
+        </div>
+      `;
+
+      container.appendChild(card);
+    });
+
+    document.getElementById('abilityCountNotice').textContent = `獲得済アビリティ: ${displayedCount} 種類 表示中`;
+
+    if (displayedCount === 0) {
+      container.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--text-sub); font-weight: bold;">該当するカテゴリのアビリティはありません。</div>`;
+    }
+  }
+
+  // 出走表初期設定描画
   function renderDeckHorseSettings() {
     const tbody = document.getElementById('deckSettingBody');
     tbody.innerHTML = '';
@@ -641,7 +755,7 @@
     }
   }
 
-  // 設定の保存処理
+  // 初期作戦保存
   window.saveDefaultStrategies = async function() {
     if (!currentUser || !globalUserData) return;
 
