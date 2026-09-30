@@ -86,9 +86,9 @@
     gap: 6px;
     overflow-x: auto;
     padding-bottom: 5px;
-    scrollbar-width: none; /* Firefox */
+    scrollbar-width: none;
   }
-  .dev-sub-tab-container::-webkit-scrollbar { display: none; } /* Chrome */
+  .dev-sub-tab-container::-webkit-scrollbar { display: none; }
   .dev-sub-tab-btn {
     background: rgba(255, 255, 255, 0.7);
     color: var(--text-sub);
@@ -102,13 +102,13 @@
     font-weight: bold;
   }
   .dev-sub-tab-btn.active {
-    background: #1e293b;
-    color: #4ade80;
-    border-color: #1e293b;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    background: var(--accent-color);
+    color: #ffffff;
+    border-color: var(--accent-color);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
   }
 
-  /* 展開図鑑カードスタイル */
+  /* 展開図鑑カードスタイル (作戦名鑑に統合) */
   .dev-card {
     background: var(--panel-bg);
     border: 1px solid var(--border-color);
@@ -117,7 +117,7 @@
     box-shadow: 0 2px 6px rgba(0,0,0,0.05);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
   }
   .dev-header {
     display: flex;
@@ -127,46 +127,40 @@
     padding-bottom: 6px;
   }
   .dev-title {
-    font-size: 13.5px;
+    font-size: 14px;
     font-weight: bold;
     color: var(--accent-color);
   }
   
-  /* ダーク・サイバー風 インナーボックス (横幅縮小・中央寄せ) */
-.dev-dark-box {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #1e293b; 
-  /* 左右の余白を12%に広げて、コンテンツを中央に寄せる */
-  padding: 12px 12%; 
-  width: 100%;
-  margin: 6px 0;
-  box-sizing: border-box;
-  min-height: 115px;
-
-  /* 左右の両端を滑らかにフェードアウト */
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
-  mask-image: linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
-}
-
-
-
-
-  .dev-dark-text-main {
+  /* カードボディ (作戦名鑑風レイアウト) */
+  .dev-body {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .dev-info-box {
+    flex: 1;
     font-size: 11.5px;
-    color: #f8fafc;
-    margin-bottom: 8px;
-    line-height: 1.45;
+    color: var(--text-main);
+    background: rgba(244, 249, 245, 0.8);
+    border-left: 3px solid var(--accent-color);
+    padding: 8px 10px;
+    border-radius: 0 6px 6px 0;
+    line-height: 1.5;
   }
-  .dev-dark-text-sub {
-    font-size: 10.5px;
-    color: #4ade80;
+  .dev-info-title {
     font-weight: bold;
-    line-height: 1.4;
+    color: var(--accent-color);
+    margin-bottom: 2px;
   }
-  .dev-dark-highlight {
-    color: #38bdf8;
+  .dev-info-sub {
+    font-size: 10.5px;
+    color: #15803d;
+    font-weight: bold;
+    margin-top: 4px;
+  }
+  .dev-highlight {
+    color: #0284c7;
     font-weight: bold;
   }
 
@@ -184,8 +178,11 @@
 
   .dev-desc {
     font-size: 11px;
-    color: #4e6b52;
+    color: var(--text-sub);
     line-height: 1.45;
+    background: rgba(255, 255, 255, 0.5);
+    padding: 6px 8px;
+    border-radius: 4px;
   }
 
   /* 作戦名鑑カード */
@@ -468,7 +465,7 @@
       desc: "直線で馬群が並び、一瞬の切れ味と最後まで脚を伸ばし続ける根性を競い合う接戦。",
       radar: { speed: 3, stamina: 3, sharp: 4, jizoku: 3, guts: 4 } },
     { pace: "middle", title: "スパート勝負", badge: "ミドルペース系", badgeClass: "pace-middle",
-     main: "ポテンシャル ＋ スタミナ ＋ 瞬発",
+      main: "ポテンシャル ＋ スタミナ ＋ 瞬発",
       pos: "※優位な位置取り：位置不問",
       desc: "勝負所からの早めの追い出しに耐えうる十分なスタミナと、そこからの瞬発的な一脚が問われるロングスパート戦。",
       radar: { speed: 3, stamina: 4, sharp: 4, jizoku: 3, guts: 2 } },
@@ -609,7 +606,7 @@
     renderAbilityGrid();
   };
 
-  // --- 展開図鑑 描画ロジック ---
+  // --- 展開図鑑 描画ロジック (作戦名鑑風ライトスタイル) ---
   window.filterPaceGrid = function(pace, btn) {
     document.querySelectorAll('.dev-sub-tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
@@ -617,7 +614,7 @@
   };
 
   function highlightKeywords(text) {
-    return text.replace(/スピード|スタミナ|瞬発|持続|根性|ポテンシャル/g, '<span class="dev-dark-highlight">$&</span>');
+    return text.replace(/スピード|スタミナ|瞬発|持続|根性|ポテンシャル/g, '<span class="dev-highlight">$&</span>');
   }
 
   function renderDevGrid(paceFilter = 'all') {
@@ -647,11 +644,7 @@
       const valPoints = getPoints(dev.radar);
       const cleanMainText = dev.main.replace(/^決め手：/, '');
       
-      // 計算式の「 ＋ 」部分で改行
       const formattedMainText = highlightKeywords(cleanMainText.replaceAll(' ＋ ', '<br>＋ '));
-      
-      // 「優位な位置取り：」の後で改行
-      const formattedPosText = dev.pos.replace('：', '：<br>');
 
       const card = document.createElement('div');
       card.className = 'dev-card';
@@ -662,38 +655,37 @@
           <span class="pace-badge ${dev.badgeClass}">${dev.badge}</span>
         </div>
         
-        <div class="dev-dark-box">
-          <div style="flex: 1; padding-right: 8px;">
-            <div class="dev-dark-text-main">
-              <strong>決め手:</strong><br>
-              ${formattedMainText}
-            </div>
-            <div class="dev-dark-text-sub">${formattedPosText}</div>
-          </div>
-          
-          <svg width="92" height="92" viewBox="0 -6 92 100" style="flex-shrink: 0; overflow: visible;">
+        <div class="dev-body">
+          <svg width="105" height="105" viewBox="0 -6 92 100" style="flex-shrink: 0; overflow: visible;">
             <!-- ガイド放射線 -->
-            <line x1="46" y1="46" x2="46" y2="8" stroke="#475569" stroke-width="1"/>
-            <line x1="46" y1="46" x2="82.1" y2="34.3" stroke="#475569" stroke-width="1"/>
-            <line x1="46" y1="46" x2="68.3" y2="76.7" stroke="#475569" stroke-width="1"/>
-            <line x1="46" y1="46" x2="23.7" y2="76.7" stroke="#475569" stroke-width="1"/>
-            <line x1="46" y1="46" x2="9.9" y2="34.3" stroke="#475569" stroke-width="1"/>
+            <line x1="46" y1="46" x2="46" y2="8" stroke="#cbd5e1" stroke-width="1"/>
+            <line x1="46" y1="46" x2="82.1" y2="34.3" stroke="#cbd5e1" stroke-width="1"/>
+            <line x1="46" y1="46" x2="68.3" y2="76.7" stroke="#cbd5e1" stroke-width="1"/>
+            <line x1="46" y1="46" x2="23.7" y2="76.7" stroke="#cbd5e1" stroke-width="1"/>
+            <line x1="46" y1="46" x2="9.9" y2="34.3" stroke="#cbd5e1" stroke-width="1"/>
             
             <!-- ガイド5角形 -->
-            <polygon points="${maxPoints}" fill="none" stroke="#475569" stroke-width="1"/>
-            <polygon points="${midPoints}" fill="none" stroke="#334155" stroke-width="1"/>
+            <polygon points="${maxPoints}" fill="none" stroke="#cbd5e1" stroke-width="1"/>
+            <polygon points="${midPoints}" fill="none" stroke="#e2e8f0" stroke-width="1"/>
             
-            <!-- 値ポリゴン -->
-            <polygon points="${valPoints}" fill="rgba(74, 222, 128, 0.25)" stroke="#4ade80" stroke-width="1.5" stroke-linejoin="round"/>
+            <!-- 値ポリゴン (明るい緑) -->
+            <polygon points="${valPoints}" fill="rgba(45, 106, 55, 0.25)" stroke="#2d6a37" stroke-width="1.8" stroke-linejoin="round"/>
             
             <!-- テキストラベル -->
-            <text x="46" y="3" font-size="9" fill="#cbd5e1" text-anchor="middle" font-weight="bold">スピ</text>
-            <text x="88" y="37" font-size="9" fill="#cbd5e1" text-anchor="middle" font-weight="bold">スタ</text>
-            <text x="74" y="87" font-size="9" fill="#cbd5e1" text-anchor="middle" font-weight="bold">瞬発</text>
-            <text x="18" y="87" font-size="9" fill="#cbd5e1" text-anchor="middle" font-weight="bold">持続</text>
-            <text x="4" y="37" font-size="9" fill="#cbd5e1" text-anchor="middle" font-weight="bold">根性</text>
+            <text x="46" y="3" font-size="9" fill="#4e6b52" text-anchor="middle" font-weight="bold">スピ</text>
+            <text x="88" y="37" font-size="9" fill="#4e6b52" text-anchor="middle" font-weight="bold">スタ</text>
+            <text x="74" y="87" font-size="9" fill="#4e6b52" text-anchor="middle" font-weight="bold">瞬発</text>
+            <text x="18" y="87" font-size="9" fill="#4e6b52" text-anchor="middle" font-weight="bold">持続</text>
+            <text x="4" y="37" font-size="9" fill="#4e6b52" text-anchor="middle" font-weight="bold">根性</text>
           </svg>
+
+          <div class="dev-info-box">
+            <div class="dev-info-title">【決め手】</div>
+            <div>${formattedMainText}</div>
+            <div class="dev-info-sub">${dev.pos}</div>
+          </div>
         </div>
+
         <div class="dev-desc">${dev.desc}</div>
       `;
       container.appendChild(card);
