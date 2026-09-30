@@ -77,7 +77,8 @@
     padding: 3px 6px;
     border-radius: 4px;
     display: flex;
-    gap: 10px;
+    gap: 8px;
+    align-items: center;
   }
 
   /* シリーズ除外（BAN）パネル */
@@ -167,7 +168,8 @@
   /* ポテンシャル情報表示 */
   .ban-card-pt {
     display: flex;
-    gap: 14px;
+    gap: 8px;
+    align-items: center;
     background: #faf5ff;
     border: 1px solid #e9d5ff;
     padding: 6px 10px;
@@ -337,12 +339,47 @@
     return "芝";
   }
 
-  // series_master.json からポテンシャル情報を直接取得
+  // series_master.json からポテンシャル情報を直接・正確に探索取得
   function getSeriesPotentialInfo(sObj) {
     if (!sObj) return { totalPt: 0, eligiblePt: 0 };
+
+    const findValue = (obj, keys) => {
+      if (!obj || typeof obj !== 'object') return null;
+      for (const key of keys) {
+        if (obj[key] !== undefined && obj[key] !== null && obj[key] !== '') {
+          return obj[key];
+        }
+      }
+      // ネストされたオブジェクト構造 (conditions, rules, limits, limit 等) も探索
+      const subObjects = [obj.conditions, obj.rules, obj.limits, obj.limit, obj.potential_info, obj.pt];
+      for (const sub of subObjects) {
+        if (sub && typeof sub === 'object') {
+          for (const key of keys) {
+            if (sub[key] !== undefined && sub[key] !== null && sub[key] !== '') {
+              return sub[key];
+            }
+          }
+        }
+      }
+      return null;
+    };
+
+    const totalKeys = [
+      'total_potential', 'max_potential', 'total_limit', 'limit_potential', 
+      'max_pt', 'total_pt', 'potential_limit', 'potential_max', 'total', 'max', 'limit', 'potential'
+    ];
+
+    const eligibleKeys = [
+      'eligible_potential', 'min_potential', 'eligible_pt', 'min_pt', 'eligible_min',
+      'available_potential', 'available_pt', 'eligible', 'min', 'required_potential'
+    ];
+
+    const rawTotal = findValue(sObj, totalKeys);
+    const rawEligible = findValue(sObj, eligibleKeys);
+
     return {
-      totalPt: Number(sObj.total_potential ?? sObj.total_pt ?? sObj.max_potential ?? sObj.potential ?? 0),
-      eligiblePt: Number(sObj.eligible_potential ?? sObj.eligible_pt ?? sObj.limit_potential ?? sObj.limit_pt ?? 0)
+      totalPt: rawTotal !== null ? Number(rawTotal) : 0,
+      eligiblePt: rawEligible !== null ? Number(rawEligible) : 0
     };
   }
 
@@ -436,8 +473,9 @@
           <span>🏆 ${sName}</span>
         </div>
         <div class="my-series-pt-info">
-          <span>出走可能PT: <b>${ptStats.eligiblePt}</b></span>
-          <span>デッキ合計PT: <b>${ptStats.totalPt}</b></span>
+          <span>合計上限 <b>${ptStats.totalPt}</b></span>
+          <span style="color:#cbd5e1;">|</span>
+          <span>出走可能 <b>${ptStats.eligiblePt}以上</b></span>
         </div>
       `;
       container.appendChild(chip);
@@ -618,7 +656,7 @@
         raceBadgesHTML = `<span class="race-badge">コース情報読み込み中</span>`;
       }
 
-      // ポテンシャル情報取得（JSONデータより直接取得）
+      // ポテンシャル情報取得
       const ptStats = getSeriesPotentialInfo(sObj);
       const isSelected = (selectedBanIndex === idx);
 
@@ -636,8 +674,9 @@
           ${raceBadgesHTML}
         </div>
         <div class="ban-card-pt">
-          <div class="pt-item">出走可能PT: <span class="pt-val">${ptStats.eligiblePt}</span></div>
-          <div class="pt-item">デッキ合計PT: <span class="pt-val">${ptStats.totalPt}</span></div>
+          <div class="pt-item">合計上限 <span class="pt-val">${ptStats.totalPt}</span></div>
+          <div style="color:#cbd5e1;">|</div>
+          <div class="pt-item">出走可能 <span class="pt-val">${ptStats.eligiblePt}以上</span></div>
         </div>
       `;
       container.appendChild(card);
