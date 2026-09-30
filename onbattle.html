@@ -361,6 +361,20 @@
 
     const roomData = roomSnap.data();
 
+    // --- 前回の古いセッションデータやフラグが残っている場合の強制リセット判定 ---
+    const isHost = (role === 'host');
+    const myReadyFlag = isHost ? roomData.player1_matchup_ready : roomData.player2_matchup_ready;
+
+    if (roomData.status === "matching" && myReadyFlag) {
+      await updateDoc(roomRef, {
+        [isHost ? 'player1_matchup_ready' : 'player2_matchup_ready']: false,
+        [isHost ? 'player1_draft' : 'player2_draft']: [null, null, null, null, null],
+        [isHost ? 'player1_entries' : 'player2_entries']: [null, null, null, null, null]
+      });
+      selectedEntries = [null, null, null, null, null];
+    }
+    // -------------------------------------------------------------
+
     // 1. 対戦相手の名前を確実に出すための修正（ホスト/ゲストのUID・名前フィールドを全網羅して判定）
     let oppName = "対戦相手";
     let oppUid = null;
@@ -391,7 +405,6 @@
     matchRaces = matchSeriesIds.map((sId, index) => {
       const sObj = SERIES_MASTER[sId] || SERIES_MASTER[Object.keys(SERIES_MASTER)[0]] || {};
       
-      // 各シリーズ内のレース情報を正確に取得
       let raceInfo = {};
       if (sObj.rounds && sObj.rounds[0] && sObj.rounds[0].races && sObj.rounds[0].races[0]) {
         raceInfo = sObj.rounds[0].races[0];
@@ -410,7 +423,6 @@
       };
     });
 
-    // 初期表示として第1戦のシリーズ名を表示
     updateActiveSeriesDisplay(0);
 
     // 3. デック馬情報の取得
@@ -439,7 +451,6 @@
     listenRoomStatus();
   }
 
-  // 今何回戦か（選択された馬の状態やフォーカス等から判別、または各レースごとの個別シリーズを表示）
   function updateActiveSeriesDisplay(raceIndex) {
     if (matchRaces[raceIndex]) {
       const race = matchRaces[raceIndex];
@@ -712,7 +723,6 @@
     selectedEntries.forEach((id, rIdx) => {
       if (id && HORSES_MASTER[id] && matchRaces[rIdx]) {
         count++;
-        // 各レースの馬場適性に基づいた正しいポテンシャルを合算
         totalPt += getHorsePotential(HORSES_MASTER[id], matchRaces[rIdx].surface);
       }
     });
