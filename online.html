@@ -22,6 +22,10 @@
   .header-right { display: flex; align-items: center; gap: 8px; }
   .wins-badge { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #78350f; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid #d97706; }
 
+  /* ★ データクリアボタンのスタイル */
+  .btn-reset { background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: background 0.2s; }
+  .btn-reset:hover { background: #dc2626; }
+
   .title-panel { background-color: var(--panel-bg); border: 2px solid var(--accent-color); border-radius: 12px; padding: 18px; text-align: center; box-shadow: 0 6px 16px rgba(0,0,0,0.2); }
   .page-title { font-size: 20px; font-weight: 900; color: var(--accent-color); margin: 0 0 6px 0; }
   .page-desc { font-size: 12px; color: #4b5563; margin: 0; }
@@ -60,6 +64,7 @@
     <a href="index.html" class="btn-back">← メニュー</a>
     <div class="header-right">
       <div id="userWinsBadge" class="wins-badge">通算 0 勝</div>
+      <button class="btn-reset" onclick="clearMatchData()">🧹 データクリア</button>
       <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中</div>
     </div>
   </div>
@@ -150,7 +155,6 @@
     if (!user) { window.location.href = 'auth.html'; return; }
     currentUser = user;
     try {
-      // 1. ロビー進入時に自身の古い対戦・待機データおよび下書きデータを完全クリア
       await cleanupOldMatches(user.uid);
 
       const userDoc = await getDoc(doc(db, "users", user.uid));
@@ -158,7 +162,6 @@
         const userData = userDoc.data();
         document.getElementById('userWinsBadge').textContent = `通算 ${userData.total_wins || 0} 勝`;
 
-        // オンライン対戦用シリーズチェック
         const selectedSeries = userData.selected_online_series || [];
         if (!Array.isArray(selectedSeries) || selectedSeries.length < 3) {
           disableMatchButtons();
@@ -167,7 +170,6 @@
           return;
         }
 
-        // 2. デックの事前チェック（未作成・空デックガード）
         const userDecks = userData.decks || [];
         const hasValidDeck = userDecks.some(deck => deck && deck.horse_ids && deck.horse_ids.length > 0);
         if (!hasValidDeck) {
@@ -186,35 +188,34 @@
     }
   });
 
-  // 古い対戦データ・ドラフト・下書き・進行フラグを徹底クリーンアップする関数
+  // 古い対戦データの自動クリーンアップ
   async function cleanupOldMatches(userId) {
     try {
+      const queueQuery = query(collection(db, "match_queue"), where("host_uid", "==", userId));
+      const queueSnap = await getDocs(queueQuery);
+      const batch = writeBatch(db);
+      
+      queueSnap.forEach(qDoc => {
+        batch.delete(qDoc.ref);
+      });
+
       const matchesRef = collection(db, "online_matches");
       const qHost = query(matchesRef, where("host_uid", "==", userId), where("status", "in", ["matching", "ready", "playing"]));
       const qGuest = query(matchesRef, where("guest_uid", "==", userId), where("status", "in", ["matching", "ready", "playing"]));
       
       const [hostSnap, guestSnap] = await Promise.all([getDocs(qHost), getDocs(qGuest)]);
-      if (hostSnap.empty && guestSnap.empty) return;
-
-      const batch = writeBatch(db);
 
       hostSnap.forEach(docSnap => {
         batch.update(docSnap.ref, { 
           status: "cancelled", 
-          cancelled_by: userId,
-          player1_draft: [null, null, null, null, null],
-          player1_entries: [null, null, null, null, null],
-          player1_matchup_ready: false
+          cancelled_by: userId
         });
       });
 
       guestSnap.forEach(docSnap => {
         batch.update(docSnap.ref, { 
           status: "cancelled", 
-          cancelled_by: userId,
-          player2_draft: [null, null, null, null, null],
-          player2_entries: [null, null, null, null, null],
-          player2_matchup_ready: false
+          cancelled_by: userId
         });
       });
       
@@ -224,9 +225,47 @@
     }
   }
 
+  // ★ 手動データクリア機能
+  window.clearMatchData = async function() {
+    if (!currentUser) return;
+    if (!confirm("残存している対戦・マッチングデータを完全にクリアしますか？")) return;
+
+    document.getElementById('syncStatus').textContent = "⏳";
+    try {
+      if (matchingUnsubscribe) {
+        matchingUnsubscribe();
+        matchingUnsubscribe = null;
+      }
+
+      await cleanupOldMatches(currentUser.uid);
+      currentQueueId = null;
+
+      document.getElementById('searchingModal').style.display = "none";
+      document.getElementById('syncStatus').textContent = "✅";
+      alert("マッチングおよび対戦データをクリアしました。");
+    } catch (err) {
+      console.error("データクリア失敗:", err);
+      document.getElementById('syncStatus').textContent = "❌";
+      alert("データクリアに失敗しました。");
+    }
+  };
+
   window.startMatching = async function(type) {
     if (!currentUser || !isOnlineAvailable) return;
     isNavigatingToBattle = false;
+
+    // 自身のデックとシリーズ情報の取得
+    const userSnap = await getDoc(doc(db, "users", currentUser.uid));
+    const userData = userSnap.exists() ? userSnap.data() : {};
+    const myDecks = userData.decks || [];
+    const activeDeck = myDecks.find(d => d && d.horse_ids && d.horse_ids.length > 0) || myDecks[0] || {};
+    const myDeckIds = activeDeck.horse_ids || [];
+    const mySeries = userData.selected_online_series || [];
+
+    if (myDeckIds.length === 0) {
+      alert("使用可能なデックが見つかりません。");
+      return;
+    }
 
     let targetMode = selectedRandomMode;
     if (type === 'random') {
@@ -250,15 +289,25 @@
       const snap = await getDoc(queueRef);
 
       if (snap.exists() && snap.data().host_uid !== currentUser.uid && !snap.data().matched_roomId) {
-        const hostUid = snap.data().host_uid;
-        const matchedMode = snap.data().mode || targetMode;
+        // ゲスト側処理（ホストのデックと自分のデックをセットしてルーム作成）
+        const hostData = snap.data();
+        const hostUid = hostData.host_uid;
+        const matchedMode = hostData.mode || targetMode;
         const newRoomId = `room_${Date.now()}`;
+
+        const combinedSeries = [...(hostData.host_series || []), ...mySeries];
+        while (combinedSeries.length < 5) {
+          combinedSeries.push(combinedSeries[0] || "series_01");
+        }
 
         await setDoc(doc(db, "online_matches", newRoomId), {
           host_uid: hostUid,
           guest_uid: currentUser.uid,
           player1: hostUid,
           player2: currentUser.uid,
+          player1_deck: hostData.host_deck || [],
+          player2_deck: myDeckIds,
+          match_series: combinedSeries.slice(0, 5),
           mode: matchedMode,
           status: "ready",
           created_at: new Date().toISOString()
@@ -270,8 +319,11 @@
 
         proceedToBattle(newRoomId, "guest", matchedMode);
       } else {
+        // ホスト側処理
         await setDoc(queueRef, {
           host_uid: currentUser.uid,
+          host_deck: myDeckIds,
+          host_series: mySeries,
           mode: targetMode,
           created_at: new Date().toISOString()
         });
