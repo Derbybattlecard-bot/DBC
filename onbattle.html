@@ -71,13 +71,13 @@
     border-radius: 4px;
   }
   .my-series-pt-info {
-    font-size: 10px;
+    font-size: 10.5px;
     color: #4c1d95;
     background: #f5f3ff;
-    padding: 2px 6px;
+    padding: 3px 6px;
     border-radius: 4px;
     display: flex;
-    gap: 8px;
+    gap: 10px;
   }
 
   /* シリーズ除外（BAN）パネル */
@@ -147,7 +147,7 @@
     word-break: break-word;
   }
 
-  /* コース詳細情報（競馬場・馬場・距離） */
+  /* コース詳細情報 */
   .ban-card-races {
     display: flex;
     flex-wrap: wrap;
@@ -167,7 +167,7 @@
   /* ポテンシャル情報表示 */
   .ban-card-pt {
     display: flex;
-    gap: 12px;
+    gap: 14px;
     background: #faf5ff;
     border: 1px solid #e9d5ff;
     padding: 6px 10px;
@@ -175,6 +175,7 @@
     font-size: 11px;
     color: #581c87;
     font-weight: bold;
+    margin-top: 2px;
   }
   .pt-item {
     display: flex;
@@ -184,6 +185,7 @@
   .pt-val {
     color: #c2410c;
     font-size: 12px;
+    font-weight: 800;
   }
 
   /* デッキ選択パネル */
@@ -313,7 +315,6 @@
 
   let roomUnsubscribe = null;
 
-  // ユーザー名の取得
   function getDisplayName(userObj, authUser) {
     if (userObj) {
       const name = userObj.nickname || userObj.displayName || userObj.name || userObj.userName || userObj.username || userObj.player_name || userObj.playerName;
@@ -323,62 +324,28 @@
     return "プレイヤー";
   }
 
-  // カテゴリ名の抽出
   function getSeriesCategory(sObj) {
     if (!sObj) return "一般";
     return sObj.category || sObj.series_category || sObj.series_type || sObj.type || sObj.group || sObj.cat || sObj.genre || "一般";
   }
 
-  // ポテンシャル＆出走可能ポテンシャルの計算関数
-  function calculateSeriesPotential(sObj, deckHorseIds) {
-    let races = [];
-    if (sObj && sObj.rounds && sObj.rounds[0] && sObj.rounds[0].races) {
-      races = sObj.rounds[0].races;
-    } else if (sObj && sObj.races) {
-      races = sObj.races;
-    }
+  // 馬場の短縮フォーマット (ダート -> ダ)
+  function formatSurface(surface) {
+    if (!surface) return "芝";
+    if (surface.includes("ダート") || surface.includes("ダ")) return "ダ";
+    if (surface.includes("障害") || surface.includes("障")) return "障";
+    return "芝";
+  }
 
-    const currentDeck = deckHorseIds || [];
-    const horses = currentDeck.map(id => HORSES_MASTER[id]).filter(Boolean);
-
-    // デッキ全体のポテンシャル合計
-    const deckTotalPt = horses.reduce((sum, h) => sum + (Number(h.potential) || Number(h.pt) || Number(h.power) || 0), 0);
-
-    let eligiblePtTotal = 0;
-    if (races.length > 0) {
-      races.forEach(race => {
-        const eligibleHorses = horses.filter(h => {
-          // 馬場チェック
-          if (race.surface && h.surface && !h.surface.includes(race.surface)) return false;
-          // 距離チェック
-          if (race.distance) {
-            if (h.min_distance && race.distance < h.min_distance) return false;
-            if (h.max_distance && race.distance > h.max_distance) return false;
-          }
-          // 性別チェック
-          if (race.sex_restriction && race.sex_restriction !== "なし" && race.sex_restriction !== "全") {
-            if (race.sex_restriction.includes("牝") && h.sex !== "牝") return false;
-            if (race.sex_restriction.includes("牡") && h.sex !== "牡" && h.sex !== "セン") return false;
-          }
-          return true;
-        });
-
-        // 各レースで出走条件を満たす最高ポテンシャル馬の値を加算
-        const maxPtInRace = eligibleHorses.reduce((max, h) => {
-          const pt = Number(h.potential) || Number(h.pt) || Number(h.power) || 0;
-          return Math.max(max, pt);
-        }, 0);
-        eligiblePtTotal += maxPtInRace;
-      });
-    }
-
+  // series_master.json からポテンシャル情報を直接取得
+  function getSeriesPotentialInfo(sObj) {
+    if (!sObj) return { totalPt: 0, eligiblePt: 0 };
     return {
-      totalPt: deckTotalPt,
-      eligiblePt: eligiblePtTotal
+      totalPt: Number(sObj.total_potential ?? sObj.total_pt ?? sObj.max_potential ?? sObj.potential ?? 0),
+      eligiblePt: Number(sObj.eligible_potential ?? sObj.eligible_pt ?? sObj.limit_potential ?? sObj.limit_pt ?? 0)
     };
   }
 
-  // 安全なJSON取得関数
   async function fetchJsonSafely(path) {
     try {
       const res = await fetch(path);
@@ -390,7 +357,6 @@
     return await res2.json();
   }
 
-  // シリーズマスタ読み込み
   async function loadSeriesMaster() {
     try {
       const seriesData = await fetchJsonSafely('/data/series_master.json');
@@ -408,7 +374,6 @@
     }
   }
 
-  // 馬マスタ読み込み
   async function loadHorsesMaster() {
     try {
       const horsesArr = await fetchJsonSafely('/data/horses_master.json');
@@ -457,13 +422,11 @@
     const container = document.getElementById('mySeriesContainer');
     container.innerHTML = '';
 
-    const deck = (globalUserData.decks || [])[selectedDeckIndex] || { horse_ids: [] };
-
     mySeriesIds.forEach(sId => {
       const sObj = SERIES_MASTER[sId] || {};
       const sName = sObj.series_name || sObj.name || sId;
       const category = getSeriesCategory(sObj);
-      const ptStats = calculateSeriesPotential(sObj, deck.horse_ids);
+      const ptStats = getSeriesPotentialInfo(sObj);
 
       const chip = document.createElement('div');
       chip.className = 'my-series-chip';
@@ -517,12 +480,6 @@
     document.getElementById('deckCard0').classList.toggle('selected', idx === 0);
     document.getElementById('deckCard1').classList.toggle('selected', idx === 1);
     renderDeckTable();
-    
-    // デッキ選択変更に伴い自分のシリーズのポテンシャル表示を更新
-    renderMySeriesDisplay();
-    if (opponentSeriesList.length > 0) {
-      renderBanOptions(opponentSeriesList);
-    }
   };
 
   function renderDeckTable() {
@@ -631,19 +588,16 @@
     });
   }
 
-  // 除外カードの描画関数
   function renderBanOptions(seriesList) {
     const container = document.getElementById('banContainer');
     container.innerHTML = '';
-
-    const currentDeck = (globalUserData.decks || [])[selectedDeckIndex] || { horse_ids: [] };
 
     seriesList.forEach((sId, idx) => {
       const sObj = SERIES_MASTER[sId] || {};
       const sName = sObj.series_name || sObj.name || `シリーズ (${sId})`;
       const category = getSeriesCategory(sObj);
       
-      // コース詳細の生成 (競馬場・芝ダ・距離)
+      // レース表示の生成 (短縮表記: 競馬場 ダ1400m 等)
       let raceBadgesHTML = "";
       let races = [];
       if (sObj.rounds && sObj.rounds[0] && sObj.rounds[0].races) {
@@ -654,18 +608,18 @@
 
       if (races.length > 0) {
         raceBadgesHTML = races.map((r, rIdx) => {
-          const venue = r.track || r.venue || r.racecourse || r.course || "競馬場";
-          const surface = r.surface || r.track_type || "芝";
+          const venue = r.track || r.venue || r.racecourse || r.course || "";
+          const rawSurface = r.surface || r.track_type || "芝";
+          const surfaceStr = formatSurface(rawSurface);
           const dist = r.distance ? `${r.distance}m` : "";
-          return `<span class="race-badge">R${rIdx + 1}: ${venue} ${surface}${dist}</span>`;
+          return `<span class="race-badge">R${rIdx + 1}: ${venue} ${surfaceStr}${dist}</span>`;
         }).join('');
       } else {
-        raceBadgesHTML = `<span class="race-badge">コース情報準備中</span>`;
+        raceBadgesHTML = `<span class="race-badge">コース情報読み込み中</span>`;
       }
 
-      // ポテンシャル計算
-      const ptStats = calculateSeriesPotential(sObj, currentDeck.horse_ids);
-
+      // ポテンシャル情報取得（JSONデータより直接取得）
+      const ptStats = getSeriesPotentialInfo(sObj);
       const isSelected = (selectedBanIndex === idx);
 
       const card = document.createElement('div');
