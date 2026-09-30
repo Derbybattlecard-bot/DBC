@@ -80,27 +80,6 @@
     border-color: var(--accent-color);
   }
 
-  /* 作戦レベル解説パネル */
-  .level-info-box {
-    background: #fffbeb;
-    border: 1.5px solid #f59e0b;
-    border-radius: 8px;
-    padding: 12px;
-    font-size: 11.5px;
-    color: #78350f;
-    line-height: 1.55;
-    box-shadow: 0 2px 6px rgba(217, 119, 6, 0.1);
-  }
-  .level-info-title {
-    font-weight: bold;
-    font-size: 13px;
-    color: #b45309;
-    margin-bottom: 6px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
   /* 展開図鑑用 サブタブ */
   .dev-sub-tab-container {
     display: flex;
@@ -123,8 +102,8 @@
     font-weight: bold;
   }
   .dev-sub-tab-btn.active {
-    background: #1e293b; /* ダークなスレート色 */
-    color: #4ade80; /* 蛍光グリーン */
+    background: #1e293b;
+    color: #4ade80;
     border-color: #1e293b;
     box-shadow: 0 2px 6px rgba(0,0,0,0.15);
   }
@@ -153,32 +132,33 @@
     color: var(--accent-color);
   }
   
-  /* ダーク・サイバー風 インナーボックス (高さをやや拡大) */
+  /* ダーク・サイバー風 インナーボックス (縦縦レイアウト対応) */
   .dev-dark-box {
     display: flex;
     align-items: center;
     justify-content: space-between;
     background: #1e293b; 
-    padding: 14px 14px;
+    padding: 12px 14px;
     border-radius: 6px;
     margin: 4px 0;
     border: 1px solid #334155;
     box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);
-    min-height: 98px;
+    min-height: 115px;
   }
   .dev-dark-text-main {
     font-size: 11.5px;
     color: #f8fafc;
-    margin-bottom: 6px;
-    line-height: 1.5;
+    margin-bottom: 8px;
+    line-height: 1.45;
   }
   .dev-dark-text-sub {
     font-size: 10.5px;
     color: #4ade80;
     font-weight: bold;
+    line-height: 1.4;
   }
   .dev-dark-highlight {
-    color: #38bdf8; /* サイバーブルー */
+    color: #38bdf8;
     font-weight: bold;
   }
 
@@ -309,7 +289,7 @@
     <div id="strategyGrid" class="strategy-grid"></div>
   </div>
 
-  <!-- タブ2: 展開図鑑 (サブタブ + SVGレーダーチャート版) -->
+  <!-- タブ2: 展開図鑑 -->
   <div id="tabDev" style="display: none; flex-direction: column; gap: 10px;">
 
     <!-- ペース別サブタブ -->
@@ -322,10 +302,9 @@
       <button class="dev-sub-tab-btn" onclick="filterPaceGrid('chaos', this)">波乱・乱 (3)</button>
     </div>
 
-    <!-- 展開一覧コンテナ (JSで動的描画) -->
+    <!-- 展開一覧コンテナ -->
     <div id="devCardsContainer" class="strategy-grid"></div>
   </div>
-
 
   <!-- タブ3: 初期作戦設定 -->
   <div id="tabSetting" style="display: none; flex-direction: column; gap: 10px;">
@@ -639,10 +618,10 @@
     
     const list = DEV_MASTER.filter(d => paceFilter === 'all' || d.pace === paceFilter);
     
-    // SVGレーダーチャート座標計算 (サイズ拡大版)
-    const MAX_R = 38; // 半径を 32 -> 38 に拡大
-    const CENTER = 46; // 中心を 40 -> 46 に移動
-    const angles = [0, 72, 144, 216, 288]; // 上から時計回り
+    // SVGレーダーチャート座標計算
+    const MAX_R = 38;
+    const CENTER = 46;
+    const angles = [0, 72, 144, 216, 288];
     
     const getPoints = (stats) => {
       const keys = ['speed', 'stamina', 'sharp', 'jizoku', 'guts'];
@@ -658,8 +637,14 @@
 
     list.forEach(dev => {
       const valPoints = getPoints(dev.radar);
-      const cleanMainText = dev.main.replace(/^決め手：/, ''); // 「決め手：」の重複を防止
+      const cleanMainText = dev.main.replace(/^決め手：/, '');
       
+      // 計算式の「 ＋ 」部分で改行（縦スペースを活用）
+      const formattedMainText = highlightKeywords(cleanMainText.replaceAll(' ＋ ', '<br>＋ '));
+      
+      // 「優位な位置取り：」の後で改行を入れる
+      const formattedPosText = dev.pos.replace('：', '：<br>');
+
       const card = document.createElement('div');
       card.className = 'dev-card';
       
@@ -673,9 +658,9 @@
           <div style="flex: 1; padding-right: 8px;">
             <div class="dev-dark-text-main">
               <strong>決め手:</strong><br>
-              ${highlightKeywords(cleanMainText)}
+              ${formattedMainText}
             </div>
-            <div class="dev-dark-text-sub">${dev.pos}</div>
+            <div class="dev-dark-text-sub">${formattedPosText}</div>
           </div>
           
           <svg width="92" height="92" viewBox="0 -6 92 100" style="flex-shrink: 0; overflow: visible;">
