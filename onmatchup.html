@@ -54,7 +54,6 @@
     font-size: 12px;
   }
 
-  /* 相手の接続・準備状況表示 */
   .opponent-status-panel {
     background: #faf5ff;
     border: 2px solid var(--accent-color);
@@ -76,7 +75,6 @@
   .opponent-badge.ready { background: var(--success-color); }
   .opponent-badge.selecting { background: var(--accent-orange); }
 
-  /* シリーズ情報表示パネル（バッジを上部に被せるデザイン） */
   .series-info-panel {
     position: relative;
     margin-top: 10px;
@@ -241,7 +239,6 @@
     <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中</div>
   </div>
 
-  <!-- 対戦相手のステータス -->
   <div class="opponent-status-panel">
     <div>
       <span style="font-size: 10px; color: var(--text-sub); display: block;">対戦相手</span>
@@ -250,13 +247,11 @@
     <div id="opponentStatusBadge" class="opponent-badge selecting">選定中…</div>
   </div>
 
-  <!-- シリーズ情報表示領域（バッジ被せ＆文字サイズ変更） -->
   <div class="series-info-panel">
     <span class="title-label" id="seriesRoundLabel">第1回戦 対象シリーズ</span>
     <span class="series-names" id="displaySeriesName">読み込み中...</span>
   </div>
 
-  <!-- ステータスバー -->
   <div class="status-bar">
     <div class="status-item">
       <span class="status-label">登録頭数</span>
@@ -291,7 +286,7 @@
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { doc, getDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   let currentUser = null;
   let globalUserData = null;
@@ -309,7 +304,7 @@
   let racesTrackConditions = [];
   let roomUnsubscribe = null;
   let isNavigatingAway = false;
-  let currentRoundIndex = 0; // 0 = 第1回戦
+  let currentRoundIndex = 0;
 
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('roomId');
@@ -379,6 +374,18 @@
 
     const roomData = roomSnap.data();
 
+    // デック馬データの取得
+    playerDeckIds = (role === 'host') ? (roomData.player1_deck || []) : (roomData.player2_deck || []);
+    oppDeckIds = (role === 'host') ? (roomData.player2_deck || []) : (roomData.player1_deck || []);
+    deckHorses = playerDeckIds.map(id => HORSES_MASTER[id]).filter(h => h !== undefined);
+
+    // ★ デックデータ未設定・異常時の自動検知＆完全クリーンアップ退室
+    if (!deckHorses || deckHorses.length === 0) {
+      alert("対戦に必要なデックデータが見つかりません。対戦を終了してロビーへ戻ります。");
+      await forceCleanupAndExit();
+      return;
+    }
+
     currentRoundIndex = roomData.current_round !== undefined ? roomData.current_round : (roomData.current_race || 0);
 
     let oppName = resolveOpponentName(roomData);
@@ -395,7 +402,6 @@
     }
     document.getElementById('opponentName').textContent = oppName;
 
-    // 1. レースデータの読み込み
     const matchSeriesIds = roomData.match_series || ["series_01", "series_01", "series_01", "series_01", "series_01"];
     matchRaces = matchSeriesIds.map((sId, index) => {
       const sObj = SERIES_MASTER[sId] || Object.values(SERIES_MASTER)[0];
@@ -414,19 +420,11 @@
       };
     });
 
-    // 「第1回戦」および「シリーズカテゴリ」をバッジ表示
     const currentRace = matchRaces[currentRoundIndex] || matchRaces[0];
     const categoryName = currentRace.category || "地方交流シリーズ";
     document.getElementById('seriesRoundLabel').textContent = `第${currentRoundIndex + 1}回戦 対象シリーズ (${categoryName})`;
     document.getElementById('displaySeriesName').textContent = currentRace.series_name || "対象シリーズ";
 
-    // 2. デッキ馬の取得
-    playerDeckIds = (role === 'host') ? (roomData.player1_deck || []) : (roomData.player2_deck || []);
-    oppDeckIds = (role === 'host') ? (roomData.player2_deck || []) : (roomData.player1_deck || []);
-
-    deckHorses = playerDeckIds.map(id => HORSES_MASTER[id]).filter(h => h !== undefined);
-
-    // 3. モブ馬・馬場状態の作成
     if (role === 'host' && !roomData.races_mob_ids) {
       const excludedIds = await fetchAllPlayersDeckHorseIds(roomData);
       const { mobIds, trackConditions } = generateSharedMobsAndTrack(matchRaces, excludedIds);
@@ -607,7 +605,6 @@
         if (styleCounts[style] !== undefined) styleCounts[style]++;
       });
 
-      // 各レースタイトルの横にあった重なるカッコ書きのシリーズ名を削除
       card.innerHTML = `
         <div class="race-info-header">
           <span class="race-title">第${race.race_num}戦: ${race.race_name}</span>
@@ -639,7 +636,6 @@
   }
 
   function populateDropdowns() {
-    // 地方交流シリーズルール: 最低ポテンシャル 14 以上
     const minPtPerRace = 14;
 
     matchRaces.forEach((race, rIdx) => {
@@ -708,7 +704,6 @@
   };
 
   function updateStatus() {
-    // 地方交流シリーズルール: 合計ポテンシャル上限 85
     const maxTotalPt = 85;
     let totalPt = 0;
     let count = 0;
@@ -770,17 +765,34 @@
     }
   };
 
+  // ★ 辞退・退室処理呼び出し
   window.leaveMatch = async function() {
     if (confirm("対戦を辞退して退室しますか？")) {
-      isNavigatingAway = true;
-      if (roomId) {
-        try {
-          await updateDoc(doc(db, "online_matches", roomId), { status: "cancelled", cancelled_by: currentUser.uid });
-        } catch (e) {}
-      }
-      window.location.href = 'online.html';
+      await forceCleanupAndExit();
     }
   };
+
+  // ★ Firestore上の自分側のドラフト・エントリー・準備フラグを全削除・初期化して退出する共通関数
+  async function forceCleanupAndExit() {
+    isNavigatingAway = true;
+    if (roomId && currentUser) {
+      try {
+        const roomRef = doc(db, "online_matches", roomId);
+        const isHost = (role === 'host');
+        
+        await updateDoc(roomRef, {
+          status: "cancelled",
+          cancelled_by: currentUser.uid,
+          [isHost ? 'player1_draft' : 'player2_draft']: [null, null, null, null, null],
+          [isHost ? 'player1_entries' : 'player2_entries']: [null, null, null, null, null],
+          [isHost ? 'player1_matchup_ready' : 'player2_matchup_ready']: false
+        });
+      } catch (e) {
+        console.error("退室クリーンアップエラー:", e);
+      }
+    }
+    window.location.href = 'online.html';
+  }
 </script>
 
 </body>
