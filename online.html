@@ -26,7 +26,6 @@
   .page-title { font-size: 20px; font-weight: 900; color: var(--accent-color); margin: 0 0 6px 0; }
   .page-desc { font-size: 12px; color: #4b5563; margin: 0; }
 
-  /* 対戦選択カード */
   .match-card { background: var(--panel-bg); border: 2px solid var(--border-color); border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; position: relative; overflow: hidden; }
   .match-card.random { border-color: var(--accent-gold); }
   .match-card.private { border-color: var(--accent-color); }
@@ -36,7 +35,6 @@
 
   .card-title { font-size: 16px; font-weight: 800; color: var(--text-main); margin: 0; }
   
-  /* モード選択タブ */
   .mode-select-group { display: flex; gap: 6px; width: 100%; max-width: 340px; justify-content: center; }
   .mode-btn { flex: 1; padding: 8px 4px; border: 1.5px solid var(--border-color); background: #f3e8ff; color: var(--text-main); font-size: 11px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
   .mode-btn.active { background: var(--accent-color); color: #ffffff; border-color: var(--accent-color); box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
@@ -48,7 +46,6 @@
   .passcode-input-group { display: flex; gap: 8px; width: 100%; max-width: 280px; justify-content: center; }
   .passcode-input { width: 140px; text-align: center; font-size: 18px; font-weight: bold; letter-spacing: 4px; padding: 8px; border: 2px solid var(--border-color); border-radius: 8px; outline: none; }
   
-  /* モーダル */
   .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 15px; }
   .modal-content { background: #fff; border-radius: 12px; padding: 30px 20px; width: 100%; max-width: 320px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
   .spinner { width: 50px; height: 50px; border: 5px solid #f3e8ff; border-top: 5px solid var(--accent-color); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px auto; }
@@ -78,7 +75,6 @@
     <div class="card-icon" style="font-size: 28px;">⚔️</div>
     <h3 class="card-title">全国ランダムマッチ</h3>
     
-    <!-- モード選択 (ライト/通常) -->
     <div class="mode-select-group">
       <button class="mode-btn active" id="btn-rand-light" onclick="selectRandomMode('light')">ライト<br>(2デック/3回戦)</button>
       <button class="mode-btn" id="btn-rand-standard" onclick="selectRandomMode('standard')">通常<br>(2デック/5回戦)</button>
@@ -93,7 +89,6 @@
     <div class="card-icon" style="font-size: 28px;">🔑</div>
     <h3 class="card-title">あい言葉マッチ</h3>
     
-    <!-- モード選択 (ライト/通常/サバイバル) -->
     <div class="mode-select-group">
       <button class="mode-btn active" id="btn-priv-light" onclick="selectPrivateMode('light')">ライト<br>(3回戦)</button>
       <button class="mode-btn" id="btn-priv-standard" onclick="selectPrivateMode('standard')">通常<br>(5回戦)</button>
@@ -126,12 +121,11 @@
   let matchingUnsubscribe = null;
   let currentQueueId = null;
   let isNavigatingToBattle = false;
-  let isOnlineAvailable = false; // 対戦可能フラグ
+  let isOnlineAvailable = false;
 
   let selectedRandomMode = 'light';
   let selectedPrivateMode = 'light';
 
-  // 対戦ボタンを全て無効化する関数
   function disableMatchButtons() {
     isOnlineAvailable = false;
     document.querySelectorAll('.btn-match').forEach(btn => {
@@ -139,7 +133,6 @@
     });
   }
 
-  // モード選択UI切り替え
   window.selectRandomMode = function(mode) {
     selectedRandomMode = mode;
     document.getElementById('btn-rand-light').classList.toggle('active', mode === 'light');
@@ -157,7 +150,7 @@
     if (!user) { window.location.href = 'auth.html'; return; }
     currentUser = user;
     try {
-      // --- ロビーに入った際、自分が巻き込まれている古いマッチングやルームの残骸をクリーンアップ ---
+      // 1. ロビー進入時に自身の古い対戦・待機データおよび下書きデータを完全クリア
       await cleanupOldMatches(user.uid);
 
       const userDoc = await getDoc(doc(db, "users", user.uid));
@@ -165,14 +158,25 @@
         const userData = userDoc.data();
         document.getElementById('userWinsBadge').textContent = `通算 ${userData.total_wins || 0} 勝`;
 
-        // オンライン対戦用シリーズの設定チェック
+        // オンライン対戦用シリーズチェック
         const selectedSeries = userData.selected_online_series || [];
         if (!Array.isArray(selectedSeries) || selectedSeries.length < 3) {
-          disableMatchButtons(); // ボタンを無効化
+          disableMatchButtons();
           alert("オンライン対戦を行うには、シリーズ図鑑で対戦用シリーズを3つ設定する必要があります。");
-          window.location.href = 'index.html'; // index.html へリダイレクト
+          window.location.href = 'index.html';
           return;
         }
+
+        // 2. デックの事前チェック（未作成・空デックガード）
+        const userDecks = userData.decks || [];
+        const hasValidDeck = userDecks.some(deck => deck && deck.horse_ids && deck.horse_ids.length > 0);
+        if (!hasValidDeck) {
+          disableMatchButtons();
+          alert("対戦で使用できるデックがありません。マイページまたはデッキ編成画面でデックを作成してください。");
+          window.location.href = 'index.html';
+          return;
+        }
+
         isOnlineAvailable = true;
       }
       document.getElementById('syncStatus').textContent = "✅";
@@ -182,7 +186,7 @@
     }
   });
 
-  // --- 古いマッチ情報を強制終了・クリアする関数 ---
+  // 古い対戦データ・ドラフト・下書き・進行フラグを徹底クリーンアップする関数
   async function cleanupOldMatches(userId) {
     try {
       const matchesRef = collection(db, "online_matches");
@@ -193,11 +197,25 @@
       if (hostSnap.empty && guestSnap.empty) return;
 
       const batch = writeBatch(db);
+
       hostSnap.forEach(docSnap => {
-        batch.update(docSnap.ref, { status: "cancelled", cancelled_by: userId });
+        batch.update(docSnap.ref, { 
+          status: "cancelled", 
+          cancelled_by: userId,
+          player1_draft: [null, null, null, null, null],
+          player1_entries: [null, null, null, null, null],
+          player1_matchup_ready: false
+        });
       });
+
       guestSnap.forEach(docSnap => {
-        batch.update(docSnap.ref, { status: "cancelled", cancelled_by: userId });
+        batch.update(docSnap.ref, { 
+          status: "cancelled", 
+          cancelled_by: userId,
+          player2_draft: [null, null, null, null, null],
+          player2_entries: [null, null, null, null, null],
+          player2_matchup_ready: false
+        });
       });
       
       await batch.commit();
@@ -237,6 +255,8 @@
         const newRoomId = `room_${Date.now()}`;
 
         await setDoc(doc(db, "online_matches", newRoomId), {
+          host_uid: hostUid,
+          guest_uid: currentUser.uid,
           player1: hostUid,
           player2: currentUser.uid,
           mode: matchedMode,
@@ -303,7 +323,7 @@
   function proceedToBattle(roomId, role, mode) {
     isNavigatingToBattle = true;
     if (matchingUnsubscribe) matchingUnsubscribe();
-    window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${mode}`;
+    window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}&mode=${mode}`;
   }
 </script>
 
