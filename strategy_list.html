@@ -597,14 +597,20 @@
     }
   });
 
-  window.switchMainTab = function(tabName) {
-    ['catalog', 'development', 'setting', 'ability'].forEach(n => {
-      document.getElementById('tab' + (n.charAt(0).toUpperCase() + n.slice(1).replace('Development','Dev'))).style.display = (tabName === n) ? 'flex' : 'none';
+    window.switchMainTab = function(tabName) {
+    const tabs = {
+      catalog:     { tab: 'tabCatalog', btn: 'tabBtnCatalog' },
+      development: { tab: 'tabDev',     btn: 'tabBtnDev' },
+      setting:     { tab: 'tabSetting', btn: 'tabBtnSetting' },
+      ability:     { tab: 'tabAbility', btn: 'tabBtnAbility' }
+    };
+
+    Object.keys(tabs).forEach(key => {
+      const isCurrent = (key === tabName);
+      const target = tabs[key];
+      document.getElementById(target.tab).style.display = isCurrent ? 'flex' : 'none';
+      document.getElementById(target.btn).classList.toggle('active', isCurrent);
     });
-    document.getElementById('tabBtnCatalog').classList.toggle('active', tabName === 'catalog');
-    document.getElementById('tabBtnDev').classList.toggle('active', tabName === 'development');
-    document.getElementById('tabBtnSetting').classList.toggle('active', tabName === 'setting');
-    document.getElementById('tabBtnAbility').classList.toggle('active', tabName === 'ability');
   };
 
   window.switchDeckTab = function(idx) {
