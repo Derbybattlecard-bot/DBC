@@ -82,7 +82,7 @@
   }
 
   /* シリーズ除外（BAN）パネル */
-  .ban-select-panel { background-color: var(--panel-bg); padding: 15px; border-radius: 12px; border: 2px solid var(--accent-orange); display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+  .ban-select-panel { background-color: var(--panel-bg); padding: 15px; border-radius: 12px; border: 2px solid var(--accent-orange); display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: all 0.3s ease; }
   .ban-title { font-size: 14px; font-weight: bold; color: var(--accent-orange); text-align: center; }
   .ban-options { display: flex; flex-direction: column; gap: 10px; }
   
@@ -208,6 +208,9 @@
   .btn-start:disabled { background: #9ca3af; box-shadow: none; cursor: not-allowed; opacity: 0.6; }
   .btn-start:active:not(:disabled) { transform: translateY(4px); box-shadow: none; }
 
+  /* 準備完了時のUI操作ロック用スタイル */
+  .locked-ui { pointer-events: none !important; opacity: 0.7 !important; filter: grayscale(40%); }
+
   /* 待機モーダル */
   .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 15px; }
   .modal-content { background: #fff; border-radius: 12px; padding: 25px; width: 100%; max-width: 320px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
@@ -223,7 +226,7 @@
     <button class="btn-back" onclick="leaveMatch()">← 辞退して戻る</button>
     <div class="header-right">
       <div id="userWinsBadge" class="wins-badge">通算 0 勝</div>
-      <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中</div>
+      <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️️ 読込中</div>
     </div>
   </div>
 
@@ -244,8 +247,8 @@
 
   <!-- 1. シリーズ除外選択 -->
   <div class="ban-select-panel" id="banPanel">
-    <div class="ban-title">① 相手のシリーズを1つ除外</div>
-    <div style="font-size: 11px; text-align: center; color: #6b7280;">相手が持ち込んだ3つのシリーズから、拒否したいシリーズを1つ選んでください。</div>
+    <div class="ban-title" id="banPanelTitle">① 相手のシリーズを1つ除外</div>
+    <div style="font-size: 11px; text-align: center; color: #6b7280;" id="banPanelSubText">相手が持ち込んだ3つのシリーズから、拒否したいシリーズを1つ選んでください。</div>
     <div class="ban-options" id="banContainer">
       <div style="text-align:center; color:#9ca3af; padding:10px;">相手のシリーズ情報を取得中…</div>
     </div>
@@ -309,6 +312,7 @@
   let opponentSeriesList = [];
 
   let isNavigatingAway = false;
+  let isReadySent = false; // 準備完了送信済みフラグ（重複・誤操作防止）
   let waitingTimeoutTimer = null;
 
   const urlParams = new URLSearchParams(window.location.search);
@@ -326,7 +330,6 @@
     return "プレイヤー";
   }
 
-  // シリーズIDの表記揺れ（SERIES_001, series_001, series_01）に対応するルックアップ関数
   function getSeriesObj(sId) {
     if (!sId) return {};
     if (SERIES_MASTER[sId]) return SERIES_MASTER[sId];
@@ -350,7 +353,6 @@
     return sObj.category || sObj.series_category || sObj.series_type || sObj.type || sObj.group || sObj.cat || sObj.genre || "一般";
   }
 
-  // 馬場の短縮フォーマット (ダート -> ダ)
   function formatSurface(surface) {
     if (!surface) return "芝";
     if (surface.includes("ダート") || surface.includes("ダ")) return "ダ";
@@ -358,7 +360,6 @@
     return "芝";
   }
 
-  // 値から安全に数字（数値）のみを抽出する補助関数
   function parseToNumber(val) {
     if (val === null || val === undefined) return null;
     if (typeof val === 'number') return isNaN(val) ? null : val;
@@ -369,7 +370,6 @@
     return null;
   }
 
-  // ネストされたオブジェクトやプロパティから数値データを再帰的に完全探索
   function getSeriesPotentialInfo(sObj) {
     if (!sObj || typeof sObj !== 'object') return { totalPt: 0, eligiblePt: 0 };
 
@@ -382,7 +382,6 @@
     function search(obj) {
       if (!obj || typeof obj !== 'object') return;
 
-      // 1. 直接キーをチェック
       for (const k of totalKeys) {
         if (total === null && obj[k] !== undefined && typeof obj[k] !== 'object') {
           total = parseToNumber(obj[k]);
@@ -394,7 +393,6 @@
         }
       }
 
-      // 2. ネストされた各プロパティを再帰探索
       for (const key of Object.keys(obj)) {
         if (total !== null && eligible !== null) break;
         if (obj[key] && typeof obj[key] === 'object') {
@@ -486,9 +484,8 @@
       
       renderMySeriesDisplay();
       renderDeckInfo();
-      selectDeck(0);
+      selectDeck(0, true); // 初回呼び出し用フラグ
 
-      // マスタ読み込み後に相手データがあれば再描画
       if (opponentSeriesList.length > 0) {
         renderBanOptions(opponentSeriesList);
       }
@@ -558,11 +555,15 @@
     });
   }
 
-  window.selectDeck = function(idx) {
-    if (selectedBanIndex === null) {
+  // ★ 修正：デッキ選択時の挙動を修正（BAN選択状態を維持・リセットさせない）
+  window.selectDeck = function(idx, isInitial = false) {
+    if (isReadySent) return; // 確定後は操作不可
+
+    if (!isInitial && selectedBanIndex === null) {
       alert("先に相手のシリーズを1つ「除外」してください。");
       return;
     }
+    
     selectedDeckIndex = idx;
     document.getElementById('deckCard0').classList.toggle('selected', idx === 0);
     document.getElementById('deckCard1').classList.toggle('selected', idx === 1);
@@ -730,7 +731,10 @@
     });
   }
 
+  // ★ 修正：BAN選択後の固定化処理
   window.selectBan = function(idx) {
+    if (isReadySent) return; // 送信完了後は変更禁止
+
     selectedBanIndex = idx;
     [0, 1, 2].forEach(i => {
       const cardEl = document.getElementById(`banCard_${i}`);
@@ -751,12 +755,20 @@
     btnReady.textContent = "準備完了（対戦開始）";
   };
 
+  // ★ 修正：準備完了送信時の完全ロック処理追加
   window.setPlayerReady = async function() {
-    if (!roomId) return;
+    if (!roomId || isReadySent) return;
     if (selectedBanIndex === null) {
       alert("除外する相手のシリーズを1つ選択してください。");
       return;
     }
+
+    isReadySent = true; // 送信状態に移行
+
+    // UIを完全不可動にロック（BAN選択パネル・デッキ選択パネルを無効化）
+    document.getElementById('banPanel').classList.add('locked-ui');
+    document.getElementById('deckPanel').classList.add('locked-ui');
+    document.getElementById('banPanelSubText').textContent = "※除外設定は確定しました";
 
     const readyBtn = document.getElementById('btnReady');
     readyBtn.disabled = true;
@@ -790,7 +802,11 @@
     } catch (err) {
       console.error("更新エラー:", err);
       alert("通信に失敗しました。");
+      isReadySent = false;
+      document.getElementById('banPanel').classList.remove('locked-ui');
+      document.getElementById('deckPanel').classList.remove('locked-ui');
       readyBtn.disabled = false;
+      readyBtn.textContent = "準備完了（対戦開始）";
       closeWaitingModal();
     }
   };
