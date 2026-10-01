@@ -333,6 +333,7 @@
   let roomData = null;
   let roomUnsubscribe = null;
   let isNavigatingAway = false;
+  let isInitialized = false;
 
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('roomId');
@@ -404,24 +405,33 @@
 
     roomData = roomSnap.data();
 
-    // 離脱監視
+    // リアルタイム離脱＆計算結果待機リスナー起動
     listenRoomStatus();
 
-    // ホストが全5戦の計算を行い、Firestoreに保存して共有
+    // Hostが全5戦の計算を行い、Firestoreに保存して共有
     if (role === 'host' && !roomData.simulated_results) {
-      simulatedRaceResults = generateAllRaceResults(roomData);
-      await updateDoc(roomRef, {
-        simulated_results: simulatedRaceResults,
-        status: "racing"
-      });
-    } else {
-      simulatedRaceResults = roomData.simulated_results || [];
+      try {
+        simulatedRaceResults = generateAllRaceResults(roomData);
+        await updateDoc(roomRef, {
+          simulated_results: simulatedRaceResults,
+          status: "racing"
+        });
+        startRaceDisplay();
+      } catch (e) {
+        console.error("レース計算エラー:", e);
+        alert("レースシミュレーション計算中にエラーが発生しました");
+      }
+    } else if (roomData.simulated_results && roomData.simulated_results.length > 0) {
+      simulatedRaceResults = roomData.simulated_results;
+      startRaceDisplay();
     }
+  }
 
+  function startRaceDisplay() {
+    if (isInitialized || !simulatedRaceResults || simulatedRaceResults.length === 0) return;
+    isInitialized = true;
     document.getElementById('syncStatus').textContent = "✅ 同期完了";
     document.getElementById('nextBtn').disabled = false;
-    
-    // 第1戦の読み込み
     loadRace(0);
   }
 
@@ -435,6 +445,13 @@
         isNavigatingAway = true;
         alert("対戦相手が退室・切断しました。");
         window.location.href = 'online.html';
+        return;
+      }
+
+      // Guest側でまだ結果が読み込めていない場合、Hostの計算完了データを反映
+      if (!isInitialized && data.simulated_results && data.simulated_results.length > 0) {
+        simulatedRaceResults = data.simulated_results;
+        startRaceDisplay();
       }
     });
   }
@@ -458,7 +475,6 @@
       const mobIds = mobIdsMap[rIdx] || mobIdsMap[String(rIdx)] || [];
       const trackCond = trackConds[rIdx] || '良';
 
-      // 出走馬構築 (16頭)
       const field = [];
 
       // Player 1 (Host)
@@ -469,7 +485,7 @@
       const p2Horse = HORSES_MASTER[String(p2HorseId)] || {};
       field.push(buildRunnerData(p2Horse, p2StratObj, race, trackCond, "P2", "Guest Player"));
 
-      // 14頭のモブ馬
+      // モブ馬
       mobIds.forEach((mId, mIdx) => {
         const mHorse = HORSES_MASTER[String(mId)] || {};
         const mStyle = mHorse.style || mHorse.running_style || "先行";
@@ -477,7 +493,7 @@
         field.push(buildRunnerData(mHorse, { strategy: mStratName, strategy_level: 3 }, race, trackCond, `MOB_${mIdx}`, "モブ"));
       });
 
-      // 枠順シャッフル (再現性のための固定シード的ソート)
+      // 枠順シャッフル
       field.sort(() => (Math.sin(rIdx * 99 + field.length) - 0.5));
       field.forEach((f, idx) => f.gate_number = idx + 1);
 
@@ -572,7 +588,6 @@
     const container = document.getElementById('lanes');
     container.innerHTML = '';
     
-    // 馬番順にソートしてレーン配置
     const sorted = [...runners].sort((a,b) => a.gate_number - b.gate_number);
     sorted.forEach((r) => {
       const lane = document.createElement('div');
@@ -591,7 +606,6 @@
     });
   }
 
-  // アニメーション再生ロジック
   window.handleButtonClick = function() {
     const btn = document.getElementById('nextBtn');
 
@@ -622,26 +636,21 @@
     animTimer = setInterval(() => {
       animStep++;
 
-      // 展開アニメーション位置更新
       updateHorsePositions(animStep, dirConfig);
 
-      // 実況ログ演出
       if (animStep === 10) document.getElementById('log-content').textContent = "各馬一斉にきれいなスタート！まずは先行争い！";
       if (animStep === 25) document.getElementById('log-content').textContent = "3コーナーを通過！隊列が固まって最終直線へ向かいます！";
       
-      // 第4コーナースパーティング（ワイプ演出）
       if (animStep === 35) {
         const wipe = document.getElementById('wipe-overlay');
         wipe.style.left = '0%';
         setTimeout(() => { wipe.style.left = '100%'; }, 1200);
       }
 
-      // 直線アビリティカットインチェック
       if (animStep === 45) {
         triggerAbilityPopups();
       }
 
-      // ゴールイン
       if (animStep >= 60) {
         clearInterval(animTimer);
         finishRace();
@@ -657,7 +666,6 @@
       const icon = document.getElementById(`horse-icon-${r.gate_number}`);
       if (!icon) return;
 
-      // 着順に応じた位置計算
       const rank = r.final_rank || 1;
       const rankOffset = (16 - rank) * 12;
       const currentX = (progress * 420) + rankOffset + (Math.sin(step + r.gate_number) * 6);
@@ -689,8 +697,6 @@
     }
 
     document.getElementById('log-content').textContent = "レース終了！確定着順をご確認ください。";
-
-    // 着順結果表示
     renderResultTable();
   }
 
@@ -728,7 +734,6 @@
     container.style.display = 'block';
   }
 
-  // 総合結果の判定と戦績加算
   async function showFinalSeriesResult() {
     let p1Wins = 0;
     let p2Wins = 0;
@@ -769,7 +774,6 @@
       titleEl.style.color = "#34d399";
       scoreEl.textContent = `${myWins} 勝 - ${oppWins} 勝 で見事勝利！`;
 
-      // ユーザー通算勝利数をインクリメント
       try {
         await updateDoc(doc(db, "users", currentUser.uid), {
           total_wins: increment(1)
@@ -796,6 +800,5 @@
     window.location.href = 'online.html';
   };
 </script>
-
 </body>
 </html>
