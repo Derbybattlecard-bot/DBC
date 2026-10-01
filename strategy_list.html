@@ -132,7 +132,6 @@
     color: var(--accent-color);
   }
   
-  /* カードボディ */
   .dev-body {
     display: flex;
     align-items: center;
@@ -226,7 +225,7 @@
   }
   .chart-container {
     width: 135px;
-    height: 135px;
+    height: 145px;
     flex-shrink: 0;
   }
   .comment-box {
@@ -237,7 +236,7 @@
     border-left: 3px solid var(--accent-color);
     padding: 8px 10px;
     border-radius: 0 6px 6px 0;
-    line-height: 1.5;
+    line-height: 1.45;
   }
 
   /* アビリティカードスタイル */
@@ -299,12 +298,12 @@
 
     <!-- ペース別サブタブ -->
     <div class="dev-sub-tab-container">
-      <button class="dev-sub-tab-btn active" onclick="filterPaceGrid('all', this)">すべて</button>
-      <button class="dev-sub-tab-btn" onclick="filterPaceGrid('superhigh', this)">超ハイ</button>
-      <button class="dev-sub-tab-btn" onclick="filterPaceGrid('high', this)">ハイ</button>
-      <button class="dev-sub-tab-btn" onclick="filterPaceGrid('middle', this)">ミドル</button>
-      <button class="dev-sub-tab-btn" onclick="filterPaceGrid('slow', this)">スロー</button>
-      <button class="dev-sub-tab-btn" onclick="filterPaceGrid('chaos', this)">波乱・乱</button>
+      <button class="dev-sub-tab-btn active" onclick="filterPaceGrid('all', this)">すべて (21)</button>
+      <button class="dev-sub-tab-btn" onclick="filterPaceGrid('superhigh', this)">超ハイ (4)</button>
+      <button class="dev-sub-tab-btn" onclick="filterPaceGrid('high', this)">ハイ (4)</button>
+      <button class="dev-sub-tab-btn" onclick="filterPaceGrid('middle', this)">ミドル (6)</button>
+      <button class="dev-sub-tab-btn" onclick="filterPaceGrid('slow', this)">スロー (4)</button>
+      <button class="dev-sub-tab-btn" onclick="filterPaceGrid('chaos', this)">波乱・乱 (3)</button>
     </div>
 
     <!-- 展開一覧コンテナ -->
@@ -368,8 +367,6 @@
   let STRATEGY_MASTER = [];
   let HORSES_MASTER = {};
   let ABILITY_MASTER = {};
-  let RACE_MASTER = {};       // race_master.json 全体
-  let DEV_MASTER = [];        // branches_by_pace から生成する展開リスト
   let totalWins = 0;
   
   let currentFilter = 'ALL';
@@ -390,85 +387,198 @@
     'default': { fill: 'rgba(45, 106, 55, 0.35)', border: '#2d6a37', point: '#1b4d23', bg: '#e8f5e9', badgeText: '#2d6a37' }
   };
 
+  // --- 作戦詳細マスター（寸評・有利な位置取り・得意展開） ---
   const STRATEGY_DETAILS = {
-    'NIGE_01': { comment: 'スピードと高い持続力を備え、後続の競りかけを根性で跳ね返して逃げ粘る真っ向勝負型。', best: 'スローペース、単騎逃げ、前残り展開' },
-    'NIGE_02': { comment: 'スタミナと高い瞬発力を誇り、道中でしっかり息を入れて溜め逃げし、直線で一気に突き放す型。', best: 'スローペース、マイペース落とし、後続牽制展開' },
-    'NIGE_03': { comment: '全能力のバランスが取れた万能型。展開の変化に左右されず安定したペースで逃げを刻める。', best: 'ミドルペース、平均ペース、ペース乱れのない展開' },
-    'NIGE_04': { comment: 'スピードと持続力が圧倒的。後続の脚を削り取って追いすがる隙を与えない超高ラップの大逃げ仕様。', best: 'ハイペース、縦長展開、後続の消耗戦' },
-    'SENKO_01': { comment: 'スタミナと根性で耐え抜くタフな粘り腰。前傾ラップや消耗戦になっても粘り強さを発揮する。', best: 'ミドル〜ハイペース、タフな消耗戦、粘り合い' },
-    'SENKO_02': { comment: '持続力とスタミナを生かし、3〜4コーナーで早めに先頭へ躍り出てそのまま押し切る型。', best: 'ミドル〜スローペース、ロングスパート戦、前有利の展開' },
-    'SENKO_03': { comment: '癖のないバランス型。相手やレース展開を問わず柔軟に好位をキープし安定して粘れる。', best: 'ミドルペース、展開不問、平均ペース' },
-    'SENKO_04': { comment: '先行でありながら高い瞬発力を備え、好位の絶好位から鋭いキレ味で一気に抜け出す勝負型。', best: 'スロー〜ミドルペース、瞬発力勝負、直線抜け出し' },
-    'SASHI_01': { comment: '持続力と瞬発力を併せ持ち、3〜4コーナーから長く脚を使って前陣へ押し寄せるロングスパート型。', best: 'ミドル〜ハイペース、ロングスパート戦、持続力勝負' },
-    'SASHI_02': { comment: '突出した持続力と瞬発力を誇る。コーナーから外を豪快に捲り上がり、前を飲み込む力技。', best: 'ハイペース、捲り差し展開、波乱・混戦' },
-    'SASHI_03': { comment: '鋭い瞬発力と高い根性に特化。直線まで体力を極力温存し、強烈な伸びと叩き合いで制する。', best: 'ハイペース、後方有利展開、直線一気・叩き合い' },
-    'SASHI_04': { comment: '根性が高くバランスに優れる。目標とする先行馬にしっかり食らいついて競り落とすマーク屋。', best: 'ミドル〜ハイペース、マーク対象が存在する展開、叩き合い' },
-    'OIKOMI_01': { comment: '豊かなスタミナと鋭い瞬発力を溜め込み、道中は死んだふりから直線一気に前を強襲する一発勝負型。', best: '超ハイペース、ハイペース、前崩れ展開' },
-    'OIKOMI_02': { comment: '瞬発・持続・根性が高次元で融合。狭い馬群の隙間でも怯むことなく力強く突き抜けてくる。', best: 'ハイペース、馬群凝縮の展開、激しい叩き合い' },
-    'OIKOMI_03': { comment: '追込随一の持続力と高い瞬発力を誇る。後方から3〜4コーナーで圧巻の脚を使って一気に捲り去る。', best: '超ハイペース、ハイペース、ロングスパート・ロング捲り展開' },
-    'OIKOMI_04': { comment: '極限の瞬発力を持つロマン型。直線のひと伸び・爆発力だけに全てを賭ける一撃必殺の勝負師。', best: '超ハイペース、ハイペース、極端な前崩れ展開' }
-  };
-
-  // ステータス日本語変換マップ
-  const STAT_NAMES = {
-    potential: 'ポテンシャル',
-    speed: 'スピード',
-    stamina: 'スタミナ',
-    sharp: '末脚瞬発',
-    jizoku: '末脚持続',
-    guts: '勝負根性'
-  };
-
-  // ペースのバッジ・デザイン定義マップ
-  const PACE_CONFIG = {
-    "超ハイペース": { badge: "超ハイペース系", badgeClass: "pace-superhigh", key: "superhigh" },
-    "ハイペース":     { badge: "ハイペース系",     badgeClass: "pace-high",      key: "high" },
-    "ミドルペース":   { badge: "ミドルペース系",   badgeClass: "pace-middle",    key: "middle" },
-    "スローペース":   { badge: "スローペース系",   badgeClass: "pace-slow",      key: "slow" },
-    "乱ペース":       { badge: "波乱・乱ペース系", badgeClass: "pace-chaos",     key: "chaos" }
-  };
-
-  // branches_by_pace から画面描画用の DEV_MASTER 配列を動的に構築する関数
-  function parseDevelopmentMaster(branchesByPace) {
-    const list = [];
-    if (!branchesByPace) return list;
-
-    for (const [paceName, devList] of Object.entries(branchesByPace)) {
-      const config = PACE_CONFIG[paceName] || { badge: paceName, badgeClass: "pace-middle", key: "middle" };
-
-      devList.forEach(dev => {
-        // 対象ステータスの日本語化・テキスト化
-        let mainStatsText = "";
-        if (dev.key_stats && dev.key_stats.length > 0) {
-          mainStatsText = dev.key_stats.map(s => STAT_NAMES[s] || s).join(" ＋ ");
-        } else if (dev.formula) {
-          mainStatsText = `(30 - ポテンシャル) ＋ ランダム能力`;
-        }
-
-        // レーダーチャート用の重み算出（key_statsに含まれていれば強調値 4〜5、無ければ 2〜3）
-        const radar = { speed: 2, stamina: 2, sharp: 2, jizoku: 2, guts: 2 };
-        if (dev.key_stats) {
-          dev.key_stats.forEach(stat => {
-            if (radar[stat] !== undefined) radar[stat] = 4;
-          });
-        }
-
-        list.push({
-          pace: config.key,
-          paceName: paceName,
-          title: dev.name,
-          badge: config.badge,
-          badgeClass: config.badgeClass,
-          main: mainStatsText,
-          pos: dev.position_bonus_note || dev.note || "",
-          desc: dev.position_bonus_note ? `${dev.name}（${dev.position_bonus_note}）` : (dev.note || `${paceName}時の展開パターン`),
-          radar: radar,
-          raw: dev
-        });
-      });
+    'NIGE_01': {
+      comment: 'スピードと根性を高次元で維持し、後続の競りかけを真っ向から跳ね返す逃げ切り型。ハイペースでも粘り強さを発揮します。',
+      position: '前方（1〜2番手）',
+      best: 'スロー〜ミドルペース、単騎逃げ、前残り展開'
+    },
+    'NIGE_02': {
+      comment: 'スタミナと高い瞬発力を生かし、道中でしっかり息を入れて溜め逃げし、直線で一気に突き放す勝負型。緩急のある展開で真価を発揮します。',
+      position: '前方（1〜2番手）',
+      best: 'スローペース、マイペース落とし、後続牽制展開'
+    },
+    'NIGE_03': {
+      comment: '全能力がバランス良く発揮される万能型逃げ。展開の変化にも左右されず、安定したペースを刻んで押し切ります。',
+      position: '前方（1〜2番手）',
+      best: 'ミドルペース、平均ペース、ペース乱れのない展開'
+    },
+    'NIGE_04': {
+      comment: 'スピードと持続力が圧倒的。序盤から一気に引き離して後続の脚を削り取り、追いすがる隙を与えない超高ラップの大逃げ仕様。',
+      position: '大逃げ（後続を引き離す単騎先頭）',
+      best: 'ハイペース、縦長展開、後続の消耗戦'
+    },
+    'SENKO_01': {
+      comment: 'スタミナと根性で耐え抜くタフな粘り腰。前傾ラップや消耗戦になっても最後まで脚が上がらず粘り強く残ります。',
+      position: '好位（2〜5番手）',
+      best: 'ミドル〜ハイペース、タフな消耗戦、粘り合い'
+    },
+    'SENKO_02': {
+      comment: '持続力とスタミナを生かし、3〜4コーナーで早めに先頭へ躍り出てそのまま押し切るロングスパート型の先行作戦。',
+      position: '好位（2〜5番手・早め進出）',
+      best: 'ミドル〜スローペース、ロングスパート戦、前有利の展開'
+    },
+    'SENKO_03': {
+      comment: '癖のないバランス型。相手やレース展開を問わず柔軟に絶好位をキープし、直線の競り合いでも安定して粘れます。',
+      position: '好位（2〜5番手）',
+      best: 'ミドルペース、展開不問、平均ペース'
+    },
+    'SENKO_04': {
+      comment: '先行でありながら高い瞬発力を備え、好位の絶好位から鋭いキレ味で一気に抜け出す決着型。上がり勝負で無類の強さを見せます。',
+      position: '好位（2〜5番手）',
+      best: 'スロー〜ミドルペース、瞬発力勝負、直線抜け出し'
+    },
+    'SASHI_01': {
+      comment: '持続力と瞬発力を併せ持ち、3〜4コーナーから長く脚を使って前陣へ押し寄せるロングスパート型の差しスタイル。',
+      position: '中団（6〜11番手）',
+      best: 'ミドル〜ハイペース、ロングスパート戦、持続力勝負'
+    },
+    'SASHI_02': {
+      comment: '突出した持続力を誇る。勝負所で外から豪快に捲り上がり、ハイペースでバテた前陣を力技で丸呑みします。',
+      position: '中団〜後方寄り（まくり展開）',
+      best: 'ハイペース、捲り差し展開、波乱・混戦'
+    },
+    'SASHI_03': {
+      comment: '鋭い瞬発力と高い根性に特化。直線まで体力を極力温存し、強烈な伸びと激しい叩き合いでねじ伏せます。',
+      position: '中団（6〜11番手）',
+      best: 'ハイペース、後方有利展開、直線一気・叩き合い'
+    },
+    'SASHI_04': {
+      comment: '根性が高く立ち回りに優れる。目標とする先行馬にぴったり食らいついて直線の叩き合いで競り落とすマーク屋型。',
+      position: '中団前目（5〜8番手）',
+      best: 'ミドル〜ハイペース、マーク対象が存在する展開、叩き合い'
+    },
+    'OIKOMI_01': {
+      comment: '豊かなスタミナと鋭い瞬発力を溜め込み、道中は後方待機から直線一気に前を強襲する一発勝負型の追込作戦。',
+      position: '後方（12番手以降）',
+      best: '超ハイペース、ハイペース、前崩れ展開'
+    },
+    'OIKOMI_02': {
+      comment: '瞬発・持続・根性が高次元で融合。ごちゃつく馬群の狭い隙間でも怯むことなく力強く突き抜けてきます。',
+      position: '後方〜馬群の中（10〜15番手）',
+      best: 'ハイペース、馬群凝縮の展開、激しい叩き合い'
+    },
+    'OIKOMI_03': {
+      comment: '追込随一の持続力と高い瞬発力を誇る。後方から3〜4コーナーで大外を通り、圧巻の脚を使って一気に捲り去ります。',
+      position: '後方（大外捲り）',
+      best: '超ハイペース、ハイペース、ロングスパート・ロング捲り展開'
+    },
+    'OIKOMI_04': {
+      comment: '極限の瞬発力を持つロマン型。道中は後方で徹底的に脚を溜め、直線の爆発的な一撃だけに全てを賭けます。',
+      position: '最高峰・後方待機（14〜18番手）',
+      best: '超ハイペース、極端な前崩れ展開、上がり勝負'
     }
-    return list;
-  }
+  };
+
+  // --- 展開マスターデータ ---
+  const DEV_MASTER = [
+    { pace: "superhigh", title: "前崩れの展開", badge: "超ハイペース系", badgeClass: "pace-superhigh",
+      main: "ポテンシャル ＋ スタミナ ＋ 位置補正（後方有利）",
+      pos: "※優位な位置取り：後方グループ（差し・追込）",
+      desc: "激しい先頭争いで超ハイペースとなり、前陣が急失速する展開。後方からの位置順位ダイレクト加算がつき、追い込み馬が極めて有利。",
+      radar: { speed: 2, stamina: 4, sharp: 4, jizoku: 4, guts: 3 } },
+    { pace: "superhigh", title: "なし崩しの展開", badge: "超ハイペース系", badgeClass: "pace-superhigh",
+      main: "ポテンシャル ＋ 持続",
+      pos: "※優位な位置取り：位置不問",
+      desc: "息の入れづらい超ハイペースでジワジワと体力が削られる展開。最後までバテずに脚を使い続けられる高い持続力が勝負を決める。",
+      radar: { speed: 3, stamina: 4, sharp: 1, jizoku: 5, guts: 4 } },
+    { pace: "superhigh", title: "持久戦の展開", badge: "超ハイペース系", badgeClass: "pace-superhigh",
+      main: "ポテンシャル ＋ スピード ＋ 持続",
+      pos: "※優位な位置取り：位置不問",
+      desc: "超ハイペースの流れのまま直線を迎えるタフな展開。一定以上のスピードを保ちつつ、持続力でどこまで粘れるかが試される。",
+      radar: { speed: 4, stamina: 4, sharp: 2, jizoku: 5, guts: 4 } },
+    { pace: "superhigh", title: "スピード勝負の展開", badge: "超ハイペース系", badgeClass: "pace-superhigh",
+      main: "ポテンシャル ＋ スピード ＋ スタミナ",
+      pos: "※優位な位置取り：位置不問",
+      desc: "速いラップで押し切るスピード重視の勝負。ハイペースに耐えうるスタミナと、圧倒的な絶対スピードを併せ持つ馬が優勢。",
+      radar: { speed: 5, stamina: 4, sharp: 2, jizoku: 3, guts: 3 } },
+    { pace: "high", title: "決め手勝負の展開", badge: "ハイペース系", badgeClass: "pace-high",
+      main: "ポテンシャル ＋ 瞬発 ＋ 根性",
+      pos: "※優位な位置取り：中団〜後方寄り",
+      desc: "ハイペースで前を走る馬たちの脚が鈍ったところを、直線の鋭い一瞬のキレと勝負根性で一気に差し切る展開。",
+      radar: { speed: 3, stamina: 2, sharp: 5, jizoku: 3, guts: 4 } },
+    { pace: "high", title: "直線強襲の展開", badge: "ハイペース系", badgeClass: "pace-high",
+      main: "ポテンシャル ＋ 瞬発 ＋ 持続",
+      pos: "※優位な位置取り：中団〜後方寄り",
+      desc: "ハイペースの縦長展開から、直線で長く鋭い脚を使い続けて差し・追込馬が前陣を捉えにかかる末脚重視の展開。",
+      radar: { speed: 3, stamina: 2, sharp: 4, jizoku: 5, guts: 3 } },
+    { pace: "high", title: "我慢比べの展開", badge: "ハイペース系", badgeClass: "pace-high",
+      main: "ポテンシャル ＋ スピード ＋ 根性",
+      pos: "※優位な位置取り：位置不問",
+      desc: "締まったペースのまま直線の叩き合いになだれ込む我慢比べ。スピードを維持したまま最後の接戦で相手を跳ね返す根性が不可欠。",
+      radar: { speed: 4, stamina: 3, sharp: 2, jizoku: 4, guts: 5 } },
+    { pace: "high", title: "レコード決着の展開", badge: "ハイペース系", badgeClass: "pace-high",
+      main: "ポテンシャル ＋ スピード ＋ 持続",
+      pos: "※優位な位置取り：位置不問",
+      desc: "淀みのないハイラップが続き、高速タイムが叩き出される展開。スピードと持続力を兼ね備えた馬が圧倒的な強さを見せる。",
+      radar: { speed: 5, stamina: 3, sharp: 3, jizoku: 5, guts: 3 } },
+    { pace: "middle", title: "先行抜け出しの展開", badge: "ミドルペース系", badgeClass: "pace-middle",
+      main: "ポテンシャル ＋ スピード ＋ スタミナ",
+      pos: "※優位な位置取り：好位〜中団前目",
+      desc: "平均ペースで無理なく前目に付け、直線で力強く抜け出す王道の競馬。スピードとスタミナの総合力がそのまま反映される。",
+      radar: { speed: 4, stamina: 4, sharp: 3, jizoku: 3, guts: 3 } },
+    { pace: "middle", title: "力比べの展開", badge: "ミドルペース系", badgeClass: "pace-middle",
+      main: "ポテンシャル（評価3倍） ＋ 作戦Lv加算",
+      pos: "※優位な位置取り：位置不問（格・底力重視）",
+      desc: "展開のフロックが発生せず、純粋なポテンシャルが3倍評価される地力勝負。能力の高い格上馬が圧倒的に有利。",
+      radar: { speed: 3, stamina: 3, sharp: 3, jizoku: 3, guts: 3 } },
+    { pace: "middle", title: "叩き合いの展開", badge: "ミドルペース系", badgeClass: "pace-middle",
+      main: "ポテンシャル ＋ 瞬発 ＋ 根性",
+      pos: "※優位な位置取り：位置不問",
+      desc: "直線で馬群が並び、一瞬の切れ味と最後まで脚を伸ばし続ける根性を競い合う接戦。",
+      radar: { speed: 3, stamina: 3, sharp: 4, jizoku: 3, guts: 4 } },
+    { pace: "middle", title: "スパート勝負", badge: "ミドルペース系", badgeClass: "pace-middle",
+      main: "ポテンシャル ＋ スタミナ ＋ 瞬発",
+      pos: "※優位な位置取り：位置不問",
+      desc: "勝負所からの早めの追い出しに耐えうる十分なスタミナと、そこからの瞬発的な一脚が問われるロングスパート戦。",
+      radar: { speed: 3, stamina: 4, sharp: 4, jizoku: 3, guts: 2 } },
+    { pace: "middle", title: "追い比べの展開", badge: "ミドルペース系", badgeClass: "pace-middle",
+      main: "ポテンシャル ＋ スピード ＋ 瞬発 ＋ 持続",
+      pos: "※優位な位置取り：位置不問",
+      desc: "直線で各馬が一斉に追い出され、スピード・キレ・持続の総力で横一線の追い比べを繰り広げる展開。",
+      radar: { speed: 4, stamina: 2, sharp: 4, jizoku: 4, guts: 3 } },
+    { pace: "middle", title: "先行有利の展開", badge: "ミドルペース系", badgeClass: "pace-middle",
+      main: "ポテンシャル ＋ スタミナ ＋ 根性",
+      pos: "※優位な位置取り：前方〜好位グループ",
+      desc: "ミドルペースながら前目の馬が粘り腰を発揮する展開。粘り強いスタミナと競り合いの根性で後続の猛追を完封する。",
+      radar: { speed: 3, stamina: 4, sharp: 2, jizoku: 3, guts: 4 } },
+    { pace: "slow", title: "粘り込みの展開", badge: "スローペース系", badgeClass: "pace-slow",
+      main: "ポテンシャル ＋ スタミナ ＋ 持続 ＋ 根性",
+      pos: "※優位な位置取り：前方〜好位グループ",
+      desc: "スローペースで体力を温存し、直線で長く良い脚と根性を発揮して後続の追撃を振り切る前残り展開。",
+      radar: { speed: 2, stamina: 4, sharp: 2, jizoku: 4, guts: 4 } },
+    { pace: "slow", title: "上がり勝負の展開", badge: "スローペース系", badgeClass: "pace-slow",
+      main: "ポテンシャル ＋ スピード ＋ 瞬発",
+      pos: "※優位な位置取り：好位〜中団",
+      desc: "道中のペースが緩み、直線の「上がりの速さ（瞬発力・キレ）」のみで勝負が決する典型的な瞬発力勝負。",
+      radar: { speed: 4, stamina: 1, sharp: 5, jizoku: 2, guts: 2 } },
+    { pace: "slow", title: "前残りの展開", badge: "スローペース系", badgeClass: "pace-slow",
+      main: "ポテンシャル ＋ スタミナ ＋ 位置補正（前方有利）",
+      pos: "※優位な位置取り：前方グループ（逃げ・先行）",
+      desc: "スローペースで前目が楽に脚を溜められる展開。前方グループからの位置順位ダイレクト加算がつき、前残りが確定的。",
+      radar: { speed: 3, stamina: 4, sharp: 2, jizoku: 3, guts: 2 } },
+    { pace: "slow", title: "叩き合いの展開（スロー）", badge: "スローペース系", badgeClass: "pace-slow",
+      main: "ポテンシャル ＋ 瞬発 ＋ 持続 ＋ 根性",
+      pos: "※優位な位置取り：位置不問",
+      desc: "スローで足を溜めた各馬が直線で一斉にスパートし、キレ・持続力・勝負根性が極限まで試される叩き合い。",
+      radar: { speed: 2, stamina: 2, sharp: 4, jizoku: 4, guts: 5 } },
+    { pace: "chaos", title: "ごちゃつきの展開", badge: "波乱・乱ペース系", badgeClass: "pace-chaos",
+      main: "ポテンシャル ＋ スピード ＋ 瞬発 ＋ 根性",
+      pos: "※優位な位置取り：位置不問（波乱要素あり）",
+      desc: "ペースの乱れや馬群のごちゃつきが発生する荒れた展開。狭いスペースを割る瞬発力や精神力・根性が重視される。",
+      radar: { speed: 4, stamina: 2, sharp: 4, jizoku: 2, guts: 4 } },
+    { pace: "chaos", title: "波乱の展開", badge: "波乱・乱ペース系", badgeClass: "pace-chaos",
+      main: "（30 - 馬ポテンシャル） ＋ 作戦Lv ＋ ランダム能力",
+      pos: "※優位な位置取り：位置不問（穴馬超有利）",
+      desc: "展開が極限まで乱れる大波乱のレース。「30-馬ポテンシャル」が基礎能力として加算されるため、低ポテンシャルの穴馬が一発逆転できる特有の展開。",
+      radar: { speed: 3, stamina: 3, sharp: 3, jizoku: 3, guts: 3 } },
+    { pace: "chaos", title: "消耗戦の展開", badge: "波乱・乱ペース系", badgeClass: "pace-chaos",
+      main: "ポテンシャル ＋ スタミナ ＋ 持続 ＋ 根性",
+      pos: "※優位な位置取り：位置不問",
+      desc: "乱ペースにより息の入れづらい厳しい流れが継続し、最後までバテずに走り切るスタミナと根性が極限まで問われる消耗戦。",
+      radar: { speed: 2, stamina: 5, sharp: 1, jizoku: 5, guts: 5 } }
+  ];
 
   function getTurfVal(h) { return Number(h.turf_potential ?? h.turf) || 0; }
   function getDirtVal(h) { return Number(h.dirt_potential ?? h.dirt) || 0; }
@@ -505,21 +615,12 @@
         ];
       }
 
-      // race_master.json を含めた全マスタを読み込み
-      const [stratData, horsesData, abilityData, raceData] = await Promise.all([
-        fetchJsonSafe('strategy_master.json'),
-        fetchJsonSafe('horses_master.json'),
-        fetchJsonSafe('ability_master.json'),
-        fetchJsonSafe('race_master.json')
+      const [stratData, horsesData, abilityData] = await Promise.all([
+        fetchJsonSafe('strategy_master.json'), fetchJsonSafe('horses_master.json'), fetchJsonSafe('ability_master.json')
       ]);
 
       STRATEGY_MASTER = stratData || [];
       ABILITY_MASTER = abilityData || {};
-      RACE_MASTER = raceData || {};
-
-      // race_master.json の branches_by_pace から展開データを生成
-      DEV_MASTER = parseDevelopmentMaster(RACE_MASTER.branches_by_pace);
-
       if (Array.isArray(horsesData)) horsesData.forEach(h => { HORSES_MASTER[String(h.horse_id ?? h.id)] = h; });
 
       renderStrategyGrid();
@@ -577,7 +678,7 @@
   };
 
   function highlightKeywords(text) {
-    return text.replace(/スピード|スタミナ|瞬発|持続|根性|ポテンシャル|末脚瞬発|末脚持続|勝負根性/g, '<span class="dev-highlight">$&</span>');
+    return text.replace(/スピード|スタミナ|瞬発|持続|根性|ポテンシャル/g, '<span class="dev-highlight">$&</span>');
   }
 
   function renderDevGrid(paceFilter = 'all') {
@@ -586,7 +687,6 @@
     
     const list = DEV_MASTER.filter(d => paceFilter === 'all' || d.pace === paceFilter);
     
-    // SVGレーダーチャート座標計算
     const MAX_R = 38;
     const CENTER = 46;
     const angles = [0, 72, 144, 216, 288];
@@ -606,7 +706,6 @@
     list.forEach(dev => {
       const valPoints = getPoints(dev.radar);
       const cleanMainText = dev.main.replace(/^決め手：/, '');
-      
       const formattedMainText = highlightKeywords(cleanMainText.replaceAll(' ＋ ', '<br>＋ '));
 
       const card = document.createElement('div');
@@ -620,21 +719,17 @@
         
         <div class="dev-body">
           <svg width="105" height="105" viewBox="0 -6 92 100" style="flex-shrink: 0; overflow: visible;">
-            <!-- ガイド放射線 -->
             <line x1="46" y1="46" x2="46" y2="8" stroke="#cbd5e1" stroke-width="1"/>
             <line x1="46" y1="46" x2="82.1" y2="34.3" stroke="#cbd5e1" stroke-width="1"/>
             <line x1="46" y1="46" x2="68.3" y2="76.7" stroke="#cbd5e1" stroke-width="1"/>
             <line x1="46" y1="46" x2="23.7" y2="76.7" stroke="#cbd5e1" stroke-width="1"/>
             <line x1="46" y1="46" x2="9.9" y2="34.3" stroke="#cbd5e1" stroke-width="1"/>
             
-            <!-- ガイド5角形 -->
             <polygon points="${maxPoints}" fill="none" stroke="#cbd5e1" stroke-width="1"/>
             <polygon points="${midPoints}" fill="none" stroke="#e2e8f0" stroke-width="1"/>
             
-            <!-- 値ポリゴン (緑) -->
             <polygon points="${valPoints}" fill="rgba(45, 106, 55, 0.25)" stroke="#2d6a37" stroke-width="1.8" stroke-linejoin="round"/>
             
-            <!-- テキストラベル -->
             <text x="46" y="3" font-size="9" fill="#4e6b52" text-anchor="middle" font-weight="bold">スピ</text>
             <text x="88" y="37" font-size="9" fill="#4e6b52" text-anchor="middle" font-weight="bold">スタ</text>
             <text x="74" y="87" font-size="9" fill="#4e6b52" text-anchor="middle" font-weight="bold">瞬発</text>
@@ -655,6 +750,7 @@
     });
   }
 
+  // --- 作戦名鑑 描画ロジック ---
   function renderStrategyGrid() {
     chartInstances.forEach(c => c.destroy());
     chartInstances = [];
@@ -664,7 +760,11 @@
     list.forEach(strat => {
       const card = document.createElement('div'); card.className = 'strat-card';
       const colors = STYLE_COLORS[strat.style] || STYLE_COLORS.default;
-      const detail = STRATEGY_DETAILS[strat.strategy_id] || { comment: '特筆すべき特徴を持ったバランス型作戦。', best: '展開不問' };
+      const detail = STRATEGY_DETAILS[strat.strategy_id] || { 
+        comment: 'バランス良く能力が発揮される作戦。状況を問わず対応可能。', 
+        position: '展開に応じた位置',
+        best: '展開不問' 
+      };
       const canvasId = `chart_${strat.strategy_id}`;
       card.innerHTML = `
         <div class="strat-header">
@@ -674,7 +774,9 @@
         <div class="card-body">
           <div class="chart-container"><canvas id="${canvasId}"></canvas></div>
           <div class="comment-box" style="border-left-color: ${colors.border};">
-            <strong>【寸評】</strong><br>${detail.comment}<br><strong style="margin-top: 6px; display: inline-block;">【得意な展開】</strong><br>${detail.best}
+            <strong>【寸評】</strong><br>${detail.comment}<br>
+            <strong style="margin-top: 5px; display: inline-block;">【有利な位置取り】</strong><br><span style="color:#0284c7; font-weight:bold;">${detail.position}</span><br>
+            <strong style="margin-top: 5px; display: inline-block;">【得意な展開】</strong><br>${detail.best}
           </div>
         </div>
       `;
