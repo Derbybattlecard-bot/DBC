@@ -347,9 +347,6 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
       return true;
     }
 
-    case "pace_front_remain": 
-      return true;
-
     case "gate_odd": 
       return gate % 2 === 1;
 
@@ -594,6 +591,7 @@ function applyPhase4Abilities(horse, pace, branchName) {
   horse.ability.forEach(abilityName => {
     let triggered = false;
 
+    // 「大逃亡」：展開名に「前崩れ」が含まれる時のみ
     if (abilityName === "大逃亡") {
       if (branchName.includes("前崩れ")) {
         extraScore += dynamicBuff;
@@ -601,6 +599,7 @@ function applyPhase4Abilities(horse, pace, branchName) {
       }
     }
 
+    // 「王道」「絶対王者」：展開名に「波乱」が含まれる時のみ
     if (abilityName === "王道" || abilityName === "絶対王者") {
       if (branchName.includes("波乱")) {
         extraScore += dynamicBuff;
@@ -608,12 +607,14 @@ function applyPhase4Abilities(horse, pace, branchName) {
       }
     }
 
+    // 「電光石火」「まくり系」：展開名に「前残り」が含まれる時のみ
     const isMakuri = /まくり|マクリ|捲り/.test(abilityName);
     if ((abilityName === "電光石火" || isMakuri) && branchName.includes("前残り")) {
       extraScore += dynamicBuff;
       triggered = true;
     }
 
+    // 「レコードホルダー」：展開名に「レコード決着」または「スピード勝負」が含まれる時のみ
     if (abilityName === "レコードホルダー" && (branchName.includes("レコード決着") || branchName.includes("スピード勝負"))) {
       extraScore += dynamicBuff;
       triggered = true;
@@ -720,7 +721,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
 
   // STEP 1: 位置取り計算（脚質・作戦によるポジショニング決め）
   resultList.forEach((h) => {
-    // 【修正】作戦マスターデータの脚質パラメータ（style/category）を取得
+    // 作戦マスターデータの脚質パラメータ（style/category）を取得
     const tacticCategory = getTacticStyleFromMaster(h);
 
     let tacticStylePt = 40;
@@ -734,7 +735,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       tacticStylePt = 20;
     }
 
-    // 【修正】馬マスターデータの脚質パラメータ（style/running_style）を取得
+    // 馬マスターデータの脚質パラメータ（style/running_style）を取得
     const horseStyle = getHorseStyleFromMaster(h);
     let styleCalcPt = 0;
 
@@ -848,13 +849,13 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       statScore = (spdBase + spdStrat) + (stmBase + stmStrat);
     }
 
-    // 1. 【修正】作戦マスターデータの脚質（4種類）パラメータを取得
+    // 1. 作戦マスターデータの脚質（4種類）パラメータを取得
     const currentTacticStyle = getTacticStyleFromMaster(h);
 
     // 作戦の脚質ボーナス計算
     styleBonusPt = getTacticPaceBonus(currentTacticStyle, selectedPace);
 
-    // 2. 【修正】馬マスターデータの脚質（8種類）パラメータを取得
+    // 2. 馬マスターデータの脚質（8種類）パラメータを取得
     const rawHorseStyle = getHorseStyleFromMaster(h);
 
     // 馬本来の脚質ボーナス計算
@@ -964,4 +965,4 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     branch: selectedBranch,
     commentary: commentaryData
   };
-    }
+  }
