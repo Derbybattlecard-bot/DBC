@@ -615,7 +615,7 @@ function applyPhase4Abilities(horse, pace, branchName) {
     }
 
     // 「レコードホルダー」：展開名に「レコード決着」または「スピード勝負」が含まれる時のみ
-    if (abilityName === "レコードホルダー" && (branchName.includes("レコード決着") || branchName.includes("スピード勝負"))) {
+    if (abilityName === "レコードホルダー" && branchName.includes("レコード決着")) {
       extraScore += dynamicBuff;
       triggered = true;
       horse.straight_popup_trigger = true;
