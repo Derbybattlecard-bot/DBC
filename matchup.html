@@ -16,8 +16,6 @@
     --turf-color: #4CAF50;
     --dirt-color: #8D6E63;
     --danger-color: #d9534f;
-    --player-bg: #e3f2fd;
-    --cpu-bg: #ffebee;
   }
   body {
     font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
@@ -125,6 +123,24 @@
   .surface-turf { background-color: var(--turf-color); }
   .surface-dirt { background-color: var(--dirt-color); }
 
+  /* 出走モブ展開（オンライン対戦風デザイン） */
+  .mob-style-summary {
+    background-color: #f3e8ff;
+    border: 1px solid #d8b4fe;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 11px;
+    color: #4c1d95;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: bold;
+  }
+  .mob-style-summary .counts-group {
+    display: flex;
+    gap: 8px;
+  }
+
   .select-horse-dropdown {
     width: 100%;
     padding: 6px 8px;
@@ -145,38 +161,6 @@
     padding: 6px 8px;
     border-radius: 4px;
   }
-
-  /* アコーディオン & 出馬表テーブル スタイル */
-  details.race-grid-toggle {
-    background: #ffffff;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    font-size: 11px;
-    margin-top: 4px;
-  }
-  summary.race-grid-summary {
-    padding: 6px 10px;
-    font-weight: bold;
-    color: var(--accent-color);
-    cursor: pointer;
-    user-select: none;
-    background: #f9f9f9;
-    border-radius: 6px;
-  }
-  .race-grid-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 4px;
-  }
-  .race-grid-table th, .race-grid-table td {
-    border: 1px solid #e0e0e0;
-    padding: 4px 6px;
-    text-align: center;
-    font-size: 10px;
-  }
-  .race-grid-table th { background: #eee; }
-  .row-player { background-color: var(--player-bg); font-weight: bold; }
-  .row-cpu { background-color: var(--cpu-bg); font-weight: bold; }
 
   .action-group {
     display: flex;
@@ -304,7 +288,6 @@
           window.location.href = 'race_result.html';
           return;
         } else if (status.current_match.player_entries && status.current_match.player_entries.length > 0) {
-          // すでに自馬登録が完了している場合は strategy.html へ
           window.location.href = 'strategy.html';
           return;
         }
@@ -360,12 +343,10 @@
     const races = currentSeries.rounds[0].races;
 
     if (currentMatch.cpu_entries && currentMatch.races_mob_ids && currentMatch.races_track_conditions) {
-      // すでにこのラウンドの相手データが確定済みなら保持・再利用（デック変えて戻っても固定）
       currentCpuEntries = currentMatch.cpu_entries;
       currentRacesMobIds = currentMatch.races_mob_ids;
       currentTrackConditions = currentMatch.races_track_conditions;
     } else {
-      // 未作成の場合は、このタイミングでモブ馬・CPU・馬場状態を確定して Firestore に保存
       currentTrackConditions = generateTrackConditions(currentSeries);
       const generated = generateCpuAndMobEntries(races);
       currentCpuEntries = generated.cpuEntries;
@@ -488,41 +469,26 @@
     }
   }
 
-  // ★ AI予想屋によるモブ馬ベースの展開予想ロジック（対戦馬未発表仕様） ★
-  function getPacePrediction(mobIds) {
-    let nigeCount = 0;
-
-    mobIds.forEach(mId => {
-      const mHorse = HORSES_MASTER[String(mId)] || {};
-      const mStyle = getHorseLegStyle(mHorse);
-      if (mStyle.includes('逃')) nigeCount++;
+  // ★ モブ馬の脚質カウント関数 ★
+  function getMobStyleCounts(mobIds) {
+    const counts = { '逃': 0, '先': 0, '差': 0, '追': 0 };
+    (mobIds || []).forEach(mId => {
+      const mHorse = HORSES_MASTER[String(mId)];
+      if (!mHorse) return;
+      const style = getHorseLegStyle(mHorse);
+      if (style.includes('逃')) {
+        counts['逃']++;
+      } else if (style.includes('先') || style.includes('好')) {
+        counts['先']++;
+      } else if (style.includes('差')) {
+        counts['差']++;
+      } else if (style.includes('追')) {
+        counts['追']++;
+      } else {
+        counts['先']++;
+      }
     });
-
-    if (nigeCount === 0) {
-      return {
-        title: 'スローペース傾向 🐢',
-        desc: 'モブ馬に明確な逃げ馬不在。対戦馬の脚質しだいで展開が一変する可能性あり。',
-        bg: '#e8f5e9', border: '#a5d6a7', text: '#2e7d32'
-      };
-    } else if (nigeCount === 1) {
-      return {
-        title: '単騎逃げ気配 🐎',
-        desc: 'モブ馬に逃げ馬1頭。落ち着いたペースで運ばれやすい展開。',
-        bg: '#e3f2fd', border: '#90caf9', text: '#1565c0'
-      };
-    } else if (nigeCount === 2) {
-      return {
-        title: 'ミドルペース予想 ⚖️',
-        desc: 'モブ馬に逃げ馬2頭。平均的なペースで実力を発揮しやすい展開。',
-        bg: '#fff8e1', border: '#ffe082', text: '#f57f17'
-      };
-    } else {
-      return {
-        title: `ハイペース激戦注意 🔥 (モブ逃げ${nigeCount}頭)`,
-        desc: `モブ馬に逃げ馬が${nigeCount}頭！前崩れからの差し・追込決着に警戒。`,
-        bg: '#ffebee', border: '#ef9a9a', text: '#c62828'
-      };
-    }
+    return counts;
   }
 
   // ─── UIレンダリング ───
@@ -540,80 +506,35 @@
       const sexLabel = race.sex ? ` (${race.sex})` : '';
 
       const mobIds = currentRacesMobIds[rIdx] || currentRacesMobIds[String(rIdx)] || [];
-
-      // ★ AI展開予想の取得（対戦馬未発表仕様） ★
-      const paceInfo = getPacePrediction(mobIds);
-
-      let mobRowsHtml = '';
-      mobIds.forEach((mId) => {
-        const mHorse = HORSES_MASTER[String(mId)] || {};
-        mobRowsHtml += `
-          <tr>
-            <td>-</td>
-            <td style="text-align:left;">${mHorse.name || 'モブ馬'}</td>
-            <td>${mHorse.sex || '牡'}</td>
-            <td>${getHorsePotential(mHorse, race.surface)}</td>
-            <td>${getHorseLegStyle(mHorse)}</td>
-          </tr>
-        `;
-      });
+      const mobCounts = getMobStyleCounts(mobIds);
 
       card.innerHTML = `
         <div class="race-info-header">
           <span class="race-title">第${race.race_num}戦: ${race.race_name}</span>
           <div class="race-cond-group">
-            <span class="race-cond-badge ${surfaceClass}">${race.surface} ${race.track} ${race.distance}m${sexLabel}</span>
-            <span class="race-cond-badge" style="background-color: #78909C;">馬場:未確定</span>
+            <span class="race-cond-badge ${surfaceClass}">${race.surface} ${race.distance}m${sexLabel}</span>
           </div>
         </div>
+        
+        <!-- ★ オンライン風のモブ脚質表示 ★ -->
+        <div class="mob-style-summary">
+          <span>🏇 出走モブ展開:</span>
+          <div class="counts-group">
+            <span>逃:${mobCounts['逃']}</span>
+            <span>先:${mobCounts['先']}</span>
+            <span>差:${mobCounts['差']}</span>
+            <span>追:${mobCounts['追']}</span>
+          </div>
+        </div>
+
         <select class="select-horse-dropdown" id="selectRace${rIdx}" onchange="onHorseSelected(${rIdx}, this.value)">
           <option value="">-- 出走馬を選択してください --</option>
         </select>
+
         <div class="horse-detail-preview" id="previewRace${rIdx}">
-          <span>ポテンシャル: - | 脚質: - | 性別: -</span>
-          <span>適性: -</span>
+          <span>適性:- | 脚質:- | 性別:-</span>
+          <span>ポテンシャル:-</span>
         </div>
-
-        <details class="race-grid-toggle">
-          <summary class="race-grid-summary">📋 出走メンバー（全16頭）を確認する</summary>
-          <div style="padding: 8px;">
-            <!-- ★ AI予想屋の展開診断 ★ -->
-            <div style="background:${paceInfo.bg}; border:1px solid ${paceInfo.border}; padding:6px 10px; border-radius:6px; margin-bottom:8px; font-size:11px; color:${paceInfo.text}; text-align:left;">
-              <strong>🤖 AI予想屋の展開診断: ${paceInfo.title}</strong><br>
-              <span style="color:#444; font-weight:normal;">${paceInfo.desc}</span>
-            </div>
-
-            <div style="font-size: 10px; color: #666; margin-bottom:4px; text-align:left;">※馬番（枠順）および対戦馬（ライバル）は作戦指示画面で発表されます。</div>
-            <table class="race-grid-table">
-              <thead>
-                <tr>
-                  <th>馬番</th>
-                  <th>馬名</th>
-                  <th>性</th>
-                  <th>Pt</th>
-                  <th>脚質</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr class="row-player" id="playerRowRace${rIdx}">
-                  <td>-</td>
-                  <td style="text-align:left;">（選択中） (自馬)</td>
-                  <td>-</td>
-                  <td>0</td>
-                  <td>-</td>
-                </tr>
-                <tr class="row-cpu">
-                  <td>-</td>
-                  <td style="text-align:left; color:#c62828;">？？？ (ライバル・作戦画面で発表)</td>
-                  <td>?</td>
-                  <td>?</td>
-                  <td>?</td>
-                </tr>
-                ${mobRowsHtml}
-              </tbody>
-            </table>
-          </div>
-        </details>
       `;
       container.appendChild(card);
     });
@@ -689,7 +610,6 @@
     selectedEntries[raceIdx] = horseId || null;
     
     const preview = document.getElementById(`previewRace${raceIdx}`);
-    const playerRow = document.getElementById(`playerRowRace${raceIdx}`);
 
     if (horseId && HORSES_MASTER[String(horseId)]) {
       const horse = HORSES_MASTER[String(horseId)];
@@ -702,30 +622,11 @@
       const legStyle = getHorseLegStyle(horse);
 
       preview.innerHTML = `
-        <span><strong>${surfaceLabel}${pt}</strong> | 脚質: <strong>${legStyle}</strong> | 性別: <strong>${sex}</strong></span>
-        <span>適性: <strong>${surfaceText}</strong> | 距離: <strong>${distStr ? distStr + 'm' : '-'}</strong></span>
+        <span>適性: <strong>${surfaceText}</strong> | 脚質: <strong>${legStyle}</strong> | 性別: <strong>${sex}</strong></span>
+        <span>ポテンシャル: <strong>${surfaceLabel}${pt}</strong> (適正距離:${distStr ? distStr + 'm' : '-'})</span>
       `;
-
-      if (playerRow) {
-        playerRow.innerHTML = `
-          <td>-</td>
-          <td style="text-align:left;">${horse.name} (自馬)</td>
-          <td>${sex}</td>
-          <td>${pt}</td>
-          <td>${legStyle}</td>
-        `;
-      }
     } else {
-      preview.innerHTML = `<span>ポテンシャル: - | 脚質: - | 性別: -</span><span>適性: -</span>`;
-      if (playerRow) {
-        playerRow.innerHTML = `
-          <td>-</td>
-          <td style="text-align:left;">（選択中） (自馬)</td>
-          <td>-</td>
-          <td>0</td>
-          <td>-</td>
-        `;
-      }
+      preview.innerHTML = `<span>適性:- | 脚質:- | 性別:-</span><span>ポテンシャル:-</span>`;
     }
 
     populateDropdowns();
@@ -808,17 +709,7 @@
     selectedEntries = [null, null, null, null, null];
     currentSeries.rounds[0].races.forEach((_, idx) => {
       const preview = document.getElementById(`previewRace${idx}`);
-      preview.innerHTML = `<span>ポテンシャル: - | 脚質: - | 性別: -</span><span>適性: -</span>`;
-      const playerRow = document.getElementById(`playerRowRace${idx}`);
-      if (playerRow) {
-        playerRow.innerHTML = `
-          <td>-</td>
-          <td style="text-align:left;">（選択中） (自馬)</td>
-          <td>-</td>
-          <td>0</td>
-          <td>-</td>
-        `;
-      }
+      preview.innerHTML = `<span>適性:- | 脚質:- | 性別:-</span><span>ポテンシャル:-</span>`;
     });
     populateDropdowns();
     updateStatus();
@@ -834,7 +725,7 @@
         ...currentStatus,
         series_losses: (currentStatus.series_losses || 0) + 1,
         current_round: (currentStatus.current_round || 1) + 1,
-        current_match: null // ラウンド終了に伴い対戦設定クリア
+        current_match: null
       };
 
       await setDoc(doc(db, "users", currentUser.uid), {
@@ -904,7 +795,6 @@
     const distOk = isValidDistance(horse, race.distance);
 
     if (!sexOk || !surfaceOk || !distOk) return false;
-
     if (checkGeneration && !isFrom1992OrLater(horse)) return false;
 
     return true;
@@ -920,7 +810,6 @@
 
     const allHorses = Object.values(HORSES_MASTER);
 
-    // デック2つ分（すべてのデック）に登録されている全馬のIDを取得して隔離対象にする
     const allDeckHorseIds = new Set();
     if (globalUserData && Array.isArray(globalUserData.decks)) {
       globalUserData.decks.forEach(deck => {
@@ -934,7 +823,6 @@
       });
     }
 
-    // デック内の全馬 ＋ 現在選択中の馬を除外リストとして結合
     const excludedHorseIds = new Set([
       ...allDeckHorseIds,
       ...selectedEntries.filter(Boolean).map(id => String(id))
@@ -952,7 +840,6 @@
       const currentMaxPt = Math.min(defaultMaxPt, remainingCpuPtBudget - (remainingRaces - 1) * defaultMinPt);
       const currentMinPt = defaultMinPt;
 
-      // CPU対戦馬の抽選からデック内の全馬を除外
       const cpuUsedIds = new Set([
         ...excludedHorseIds,
         ...cpuEntries.map(c => String(c.horse_id))
@@ -992,7 +879,6 @@
         strategy_level: Math.floor(Math.random() * 3) + 2
       });
 
-      // モブ馬の抽選からもデック内の全馬を除外
       const raceUsedIds = new Set([...excludedHorseIds, cpuId]);
 
       let mobPool = allHorses.filter(h => 
