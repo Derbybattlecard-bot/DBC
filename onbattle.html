@@ -89,7 +89,7 @@
   .ban-select-panel.completed .ban-title { color: #047857; }
   .ban-options { display: flex; flex-direction: column; gap: 10px; }
   
-  /* カードデザイン（選択可能時） */
+  /* カードデザイン */
   .ban-card {
     background: #fff;
     border: 2px solid var(--border-color);
@@ -104,7 +104,6 @@
   }
   .ban-card:hover { border-color: var(--accent-orange); transform: translateY(-1px); }
 
-  /* 確定後のサマリー表示用カードデザイン */
   .ban-summary-card {
     background: #fff;
     border: 1.5px solid #cbd5e1;
@@ -213,7 +212,7 @@
     <div class="sub-status" id="onlineSubText">相手のシリーズを1つ除外してから、使用するデッキを選択してください</div>
   </div>
 
-  <!-- 自分の持ち込みシリーズ確認 -->
+  <!-- 自分のシリーズ持ち込み情報 -->
   <div class="my-series-panel">
     <strong>📋 あなたの持ち込みシリーズ（相手に公開）:</strong>
     <div class="my-series-list" id="mySeriesContainer">
@@ -276,7 +275,6 @@
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   let currentUser = null;
@@ -295,9 +293,8 @@
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('roomId');
   const role = urlParams.get('role');
-  const matchMode = urlParams.get('mode') || 'light'; // light, standard, survival
+  const matchMode = urlParams.get('mode') || 'light';
 
-  // モード別設定（回戦数 & デック制限）
   const totalRounds = (matchMode === 'standard') ? 5 : 3;
   const isSingleDeckMode = (matchMode === 'survival');
 
@@ -464,11 +461,9 @@
 
       document.getElementById('syncStatus').textContent = "✅";
       
-      // UIのモード名表示
       const modeNames = { light: "ライト (3回戦)", standard: "通常 (5回戦)", survival: "サバイバル (3回戦/1デック)" };
       document.getElementById('onlineMatchTag').textContent = modeNames[matchMode] || "ONLINE MATCH";
 
-      // 1デック制（サバイバル）の場合はデッキ2を無効化
       if (isSingleDeckMode) {
         const deckCard1 = document.getElementById('deckCard1');
         if (deckCard1) {
@@ -647,18 +642,15 @@
         opponentSeriesList = [...oppSeries];
       }
 
-      // 自分の既存BANデータチェック
       const myBanIdx = isHost ? data.p1_banned_index : data.p2_banned_index;
       if (myBanIdx !== undefined && myBanIdx !== null && selectedBanIndex === null) {
         selectedBanIndex = myBanIdx;
       }
 
-      // 対戦シリーズが既に生成されていれば確定結果（全3戦/全5戦）を描画
       if (data.match_series && Array.isArray(data.match_series) && data.match_series.length === totalRounds) {
         renderMatchSeriesAndBans(data);
         enableDeckSelection();
       } 
-      // まだ未確定の場合はBAN選択 / 状態表示を行なう
       else if (opponentSeriesList.length > 0) {
         renderBanPanel();
         if (selectedBanIndex !== null) {
@@ -666,7 +658,6 @@
         }
       }
 
-      // お互いに準備完了していればホストが対戦シリーズを決定し次画面へ
       if (data.player1_ready && data.player2_ready) {
         closeWaitingModal();
         if (role === 'host' && !data.match_series) {
@@ -696,7 +687,6 @@
     }
   }
 
-  // 確定後の対戦シリーズ＆除外シリーズ表示
   function renderMatchSeriesAndBans(data) {
     const banPanel = document.getElementById('banPanel');
     banPanel.classList.add('completed');
@@ -818,7 +808,6 @@
     banPanel.innerHTML = html;
   }
 
-  // BAN（除外）パネル描画
   function renderBanPanel() {
     const banPanel = document.getElementById('banPanel');
     const container = document.getElementById('banContainer');
@@ -977,19 +966,16 @@
     document.getElementById('waitingModal').style.display = 'none';
   }
 
-  // ★ 3回戦/5回戦に応じた対戦シリーズ作成処理（BAN除外反映）
   async function finalizeMatchSeries(roomData) {
     const p1Series = roomData.player1_series || [];
     const p2Series = roomData.player2_series || [];
     
-    // BAN適用（除外後の各2シリーズ：計4つ）
     const p1Kept = p1Series.filter((_, idx) => idx !== roomData.p2_banned_index);
     const p2Kept = p2Series.filter((_, idx) => idx !== roomData.p1_banned_index);
 
     let finalSeriesList = [];
 
     if (totalRounds === 5) {
-      // 5回戦モード: BAN後の4シリーズ ＋ マスタからのランダム1シリーズ
       const allSeriesIds = Object.keys(SERIES_MASTER);
       const existing = new Set([...p1Kept, ...p2Kept]);
       const candidates = allSeriesIds.filter(id => !existing.has(id));
@@ -1000,7 +986,6 @@
 
       finalSeriesList = [...p1Kept, ...p2Kept, extraSeries];
     } else {
-      // 3回戦モード (ライト / サバイバル): BAN後の4シリーズからランダムに3シリーズを抽出
       const pool = [...p1Kept, ...p2Kept];
       for (let i = pool.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -1009,7 +994,6 @@
       finalSeriesList = pool.slice(0, 3);
     }
 
-    // シャッフル
     for (let i = finalSeriesList.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [finalSeriesList[i], finalSeriesList[j]] = [finalSeriesList[j], finalSeriesList[i]];
