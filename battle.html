@@ -787,9 +787,8 @@
     document.getElementById('seriesTitle').textContent = `第${status.current_round}回戦：${selectedSeries.series_name || '名称未設定'}`;
     
     const limits = selectedSeries.potential_limit || { max_total_potential: 95, min_potential_per_race: 15 };
-document.getElementById('maxTotalPotentialVal').textContent = limits.max_total_potential;
-document.getElementById('minPotentialVal').textContent = limits.min_potential_per_race ?? '-';
-
+    document.getElementById('maxTotalPotentialVal').textContent = limits.max_total_potential;
+    document.getElementById('minPotentialVal').textContent = limits.min_potential_per_race ?? '-';
 
     const rounds = selectedSeries.rounds || [];
     const races = (rounds[0] && rounds[0].races) ? rounds[0].races : [];
@@ -956,12 +955,21 @@ document.getElementById('minPotentialVal').textContent = limits.min_potential_pe
     try {
       const currentStatus = globalUserData.cpu_battle_status || {};
       
-      // デックを選び直して再度出走登録へ進む際、未登録の対戦設定（current_match）を初期化して再生成可能にする
+      // 既に生成済みのモブ馬・CPU・馬場状態がある場合はそれを維持する（nullで初期化しない）
+      let updatedMatch = null;
+      if (currentStatus.current_match) {
+        updatedMatch = {
+          cpu_entries: currentStatus.current_match.cpu_entries || null,
+          races_mob_ids: currentStatus.current_match.races_mob_ids || null,
+          races_track_conditions: currentStatus.current_match.races_track_conditions || null
+        };
+      }
+
       const updatedStatus = {
         ...currentStatus,
         selected_series_id: selectedSeries.series_id,
         selected_deck_index: selectedDeckIndex,
-        current_match: null 
+        current_match: updatedMatch
       };
 
       await setDoc(doc(db, "users", currentUser.uid), {
