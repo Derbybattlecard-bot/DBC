@@ -212,8 +212,8 @@
     <div class="sub-status" id="onlineSubText">相手のシリーズを1つ除外してから、使用するデッキを選択してください</div>
   </div>
 
-  <!-- 自分のシリーズ持ち込み情報 -->
-  <div class="my-series-panel">
+  <!-- 自分のシリーズ持ち込み情報（シリーズ決定後は非表示） -->
+  <div class="my-series-panel" id="mySeriesPanel">
     <strong>📋 あなたの持ち込みシリーズ（相手に公開）:</strong>
     <div class="my-series-list" id="mySeriesContainer">
       <span class="my-series-chip">読み込み中...</span>
@@ -690,8 +690,14 @@
     }
   }
 
-  /* 両者のBAN完了時：【枠①】決定対戦シリーズ枠 【枠②】BANシリーズ枠 の2枠分離表示 */
+  /* 両者のBAN完了時：除外（BAN）シリーズを上、決定対戦シリーズを下に配置 */
   function renderCompletedMatchView(data) {
+    // 自分の持ち込みシリーズパネルを非表示にする
+    const mySeriesPanel = document.getElementById('mySeriesPanel');
+    if (mySeriesPanel) {
+      mySeriesPanel.style.display = 'none';
+    }
+
     const banPanel = document.getElementById('banPanel');
     banPanel.classList.add('completed');
 
@@ -722,11 +728,66 @@
       matchSeries = [...p1Kept, ...p2Kept].slice(0, totalRounds);
     }
 
-    let html = `
-      <!-- 【枠①】決定した全5（3）回戦の対戦シリーズ枠 -->
-      <div style="background:#ffffff; border:2px solid #10b981; border-radius:12px; padding:14px; margin-bottom:14px; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+    let html = '';
+
+    // 【上段】お互いに除外（BAN）した2つのシリーズ
+    html += `
+      <div style="background:#fef2f2; border:2px solid #ef4444; border-radius:12px; padding:14px; margin-bottom:14px; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+        <div class="ban-title" style="color: #dc2626; text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 2px;">
+          お互いに除外（BAN）した2つのシリーズ
+        </div>
+        <div style="font-size: 11px; text-align: center; color: #991b1b; margin-bottom: 10px;">
+          両プレイヤーがそれぞれの持ち込みから拒否指定したシリーズです。
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+    `;
+
+    const bannedItems = [
+      {
+        sId: myBannedId,
+        label: 'あなたが除外（相手持ち込み）'
+      },
+      {
+        sId: oppBannedId,
+        label: '相手が除外（あなた持ち込み）'
+      }
+    ];
+
+    bannedItems.forEach(item => {
+      if (!item.sId) return;
+      const sObj = getSeriesObj(item.sId);
+      const sName = sObj.series_name || sObj.name || item.sId;
+      const category = getSeriesCategory(sObj);
+      const raceBadgesHTML = buildRaceBadgesHTML(sObj);
+      const ptStats = getSeriesPotentialInfo(sObj);
+
+      html += `
+        <div class="ban-summary-card banned">
+          <div class="ban-card-row1">
+            <span class="ban-category-badge">🏷 ${category}</span>
+            <span class="ban-tag-banned">🚫 ${item.label}</span>
+          </div>
+          <div class="ban-card-title" style="text-decoration: line-through; color: #9ca3af; font-size: 12.5px; margin-top: 2px;">
+            🏆 ${sName}
+          </div>
+          <div class="ban-card-races">${raceBadgesHTML}</div>
+          <div class="ban-card-pt">
+            <div>合計上限 <span class="pt-val">${ptStats.totalPt}</span></div>
+            <div style="color:#cbd5e1;">|</div>
+            <div>出走可能 <span class="pt-val">${ptStats.eligiblePt}以上</span></div>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `</div></div>`;
+
+    // 【下段】決定対戦シリーズ（全〇回戦）
+    html += `
+      <div style="background:#ffffff; border:2px solid #10b981; border-radius:12px; padding:14px; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
         <div class="ban-title" style="color: #047857; text-align: center; font-size: 15px; font-weight: bold; margin-bottom: 2px;">
-          【枠①】決定対戦シリーズ枠（全 ${matchSeries.length} 回戦）
+          決定対戦シリーズ（全 ${matchSeries.length} 回戦）
         </div>
         <div style="font-size: 11px; text-align: center; color: #4b5563; margin-bottom: 10px;">
           お互いの除外選択を経て決定した本戦の対戦コースです。
@@ -791,63 +852,15 @@
 
     html += `</div></div>`;
 
-    // 【枠②】お互いに除外（BAN）した2つのシリーズ枠
-    html += `
-      <div style="background:#fef2f2; border:2px solid #ef4444; border-radius:12px; padding:14px; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
-        <div class="ban-title" style="color: #dc2626; text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 2px;">
-          【枠②】お互いに除外（BAN）した2つのシリーズ枠
-        </div>
-        <div style="font-size: 11px; text-align: center; color: #991b1b; margin-bottom: 10px;">
-          両プレイヤーがそれぞれの持ち込みから拒否指定したシリーズです。
-        </div>
-
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-    `;
-
-    const bannedItems = [
-      {
-        sId: myBannedId,
-        label: 'あなたが除外（相手持ち込み）'
-      },
-      {
-        sId: oppBannedId,
-        label: '相手が除外（あなた持ち込み）'
-      }
-    ];
-
-    bannedItems.forEach(item => {
-      if (!item.sId) return;
-      const sObj = getSeriesObj(item.sId);
-      const sName = sObj.series_name || sObj.name || item.sId;
-      const category = getSeriesCategory(sObj);
-      const raceBadgesHTML = buildRaceBadgesHTML(sObj);
-      const ptStats = getSeriesPotentialInfo(sObj);
-
-      html += `
-        <div class="ban-summary-card banned">
-          <div class="ban-card-row1">
-            <span class="ban-category-badge">🏷 ${category}</span>
-            <span class="ban-tag-banned">🚫 ${item.label}</span>
-          </div>
-          <div class="ban-card-title" style="text-decoration: line-through; color: #9ca3af; font-size: 12.5px; margin-top: 2px;">
-            🏆 ${sName}
-          </div>
-          <div class="ban-card-races">${raceBadgesHTML}</div>
-          <div class="ban-card-pt">
-            <div>合計上限 <span class="pt-val">${ptStats.totalPt}</span></div>
-            <div style="color:#cbd5e1;">|</div>
-            <div>出走可能 <span class="pt-val">${ptStats.eligiblePt}以上</span></div>
-          </div>
-        </div>
-      `;
-    });
-
-    html += `</div></div>`;
-
     banPanel.innerHTML = html;
   }
 
   function renderBanPanel() {
+    const mySeriesPanel = document.getElementById('mySeriesPanel');
+    if (mySeriesPanel) {
+      mySeriesPanel.style.display = 'block';
+    }
+
     const banPanel = document.getElementById('banPanel');
     const container = document.getElementById('banContainer');
     if (!container) return;
@@ -1019,7 +1032,6 @@
     document.getElementById('waitingModal').style.display = 'none';
   }
 
-  /* 今回指定の確定ロジック改修 */
   async function finalizeMatchSeries(roomData) {
     if (roomData.match_series && Array.isArray(roomData.match_series) && roomData.match_series.length === totalRounds) return;
 
@@ -1029,39 +1041,32 @@
     const p1BanIdx = Number(roomData.p2_banned_index);
     const p2BanIdx = Number(roomData.p1_banned_index);
 
-    // お互いの生き残り（各2件）
     const p1Kept = p1Series.filter((_, idx) => idx !== p1BanIdx);
     const p2Kept = p2Series.filter((_, idx) => idx !== p2BanIdx);
 
-    // 1. P1・P2の生き残りからそれぞれ1件ずつ確定選出（1+1）
     const p1PickIdx = Math.floor(Math.random() * p1Kept.length);
     const p1First = p1Kept[p1PickIdx];
-    const p1Second = p1Kept[1 - p1PickIdx]; // 残りの1件
+    const p1Second = p1Kept[1 - p1PickIdx];
 
     const p2PickIdx = Math.floor(Math.random() * p2Kept.length);
     const p2First = p2Kept[p2PickIdx];
-    const p2Second = p2Kept[1 - p2PickIdx]; // 残りの1件
+    const p2Second = p2Kept[1 - p2PickIdx];
 
-    // 1・2戦目用（P1から1件、P2から1件）をランダムな順序にする
     const round1_2 = [p1First, p2First];
     if (Math.random() < 0.5) round1_2.reverse();
 
     let finalSeriesList = [];
 
     if (totalRounds === 5) {
-      // 5回戦マッチ：
-      // 3・4戦目用（残ったP1から1件、P2から1件）をランダムな順序にする
       const round3_4 = [p1Second, p2Second];
       if (Math.random() < 0.5) round3_4.reverse();
 
       const first4 = [...round1_2, ...round3_4];
 
-      // 1〜4戦目で使用されたカテゴリの一覧を取得
       const usedCategories = new Set(
         first4.map(sId => getSeriesCategory(getSeriesObj(sId)))
       );
 
-      // 全シリーズマスタの中から、1〜4戦目で使用されたカテゴリと被らないシリーズを抽出
       const allSeriesKeys = Object.keys(SERIES_MASTER);
       const uniqueCatCandidates = allSeriesKeys.filter(sId => {
         const sObj = getSeriesObj(sId);
@@ -1073,7 +1078,6 @@
       if (uniqueCatCandidates.length > 0) {
         round5 = uniqueCatCandidates[Math.floor(Math.random() * uniqueCatCandidates.length)];
       } else {
-        // カテゴリ被りなし候補がない場合のフォールバック（1〜4戦で未選択のシリーズから抽選）
         const unusedSeries = allSeriesKeys.filter(sId => !first4.includes(sId));
         const pool = unusedSeries.length > 0 ? unusedSeries : allSeriesKeys;
         round5 = pool[Math.floor(Math.random() * pool.length)];
@@ -1082,8 +1086,6 @@
       finalSeriesList = [...first4, round5];
 
     } else {
-      // 3回戦マッチ：
-      // 3戦目：残った生き残り2件（p1Second, p2Second）の中から抽選で1件を選出
       const remainderPool = [p1Second, p2Second].filter(Boolean);
       const round3 = remainderPool[Math.floor(Math.random() * remainderPool.length)];
 
