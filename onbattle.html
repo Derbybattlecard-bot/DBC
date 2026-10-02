@@ -83,6 +83,7 @@
 
   /* シリーズ除外（BAN）パネル */
   .ban-select-panel { background-color: var(--panel-bg); padding: 15px; border-radius: 12px; border: 2px solid var(--accent-orange); display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: all 0.3s ease; }
+  .ban-select-panel.disabled { opacity: 0.6; pointer-events: none; filter: grayscale(50%); }
   .ban-title { font-size: 14px; font-weight: bold; color: var(--accent-orange); text-align: center; }
   .ban-options { display: flex; flex-direction: column; gap: 10px; }
   
@@ -226,7 +227,7 @@
     <button class="btn-back" onclick="leaveMatch()">← 辞退して戻る</button>
     <div class="header-right">
       <div id="userWinsBadge" class="wins-badge">通算 0 勝</div>
-      <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️️ 読込中</div>
+      <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁ 読込中</div>
     </div>
   </div>
 
@@ -312,7 +313,7 @@
   let opponentSeriesList = [];
 
   let isNavigatingAway = false;
-  let isReadySent = false; // 準備完了送信済みフラグ（重複・誤操作防止）
+  let isReadySent = false; // 準備完了送信済みフラグ
   let waitingTimeoutTimer = null;
 
   const urlParams = new URLSearchParams(window.location.search);
@@ -484,7 +485,7 @@
       
       renderMySeriesDisplay();
       renderDeckInfo();
-      selectDeck(0, true); // 初回呼び出し用フラグ
+      selectDeck(0, true); // 初回呼び出し用
 
       if (opponentSeriesList.length > 0) {
         renderBanOptions(opponentSeriesList);
@@ -555,9 +556,9 @@
     });
   }
 
-  // ★ 修正：デッキ選択時の挙動を修正（BAN選択状態を維持・リセットさせない）
+  // ★ デッキ選択（BAN完了後であれば、準備完了送信前まで自由に変更・切り替え可能）
   window.selectDeck = function(idx, isInitial = false) {
-    if (isReadySent) return; // 確定後は操作不可
+    if (isReadySent) return; // 準備完了送信後は不可
 
     if (!isInitial && selectedBanIndex === null) {
       alert("先に相手のシリーズを1つ「除外」してください。");
@@ -731,11 +732,13 @@
     });
   }
 
-  // ★ 修正：BAN選択後の固定化処理
+  // ★ BAN選択処理（一度選んだら確定し、再選択・変更を完全に禁止）
   window.selectBan = function(idx) {
-    if (isReadySent) return; // 送信完了後は変更禁止
+    if (isReadySent || selectedBanIndex !== null) return; // すでに選択済みの場合は一切受け付けない
 
     selectedBanIndex = idx;
+
+    // BANカードの選択状態を反映
     [0, 1, 2].forEach(i => {
       const cardEl = document.getElementById(`banCard_${i}`);
       const tagEl = document.getElementById(`banTag_${i}`);
@@ -746,16 +749,23 @@
       }
     });
 
+    // BANパネル自体を即座に無効化・グレーアウトして変更不能にする
+    const banPanel = document.getElementById('banPanel');
+    banPanel.classList.add('disabled');
+    document.getElementById('banPanelSubText').textContent = "※除外するシリーズを確定しました（変更不可）";
+
+    // デッキ選択パネルを有効化
     const deckPanel = document.getElementById('deckPanel');
     deckPanel.classList.remove('disabled');
     document.getElementById('deckPanelTitle').textContent = "② 使用デッキを選択";
 
+    // 準備完了ボタンの有効化
     const btnReady = document.getElementById('btnReady');
     btnReady.disabled = false;
     btnReady.textContent = "準備完了（対戦開始）";
   };
 
-  // ★ 修正：準備完了送信時の完全ロック処理追加
+  // ★ 準備完了送信時の完全ロック処理
   window.setPlayerReady = async function() {
     if (!roomId || isReadySent) return;
     if (selectedBanIndex === null) {
@@ -765,10 +775,9 @@
 
     isReadySent = true; // 送信状態に移行
 
-    // UIを完全不可動にロック（BAN選択パネル・デッキ選択パネルを無効化）
+    // UIを完全不可動にロック（BAN・デッキ双方の選択を最終ロック）
     document.getElementById('banPanel').classList.add('locked-ui');
     document.getElementById('deckPanel').classList.add('locked-ui');
-    document.getElementById('banPanelSubText').textContent = "※除外設定は確定しました";
 
     const readyBtn = document.getElementById('btnReady');
     readyBtn.disabled = true;
