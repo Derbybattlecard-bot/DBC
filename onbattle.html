@@ -757,7 +757,7 @@
       const myIdxInPool = myKeptPool.indexOf(sId);
       const oppIdxInPool = oppKeptPool.indexOf(sId);
 
-      if (myIdxInPool !== -1 && (oppIdxInPool === -1 || totalRounds === 3)) {
+      if (myIdxInPool !== -1 && oppIdxInPool === -1) {
         ownerClass = 'is-self';
         ownerLabel = 'あなた持ち込み';
         myKeptPool.splice(myIdxInPool, 1);
@@ -767,7 +767,7 @@
         oppKeptPool.splice(oppIdxInPool, 1);
       } else {
         ownerClass = 'is-random';
-        ownerLabel = totalRounds === 5 ? '追加選出' : '残枠抽選';
+        ownerLabel = totalRounds === 5 ? '5戦目カテゴリ特別抽選' : '3戦目抽選';
       }
 
       html += `
@@ -1019,6 +1019,7 @@
     document.getElementById('waitingModal').style.display = 'none';
   }
 
+  /* 今回指定の確定ロジック改修 */
   async function finalizeMatchSeries(roomData) {
     if (roomData.match_series && Array.isArray(roomData.match_series) && roomData.match_series.length === totalRounds) return;
 
@@ -1028,42 +1029,65 @@
     const p1BanIdx = Number(roomData.p2_banned_index);
     const p2BanIdx = Number(roomData.p1_banned_index);
 
+    // お互いの生き残り（各2件）
     const p1Kept = p1Series.filter((_, idx) => idx !== p1BanIdx);
     const p2Kept = p2Series.filter((_, idx) => idx !== p2BanIdx);
+
+    // 1. P1・P2の生き残りからそれぞれ1件ずつ確定選出（1+1）
+    const p1PickIdx = Math.floor(Math.random() * p1Kept.length);
+    const p1First = p1Kept[p1PickIdx];
+    const p1Second = p1Kept[1 - p1PickIdx]; // 残りの1件
+
+    const p2PickIdx = Math.floor(Math.random() * p2Kept.length);
+    const p2First = p2Kept[p2PickIdx];
+    const p2Second = p2Kept[1 - p2PickIdx]; // 残りの1件
+
+    // 1・2戦目用（P1から1件、P2から1件）をランダムな順序にする
+    const round1_2 = [p1First, p2First];
+    if (Math.random() < 0.5) round1_2.reverse();
 
     let finalSeriesList = [];
 
     if (totalRounds === 5) {
-      // 5回戦：生き残り（2+2）+ 全体から1件追加選出
-      const allKeys = Object.keys(SERIES_MASTER).length > 0 ? Object.keys(SERIES_MASTER) : ["SERIES_001", "SERIES_002", "SERIES_003", "SERIES_004", "SERIES_005"];
-      const existing = new Set([...p1Kept, ...p2Kept]);
-      const candidates = allKeys.filter(id => !existing.has(id));
-      
-      let extraSeries = candidates.length > 0 
-        ? candidates[Math.floor(Math.random() * candidates.length)]
-        : allKeys[Math.floor(Math.random() * allKeys.length)];
+      // 5回戦マッチ：
+      // 3・4戦目用（残ったP1から1件、P2から1件）をランダムな順序にする
+      const round3_4 = [p1Second, p2Second];
+      if (Math.random() < 0.5) round3_4.reverse();
 
-      finalSeriesList = [...p1Kept, ...p2Kept, extraSeries].filter(Boolean);
+      const first4 = [...round1_2, ...round3_4];
+
+      // 1〜4戦目で使用されたカテゴリの一覧を取得
+      const usedCategories = new Set(
+        first4.map(sId => getSeriesCategory(getSeriesObj(sId)))
+      );
+
+      // 全シリーズマスタの中から、1〜4戦目で使用されたカテゴリと被らないシリーズを抽出
+      const allSeriesKeys = Object.keys(SERIES_MASTER);
+      const uniqueCatCandidates = allSeriesKeys.filter(sId => {
+        const sObj = getSeriesObj(sId);
+        const cat = getSeriesCategory(sObj);
+        return !usedCategories.has(cat);
+      });
+
+      let round5 = null;
+      if (uniqueCatCandidates.length > 0) {
+        round5 = uniqueCatCandidates[Math.floor(Math.random() * uniqueCatCandidates.length)];
+      } else {
+        // カテゴリ被りなし候補がない場合のフォールバック（1〜4戦で未選択のシリーズから抽選）
+        const unusedSeries = allSeriesKeys.filter(sId => !first4.includes(sId));
+        const pool = unusedSeries.length > 0 ? unusedSeries : allSeriesKeys;
+        round5 = pool[Math.floor(Math.random() * pool.length)];
+      }
+
+      finalSeriesList = [...first4, round5];
+
     } else {
-      // 3回戦：生き残りから1+1を選出し、残りの生き残りから抽選で1つ（計3つ）
-      const p1PickIdx = Math.floor(Math.random() * p1Kept.length);
-      const p1Selected = p1Kept[p1PickIdx];
-      const p1Remainder = p1Kept.filter((_, idx) => idx !== p1PickIdx);
+      // 3回戦マッチ：
+      // 3戦目：残った生き残り2件（p1Second, p2Second）の中から抽選で1件を選出
+      const remainderPool = [p1Second, p2Second].filter(Boolean);
+      const round3 = remainderPool[Math.floor(Math.random() * remainderPool.length)];
 
-      const p2PickIdx = Math.floor(Math.random() * p2Kept.length);
-      const p2Selected = p2Kept[p2PickIdx];
-      const p2Remainder = p2Kept.filter((_, idx) => idx !== p2PickIdx);
-
-      const remainderPool = [...p1Remainder, ...p2Remainder].filter(Boolean);
-      const extraPicked = remainderPool[Math.floor(Math.random() * remainderPool.length)];
-
-      finalSeriesList = [p1Selected, p2Selected, extraPicked].filter(Boolean);
-    }
-
-    // 全体の対戦順をランダムシャッフル
-    for (let i = finalSeriesList.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [finalSeriesList[i], finalSeriesList[j]] = [finalSeriesList[j], finalSeriesList[i]];
+      finalSeriesList = [...round1_2, round3];
     }
 
     if (finalSeriesList.length < totalRounds) return;
