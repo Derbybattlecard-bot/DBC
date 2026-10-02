@@ -266,7 +266,7 @@
 <div class="modal-overlay" id="waitingModal">
   <div class="modal-content">
     <div class="spinner"></div>
-    <div style="font-size: 16px; font-weight: bold; color: var(--accent-color); margin-bottom: 6px;">相手の選択・準備完了を待っています…</div>
+    <div style="font-size: 16px; font-weight: bold; color: var(--accent-color); margin-bottom: 6px;">相手の準備完了を待っています…</div>
     <div style="font-size: 12px; color: #6b7280;">しばらくそのままでお待ちください</div>
     <button class="btn-cancel" onclick="leaveMatch()">対戦をキャンセル</button>
   </div>
@@ -546,11 +546,6 @@
     if (isReadySent) return;
     if (idx === 1 && isSingleDeckMode) return;
 
-    if (!isInitial && selectedBanIndex === null) {
-      alert("先に相手のシリーズを1つ「除外」してください。");
-      return;
-    }
-    
     selectedDeckIndex = idx;
     document.getElementById('deckCard0').classList.toggle('selected', idx === 0);
     if (!isSingleDeckMode) {
@@ -643,10 +638,19 @@
       }
 
       const myBanIdx = isHost ? data.p1_banned_index : data.p2_banned_index;
-      if (myBanIdx !== undefined && myBanIdx !== null && selectedBanIndex === null) {
+      if (myBanIdx !== undefined && myBanIdx !== null) {
         selectedBanIndex = myBanIdx;
       }
 
+      // お互いにBANが選ばれているが、まだ対戦シリーズ（match_series）が未作成の場合はホストが自動確定する
+      if (role === 'host' && !data.match_series && 
+          data.p1_banned_index !== undefined && data.p1_banned_index !== null &&
+          data.p2_banned_index !== undefined && data.p2_banned_index !== null) {
+        await finalizeMatchSeries(data);
+        return;
+      }
+
+      // 対戦シリーズ（match_series）が確定している場合、準備完了前でも表示する
       if (data.match_series && Array.isArray(data.match_series) && data.match_series.length === totalRounds) {
         renderMatchSeriesAndBans(data);
         enableDeckSelection();
@@ -658,13 +662,9 @@
         }
       }
 
+      // お互いに準備完了となったら対戦画面へ遷移
       if (data.player1_ready && data.player2_ready) {
         closeWaitingModal();
-        if (role === 'host' && !data.match_series) {
-          await finalizeMatchSeries(data);
-          return;
-        }
-
         if (data.match_series) {
           if (roomUnsubscribe) roomUnsubscribe();
           isNavigatingAway = true;
@@ -848,7 +848,7 @@
     } else {
       banPanel.classList.add('completed');
       document.getElementById('banPanelTitle').textContent = "① シリーズ除外完了 (確定)";
-      document.getElementById('banPanelSubText').textContent = "※あなたの除外設定が反映されました。相手の準備完了を待っています。";
+      document.getElementById('banPanelSubText').textContent = "※あなたの除外設定が反映されました。相手の選択を待っています。";
 
       opponentSeriesList.forEach((sId, idx) => {
         const sObj = getSeriesObj(sId);
@@ -900,12 +900,23 @@
     return `<span class="race-badge">コース情報読み込み中</span>`;
   }
 
-  window.selectBan = function(idx) {
-    if (isReadySent || selectedBanIndex !== null) return;
+  window.selectBan = async function(idx) {
+    if (isReadySent || selectedBanIndex !== null || !roomId) return;
 
     selectedBanIndex = idx;
     renderBanPanel();
     enableDeckSelection();
+
+    // BANを選択した時点でFirestoreに直ちに送信
+    const roomRef = doc(db, "online_matches", roomId);
+    const isHost = (role === 'host');
+    const updateData = isHost ? { p1_banned_index: idx } : { p2_banned_index: idx };
+
+    try {
+      await updateDoc(roomRef, updateData);
+    } catch (err) {
+      console.error("BAN送信エラー:", err);
+    }
   };
 
   window.setPlayerReady = async function() {
@@ -922,7 +933,7 @@
 
     const readyBtn = document.getElementById('btnReady');
     readyBtn.disabled = true;
-    readyBtn.textContent = "相手の選択を待っています…";
+    readyBtn.textContent = "相手の準備完了を待っています…";
     document.getElementById('waitingModal').style.display = 'flex';
 
     if (waitingTimeoutTimer) clearTimeout(waitingTimeoutTimer);
@@ -939,11 +950,9 @@
     const isHost = (role === 'host');
     const updateData = isHost ? {
       player1_deck: selectedDeck.horse_ids || [],
-      p1_banned_index: selectedBanIndex,
       player1_ready: true
     } : {
       player2_deck: selectedDeck.horse_ids || [],
-      p2_banned_index: selectedBanIndex,
       player2_ready: true
     };
 
@@ -1001,8 +1010,7 @@
 
     const roomRef = doc(db, "online_matches", roomId);
     await updateDoc(roomRef, {
-      match_series: finalSeriesList,
-      status: "in_match"
+      match_series: finalSeriesList
     });
   }
 
