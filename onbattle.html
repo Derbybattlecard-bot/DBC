@@ -117,11 +117,65 @@
   .ban-summary-card.banned {
     border-color: #fca5a5;
     background-color: #fef2f2;
+    border-left: 5px solid #ef4444;
   }
   .ban-summary-card.kept {
-    border-color: #a7f3d0;
+    border-color: #cbd5e1;
     background-color: #ffffff;
+    border-left-width: 6px;
   }
+
+  /* ==========================================
+     所有者別カード左ライン＆バッジ色分けスタイル
+     ========================================== */
+  /* 1. 自分のシリーズ（青） */
+  .ban-summary-card.kept.is-self {
+    border-left-color: #3b82f6;
+  }
+  .ban-summary-card.kept.is-self .round-badge-owner {
+    background-color: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+  }
+
+  /* 2. 相手のシリーズ（赤） */
+  .ban-summary-card.kept.is-opponent {
+    border-left-color: #ef4444;
+  }
+  .ban-summary-card.kept.is-opponent .round-badge-owner {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+  }
+
+  /* 3. ランダム選出（紫） */
+  .ban-summary-card.kept.is-random {
+    border-left-color: #8b5cf6;
+  }
+  .ban-summary-card.kept.is-random .round-badge-owner {
+    background-color: #f3e8ff;
+    color: #6b21a8;
+    border: 1px solid #d8b4fe;
+  }
+
+  /* 色分け凡例（レジェンド） */
+  .legend-bar {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    background-color: #ffffff;
+    padding: 6px 12px;
+    border-radius: 20px;
+    margin-bottom: 8px;
+    font-size: 11px;
+    font-weight: bold;
+    border: 1px solid #cbd5e1;
+  }
+  .legend-item { display: flex; align-items: center; gap: 4px; }
+  .legend-color { width: 10px; height: 10px; border-radius: 3px; }
+  .legend-color.self { background-color: #3b82f6; }
+  .legend-color.opponent { background-color: #ef4444; }
+  .legend-color.random { background-color: #8b5cf6; }
 
   .ban-card-row1 {
     display: flex;
@@ -675,7 +729,7 @@
         selectedBanIndex = myBanIdx;
       }
 
-      // ★【手書き図の反映箇所】対戦シリーズ（5回戦分）が既に作成されていれば全5戦＋お互いのBAN2件を表示
+      // ★対戦シリーズ（5回戦分）が既に作成されていれば全5戦＋お互いのBAN2件を表示
       if (data.match_series && Array.isArray(data.match_series) && data.match_series.length === 5) {
         renderMatchSeriesAndBans(data);
         enableDeckSelection();
@@ -719,7 +773,7 @@
     }
   }
 
-  // ★対戦確定済み（5回戦＋お互いのBAN2件）の表示関数
+  // ★対戦確定済み（5回戦＋お互いのBAN2件）の表示関数（色分け対応版）
   function renderMatchSeriesAndBans(data) {
     const banPanel = document.getElementById('banPanel');
     banPanel.classList.add('completed');
@@ -727,6 +781,14 @@
     const isHost = (role === 'host');
     const p1Series = data.player1_series || [];
     const p2Series = data.player2_series || [];
+
+    // BAN除外後に採用されたシリーズIDリストを抽出
+    const p1Kept = p1Series.filter((_, idx) => idx !== data.p2_banned_index);
+    const p2Kept = p2Series.filter((_, idx) => idx !== data.p1_banned_index);
+
+    // 自分の持ち込み / 相手の持ち込みを判定
+    const myKeptSeries = isHost ? p1Kept : p2Kept;
+    const oppKeptSeries = isHost ? p2Kept : p1Kept;
 
     // お互いにBANされたシリーズのIDを抽出
     const p1BannedSeriesId = (data.p2_banned_index !== undefined && data.p2_banned_index !== null) ? p1Series[data.p2_banned_index] : null;
@@ -736,13 +798,21 @@
       <div class="ban-title" style="color: #047857; text-align: center; font-size: 15px; font-weight: bold; margin-bottom: 4px;">
         🏆 対戦シリーズ一覧（全5回戦）
       </div>
-      <div style="font-size: 11px; text-align: center; color: #4b5563; margin-bottom: 10px;">
+      <div style="font-size: 11px; text-align: center; color: #4b5563; margin-bottom: 8px;">
         ※お互いの持ち込みと選出された全5レースのカードです。
       </div>
+
+      <!-- 色分け凡例 -->
+      <div class="legend-bar">
+        <div class="legend-item"><span class="legend-color self"></span> 自分</div>
+        <div class="legend-item"><span class="legend-color opponent"></span> 相手</div>
+        <div class="legend-item"><span class="legend-color random"></span> ランダム</div>
+      </div>
+
       <div style="display: flex; flex-direction: column; gap: 8px;">
     `;
 
-    // 1〜5回戦の描画（手書き図の上の大きな枠部分）
+    // 1〜5回戦の描画
     (data.match_series || []).forEach((sId, idx) => {
       const sObj = getSeriesObj(sId);
       const sName = sObj.series_name || sObj.name || sId;
@@ -750,10 +820,18 @@
       const raceBadgesHTML = buildRaceBadgesHTML(sObj);
       const ptStats = getSeriesPotentialInfo(sObj);
 
+      // オーナー判定（自分 / 相手 / ランダム）
+      let ownerClass = 'is-random';
+      if (myKeptSeries.includes(sId)) {
+        ownerClass = 'is-self';
+      } else if (oppKeptSeries.includes(sId)) {
+        ownerClass = 'is-opponent';
+      }
+
       html += `
-        <div class="ban-summary-card kept" style="border-left: 5px solid var(--accent-color);">
+        <div class="ban-summary-card kept ${ownerClass}">
           <div class="ban-card-row1">
-            <span class="ban-category-badge" style="background: #e0e7ff; color: #3730a3; border-color: #c7d2fe;">第 ${idx + 1} 戦</span>
+            <span class="ban-category-badge round-badge-owner">第 ${idx + 1} 戦</span>
             <span class="ban-tag-kept">🏷 ${category}</span>
           </div>
           <div class="ban-card-title" style="font-size: 13.5px; font-weight: bold; color: #1e1b4b; margin-top: 2px;">
@@ -771,7 +849,7 @@
 
     html += `</div>`;
 
-    // BANされた2つのシリーズ描画（手書き図の下のBAN枠部分）
+    // BANされた2つのシリーズ描画
     html += `
       <div class="ban-title" style="color: #dc2626; text-align: center; font-size: 13px; font-weight: bold; margin-top: 14px; margin-bottom: 4px; border-top: 1px dashed #fca5a5; padding-top: 10px;">
         🚫 お互いに除外（BAN）したシリーズ (全2件)
