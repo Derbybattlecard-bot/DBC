@@ -56,11 +56,25 @@
     background: var(--panel-bg);
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    padding: 8px 12px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  }
+  .series-progress-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-weight: bold;
+  }
+  .series-name-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--accent-color);
+    text-align: center;
+    border-top: 1px dashed var(--border-color);
+    padding-top: 6px;
   }
 
   .status-bar {
@@ -191,8 +205,11 @@
   </div>
 
   <div class="series-progress-bar">
-    <span id="seriesRoundDisplay">第 1 回戦 (全5回戦)</span>
-    <span id="seriesRecordDisplay" style="color: var(--accent-color);">0勝 0敗</span>
+    <div class="series-progress-header">
+      <span id="seriesRoundDisplay">第 - 回戦</span>
+      <span id="seriesRecordDisplay" style="color: var(--accent-color);">0勝 0敗</span>
+    </div>
+    <div class="series-name-title" id="seriesNameDisplay">🏆 シリーズ名読み込み中...</div>
   </div>
 
   <div class="status-bar">
@@ -305,12 +322,14 @@
     currentSeries = SERIES_MASTER.find(s => s.series_id === seriesId) || SERIES_MASTER[0];
     
     const currentRound = status.current_round || 1;
-    const maxRounds = status.max_rounds || (status.series_lineup && status.series_lineup.length >= 5 ? 5 : 3);
+    const maxRounds = status.max_rounds || (status.series_lineup ? status.series_lineup.length : 3);
     const wins = status.series_wins || 0;
     const losses = status.series_losses || 0;
     
+    // 動的に全回戦数を反映
     document.getElementById('seriesRoundDisplay').textContent = `第 ${currentRound} 回戦 (全${maxRounds}回戦)`;
     document.getElementById('seriesRecordDisplay').textContent = `${wins}勝 ${losses}敗`;
+    document.getElementById('seriesNameDisplay').textContent = `🏆 ${currentSeries.series_name || "対戦シリーズ"}`;
 
     const sexLimit = currentSeries.sex || "各レース指定";
     document.getElementById('sexLimitDisplay').textContent = sexLimit;
