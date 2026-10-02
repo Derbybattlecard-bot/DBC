@@ -651,7 +651,6 @@
 
       // お互いのBAN（除外）が揃ったタイミングで即座に確定対戦カード＋BAN一覧を描画
       if (hasP1Ban && hasP2Ban) {
-        // Firestoreに match_series が未確定ならバックグラウンドで確定保存
         if (!data.match_series || !Array.isArray(data.match_series) || data.match_series.length < totalRounds) {
           finalizeMatchSeries(data);
         }
@@ -691,7 +690,7 @@
     }
   }
 
-  /* 両者のBAN完了時：イラスト（上：確定カード全件、下：BAN一覧）を即時描画する関数 */
+  /* 両者のBAN完了時：【枠①】決定対戦シリーズ枠 【枠②】BANシリーズ枠 の2枠分離表示 */
   function renderCompletedMatchView(data) {
     const banPanel = document.getElementById('banPanel');
     banPanel.classList.add('completed');
@@ -700,17 +699,23 @@
     const p1Series = data.player1_series || ["SERIES_001", "SERIES_002", "SERIES_003"];
     const p2Series = data.player2_series || ["SERIES_001", "SERIES_002", "SERIES_003"];
 
-    const p1BanIdx = Number(data.p2_banned_index); // P2がP1から除外したインデックス
-    const p2BanIdx = Number(data.p1_banned_index); // P1がP2から除外したインデックス
+    const p1BanIdx = Number(data.p2_banned_index); // P2がP1(Host)から除外したインデックス
+    const p2BanIdx = Number(data.p1_banned_index); // P1がP2(Guest)から除外したインデックス
 
     const p1Kept = p1Series.filter((_, idx) => idx !== p1BanIdx);
     const p2Kept = p2Series.filter((_, idx) => idx !== p2BanIdx);
 
+    const mySeries = isHost ? p1Series : p2Series;
+    const oppSeries = isHost ? p2Series : p1Series;
+
     const myKept = isHost ? p1Kept : p2Kept;
     const oppKept = isHost ? p2Kept : p1Kept;
 
-    const p1BannedId = p1Series[p1BanIdx];
-    const p2BannedId = p2Series[p2BanIdx];
+    const myBanIdx = isHost ? p2BanIdx : p1BanIdx; // 自分が除外した相手のインデックス
+    const oppBanIdx = isHost ? p1BanIdx : p2BanIdx; // 相手が除外した自分のインデックス
+
+    const myBannedId = oppSeries[myBanIdx]; // 自分がBANした相手のシリーズ
+    const oppBannedId = mySeries[oppBanIdx]; // 相手がBANした自分のシリーズ
 
     let matchSeries = data.match_series;
     if (!matchSeries || !Array.isArray(matchSeries) || matchSeries.length === 0) {
@@ -718,22 +723,26 @@
     }
 
     let html = `
-      <div style="background:#ffffff; border:2px solid #10b981; border-radius:10px; padding:12px; margin-bottom:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+      <!-- 【枠①】決定した全5（3）回戦の対戦シリーズ枠 -->
+      <div style="background:#ffffff; border:2px solid #10b981; border-radius:12px; padding:14px; margin-bottom:14px; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
         <div class="ban-title" style="color: #047857; text-align: center; font-size: 15px; font-weight: bold; margin-bottom: 2px;">
-          🏆 確定対戦カード一覧（全 ${matchSeries.length} 回戦）
+          【枠①】決定対戦シリーズ枠（全 ${matchSeries.length} 回戦）
         </div>
-        <div style="font-size: 11px; text-align: center; color: #4b5563; margin-bottom: 8px;">
-          ※両者のBAN選択により自動決定された対戦コースカードです。
+        <div style="font-size: 11px; text-align: center; color: #4b5563; margin-bottom: 10px;">
+          お互いの除外選択を経て決定した本戦の対戦コースです。
         </div>
 
         <div class="legend-bar">
           <div class="legend-item"><span class="legend-color self"></span> あなた持ち込み</div>
           <div class="legend-item"><span class="legend-color opponent"></span> 相手持ち込み</div>
-          ${totalRounds === 5 ? '<div class="legend-item"><span class="legend-color random"></span> 追加選出</div>' : ''}
+          <div class="legend-item"><span class="legend-color random"></span> 抽選・追加選出</div>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 8px;">
     `;
+
+    const myKeptPool = [...myKept];
+    const oppKeptPool = [...oppKept];
 
     matchSeries.forEach((sId, idx) => {
       const sObj = getSeriesObj(sId);
@@ -743,13 +752,22 @@
       const ptStats = getSeriesPotentialInfo(sObj);
 
       let ownerClass = 'is-random';
-      let ownerLabel = '追加選出';
-      if (myKept.includes(sId)) {
+      let ownerLabel = '抽選選出';
+
+      const myIdxInPool = myKeptPool.indexOf(sId);
+      const oppIdxInPool = oppKeptPool.indexOf(sId);
+
+      if (myIdxInPool !== -1 && (oppIdxInPool === -1 || totalRounds === 3)) {
         ownerClass = 'is-self';
         ownerLabel = 'あなた持ち込み';
-      } else if (oppKept.includes(sId)) {
+        myKeptPool.splice(myIdxInPool, 1);
+      } else if (oppIdxInPool !== -1) {
         ownerClass = 'is-opponent';
         ownerLabel = '相手持ち込み';
+        oppKeptPool.splice(oppIdxInPool, 1);
+      } else {
+        ownerClass = 'is-random';
+        ownerLabel = totalRounds === 5 ? '追加選出' : '残枠抽選';
       }
 
       html += `
@@ -773,30 +791,32 @@
 
     html += `</div></div>`;
 
-    // 下部：BAN（除外）一覧
+    // 【枠②】お互いに除外（BAN）した2つのシリーズ枠
     html += `
-      <div style="background:#fef2f2; border:2px solid #ef4444; border-radius:10px; padding:12px; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
-        <div class="ban-title" style="color: #dc2626; text-align: center; font-size: 13px; font-weight: bold; margin-bottom: 6px;">
-          🚫 BAN（除外されたシリーズ）
+      <div style="background:#fef2f2; border:2px solid #ef4444; border-radius:12px; padding:14px; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+        <div class="ban-title" style="color: #dc2626; text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 2px;">
+          【枠②】お互いに除外（BAN）した2つのシリーズ枠
         </div>
+        <div style="font-size: 11px; text-align: center; color: #991b1b; margin-bottom: 10px;">
+          両プレイヤーがそれぞれの持ち込みから拒否指定したシリーズです。
+        </div>
+
         <div style="display: flex; flex-direction: column; gap: 8px;">
     `;
 
-    const bannedList = [];
-    if (p2BannedId) {
-      bannedList.push({ 
-        sId: p2BannedId, 
-        label: isHost ? 'あなたが除外（相手持ち込み）' : '相手が除外（あなた持ち込み）' 
-      });
-    }
-    if (p1BannedId) {
-      bannedList.push({ 
-        sId: p1BannedId, 
-        label: isHost ? '相手が除外（あなた持ち込み）' : 'あなたが除外（相手持ち込み）' 
-      });
-    }
+    const bannedItems = [
+      {
+        sId: myBannedId,
+        label: 'あなたが除外（相手持ち込み）'
+      },
+      {
+        sId: oppBannedId,
+        label: '相手が除外（あなた持ち込み）'
+      }
+    ];
 
-    bannedList.forEach(item => {
+    bannedItems.forEach(item => {
+      if (!item.sId) return;
       const sObj = getSeriesObj(item.sId);
       const sName = sObj.series_name || sObj.name || item.sId;
       const category = getSeriesCategory(sObj);
@@ -809,7 +829,7 @@
             <span class="ban-category-badge">🏷 ${category}</span>
             <span class="ban-tag-banned">🚫 ${item.label}</span>
           </div>
-          <div class="ban-card-title" style="text-decoration: line-through; color: #9ca3af; font-size: 12.5px;">
+          <div class="ban-card-title" style="text-decoration: line-through; color: #9ca3af; font-size: 12.5px; margin-top: 2px;">
             🏆 ${sName}
           </div>
           <div class="ban-card-races">${raceBadgesHTML}</div>
@@ -1014,6 +1034,7 @@
     let finalSeriesList = [];
 
     if (totalRounds === 5) {
+      // 5回戦：生き残り（2+2）+ 全体から1件追加選出
       const allKeys = Object.keys(SERIES_MASTER).length > 0 ? Object.keys(SERIES_MASTER) : ["SERIES_001", "SERIES_002", "SERIES_003", "SERIES_004", "SERIES_005"];
       const existing = new Set([...p1Kept, ...p2Kept]);
       const candidates = allKeys.filter(id => !existing.has(id));
@@ -1024,14 +1045,22 @@
 
       finalSeriesList = [...p1Kept, ...p2Kept, extraSeries].filter(Boolean);
     } else {
-      const pool = [...p1Kept, ...p2Kept].filter(Boolean);
-      for (let i = pool.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [pool[i], pool[j]] = [pool[j], pool[i]];
-      }
-      finalSeriesList = pool.slice(0, 3);
+      // 3回戦：生き残りから1+1を選出し、残りの生き残りから抽選で1つ（計3つ）
+      const p1PickIdx = Math.floor(Math.random() * p1Kept.length);
+      const p1Selected = p1Kept[p1PickIdx];
+      const p1Remainder = p1Kept.filter((_, idx) => idx !== p1PickIdx);
+
+      const p2PickIdx = Math.floor(Math.random() * p2Kept.length);
+      const p2Selected = p2Kept[p2PickIdx];
+      const p2Remainder = p2Kept.filter((_, idx) => idx !== p2PickIdx);
+
+      const remainderPool = [...p1Remainder, ...p2Remainder].filter(Boolean);
+      const extraPicked = remainderPool[Math.floor(Math.random() * remainderPool.length)];
+
+      finalSeriesList = [p1Selected, p2Selected, extraPicked].filter(Boolean);
     }
 
+    // 全体の対戦順をランダムシャッフル
     for (let i = finalSeriesList.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [finalSeriesList[i], finalSeriesList[j]] = [finalSeriesList[j], finalSeriesList[i]];
