@@ -22,7 +22,6 @@
   .header-right { display: flex; align-items: center; gap: 8px; }
   .wins-badge { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #78350f; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid #d97706; }
 
-  /* ★ データクリアボタンのスタイル */
   .btn-reset { background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: background 0.2s; }
   .btn-reset:hover { background: #dc2626; }
 
@@ -39,7 +38,7 @@
 
   .card-title { font-size: 16px; font-weight: 800; color: var(--text-main); margin: 0; }
   
-  .mode-select-group { display: flex; gap: 6px; width: 100%; max-width: 340px; justify-content: center; }
+  .mode-select-group { display: flex; gap: 6px; width: 100%; max-width: 380px; justify-content: center; }
   .mode-btn { flex: 1; padding: 8px 4px; border: 1.5px solid var(--border-color); background: #f3e8ff; color: var(--text-main); font-size: 11px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
   .mode-btn.active { background: var(--accent-color); color: #ffffff; border-color: var(--accent-color); box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
 
@@ -74,7 +73,7 @@
     <p class="page-desc">全国のブリーダーとリアルタイムで対戦！</p>
   </div>
 
-  <!-- 全国ランダムマッチ -->
+  <!-- 全国ランダムマッチ（ライト / 通常 の2モード） -->
   <div class="match-card random">
     <div class="card-tag gold">QUICK</div>
     <div class="card-icon" style="font-size: 28px;">⚔️</div>
@@ -88,15 +87,15 @@
     <button class="btn-match" onclick="startMatching('random')">対戦相手を探す</button>
   </div>
 
-  <!-- あい言葉マッチ -->
+  <!-- あい言葉マッチ（ライト / 通常 / サバイバル の3モード） -->
   <div class="match-card private">
     <div class="card-tag">PRIVATE</div>
     <div class="card-icon" style="font-size: 28px;">🔑</div>
     <h3 class="card-title">あい言葉マッチ</h3>
     
     <div class="mode-select-group">
-      <button class="mode-btn active" id="btn-priv-light" onclick="selectPrivateMode('light')">ライト<br>(3回戦)</button>
-      <button class="mode-btn" id="btn-priv-standard" onclick="selectPrivateMode('standard')">通常<br>(5回戦)</button>
+      <button class="mode-btn active" id="btn-priv-light" onclick="selectPrivateMode('light')">ライト<br>(2デック/3回戦)</button>
+      <button class="mode-btn" id="btn-priv-standard" onclick="selectPrivateMode('standard')">通常<br>(2デック/5回戦)</button>
       <button class="mode-btn" id="btn-priv-survival" onclick="selectPrivateMode('survival')">サバイバル<br>(1デック/3回戦)</button>
     </div>
 
@@ -188,7 +187,6 @@
     }
   });
 
-  // 古い対戦データの自動クリーンアップ
   async function cleanupOldMatches(userId) {
     try {
       const queueQuery = query(collection(db, "match_queue"), where("host_uid", "==", userId));
@@ -206,17 +204,11 @@
       const [hostSnap, guestSnap] = await Promise.all([getDocs(qHost), getDocs(qGuest)]);
 
       hostSnap.forEach(docSnap => {
-        batch.update(docSnap.ref, { 
-          status: "cancelled", 
-          cancelled_by: userId
-        });
+        batch.update(docSnap.ref, { status: "cancelled", cancelled_by: userId });
       });
 
       guestSnap.forEach(docSnap => {
-        batch.update(docSnap.ref, { 
-          status: "cancelled", 
-          cancelled_by: userId
-        });
+        batch.update(docSnap.ref, { status: "cancelled", cancelled_by: userId });
       });
       
       await batch.commit();
@@ -225,7 +217,6 @@
     }
   }
 
-  // ★ 手動データクリア機能
   window.clearMatchData = async function() {
     if (!currentUser) return;
     if (!confirm("残存している対戦・マッチングデータを完全にクリアしますか？")) return;
@@ -254,7 +245,6 @@
     if (!currentUser || !isOnlineAvailable) return;
     isNavigatingToBattle = false;
 
-    // 自身のデックとシリーズ情報の取得
     const userSnap = await getDoc(doc(db, "users", currentUser.uid));
     const userData = userSnap.exists() ? userSnap.data() : {};
     const myDecks = userData.decks || [];
@@ -289,7 +279,6 @@
       const snap = await getDoc(queueRef);
 
       if (snap.exists() && snap.data().host_uid !== currentUser.uid && !snap.data().matched_roomId) {
-        // ゲスト側処理（ホストのデックと自分のデックをセットしてルーム作成）
         const hostData = snap.data();
         const hostUid = hostData.host_uid;
         const matchedMode = hostData.mode || targetMode;
@@ -319,7 +308,6 @@
 
         proceedToBattle(newRoomId, "guest", matchedMode);
       } else {
-        // ホスト側処理
         await setDoc(queueRef, {
           host_uid: currentUser.uid,
           host_deck: myDeckIds,
@@ -372,14 +360,11 @@
     }
   });
 
-    function proceedToBattle(roomId, role, mode) {
+  function proceedToBattle(roomId, role, mode) {
     isNavigatingToBattle = true;
     if (matchingUnsubscribe) matchingUnsubscribe();
-    
-    // 新規対戦時は onbattle.html（対戦・シリーズ除外画面）へ移動
     window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${mode}`;
   }
-
 </script>
 
 </body>
