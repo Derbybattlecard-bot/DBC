@@ -15,6 +15,7 @@
     --text-main: #1e1b4b;
     --border-color: #ddd6fe;
     --danger-color: #ef4444;
+    --success-color: #10b981;
   }
   body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--bg-gradient); color: var(--text-main); margin: 0; padding: 15px; font-size: 13px; display: flex; justify-content: center; min-height: 100vh; }
   .container { display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 720px; padding-bottom: 30px; }
@@ -83,17 +84,12 @@
 
   /* シリーズ除外（BAN）パネル */
   .ban-select-panel { background-color: var(--panel-bg); padding: 15px; border-radius: 12px; border: 2px solid var(--accent-orange); display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: all 0.3s ease; }
-  .ban-select-panel.disabled { 
-    opacity: 0.65; 
-    pointer-events: none !important; 
-    filter: grayscale(80%); 
-    border-color: #9ca3af !important; 
-  }
+  .ban-select-panel.completed { border-color: #10b981; background-color: #f0fdf4; }
   .ban-title { font-size: 14px; font-weight: bold; color: var(--accent-orange); text-align: center; }
-  .ban-select-panel.disabled .ban-title { color: #6b7280; }
+  .ban-select-panel.completed .ban-title { color: #047857; }
   .ban-options { display: flex; flex-direction: column; gap: 10px; }
   
-  /* 除外カードデザイン */
+  /* カードデザイン（選択可能時） */
   .ban-card {
     background: #fff;
     border: 2px solid var(--border-color);
@@ -107,10 +103,26 @@
     box-shadow: 0 2px 5px rgba(0,0,0,0.03);
   }
   .ban-card:hover { border-color: var(--accent-orange); transform: translateY(-1px); }
-  .ban-card.selected { border-color: var(--danger-color); background-color: #fef2f2; box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2); }
-  .ban-card.disabled-card { pointer-events: none !important; cursor: not-allowed !important; }
-  .ban-card.disabled-card:hover { transform: none !important; }
-  
+
+  /* 確定後のサマリー表示用カードデザイン */
+  .ban-summary-card {
+    background: #fff;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .ban-summary-card.banned {
+    border-color: #fca5a5;
+    background-color: #fef2f2;
+  }
+  .ban-summary-card.kept {
+    border-color: #a7f3d0;
+    background-color: #ffffff;
+  }
+
   .ban-card-row1 {
     display: flex;
     justify-content: space-between;
@@ -129,32 +141,37 @@
   
   .ban-tag {
     font-size: 11px;
-    padding: 4px 12px;
+    padding: 3px 10px;
     border-radius: 6px;
     font-weight: bold;
     background: #fff7ed;
     color: #c2410c;
     border: 1.5px solid #f97316;
-    white-space: nowrap;
-    transition: all 0.2s;
   }
-  .ban-card:hover .ban-tag {
-    background: #f97316;
-    color: #ffffff;
+  .ban-tag-banned {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-weight: bold;
+    background: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fca5a5;
   }
-  .ban-card.selected .ban-tag { 
-    background: var(--danger-color); 
-    color: #ffffff; 
-    border-color: var(--danger-color);
-    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+  .ban-tag-kept {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-weight: bold;
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
   }
 
   .ban-card-title {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 800;
     color: var(--text-main);
     line-height: 1.3;
-    word-break: break-word;
   }
 
   /* コース詳細情報 */
@@ -181,21 +198,16 @@
     align-items: center;
     background: #faf5ff;
     border: 1px solid #e9d5ff;
-    padding: 6px 10px;
+    padding: 4px 8px;
     border-radius: 6px;
-    font-size: 11px;
+    font-size: 10.5px;
     color: #581c87;
     font-weight: bold;
     margin-top: 2px;
   }
-  .pt-item {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
   .pt-val {
     color: #c2410c;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 800;
   }
 
@@ -217,8 +229,8 @@
   .btn-start:disabled { background: #9ca3af; box-shadow: none; cursor: not-allowed; opacity: 0.6; }
   .btn-start:active:not(:disabled) { transform: translateY(4px); box-shadow: none; }
 
-  /* 準備完了時のUI操作ロック用スタイル */
-  .locked-ui { pointer-events: none !important; opacity: 0.7 !important; filter: grayscale(40%); }
+  /* 準備完了時のUI操作ロック */
+  .locked-ui { pointer-events: none !important; opacity: 0.7 !important; filter: grayscale(30%); }
 
   /* 待機モーダル */
   .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 15px; }
@@ -243,10 +255,10 @@
     <div class="match-type-tag" id="onlineMatchTag">ONLINE MATCH</div>
     <div class="challenge-label">＼ オンライン対戦 準備画面 ／</div>
     <div class="opponent-display" id="opponentNameDisplay">VS 対戦相手を取得中…</div>
-    <div class="sub-status" id="onlineSubText">相手のシリーズを1つ「除外」してからデッキを選択してください</div>
+    <div class="sub-status" id="onlineSubText">相手のシリーズを1つ除外してから、使用するデッキを選択してください</div>
   </div>
 
-  <!-- 自分の登録シリーズ確認 -->
+  <!-- 自分の持ち込みシリーズ確認 -->
   <div class="my-series-panel">
     <strong>📋 あなたの持ち込みシリーズ（相手に公開）:</strong>
     <div class="my-series-list" id="mySeriesContainer">
@@ -254,7 +266,7 @@
     </div>
   </div>
 
-  <!-- 1. シリーズ除外選択 -->
+  <!-- 1. シリーズ除外（BAN）パネル -->
   <div class="ban-select-panel" id="banPanel">
     <div class="ban-title" id="banPanelTitle">① 相手のシリーズを1つ除外</div>
     <div style="font-size: 11px; text-align: center; color: #6b7280;" id="banPanelSubText">相手が持ち込んだ3つのシリーズから、拒否したいシリーズを1つ選んでください。</div>
@@ -265,7 +277,7 @@
 
   <!-- 2. デッキ選択 -->
   <div class="deck-select-panel disabled" id="deckPanel">
-    <h3 style="margin:0; text-align: center; color: var(--accent-color);" id="deckPanelTitle">② 使用デッキを選択 (除外選択後に解除)</h3>
+    <h3 style="margin:0; text-align: center; color: var(--accent-color);" id="deckPanelTitle">② 使用デッキを選択 (除外完了後に選択可能)</h3>
     <div class="deck-options">
       <div class="deck-card selected" id="deckCard0" onclick="selectDeck(0)">
         <div class="deck-title" id="deckName0">メインデッキ 1</div>
@@ -496,7 +508,7 @@
       selectDeck(0, true);
 
       if (opponentSeriesList.length > 0) {
-        renderBanOptions(opponentSeriesList);
+        renderBanPanel();
       }
 
       if (roomId) {
@@ -564,7 +576,7 @@
     });
   }
 
-  // デッキ選択（BAN完了後に自由切り替え可能）
+  // デッキ選択切り替え
   window.selectDeck = function(idx, isInitial = false) {
     if (isReadySent) return;
 
@@ -661,11 +673,10 @@
       if (oppSeries && Array.isArray(oppSeries) && oppSeries.length > 0) {
         const currentStr = JSON.stringify(opponentSeriesList);
         const newStr = JSON.stringify(oppSeries);
-        const containerHasCards = document.getElementById('banContainer').querySelector('.ban-card');
 
-        if (currentStr !== newStr || !containerHasCards) {
+        if (currentStr !== newStr) {
           opponentSeriesList = [...oppSeries];
-          renderBanOptions(opponentSeriesList);
+          renderBanPanel();
         }
       }
 
@@ -685,83 +696,109 @@
     });
   }
 
-  // ★ BANパネル描画（確定・ロック状態を反映）
-  function renderBanOptions(seriesList) {
+  // ★ BANパネル描画（未選択時は「選択UI」、確定後は「サマリー表示」にDOMごと差替え）
+  function renderBanPanel() {
+    const banPanel = document.getElementById('banPanel');
     const container = document.getElementById('banContainer');
     container.innerHTML = '';
 
-    const isBanLocked = (selectedBanIndex !== null || isReadySent);
+    // 1. まだ除外を選択していない場合：選択カードを生成
+    if (selectedBanIndex === null) {
+      banPanel.classList.remove('completed');
+      document.getElementById('banPanelTitle').textContent = "① 相手のシリーズを1つ除外";
+      document.getElementById('banPanelSubText').textContent = "相手が持ち込んだ3つのシリーズから、拒否したいシリーズを1つ選んでください。";
 
-    seriesList.forEach((sId, idx) => {
-      const sObj = getSeriesObj(sId);
-      const sName = sObj.series_name || sObj.name || `シリーズ (${sId})`;
-      const category = getSeriesCategory(sObj);
-      
-      let raceBadgesHTML = "";
-      let races = [];
-      if (sObj.rounds && sObj.rounds[0] && sObj.rounds[0].races) {
-        races = sObj.rounds[0].races;
-      } else if (sObj.races) {
-        races = sObj.races;
-      }
+      opponentSeriesList.forEach((sId, idx) => {
+        const sObj = getSeriesObj(sId);
+        const sName = sObj.series_name || sObj.name || `シリーズ (${sId})`;
+        const category = getSeriesCategory(sObj);
+        const raceBadgesHTML = buildRaceBadgesHTML(sObj);
+        const ptStats = getSeriesPotentialInfo(sObj);
 
-      if (races.length > 0) {
-        raceBadgesHTML = races.map((r, rIdx) => {
-          const venue = r.track || r.venue || r.racecourse || r.course || "";
-          const rawSurface = r.surface || r.track_type || "芝";
-          const surfaceStr = formatSurface(rawSurface);
-          const dist = r.distance ? `${r.distance}m` : "";
-          return `<span class="race-badge">R${rIdx + 1}: ${venue} ${surfaceStr}${dist}</span>`;
-        }).join('');
-      } else {
-        raceBadgesHTML = `<span class="race-badge">コース情報読み込み中</span>`;
-      }
-
-      const ptStats = getSeriesPotentialInfo(sObj);
-      const isSelected = (selectedBanIndex === idx);
-
-      const card = document.createElement('div');
-      card.className = `ban-card ${isSelected ? 'selected' : ''} ${isBanLocked ? 'disabled-card' : ''}`;
-      card.id = `banCard_${idx}`;
-      
-      // 未ロック状態のみクリック処理を付与
-      if (!isBanLocked) {
+        const card = document.createElement('div');
+        card.className = 'ban-card';
         card.onclick = () => selectBan(idx);
-      }
 
-      card.innerHTML = `
-        <div class="ban-card-row1">
-          <span class="ban-category-badge">🏷 ${category}</span>
-          <span class="ban-tag" id="banTag_${idx}">${isSelected ? '🚫 除外完了' : (isBanLocked ? '選択不可' : '選択して除外')}</span>
-        </div>
-        <div class="ban-card-title">🏆 ${sName}</div>
-        <div class="ban-card-races">
-          ${raceBadgesHTML}
-        </div>
-        <div class="ban-card-pt">
-          <div class="pt-item">合計上限 <span class="pt-val">${ptStats.totalPt}</span></div>
-          <div style="color:#cbd5e1;">|</div>
-          <div class="pt-item">出走可能 <span class="pt-val">${ptStats.eligiblePt}以上</span></div>
-        </div>
-      `;
-      container.appendChild(card);
-    });
+        card.innerHTML = `
+          <div class="ban-card-row1">
+            <span class="ban-category-badge">🏷 ${category}</span>
+            <span class="ban-tag">選択して除外</span>
+          </div>
+          <div class="ban-card-title">🏆 ${sName}</div>
+          <div class="ban-card-races">${raceBadgesHTML}</div>
+          <div class="ban-card-pt">
+            <div>合計上限 <span class="pt-val">${ptStats.totalPt}</span></div>
+            <div style="color:#cbd5e1;">|</div>
+            <div>出走可能 <span class="pt-val">${ptStats.eligiblePt}以上</span></div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    } 
+    // 2. 除外選択後の場合：ボタン等を完全に排除した「確定サマリー表示」に切り替え
+    else {
+      banPanel.classList.add('completed');
+      document.getElementById('banPanelTitle').textContent = "① シリーズ除外完了 (確定)";
+      document.getElementById('banPanelSubText').textContent = "※あなたの除外設定が反映されました。対戦候補のシリーズは以下の通りです。";
 
-    const banPanel = document.getElementById('banPanel');
-    if (isBanLocked) {
-      banPanel.classList.add('disabled');
-      document.getElementById('banPanelSubText').textContent = "※除外するシリーズを確定しました（変更不可）";
+      opponentSeriesList.forEach((sId, idx) => {
+        const sObj = getSeriesObj(sId);
+        const sName = sObj.series_name || sObj.name || `シリーズ (${sId})`;
+        const category = getSeriesCategory(sObj);
+        const raceBadgesHTML = buildRaceBadgesHTML(sObj);
+        const ptStats = getSeriesPotentialInfo(sObj);
+        const isBanned = (selectedBanIndex === idx);
+
+        const card = document.createElement('div');
+        card.className = `ban-summary-card ${isBanned ? 'banned' : 'kept'}`;
+
+        card.innerHTML = `
+          <div class="ban-card-row1">
+            <span class="ban-category-badge">🏷 ${category}</span>
+            <span class="${isBanned ? 'ban-tag-banned' : 'ban-tag-kept'}">
+              ${isBanned ? '🚫 あなたが除外（対戦なし）' : '✅ 相手の対戦可能シリーズ'}
+            </span>
+          </div>
+          <div class="ban-card-title" style="${isBanned ? 'text-decoration: line-through; color: #9ca3af;' : ''}">
+            🏆 ${sName}
+          </div>
+          <div class="ban-card-races">${raceBadgesHTML}</div>
+          <div class="ban-card-pt">
+            <div>合計上限 <span class="pt-val">${ptStats.totalPt}</span></div>
+            <div style="color:#cbd5e1;">|</div>
+            <div>出走可能 <span class="pt-val">${ptStats.eligiblePt}以上</span></div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
     }
   }
 
-  // ★ BAN（除外）選択処理：呼び出した瞬間に即時確定＆完全ロック
+  function buildRaceBadgesHTML(sObj) {
+    let races = [];
+    if (sObj.rounds && sObj.rounds[0] && sObj.rounds[0].races) races = sObj.rounds[0].races;
+    else if (sObj.races) races = sObj.races;
+
+    if (races.length > 0) {
+      return races.map((r, rIdx) => {
+        const venue = r.track || r.venue || r.racecourse || r.course || "";
+        const rawSurface = r.surface || r.track_type || "芝";
+        const surfaceStr = formatSurface(rawSurface);
+        const dist = r.distance ? `${r.distance}m` : "";
+        return `<span class="race-badge">R${rIdx + 1}: ${venue} ${surfaceStr}${dist}</span>`;
+      }).join('');
+    }
+    return `<span class="race-badge">コース情報読み込み中</span>`;
+  }
+
+  // ★ BAN（除外）実行処理
   window.selectBan = function(idx) {
     if (isReadySent || selectedBanIndex !== null) return;
 
     selectedBanIndex = idx;
 
-    // 再描画を行い、クリックイベントを削除し完全にグレーアウト
-    renderBanOptions(opponentSeriesList);
+    // パネルの表示を除外確定サマリー表示に自動切り替え（クリック要素消去）
+    renderBanPanel();
 
     // デッキ選択パネルを有効化
     const deckPanel = document.getElementById('deckPanel');
@@ -784,7 +821,7 @@
 
     isReadySent = true;
 
-    // UIを完全不可動にロック
+    // 全UIを操作不能にロック
     document.getElementById('banPanel').classList.add('locked-ui');
     document.getElementById('deckPanel').classList.add('locked-ui');
 
