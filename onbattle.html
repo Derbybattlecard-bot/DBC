@@ -649,18 +649,16 @@
       const hasP1Ban = isBanSet(data.p1_banned_index);
       const hasP2Ban = isBanSet(data.p2_banned_index);
 
-      // お互いのBANが揃っているのに match_series が未確定の場合は自動確定を発火
-      if (hasP1Ban && hasP2Ban && (!data.match_series || data.match_series.length < totalRounds)) {
-        await finalizeMatchSeries(data);
-        return;
-      }
-
-      // 対戦シリーズ（match_series）が確定している場合：全カード＋BAN一覧を表示
-      if (data.match_series && Array.isArray(data.match_series) && data.match_series.length === totalRounds) {
-        renderMatchSeriesAndBans(data);
+      // お互いのBAN（除外）が揃ったタイミングで即座に確定対戦カード＋BAN一覧を描画
+      if (hasP1Ban && hasP2Ban) {
+        // Firestoreに match_series が未確定ならバックグラウンドで確定保存
+        if (!data.match_series || !Array.isArray(data.match_series) || data.match_series.length < totalRounds) {
+          finalizeMatchSeries(data);
+        }
+        renderCompletedMatchView(data);
         enableDeckSelection();
       } 
-      // まだ対戦シリーズが未確定の場合の表示
+      // まだどちらかのBANが未完了の場合
       else if (opponentSeriesList.length > 0) {
         renderBanPanel();
         if (selectedBanIndex !== null) {
@@ -671,7 +669,7 @@
       // お互いに準備完了となったら対戦画面へ遷移
       if (data.player1_ready && data.player2_ready) {
         closeWaitingModal();
-        if (data.match_series) {
+        if (data.match_series || (hasP1Ban && hasP2Ban)) {
           if (roomUnsubscribe) roomUnsubscribe();
           isNavigatingAway = true;
           window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
@@ -693,41 +691,51 @@
     }
   }
 
-  function renderMatchSeriesAndBans(data) {
+  /* 両者のBAN完了時：イラスト（上：確定カード全件、下：BAN一覧）を即時描画する関数 */
+  function renderCompletedMatchView(data) {
     const banPanel = document.getElementById('banPanel');
     banPanel.classList.add('completed');
-    
+
     const isHost = (role === 'host');
-    const p1Series = data.player1_series || [];
-    const p2Series = data.player2_series || [];
+    const p1Series = data.player1_series || ["SERIES_001", "SERIES_002", "SERIES_003"];
+    const p2Series = data.player2_series || ["SERIES_001", "SERIES_002", "SERIES_003"];
 
-    const p1Kept = p1Series.filter((_, idx) => idx !== Number(data.p2_banned_index));
-    const p2Kept = p2Series.filter((_, idx) => idx !== Number(data.p1_banned_index));
+    const p1BanIdx = Number(data.p2_banned_index); // P2がP1から除外したインデックス
+    const p2BanIdx = Number(data.p1_banned_index); // P1がP2から除外したインデックス
 
-    const myKeptSeries = isHost ? p1Kept : p2Kept;
-    const oppKeptSeries = isHost ? p2Kept : p1Kept;
+    const p1Kept = p1Series.filter((_, idx) => idx !== p1BanIdx);
+    const p2Kept = p2Series.filter((_, idx) => idx !== p2BanIdx);
 
-    const p1BannedSeriesId = isBanSet(data.p2_banned_index) ? p1Series[Number(data.p2_banned_index)] : null;
-    const p2BannedSeriesId = isBanSet(data.p1_banned_index) ? p2Series[Number(data.p1_banned_index)] : null;
+    const myKept = isHost ? p1Kept : p2Kept;
+    const oppKept = isHost ? p2Kept : p1Kept;
+
+    const p1BannedId = p1Series[p1BanIdx];
+    const p2BannedId = p2Series[p2BanIdx];
+
+    let matchSeries = data.match_series;
+    if (!matchSeries || !Array.isArray(matchSeries) || matchSeries.length === 0) {
+      matchSeries = [...p1Kept, ...p2Kept].slice(0, totalRounds);
+    }
 
     let html = `
-      <div class="ban-title" style="color: #047857; text-align: center; font-size: 15px; font-weight: bold; margin-bottom: 4px;">
-        🏆 確定対戦カード一覧（全 ${totalRounds} 回戦）
-      </div>
-      <div style="font-size: 11px; text-align: center; color: #4b5563; margin-bottom: 8px;">
-        ※両者のBANにより自動決定された対戦コースカードです。
-      </div>
+      <div style="background:#ffffff; border:2px solid #10b981; border-radius:10px; padding:12px; margin-bottom:12px; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+        <div class="ban-title" style="color: #047857; text-align: center; font-size: 15px; font-weight: bold; margin-bottom: 2px;">
+          🏆 確定対戦カード一覧（全 ${matchSeries.length} 回戦）
+        </div>
+        <div style="font-size: 11px; text-align: center; color: #4b5563; margin-bottom: 8px;">
+          ※両者のBAN選択により自動決定された対戦コースカードです。
+        </div>
 
-      <div class="legend-bar">
-        <div class="legend-item"><span class="legend-color self"></span> あなた持ち込み</div>
-        <div class="legend-item"><span class="legend-color opponent"></span> 相手持ち込み</div>
-        ${totalRounds === 5 ? '<div class="legend-item"><span class="legend-color random"></span> ランダム選出</div>' : ''}
-      </div>
+        <div class="legend-bar">
+          <div class="legend-item"><span class="legend-color self"></span> あなた持ち込み</div>
+          <div class="legend-item"><span class="legend-color opponent"></span> 相手持ち込み</div>
+          ${totalRounds === 5 ? '<div class="legend-item"><span class="legend-color random"></span> 追加選出</div>' : ''}
+        </div>
 
-      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; flex-direction: column; gap: 8px;">
     `;
 
-    (data.match_series || []).forEach((sId, idx) => {
+    matchSeries.forEach((sId, idx) => {
       const sObj = getSeriesObj(sId);
       const sName = sObj.series_name || sObj.name || sId;
       const category = getSeriesCategory(sObj);
@@ -735,13 +743,13 @@
       const ptStats = getSeriesPotentialInfo(sObj);
 
       let ownerClass = 'is-random';
-      let ownerLabel = 'ランダム選出';
-      if (myKeptSeries.includes(sId)) {
+      let ownerLabel = '追加選出';
+      if (myKept.includes(sId)) {
         ownerClass = 'is-self';
-        ownerLabel = 'あなた';
-      } else if (oppKeptSeries.includes(sId)) {
+        ownerLabel = 'あなた持ち込み';
+      } else if (oppKept.includes(sId)) {
         ownerClass = 'is-opponent';
-        ownerLabel = '相手';
+        ownerLabel = '相手持ち込み';
       }
 
       html += `
@@ -763,25 +771,27 @@
       `;
     });
 
-    html += `</div>`;
+    html += `</div></div>`;
 
+    // 下部：BAN（除外）一覧
     html += `
-      <div class="ban-title" style="color: #dc2626; text-align: center; font-size: 13px; font-weight: bold; margin-top: 14px; margin-bottom: 4px; border-top: 1px dashed #fca5a5; padding-top: 10px;">
-        🚫 BAN（除外されたシリーズ）
-      </div>
-      <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div style="background:#fef2f2; border:2px solid #ef4444; border-radius:10px; padding:12px; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+        <div class="ban-title" style="color: #dc2626; text-align: center; font-size: 13px; font-weight: bold; margin-bottom: 6px;">
+          🚫 BAN（除外されたシリーズ）
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
     `;
 
     const bannedList = [];
-    if (p2BannedSeriesId) {
+    if (p2BannedId) {
       bannedList.push({ 
-        sId: p2BannedSeriesId, 
+        sId: p2BannedId, 
         label: isHost ? 'あなたが除外（相手持ち込み）' : '相手が除外（あなた持ち込み）' 
       });
     }
-    if (p1BannedSeriesId) {
+    if (p1BannedId) {
       bannedList.push({ 
-        sId: p1BannedSeriesId, 
+        sId: p1BannedId, 
         label: isHost ? '相手が除外（あなた持ち込み）' : 'あなたが除外（相手持ち込み）' 
       });
     }
@@ -812,7 +822,7 @@
       `;
     });
 
-    html += `</div>`;
+    html += `</div></div>`;
 
     banPanel.innerHTML = html;
   }
@@ -921,11 +931,10 @@
     try {
       await updateDoc(roomRef, updateData);
 
-      // 自身の送信完了後、相手もBAN済みなら自身で確定処理を試みる
       const snap = await getDoc(roomRef);
       if (snap.exists()) {
         const data = snap.data();
-        if (isBanSet(data.p1_banned_index) && isBanSet(data.p2_banned_index) && (!data.match_series || data.match_series.length < totalRounds)) {
+        if (isBanSet(data.p1_banned_index) && isBanSet(data.p2_banned_index)) {
           await finalizeMatchSeries(data);
         }
       }
@@ -991,10 +1000,10 @@
   }
 
   async function finalizeMatchSeries(roomData) {
-    if (roomData.match_series && roomData.match_series.length === totalRounds) return;
+    if (roomData.match_series && Array.isArray(roomData.match_series) && roomData.match_series.length === totalRounds) return;
 
-    const p1Series = roomData.player1_series || [];
-    const p2Series = roomData.player2_series || [];
+    const p1Series = roomData.player1_series || ["SERIES_001", "SERIES_002", "SERIES_003"];
+    const p2Series = roomData.player2_series || ["SERIES_001", "SERIES_002", "SERIES_003"];
     
     const p1BanIdx = Number(roomData.p2_banned_index);
     const p2BanIdx = Number(roomData.p1_banned_index);
@@ -1005,17 +1014,17 @@
     let finalSeriesList = [];
 
     if (totalRounds === 5) {
-      const allSeriesIds = Object.keys(SERIES_MASTER);
+      const allKeys = Object.keys(SERIES_MASTER).length > 0 ? Object.keys(SERIES_MASTER) : ["SERIES_001", "SERIES_002", "SERIES_003", "SERIES_004", "SERIES_005"];
       const existing = new Set([...p1Kept, ...p2Kept]);
-      const candidates = allSeriesIds.filter(id => !existing.has(id));
+      const candidates = allKeys.filter(id => !existing.has(id));
       
       let extraSeries = candidates.length > 0 
         ? candidates[Math.floor(Math.random() * candidates.length)]
-        : allSeriesIds[Math.floor(Math.random() * allSeriesIds.length)];
+        : allKeys[Math.floor(Math.random() * allKeys.length)];
 
-      finalSeriesList = [...p1Kept, ...p2Kept, extraSeries];
+      finalSeriesList = [...p1Kept, ...p2Kept, extraSeries].filter(Boolean);
     } else {
-      const pool = [...p1Kept, ...p2Kept];
+      const pool = [...p1Kept, ...p2Kept].filter(Boolean);
       for (let i = pool.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [pool[i], pool[j]] = [pool[j], pool[i]];
@@ -1027,6 +1036,8 @@
       const j = Math.floor(Math.random() * (i + 1));
       [finalSeriesList[i], finalSeriesList[j]] = [finalSeriesList[j], finalSeriesList[i]];
     }
+
+    if (finalSeriesList.length < totalRounds) return;
 
     const roomRef = doc(db, "online_matches", roomId);
     try {
