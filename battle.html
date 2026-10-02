@@ -502,7 +502,6 @@
   function formatSurfaceText(surface) {
     if (!surface) return "芝";
     if (surface.includes("ダート") || surface.includes("ダ")) return "ダ";
-    if (surface.includes("障害") || surface.includes("障")) return "障";
     return "芝";
   }
 
@@ -826,6 +825,7 @@
     if (!SERIES_MASTER || SERIES_MASTER.length === 0) return [];
     const limits = getUnlockedLimits(totalWins);
     const lineup = [];
+    const usedCategories = new Set();
 
     const unlockedPool = SERIES_MASTER.filter(s => {
       const cat = getNormalizedCategory(s);
@@ -836,24 +836,45 @@
     const validPool = unlockedPool.length > 0 ? unlockedPool : SERIES_MASTER;
 
     if (totalWins < 10) {
-      const initOrder = ["古馬東西", "地方交流", "クラシック"];
+      const initOrder = ["古馬東西", "地方交流", "クラシック", "古馬王道", "ローカル"];
       for (let r = 0; r < maxRounds; r++) {
-        const cat = initOrder[r % initOrder.length];
-        const catPool = validPool.filter(s => getNormalizedCategory(s) === cat);
-        const selected = (catPool.length > 0) ? catPool[Math.floor(Math.random() * catPool.length)] : validPool[Math.floor(Math.random() * validPool.length)];
-        if (selected && selected.series_id) lineup.push(selected.series_id);
+        let targetCat = initOrder.find(cat => !usedCategories.has(cat));
+        
+        let catPool = [];
+        if (targetCat) {
+          catPool = validPool.filter(s => getNormalizedCategory(s) === targetCat);
+        }
+        
+        if (catPool.length === 0) {
+          catPool = validPool.filter(s => !usedCategories.has(getNormalizedCategory(s)));
+        }
+
+        const selected = (catPool.length > 0)
+          ? catPool[Math.floor(Math.random() * catPool.length)]
+          : validPool[Math.floor(Math.random() * validPool.length)];
+
+        if (selected && selected.series_id) {
+          lineup.push(selected.series_id);
+          usedCategories.add(getNormalizedCategory(selected));
+        }
       }
     } else {
-      const poolCopy = [...validPool];
       for (let r = 0; r < maxRounds; r++) {
-        if (poolCopy.length === 0) {
-          const fallback = validPool[Math.floor(Math.random() * validPool.length)];
-          if (fallback && fallback.series_id) lineup.push(fallback.series_id);
+        const availablePool = validPool.filter(s => !usedCategories.has(getNormalizedCategory(s)));
+
+        let selected = null;
+        if (availablePool.length > 0) {
+          selected = availablePool[Math.floor(Math.random() * availablePool.length)];
         } else {
-          const idx = Math.floor(Math.random() * poolCopy.length);
-          const selected = poolCopy[idx];
-          if (selected && selected.series_id) lineup.push(selected.series_id);
-          poolCopy.splice(idx, 1);
+          const fallbackPool = validPool.filter(s => !lineup.includes(s.series_id));
+          selected = fallbackPool.length > 0
+            ? fallbackPool[Math.floor(Math.random() * fallbackPool.length)]
+            : validPool[Math.floor(Math.random() * validPool.length)];
+        }
+
+        if (selected && selected.series_id) {
+          lineup.push(selected.series_id);
+          usedCategories.add(getNormalizedCategory(selected));
         }
       }
     }
