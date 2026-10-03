@@ -324,7 +324,7 @@
 <script type="module">
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { doc, getDoc, updateDoc, onSnapshot, increment, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { doc, getDoc, updateDoc, onSnapshot, increment, arrayUnion, deleteField } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 import { determineStrategy } from "./js/mob.js";
 import { runRaceLogic } from "./js/race_calculator.js";
@@ -404,7 +404,6 @@ window.quitOnlineMatch = async function() {
   window.location.href = 'online.html';
 };
 
-// 決定論的シード付き乱数関数（ホスト・ゲスト共通で同じ枠順を生成）
 function stringToSeed(str) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -480,7 +479,9 @@ function listenRoomStatus() {
       return;
     }
 
-    if (data.status === "entry_selecting" || data.status === "matchup") {
+    // 次の回戦へ移行した場合の自動移動検知（current_series_indexが進んだ場合も検知）
+    const currentSeriesIdx = roomData?.current_series_index || 0;
+    if (data.status === "entry_selecting" && data.current_series_index > currentSeriesIdx) {
       isNavigatingAway = true;
       if (roomUnsubscribe) roomUnsubscribe();
       window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}`;
@@ -534,7 +535,6 @@ async function loadMasterData() {
   }
 }
 
-// 【重要修正】枠順（馬番）をホスト・ゲスト間で完全一致する形でランダムシャッフル
 function buildRaceGridsFromOnlineData() {
   const isHost = (role === 'host');
   
@@ -556,7 +556,6 @@ function buildRaceGridsFromOnlineData() {
   fullRaceGrids = [];
 
   for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
-    // ホスト視点の基準リスト(Player1=Host, Player2=Guest, モブ群)を作成
     const p1Entry = isHost ? myEntries[rIdx] : oppEntries[rIdx];
     const p2Entry = isHost ? oppEntries[rIdx] : myEntries[rIdx];
     const p1Strat = isHost ? (myStrats && myStrats[rIdx]) : (oppStrats && oppStrats[rIdx]);
@@ -566,7 +565,6 @@ function buildRaceGridsFromOnlineData() {
 
     const baseList = [];
 
-    // Player1 (Host)
     const p1HorseId = String(p1Entry);
     const p1Master = HORSES_MASTER[p1HorseId] || { name: "P1馬", horse_id: p1HorseId };
     const p1StratObj = p1Strat || { strategy: "先行して粘り込み", strategy_level: 3 };
@@ -578,7 +576,6 @@ function buildRaceGridsFromOnlineData() {
       level: p1StratObj.strategy_level || 3
     });
 
-    // Player2 (Guest)
     const p2HorseId = String(p2Entry);
     const p2Master = HORSES_MASTER[p2HorseId] || { name: "P2馬", horse_id: p2HorseId };
     const p2StratObj = p2Strat || { strategy: "先行して粘り込み", strategy_level: 3 };
@@ -590,7 +587,6 @@ function buildRaceGridsFromOnlineData() {
       level: p2StratObj.strategy_level || 3
     });
 
-    // モブ馬群
     const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
     mobIds.forEach((mobId) => {
       const mobMaster = HORSES_MASTER[String(mobId)] || { name: "モブ馬", horse_id: mobId };
@@ -600,8 +596,8 @@ function buildRaceGridsFromOnlineData() {
       });
     });
 
-    // シード付き乱数(Mulberry32)で決定論的にシャッフル
-    const seed = stringToSeed(`${roomId}_race_gate_${rIdx}`);
+    const currentSeriesIdx = roomData?.current_series_index || 0;
+    const seed = stringToSeed(`${roomId}_s${currentSeriesIdx}_race_gate_${rIdx}`);
     let rngState = seed;
     function nextRng() {
       let t = rngState += 0x6D2B79F5;
@@ -610,13 +606,11 @@ function buildRaceGridsFromOnlineData() {
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     }
 
-    // Fisher-Yates シャッフル
     for (let i = baseList.length - 1; i > 0; i--) {
       const j = Math.floor(nextRng() * (i + 1));
       [baseList[i], baseList[j]] = [baseList[j], baseList[i]];
     }
 
-    // 各馬に確定した馬番（1〜N）および自身視点でのフラグを設定
     const grid = baseList.map((item, idx) => {
       const gateNum = idx + 1;
       if (item.isMob) {
@@ -916,7 +910,6 @@ function processAbilityQueue() {
   }, 2000);
 }
 
-// ホスト計算・結果共有型レース進行処理
 async function startRace() {
   if (raceState !== 'ready') return;
   raceState = 'running';
@@ -933,7 +926,6 @@ async function startRace() {
   let raceResultData = null;
 
   if (isHost) {
-    // 【ホスト側】自ら計算を実行し、Firestoreに結果を保存
     raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, raceInfo, abilityMasterData);
 
     try {
@@ -944,7 +936,6 @@ async function startRace() {
       console.error("レース結果同期保存エラー:", e);
     }
   } else {
-    // 【ゲスト側】ホストが書き込んだ結果データをFirestoreから受信待ち
     updateLog("ホストの計算結果を同期中...");
 
     let syncedData = null;
@@ -964,7 +955,6 @@ async function startRace() {
       console.warn("同期データ受信タイムアウト。フォールバック計算を実行します。");
       raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, raceInfo, abilityMasterData);
     } else {
-      // ゲスト視点補正：ホスト視点の isPlayer / isOpponent をゲスト用に反転する
       raceResultData = JSON.parse(JSON.stringify(syncedData));
       if (raceResultData && Array.isArray(raceResultData.results)) {
         raceResultData.results.forEach(h => {
@@ -980,7 +970,6 @@ async function startRace() {
     }
   }
 
-  // 完全に同一の raceResultData を利用して両端末で結果・アニメーションを表示
   calculatedResults = raceResultData.results;
   currentRacePace = raceResultData.pace;
   currentRaceBranch = raceResultData.branch.name;
@@ -1291,42 +1280,79 @@ async function showFinalSeriesResult() {
   document.getElementById('final-series-modal').style.display = "block";
 }
 
+// 【重要修正】次回戦への安全な移行・リセット処理
 window.finishMatchAndNextOrLobby = async function() {
   const matchSeries = roomData?.match_series || roomData?.selected_series || ["series_01"];
   const seriesIdList = Array.isArray(matchSeries) ? matchSeries : [matchSeries];
   const currentSeriesIdx = roomData?.current_series_index || 0;
   const hasNextSeries = (currentSeriesIdx + 1) < seriesIdList.length;
 
-  isNavigatingAway = true;
-  if (roomUnsubscribe) roomUnsubscribe();
+  if (!hasNextSeries) {
+    isNavigatingAway = true;
+    if (roomUnsubscribe) roomUnsubscribe();
+    window.location.href = 'online.html';
+    return;
+  }
 
-  if (hasNextSeries && roomId) {
-    const roomRef = doc(db, "online_matches", roomId);
+  const modalBtn = document.getElementById('modalNextBtn');
+  modalBtn.disabled = true;
+  modalBtn.textContent = "⏳ 次の回戦の準備中...";
+
+  const isHost = (role === 'host');
+  const roomRef = doc(db, "online_matches", roomId);
+
+  if (isHost) {
     try {
-      if (role === 'host') {
-        await updateDoc(roomRef, {
-          current_series_index: currentSeriesIdx + 1,
-          player1_matchup_ready: false,
-          player2_matchup_ready: false,
-          player1_strategy_ready: false,
-          player2_strategy_ready: false,
-          player1_ready: false,
-          player2_ready: false,
-          player1_draft: [null, null, null, null, null],
-          player2_draft: [null, null, null, null, null],
-          player1_entries: [null, null, null, null, null],
-          player2_entries: [null, null, null, null, null],
-          races_mob_ids: null,
-          races_track_conditions: null,
-          status: "entry_selecting"
-        });
-      }
+      // ホストが旧データを完全にリセット・削除
+      await updateDoc(roomRef, {
+        current_series_index: currentSeriesIdx + 1,
+        player1_matchup_ready: false,
+        player2_matchup_ready: false,
+        player1_strategy_ready: false,
+        player2_strategy_ready: false,
+        player1_ready: false,
+        player2_ready: false,
+        player1_draft: [null, null, null, null, null],
+        player2_draft: [null, null, null, null, null],
+        player1_entries: [null, null, null, null, null],
+        player2_entries: [null, null, null, null, null],
+        player1_strategies: deleteField(),
+        player2_strategies: deleteField(),
+        race_result_0: deleteField(),
+        race_result_1: deleteField(),
+        race_result_2: deleteField(),
+        race_result_3: deleteField(),
+        race_result_4: deleteField(),
+        races_mob_ids: deleteField(),
+        races_track_conditions: deleteField(),
+        status: "entry_selecting"
+      });
     } catch (e) {
-      console.error("次回戦移行エラー:", e);
+      console.error("次回戦リセットエラー:", e);
     }
+    isNavigatingAway = true;
+    if (roomUnsubscribe) roomUnsubscribe();
     window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}`;
   } else {
-    window.location.href = 'online.html';
+    // ゲスト側はホストのリセット完了（status: entry_selecting & current_series_indexの更新）を監視・待機
+    modalBtn.textContent = "⏳ ホストの準備完了を待っています...";
+    
+    let isMigrated = false;
+    for (let i = 0; i < 30; i++) {
+      const snap = await getDoc(roomRef);
+      if (snap.exists()) {
+        const d = snap.data();
+        if (d.current_series_index > currentSeriesIdx || d.status === "entry_selecting") {
+          isMigrated = true;
+          break;
+        }
+      }
+      await new Promise(r => setTimeout(r, 400));
+    }
+
+    isNavigatingAway = true;
+    if (roomUnsubscribe) roomUnsubscribe();
+    window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}`;
   }
 };
 </script>
