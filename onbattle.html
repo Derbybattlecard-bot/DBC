@@ -665,12 +665,21 @@
         }
       }
 
-      // お互いに準備完了となったら対戦画面へ遷移
+      // お互いに準備完了となったら status: "entry_selecting" を更新し出走登録画面へ移行
       if (data.player1_ready && data.player2_ready) {
         closeWaitingModal();
         if (data.match_series || (hasP1Ban && hasP2Ban)) {
           if (roomUnsubscribe) roomUnsubscribe();
           isNavigatingAway = true;
+
+          if (isHost && data.status !== "entry_selecting") {
+            try {
+              await updateDoc(roomRef, { status: "entry_selecting" });
+            } catch (err) {
+              console.error("ステータス更新エラー:", err);
+            }
+          }
+
           window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
         }
       }
@@ -692,7 +701,6 @@
 
   /* 両者のBAN完了時：除外（BAN）シリーズを上、決定対戦シリーズを下に配置 */
   function renderCompletedMatchView(data) {
-    // 自分の持ち込みシリーズパネルを非表示にする
     const mySeriesPanel = document.getElementById('mySeriesPanel');
     if (mySeriesPanel) {
       mySeriesPanel.style.display = 'none';
@@ -705,8 +713,8 @@
     const p1Series = data.player1_series || ["SERIES_001", "SERIES_002", "SERIES_003"];
     const p2Series = data.player2_series || ["SERIES_001", "SERIES_002", "SERIES_003"];
 
-    const p1BanIdx = Number(data.p2_banned_index); // P2がP1(Host)から除外したインデックス
-    const p2BanIdx = Number(data.p1_banned_index); // P1がP2(Guest)から除外したインデックス
+    const p1BanIdx = Number(data.p2_banned_index);
+    const p2BanIdx = Number(data.p1_banned_index);
 
     const p1Kept = p1Series.filter((_, idx) => idx !== p1BanIdx);
     const p2Kept = p2Series.filter((_, idx) => idx !== p2BanIdx);
@@ -717,11 +725,11 @@
     const myKept = isHost ? p1Kept : p2Kept;
     const oppKept = isHost ? p2Kept : p1Kept;
 
-    const myBanIdx = isHost ? p2BanIdx : p1BanIdx; // 自分が除外した相手のインデックス
-    const oppBanIdx = isHost ? p1BanIdx : p2BanIdx; // 相手が除外した自分のインデックス
+    const myBanIdx = isHost ? p2BanIdx : p1BanIdx;
+    const oppBanIdx = isHost ? p1BanIdx : p2BanIdx;
 
-    const myBannedId = oppSeries[myBanIdx]; // 自分がBANした相手のシリーズ
-    const oppBannedId = mySeries[oppBanIdx]; // 相手がBANした自分のシリーズ
+    const myBannedId = oppSeries[myBanIdx];
+    const oppBannedId = mySeries[oppBanIdx];
 
     let matchSeries = data.match_series;
     if (!matchSeries || !Array.isArray(matchSeries) || matchSeries.length === 0) {
