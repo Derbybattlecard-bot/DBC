@@ -230,7 +230,7 @@
   <div class="header-panel">
     <button class="btn-back" onclick="leaveMatch()">対戦降参・退室</button>
     <h2 style="margin:0; font-size: 16px; color: var(--accent-color);">オンライン作戦指示</h2>
-    <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中</div>
+    <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️️ 読込中</div>
   </div>
 
   <div class="opponent-status-panel">
@@ -248,7 +248,7 @@
     </div>
     <div class="status-item">
       <span class="status-label">合計作戦レベル</span>
-      <span class="status-val" id="totalLevelDisplay">0 / 18</span>
+      <span class="status-val" id="totalLevelDisplay">15 / 18</span>
     </div>
     <div class="status-item">
       <span class="status-label">制限判定</span>
@@ -286,6 +286,7 @@
   let racesMobIds = {};
   let loadedTrackConditions = [];
   
+  // 1シリーズ＝必ず5レース分固定
   let myStrategies = [
     { strategy: "", strategy_level: 3 },
     { strategy: "", strategy_level: 3 },
@@ -445,30 +446,22 @@
 
     let rawRaces = [];
     const matchSeries = roomData.match_series || roomData.selected_series || roomData.final_series || roomData.series_id || ["series_01"];
-    const seriesIdList = Array.isArray(matchSeries) ? matchSeries : [matchSeries];
+    const currentSeriesIndex = roomData.current_series_index || 0;
+    const currentSeriesId = Array.isArray(matchSeries) ? (matchSeries[currentSeriesIndex] || matchSeries[0]) : matchSeries;
     
-    seriesIdList.forEach((sId) => {
-      const sObj = SERIES_MASTER[sId] || Object.values(SERIES_MASTER)[0] || {};
-      const racesInSeries = sObj.races || (sObj.rounds && sObj.rounds[0] ? sObj.rounds[0].races : null);
+    const sObj = SERIES_MASTER[currentSeriesId] || Object.values(SERIES_MASTER)[0] || {};
+    const racesInSeries = sObj.races || (sObj.rounds && sObj.rounds[0] ? sObj.rounds[0].races : null);
 
-      if (Array.isArray(racesInSeries) && racesInSeries.length > 0) {
-        racesInSeries.forEach(r => {
-          rawRaces.push({
-            race_name: r.race_name || r.name,
-            surface: r.surface || "芝",
-            distance: r.distance || 2000,
-            sex: r.sex || sObj.sex || "制限なし"
-          });
-        });
-      } else {
+    if (Array.isArray(racesInSeries) && racesInSeries.length > 0) {
+      racesInSeries.forEach(r => {
         rawRaces.push({
-          race_name: sObj.race_name || sObj.name || "特別競走",
-          surface: sObj.surface || "芝",
-          distance: sObj.distance || 2000,
-          sex: sObj.sex || "制限なし"
+          race_name: r.race_name || r.name,
+          surface: r.surface || "芝",
+          distance: r.distance || 2000,
+          sex: r.sex || sObj.sex || "制限なし"
         });
-      }
-    });
+      });
+    }
 
     const fallbackRaces = [
       { race_name: "桜花賞", surface: "芝", distance: 1600, sex: "制限なし" },
@@ -491,10 +484,12 @@
     }
 
     playerEntries.forEach((hId, rIdx) => {
-      const horse = HORSES_MASTER[String(hId)];
-      const style = getHorseStyle(horse);
-      myStrategies[rIdx].strategy = getDefaultStrategyForStyle(style);
-      myStrategies[rIdx].strategy_level = 3;
+      if (rIdx < 5) {
+        const horse = HORSES_MASTER[String(hId)];
+        const style = getHorseStyle(horse);
+        myStrategies[rIdx].strategy = getDefaultStrategyForStyle(style);
+        myStrategies[rIdx].strategy_level = 3;
+      }
     });
 
     renderRaceCards();
@@ -529,6 +524,7 @@
         }
       }
 
+      // 双方の作戦設定が完了したらレース画面へ遷移
       if (data.player1_strategy_ready && data.player2_strategy_ready) {
         if (roomUnsubscribe) roomUnsubscribe();
         isNavigatingAway = true;
