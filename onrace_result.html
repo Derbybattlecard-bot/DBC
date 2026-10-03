@@ -324,7 +324,7 @@
 
   let currentUser = null;
   let globalUserData = null;
-  let SERIES_MASTER = [];
+  let SERIES_MASTER = {};
   let HORSES_MASTER = {};
   let STRATEGY_MASTER = [];
 
@@ -355,6 +355,13 @@
     return [];
   }
 
+  function getCleanStyle(styleStr) {
+    if (!styleStr) return '先行';
+    let s = String(styleStr);
+    if (s.includes('大逃')) return '大逃';
+    return s;
+  }
+
   onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = 'auth.html'; return; }
     currentUser = user;
@@ -369,7 +376,15 @@
         fetchJsonSafe('strategy_master.json')
       ]);
 
-      SERIES_MASTER = seriesData || [];
+      if (Array.isArray(seriesData)) {
+        seriesData.forEach(s => {
+          const sId = s.series_id || s.id;
+          if (sId) SERIES_MASTER[sId] = s;
+        });
+      } else {
+        SERIES_MASTER = seriesData || {};
+      }
+
       if (Array.isArray(horsesData)) {
         horsesData.forEach(h => { 
           const idStr = String(h.horse_id);
@@ -377,6 +392,7 @@
           HORSES_MASTER[idStr.padStart(4, '0')] = h;
         });
       }
+
       STRATEGY_MASTER = stratData || [];
 
       initOnlineRaceSession();
@@ -458,9 +474,56 @@
 
   // 決定論的全5戦ロジック計算
   function generateAllRaceResults(room) {
-    const seriesId = room.series_id || "series_01";
-    const series = SERIES_MASTER.find(s => s.series_id === seriesId) || SERIES_MASTER[0] || {};
-    const races = series.rounds?.[0]?.races || [{},{},{},{},{}];
+    const matchSeries = room.match_series || room.selected_series || room.final_series || room.series_id || ["series_01"];
+    const seriesIdList = Array.isArray(matchSeries) ? matchSeries : [matchSeries];
+    
+    let rawRaces = [];
+    seriesIdList.forEach((sId) => {
+      const sObj = SERIES_MASTER[sId] || Object.values(SERIES_MASTER)[0] || {};
+      const racesInSeries = sObj.races || (sObj.rounds && sObj.rounds[0] ? sObj.rounds[0].races : null);
+
+      if (Array.isArray(racesInSeries) && racesInSeries.length > 0) {
+        racesInSeries.forEach(r => {
+          rawRaces.push({
+            race_name: r.race_name || r.name,
+            surface: r.surface || "芝",
+            distance: r.distance || 2000,
+            sex: r.sex || sObj.sex || "制限なし",
+            venue: r.venue || sObj.venue || "東京"
+          });
+        });
+      } else {
+        rawRaces.push({
+          race_name: sObj.race_name || sObj.name || "特別競走",
+          surface: sObj.surface || "芝",
+          distance: sObj.distance || 2000,
+          sex: sObj.sex || "制限なし",
+          venue: sObj.venue || "東京"
+        });
+      }
+    });
+
+    const fallbackRaces = [
+      { race_name: "桜花賞", surface: "芝", distance: 1600, venue: "阪神", sex: "制限なし" },
+      { race_name: "朝日杯FS", surface: "芝", distance: 1600, venue: "阪神", sex: "制限なし" },
+      { race_name: "毎日王冠", surface: "芝", distance: 1800, venue: "東京", sex: "制限なし" },
+      { race_name: "天皇賞(秋)", surface: "芝", distance: 2000, venue: "東京", sex: "制限なし" },
+      { race_name: "有馬記念", surface: "芝", distance: 2500, venue: "中山", sex: "制限なし" }
+    ];
+
+    const races = [];
+    for (let i = 0; i < 5; i++) {
+      const r = rawRaces[i] || fallbackRaces[i];
+      races.push({
+        race_num: i + 1,
+        race_name: r.race_name || `第${i + 1}戦`,
+        surface: r.surface || "芝",
+        distance: r.distance || 2000,
+        venue: r.venue || "東京",
+        sex: r.sex || "制限なし"
+      });
+    }
+
     const trackConds = room.races_track_conditions || ['良','良','良','良','良'];
     const mobIdsMap = room.races_mob_ids || {};
 
@@ -469,8 +532,8 @@
     races.forEach((race, rIdx) => {
       const p1HorseId = room.player1_entries[rIdx];
       const p2HorseId = room.player2_entries[rIdx];
-      const p1StratObj = room.player1_strategies[rIdx] || { strategy: "先行", strategy_level: 3 };
-      const p2StratObj = room.player2_strategies[rIdx] || { strategy: "先行", strategy_level: 3 };
+      const p1StratObj = (room.player1_strategies && room.player1_strategies[rIdx]) || { strategy: "先行", strategy_level: 3 };
+      const p2StratObj = (room.player2_strategies && room.player2_strategies[rIdx]) || { strategy: "先行", strategy_level: 3 };
 
       const mobIds = mobIdsMap[rIdx] || mobIdsMap[String(rIdx)] || [];
       const trackCond = trackConds[rIdx] || '良';
@@ -488,12 +551,12 @@
       // モブ馬
       mobIds.forEach((mId, mIdx) => {
         const mHorse = HORSES_MASTER[String(mId)] || {};
-        const mStyle = mHorse.style || mHorse.running_style || "先行";
+        const mStyle = getCleanStyle(mHorse.style || mHorse.running_style || "先行");
         const mStratName = determineStrategy(mStyle, STRATEGY_MASTER);
         field.push(buildRunnerData(mHorse, { strategy: mStratName, strategy_level: 3 }, race, trackCond, `MOB_${mIdx}`, "モブ"));
       });
 
-      // 枠順シャッフル
+      // 枠順確定
       field.sort(() => (Math.sin(rIdx * 99 + field.length) - 0.5));
       field.forEach((f, idx) => f.gate_number = idx + 1);
 
@@ -528,7 +591,7 @@
       potential: potential,
       strategy_name: stratObj.strategy || "先行して粘り込み",
       strategy_level: stratObj.strategy_level || 3,
-      running_style: horse.style || horse.running_style || "先行",
+      running_style: getCleanStyle(horse.style || horse.running_style || "先行"),
       ability: horse.ability || null
     };
   }
@@ -543,7 +606,7 @@
     const raceInfo = currentRaceData.race_info;
     
     document.getElementById('display-race-num').textContent = `RACE ${index + 1} / 5`;
-    document.getElementById('display-race-title').textContent = `${raceInfo.venue || '競馬場'} ${raceInfo.surface || '芝'} ${raceInfo.distance || '2000'}m (${raceInfo.race_name || '対戦レース'})`;
+    document.getElementById('display-race-title').textContent = `${raceInfo.venue || '東京'} ${raceInfo.surface || '芝'} ${raceInfo.distance || '2000'}m (${raceInfo.race_name || '対戦レース'})`;
     document.getElementById('display-race-cond').textContent = `馬場: ${currentRaceData.track_condition}`;
 
     // ダートトラック演出
@@ -555,7 +618,6 @@
     let p1Runner = currentRaceData.runners.find(r => r.tag === 'P1');
     let p2Runner = currentRaceData.runners.find(r => r.tag === 'P2');
 
-    // 自分が Guest の場合は左右表示を自分＝P1視点に切り替え
     if (role === 'guest') {
       const temp = p1Runner; p1Runner = p2Runner; p2Runner = temp;
       document.getElementById('p1-label-text').textContent = "★ あなた";
@@ -675,11 +737,16 @@
   }
 
   function triggerAbilityPopups() {
-    const p1Runner = currentRaceData.runners.find(r => r.tag === (role === 'host' ? 'P1' : 'P2'));
-    if (p1Runner && p1Runner.ability_activated) {
+    const myTag = (role === 'host' ? 'P1' : 'P2');
+    const myRunner = currentRaceData.runners.find(r => r.tag === myTag);
+    if (myRunner && myRunner.ability_activated) {
       const popup = document.getElementById('ability-popup-container');
-      document.getElementById('ability-pop-horse').textContent = p1Runner.name;
-      document.getElementById('ability-pop-name').textContent = `【${p1Runner.ability?.name || '固有アビリティ'}】`;
+      const popupBox = document.getElementById('ability-popup-box');
+      
+      document.getElementById('ability-pop-horse').textContent = myRunner.name;
+      document.getElementById('ability-pop-name').textContent = `【${myRunner.ability?.name || '固有アビリティ'}】`;
+      
+      popupBox.className = "ability-popup-box p1-ability";
       popup.className = "p1-pos show";
       setTimeout(() => { popup.classList.remove('show'); }, 2000);
     }
