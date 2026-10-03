@@ -45,8 +45,8 @@
   }
   .btn-back {
     background: #ffffff;
-    color: var(--accent-color);
-    border: 1.5px solid var(--accent-color);
+    color: var(--danger-color);
+    border: 1.5px solid var(--danger-color);
     padding: 6px 12px;
     border-radius: 6px;
     cursor: pointer;
@@ -225,14 +225,14 @@
   }
 
   .btn-giveup {
-    flex: 1;
+    flex: 1.2;
     background: #ffffff;
     color: var(--danger-color);
     border: 1.5px solid var(--danger-color);
     padding: 15px 5px;
     border-radius: 8px;
     font-weight: bold;
-    font-size: 12px;
+    font-size: 11px;
     cursor: pointer;
     text-align: center;
   }
@@ -247,7 +247,7 @@
 
 <div class="container">
   <div class="header-panel">
-    <button class="btn-back" onclick="returnToDeckSelect()">← デック選び直し</button>
+    <button class="btn-back" onclick="leaveMatch()">辞退・退室</button>
     <h2 style="margin:0; font-size: 16px; color: var(--accent-color);">オンライン対戦 - チーム編成</h2>
     <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中</div>
   </div>
@@ -283,7 +283,7 @@
   <div id="entryList" style="display:flex; flex-direction:column; gap:10px;"></div>
 
   <div class="action-group">
-    <button class="btn-giveup" onclick="leaveMatch()">辞退・退室</button>
+    <button class="btn-giveup" onclick="giveUpRound()">この回戦のギブアップ</button>
     <button class="btn-redeck" onclick="returnToDeckSelect()">デック変更</button>
     <button class="btn-submit" id="btnBattleStart" disabled onclick="submitEntries()">エントリー完了</button>
   </div>
@@ -393,7 +393,6 @@
 
     const roomData = roomSnap.data();
 
-    // デック馬データの取得
     playerDeckIds = (role === 'host') ? (roomData.player1_deck || []) : (roomData.player2_deck || []);
     oppDeckIds = (role === 'host') ? (roomData.player2_deck || []) : (roomData.player1_deck || []);
     deckHorses = playerDeckIds.map(id => HORSES_MASTER[String(id)]).filter(Boolean);
@@ -420,7 +419,6 @@
     }
     document.getElementById('opponentName').textContent = oppName;
 
-    // --- 全5レースの抽出・補填生成ロジック ---
     let rawRaces = [];
     const matchSeries = roomData.match_series || roomData.selected_series || roomData.series_id || ["series_01"];
     const seriesIdList = Array.isArray(matchSeries) ? matchSeries : [matchSeries];
@@ -883,7 +881,6 @@
     }
   };
 
-  // 安全にデック選択画面 (onbattle.html) へ戻る処理
   window.returnToDeckSelect = async function() {
     if (!confirm("対戦を辞退せずにデック選択画面（onbattle）へ戻りますか？\n（選択中のエントリーと出走前準備状態はリセットされます）")) {
       return;
@@ -897,7 +894,6 @@
         const roomRef = doc(db, "online_matches", roomId);
         const isHost = (role === 'host');
 
-        // 対戦自体は継続しつつ、自分側の準備完了フラグとエントリー状態のみ安全にクリア
         const resetData = isHost ? {
           player1_ready: false,
           player1_matchup_ready: false,
@@ -920,6 +916,34 @@
     window.location.href = `onbattle.html?roomId=${roomId}&role=${role}${modeQuery}`;
   };
 
+  // 下部左「この回戦のギブアップ」ボタン処理
+  window.giveUpRound = async function() {
+    if (!confirm("この回戦をギブアップしますか？\n（対戦相手に不戦勝が与えられます）")) {
+      return;
+    }
+
+    isNavigatingAway = true;
+    if (roomUnsubscribe) roomUnsubscribe();
+
+    if (roomId && currentUser) {
+      try {
+        const roomRef = doc(db, "online_matches", roomId);
+        const isHost = (role === 'host');
+        
+        await updateDoc(roomRef, {
+          [isHost ? 'player1_giveup' : 'player2_giveup']: true,
+          status: "surrendered",
+          surrendered_by: currentUser.uid
+        });
+      } catch (e) {
+        console.error("ギブアップ処理エラー:", e);
+      }
+    }
+    alert("この回戦をギブアップしました。");
+    window.location.href = 'online.html';
+  };
+
+  // ヘッダー左上「辞退・退室」ボタン処理
   window.leaveMatch = async function() {
     if (confirm("対戦を辞退して退室しますか？")) {
       await forceCleanupAndExit();
