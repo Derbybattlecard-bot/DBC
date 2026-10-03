@@ -192,7 +192,7 @@
 
   .action-group {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     margin-top: 10px;
   }
 
@@ -201,22 +201,35 @@
     background: linear-gradient(135deg, #f97316, #ea580c);
     color: white;
     border: none;
-    padding: 15px;
+    padding: 15px 10px;
     border-radius: 8px;
     font-weight: bold;
-    font-size: 16px;
+    font-size: 15px;
     cursor: pointer;
     text-align: center;
     box-shadow: 0 4px 0 #c2410c;
   }
   .btn-submit:disabled { background: #9ca3af; box-shadow: none; cursor: not-allowed; }
 
+  .btn-redeck {
+    flex: 1;
+    background: #ffffff;
+    color: var(--accent-color);
+    border: 1.5px solid var(--accent-color);
+    padding: 15px 5px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 12px;
+    cursor: pointer;
+    text-align: center;
+  }
+
   .btn-giveup {
     flex: 1;
     background: #ffffff;
     color: var(--danger-color);
     border: 1.5px solid var(--danger-color);
-    padding: 15px;
+    padding: 15px 5px;
     border-radius: 8px;
     font-weight: bold;
     font-size: 12px;
@@ -234,7 +247,7 @@
 
 <div class="container">
   <div class="header-panel">
-    <button class="btn-back" onclick="leaveMatch()">← 対戦辞退</button>
+    <button class="btn-back" onclick="returnToDeckSelect()">← デック選び直し</button>
     <h2 style="margin:0; font-size: 16px; color: var(--accent-color);">オンライン対戦 - チーム編成</h2>
     <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中</div>
   </div>
@@ -271,6 +284,7 @@
 
   <div class="action-group">
     <button class="btn-giveup" onclick="leaveMatch()">辞退・退室</button>
+    <button class="btn-redeck" onclick="returnToDeckSelect()">デック変更</button>
     <button class="btn-submit" id="btnBattleStart" disabled onclick="submitEntries()">エントリー完了</button>
   </div>
 </div>
@@ -309,6 +323,7 @@
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('roomId');
   const role = urlParams.get('role');
+  const matchMode = urlParams.get('mode') || 'light';
 
   async function fetchJsonSafe(filename) {
     const candidatePaths = [`./data/${filename}`, `data/${filename}`, `/data/${filename}`];
@@ -866,6 +881,43 @@
       startBtn.disabled = false;
       document.getElementById('waitingModal').style.display = 'none';
     }
+  };
+
+  // 安全にデック選択画面 (onbattle.html) へ戻る処理
+  window.returnToDeckSelect = async function() {
+    if (!confirm("対戦を辞退せずにデック選択画面（onbattle）へ戻りますか？\n（選択中のエントリーと出走前準備状態はリセットされます）")) {
+      return;
+    }
+
+    isNavigatingAway = true;
+    if (roomUnsubscribe) roomUnsubscribe();
+
+    if (roomId && currentUser) {
+      try {
+        const roomRef = doc(db, "online_matches", roomId);
+        const isHost = (role === 'host');
+
+        // 対戦自体は継続しつつ、自分側の準備完了フラグとエントリー状態のみ安全にクリア
+        const resetData = isHost ? {
+          player1_ready: false,
+          player1_matchup_ready: false,
+          player1_draft: [null, null, null, null, null],
+          player1_entries: [null, null, null, null, null]
+        } : {
+          player2_ready: false,
+          player2_matchup_ready: false,
+          player2_draft: [null, null, null, null, null],
+          player2_entries: [null, null, null, null, null]
+        };
+
+        await updateDoc(roomRef, resetData);
+      } catch (e) {
+        console.error("デック選択画面へのリセット移動エラー:", e);
+      }
+    }
+
+    const modeQuery = matchMode ? `&mode=${matchMode}` : '';
+    window.location.href = `onbattle.html?roomId=${roomId}&role=${role}${modeQuery}`;
   };
 
   window.leaveMatch = async function() {
