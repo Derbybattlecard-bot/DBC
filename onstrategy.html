@@ -230,7 +230,7 @@
   <div class="header-panel">
     <button class="btn-back" onclick="leaveMatch()">対戦降参・退室</button>
     <h2 style="margin:0; font-size: 16px; color: var(--accent-color);">オンライン作戦指示</h2>
-    <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️️ 読込中</div>
+    <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁ 読込中</div>
   </div>
 
   <div class="opponent-status-panel">
@@ -503,16 +503,21 @@
       if (!snapshot.exists()) return;
       const data = snapshot.data();
 
+      // 既に画面遷移中の場合は何もしない
+      if (isNavigatingAway) return;
+
       if (data.status === "cancelled") {
-        if (!isNavigatingAway) {
-          isNavigatingAway = true;
-          alert("対戦相手が切断・退室しました。");
-          window.location.href = 'online.html';
-        }
+        isNavigatingAway = true;
+        alert("対戦相手が切断・退室しました。");
+        window.location.href = 'online.html';
         return;
       }
 
-      const opponentReady = (role === 'host') ? data.player2_strategy_ready : data.player1_strategy_ready;
+      // 準備状態の判定（キー名の表記揺れにも柔軟に対応）
+      const p1Ready = !!(data.player1_strategy_ready || data.player1_ready);
+      const p2Ready = !!(data.player2_strategy_ready || data.player2_ready);
+      const opponentReady = (role === 'host') ? p2Ready : p1Ready;
+
       const badge = document.getElementById('opponentStatusBadge');
       if (badge) {
         if (opponentReady) {
@@ -524,10 +529,10 @@
         }
       }
 
-      // 双方の作戦設定が完了したらレース画面へ遷移
-      if (data.player1_strategy_ready && data.player2_strategy_ready) {
-        if (roomUnsubscribe) roomUnsubscribe();
+      // 両者の作戦設定が完了したら同時にレース画面へ遷移
+      if (p1Ready && p2Ready) {
         isNavigatingAway = true;
+        if (roomUnsubscribe) roomUnsubscribe();
         window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}`;
       }
     });
@@ -723,12 +728,15 @@
     document.getElementById('waitingModal').style.display = 'flex';
 
     const roomRef = doc(db, "online_matches", roomId);
+    // 両方のキー名を同時にセットして互換性を担保
     const updateData = (role === 'host') ? {
       player1_strategies: myStrategies,
-      player1_strategy_ready: true
+      player1_strategy_ready: true,
+      player1_ready: true
     } : {
       player2_strategies: myStrategies,
-      player2_strategy_ready: true
+      player2_strategy_ready: true,
+      player2_ready: true
     };
 
     try {
@@ -753,13 +761,6 @@
       window.location.href = 'online.html';
     }
   };
-
-  window.addEventListener('beforeunload', () => {
-    if (roomId && !isNavigatingAway) {
-      const roomRef = doc(db, "online_matches", roomId);
-      updateDoc(roomRef, { status: "cancelled", cancelled_by: currentUser?.uid || "unknown" });
-    }
-  });
 </script>
 
 </body>
