@@ -471,7 +471,6 @@ function listenRoomStatus() {
       return;
     }
 
-    // 次の回戦へ移行した場合の自動移動検知
     if (data.status === "entry_selecting" || data.status === "matchup") {
       isNavigatingAway = true;
       if (roomUnsubscribe) roomUnsubscribe();
@@ -549,6 +548,7 @@ function buildRaceGridsFromOnlineData() {
   for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
     const grid = [];
 
+    // 1. 自分 (YOU)
     const myHorseId = String(myEntries[rIdx]);
     const myMaster = HORSES_MASTER[myHorseId] || { name: "自馬", horse_id: myHorseId };
     const myStratObj = (myStrats && myStrats[rIdx]) ? myStrats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
@@ -564,6 +564,7 @@ function buildRaceGridsFromOnlineData() {
       gate_number: isHost ? 1 : 2
     });
 
+    // 2. 相手 (OPPONENT)
     const oppHorseId = String(oppEntries[rIdx]);
     const oppMaster = HORSES_MASTER[oppHorseId] || { name: "相手馬", horse_id: oppHorseId };
     const oppStratObj = (oppStrats && oppStrats[rIdx]) ? oppStrats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
@@ -579,6 +580,7 @@ function buildRaceGridsFromOnlineData() {
       gate_number: isHost ? 2 : 1
     });
 
+    // 3. モブ馬
     const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
 
     mobIds.forEach((mobId, mIdx) => {
@@ -870,6 +872,7 @@ function processAbilityQueue() {
   }, 2000);
 }
 
+// 【重要修正】ホスト計算・結果共有型レース進行処理
 async function startRace() {
   if (raceState !== 'ready') return;
   raceState = 'running';
@@ -881,7 +884,60 @@ async function startRace() {
   btn.disabled = true;
   btn.innerText = "🏃 レース進行中...";
 
-  const raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, raceInfo, abilityMasterData);
+  const isHost = (role === 'host');
+  const roomRef = doc(db, "online_matches", roomId);
+  let raceResultData = null;
+
+  if (isHost) {
+    // 【ホスト側】自ら計算を実行し、Firestoreに結果を保存
+    // ホスト視点の出走メンバー（Host: isPlayer=true, Guest: isOpponent=true）で計算
+    raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, raceInfo, abilityMasterData);
+
+    try {
+      await updateDoc(roomRef, {
+        [`race_result_${currentRaceIndex}`]: raceResultData
+      });
+    } catch (e) {
+      console.error("レース結果同期保存エラー:", e);
+    }
+  } else {
+    // 【ゲスト側】ホストが書き込んだ結果データをFirestoreから受信待ち
+    updateLog("ホストの計算結果を同期中...");
+
+    let syncedData = null;
+    for (let attempt = 0; attempt < 40; attempt++) {
+      const snap = await getDoc(roomRef);
+      if (snap.exists()) {
+        const d = snap.data();
+        if (d[`race_result_${currentRaceIndex}`]) {
+          syncedData = d[`race_result_${currentRaceIndex}`];
+          break;
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+
+    if (!syncedData) {
+      console.warn("同期データ受信タイムアウト。フォールバック計算を実行します。");
+      raceResultData = runRaceLogic(activeHorses, raceMasterData, trackCondition, raceInfo, abilityMasterData);
+    } else {
+      // ゲスト視点補正：ホスト視点の isPlayer / isOpponent をゲスト用に反転する
+      raceResultData = JSON.parse(JSON.stringify(syncedData));
+      if (raceResultData && Array.isArray(raceResultData.results)) {
+        raceResultData.results.forEach(h => {
+          if (h.isPlayer) {
+            h.isPlayer = false;
+            h.isOpponent = true;
+          } else if (h.isOpponent) {
+            h.isPlayer = true;
+            h.isOpponent = false;
+          }
+        });
+      }
+    }
+  }
+
+  // 完全に同一の raceResultData を利用して両端末で結果・アニメーションを表示
   calculatedResults = raceResultData.results;
   currentRacePace = raceResultData.pace;
   currentRaceBranch = raceResultData.branch.name;
@@ -1161,7 +1217,6 @@ async function showFinalSeriesResult() {
     modalBtn.textContent = `🏠 全対戦終了：ロビーへ戻る`;
   }
 
-  // オンライン対戦結果・使用済み馬リスト等の保存
   if (currentUser && roomId) {
     try {
       if (isMatchWin) {
@@ -1205,7 +1260,6 @@ window.finishMatchAndNextOrLobby = async function() {
   if (hasNextSeries && roomId) {
     const roomRef = doc(db, "online_matches", roomId);
     try {
-      // 次の回戦へ移行するための初期化
       if (role === 'host') {
         await updateDoc(roomRef, {
           current_series_index: currentSeriesIdx + 1,
