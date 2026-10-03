@@ -583,6 +583,13 @@
         document.getElementById('opponentName').textContent = freshName;
       }
 
+      // モブデータ・馬場状態の同期更新（特にゲスト初期読み込み時の反映用）
+      if (data.races_mob_ids && (Object.keys(racesMobData).length === 0 || JSON.stringify(racesMobData) !== JSON.stringify(data.races_mob_ids))) {
+        racesMobData = data.races_mob_ids;
+        racesTrackConditions = data.races_track_conditions || Array(5).fill('良');
+        renderEntryCards();
+      }
+
       // 過去の回戦（確定済み）での使用済み馬リストの更新
       const isHost = (role === 'host');
       const oppUsedList = isHost ? (data.player2_used_horses || []) : (data.player1_used_horses || []);
@@ -631,7 +638,9 @@
   }
 
   function getHorseLegStyle(horse) {
-    return horse?.style || horse?.running_style || horse?.leg_style || horse?.strategy || '-';
+    let style = horse?.style || horse?.running_style || horse?.leg_style || horse?.strategy || '-';
+    if (style === '大逃げ') style = '大逃';
+    return style;
   }
 
   function getHorseDistanceString(horse) {
