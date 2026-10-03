@@ -313,7 +313,7 @@
   let oppDeckIds = [];
   let oppSelectedEntries = [null, null, null, null, null];
   
-  // 過去回戦での使用済み馬IDリスト
+  // 過去の回戦（確定済み）で対戦相手が消費した馬のIDリスト
   let oppUsedHorseIdsInPast = [];
 
   let selectedEntries = [null, null, null, null, null];
@@ -400,7 +400,7 @@
     oppDeckIds = (role === 'host') ? (roomData.player2_deck || []) : (roomData.player1_deck || []);
     deckHorses = playerDeckIds.map(id => HORSES_MASTER[String(id)]).filter(Boolean);
 
-    // 過去回戦で相手が使用した馬IDリストを取得
+    // 過去の確定回戦で相手が既に使用済みの馬IDリストを取得
     const isHost = (role === 'host');
     const oppUsedList = isHost ? (roomData.player2_used_horses || []) : (roomData.player1_used_horses || []);
     oppUsedHorseIdsInPast = oppUsedList.map(id => String(id));
@@ -583,17 +583,13 @@
         document.getElementById('opponentName').textContent = freshName;
       }
 
-      // 過去の使用済み馬リストの更新
+      // 過去の回戦（確定済み）での使用済み馬リストの更新
       const isHost = (role === 'host');
       const oppUsedList = isHost ? (data.player2_used_horses || []) : (data.player1_used_horses || []);
-      oppUsedHorseIdsInPast = oppUsedList.map(id => String(id));
-
-      const newOppDraft = isHost
-        ? (data.player2_draft || data.player2_entries || [null, null, null, null, null])
-        : (data.player1_draft || data.player1_entries || [null, null, null, null, null]);
-
-      if (JSON.stringify(oppSelectedEntries) !== JSON.stringify(newOppDraft)) {
-        oppSelectedEntries = newOppDraft;
+      
+      const newPastUsedStr = JSON.stringify(oppUsedList.map(id => String(id)));
+      if (JSON.stringify(oppUsedHorseIdsInPast) !== newPastUsedStr) {
+        oppUsedHorseIdsInPast = oppUsedList.map(id => String(id));
         populateDropdowns();
       }
 
@@ -672,30 +668,31 @@
   }
 
   /**
-   * 被り馬（同名馬）の出走権チェックロジック
+   * 被り馬（同名馬）の出走優先権判定ロジック
    */
   function checkDuplicateHorsePriority(horseId) {
     const targetIdStr = String(horseId);
     const myIdx = playerDeckIds.findIndex(id => String(id) === targetIdStr);
     const oppIdx = oppDeckIds.findIndex(id => String(id) === targetIdStr);
 
-    // 相手のデックにその馬がいない場合は自由に使用可能
+    // 1. 相手のデックにその馬がいない場合は自由に使用可能
     if (oppIdx === -1) return { canUse: true };
 
-    // 2回戦目以降：対戦相手が過去の回戦でこの馬を既に使用済みになっている場合、自分は使用可能
+    // 2. 過去の回戦（確定済み）で対戦相手がこの馬を既に使用・消費している場合は、自分も使用可能になる
     if (oppUsedHorseIdsInPast.includes(targetIdStr)) {
       return { canUse: true };
     }
 
-    // まだ相手が使用していない場合、馬番（デック内インデックス）を比較
+    // 3. まだ過去の回戦で相手が使用していない場合（現在の回戦での選択中を含む）:
+    //    リアルタイムな選択状況（ドラフト）は一切無視し、純粋にデック順およびホスト優先権のみで固定判定する
     if (myIdx < oppIdx) {
-      // 自分の馬番の方が若い場合、自分に優先出走権あり
+      // 自分のデック馬番の方が若い場合：自分に優先出走権あり
       return { canUse: true };
     } else if (myIdx > oppIdx) {
-      // 相手の馬番の方が若い場合、相手に優先権あり
+      // 相手のデック馬番の方が若い場合：相手に優先出走権あり（現在の回戦では常時使用不可）
       return { canUse: false, reason: "相手優先" };
     } else {
-      // 馬番が同じ場合、ホスト側に優先出走権あり
+      // デック馬番が同一の場合：ホスト側に優先出走権あり
       const isHost = (role === 'host');
       if (isHost) {
         return { canUse: true };
