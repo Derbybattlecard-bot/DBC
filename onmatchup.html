@@ -312,6 +312,9 @@
   let playerDeckIds = [];
   let oppDeckIds = [];
   let oppSelectedEntries = [null, null, null, null, null];
+  
+  // 過去回戦での使用済み馬IDリスト
+  let oppUsedHorseIdsInPast = [];
 
   let selectedEntries = [null, null, null, null, null];
   let racesMobData = {}; 
@@ -396,6 +399,11 @@
     playerDeckIds = (role === 'host') ? (roomData.player1_deck || []) : (roomData.player2_deck || []);
     oppDeckIds = (role === 'host') ? (roomData.player2_deck || []) : (roomData.player1_deck || []);
     deckHorses = playerDeckIds.map(id => HORSES_MASTER[String(id)]).filter(Boolean);
+
+    // 過去回戦で相手が使用した馬IDリストを取得
+    const isHost = (role === 'host');
+    const oppUsedList = isHost ? (roomData.player2_used_horses || []) : (roomData.player1_used_horses || []);
+    oppUsedHorseIdsInPast = oppUsedList.map(id => String(id));
 
     if (!deckHorses || deckHorses.length === 0) {
       alert("対戦に必要なデックデータが見つかりません。対戦を終了してロビーへ戻ります。");
@@ -575,7 +583,12 @@
         document.getElementById('opponentName').textContent = freshName;
       }
 
-      const newOppDraft = (role === 'host') 
+      // 過去の使用済み馬リストの更新
+      const isHost = (role === 'host');
+      const oppUsedList = isHost ? (data.player2_used_horses || []) : (data.player1_used_horses || []);
+      oppUsedHorseIdsInPast = oppUsedList.map(id => String(id));
+
+      const newOppDraft = isHost
         ? (data.player2_draft || data.player2_entries || [null, null, null, null, null])
         : (data.player1_draft || data.player1_entries || [null, null, null, null, null]);
 
@@ -584,7 +597,7 @@
         populateDropdowns();
       }
 
-      const opponentReady = (role === 'host') ? data.player2_matchup_ready : data.player1_matchup_ready;
+      const opponentReady = isHost ? data.player2_matchup_ready : data.player1_matchup_ready;
       const badge = document.getElementById('opponentStatusBadge');
       if (badge) {
         if (opponentReady) {
@@ -658,24 +671,37 @@
     }
   }
 
+  /**
+   * 被り馬（同名馬）の出走権チェックロジック
+   */
   function checkDuplicateHorsePriority(horseId) {
     const targetIdStr = String(horseId);
     const myIdx = playerDeckIds.findIndex(id => String(id) === targetIdStr);
     const oppIdx = oppDeckIds.findIndex(id => String(id) === targetIdStr);
 
+    // 相手のデックにその馬がいない場合は自由に使用可能
     if (oppIdx === -1) return { canUse: true };
 
+    // 2回戦目以降：対戦相手が過去の回戦でこの馬を既に使用済みになっている場合、自分は使用可能
+    if (oppUsedHorseIdsInPast.includes(targetIdStr)) {
+      return { canUse: true };
+    }
+
+    // まだ相手が使用していない場合、馬番（デック内インデックス）を比較
     if (myIdx < oppIdx) {
+      // 自分の馬番の方が若い場合、自分に優先出走権あり
       return { canUse: true };
     } else if (myIdx > oppIdx) {
-      const isOpponentUsed = oppSelectedEntries.some(id => String(id) === targetIdStr);
-      if (isOpponentUsed) {
+      // 相手の馬番の方が若い場合、相手に優先権あり
+      return { canUse: false, reason: "相手優先" };
+    } else {
+      // 馬番が同じ場合、ホスト側に優先出走権あり
+      const isHost = (role === 'host');
+      if (isHost) {
         return { canUse: true };
       } else {
-        return { canUse: false, reason: "相手優先" };
+        return { canUse: false, reason: "ホスト優先" };
       }
-    } else {
-      return { canUse: false, reason: "同一位置不可" };
     }
   }
 
@@ -916,7 +942,6 @@
     window.location.href = `onbattle.html?roomId=${roomId}&role=${role}${modeQuery}`;
   };
 
-  // 下部左「この回戦のギブアップ」ボタン処理
   window.giveUpRound = async function() {
     if (!confirm("この回戦をギブアップしますか？\n（対戦相手に不戦勝が与えられます）")) {
       return;
@@ -943,7 +968,6 @@
     window.location.href = 'online.html';
   };
 
-  // ヘッダー左上「辞退・退室」ボタン処理
   window.leaveMatch = async function() {
     if (confirm("対戦を辞退して退室しますか？")) {
       await forceCleanupAndExit();
