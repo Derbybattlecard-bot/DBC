@@ -308,7 +308,7 @@
       <thead><tr><th>R</th><th>あなた (着順)</th><th>相手 (着順)</th><th>勝者</th></tr></thead>
       <tbody id="series-history-body"></tbody>
     </table>
-    <button class="btn-next" id="modalNextBtn" style="margin-top: 20px;" onclick="finishMatchAndGoLobby()">🏠 オンライン対戦ロビーへ</button>
+    <button class="btn-next" id="modalNextBtn" style="margin-top: 20px;" onclick="finishMatchAndNextOrLobby()">🏠 次の回戦へ進む / ロビーへ</button>
   </div>
 </div>
 
@@ -324,7 +324,7 @@
 <script type="module">
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { doc, getDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { doc, getDoc, updateDoc, onSnapshot, increment, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 import { determineStrategy } from "./js/mob.js";
 import { runRaceLogic } from "./js/race_calculator.js";
@@ -351,7 +351,6 @@ let globalUserData = null;
 let roomData = null;
 
 let currentRaceIndex = 0;
-// 1シリーズは必ず5レース固定
 let totalRounds = 5;
 let fullRaceGrids = [];
 let trackCondition = "良";
@@ -375,6 +374,8 @@ let raceInfo = null;
 
 let myNameStr = "あなた";
 let oppNameStr = "対戦相手";
+let roomUnsubscribe = null;
+let isNavigatingAway = false;
 
 const urlParams = new URLSearchParams(window.location.search);
 const roomId = urlParams.get('roomId');
@@ -389,6 +390,9 @@ window.showErrorModal = function(msg) {
 
 window.quitOnlineMatch = async function() {
   if (!confirm("対戦を途中で退室しますか？（対戦ロビーに戻ります）")) return;
+  isNavigatingAway = true;
+  if (roomUnsubscribe) roomUnsubscribe();
+
   if (roomId && currentUser) {
     try {
       await updateDoc(doc(db, "online_matches", roomId), {
@@ -423,9 +427,7 @@ onAuthStateChanged(auth, async (user) => {
 
     await loadMasterData();
 
-    // プレイヤー名の解決
     const isHost = (role === 'host');
-    const myUid = user.uid;
     const oppUid = isHost ? roomData.player2_uid : roomData.player1_uid;
 
     myNameStr = globalUserData?.nickname || globalUserData?.displayName || globalUserData?.name || (isHost ? roomData.player1_name : roomData.player2_name) || "あなた";
@@ -447,11 +449,36 @@ onAuthStateChanged(auth, async (user) => {
     if (!isSuccess) return;
 
     setupRace(currentRaceIndex);
+    listenRoomStatus();
   } catch (err) {
     console.error("初期化エラー:", err);
     showErrorModal("データの読み込みに失敗しました。対戦データが正常でない可能性があります。");
   }
 });
+
+function listenRoomStatus() {
+  const roomRef = doc(db, "online_matches", roomId);
+  roomUnsubscribe = onSnapshot(roomRef, (snapshot) => {
+    if (!snapshot.exists()) return;
+    const data = snapshot.data();
+
+    if (isNavigatingAway) return;
+
+    if (data.status === "cancelled") {
+      isNavigatingAway = true;
+      alert("対戦相手が切断・退室しました。");
+      window.location.href = 'online.html';
+      return;
+    }
+
+    // 次の回戦へ移行した場合の自動移動検知
+    if (data.status === "entry_selecting" || data.status === "matchup") {
+      isNavigatingAway = true;
+      if (roomUnsubscribe) roomUnsubscribe();
+      window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}`;
+    }
+  });
+}
 
 async function fetchJsonWithFallback(filename) {
   const paths = [`data/${filename}`, `./data/${filename}`, `../data/${filename}`];
@@ -510,7 +537,6 @@ function buildRaceGridsFromOnlineData() {
 
   const racesMobIds = roomData.races_mob_ids || {};
   
-  // 1シリーズ＝必ず5レース
   totalRounds = 5;
 
   if (!myEntries || myEntries.length < totalRounds || !oppEntries || oppEntries.length < totalRounds) {
@@ -523,7 +549,6 @@ function buildRaceGridsFromOnlineData() {
   for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
     const grid = [];
 
-    // 1. 自分 (YOU) の馬（データ欠損時の安全フォールバック付き）
     const myHorseId = String(myEntries[rIdx]);
     const myMaster = HORSES_MASTER[myHorseId] || { name: "自馬", horse_id: myHorseId };
     const myStratObj = (myStrats && myStrats[rIdx]) ? myStrats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
@@ -539,7 +564,6 @@ function buildRaceGridsFromOnlineData() {
       gate_number: isHost ? 1 : 2
     });
 
-    // 2. 相手 (OPPONENT) の馬（データ欠損時の安全フォールバック付き）
     const oppHorseId = String(oppEntries[rIdx]);
     const oppMaster = HORSES_MASTER[oppHorseId] || { name: "相手馬", horse_id: oppHorseId };
     const oppStratObj = (oppStrats && oppStrats[rIdx]) ? oppStrats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
@@ -555,7 +579,6 @@ function buildRaceGridsFromOnlineData() {
       gate_number: isHost ? 2 : 1
     });
 
-    // 3. モブ馬 (14頭)
     const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
 
     mobIds.forEach((mobId, mIdx) => {
@@ -609,7 +632,6 @@ function setupRace(rIdx) {
   const racesTrackConditions = roomData?.races_track_conditions || [];
   trackCondition = racesTrackConditions[rIdx] || "良";
 
-  // 現在のシリーズ情報を正確にロード
   const matchSeries = roomData?.match_series || roomData?.selected_series || ["series_01"];
   const currentSeriesIndex = roomData?.current_series_index || 0;
   const seriesId = Array.isArray(matchSeries) ? (matchSeries[currentSeriesIndex] || matchSeries[0]) : matchSeries;
@@ -1098,7 +1120,7 @@ async function showFinalSeriesResult() {
 
   const titleEl = document.getElementById('series-result-title');
   if (isMatchWin) {
-    titleEl.innerHTML = `🎉 あなたの対戦勝利！！<br><span style="font-size:0.7em; color:#fff;">オンライン対戦を制しました！</span>`;
+    titleEl.innerHTML = `🎉 あなたの対戦勝利！！<br><span style="font-size:0.7em; color:#fff;">このシリーズを制しました！</span>`;
   } else if (playerWins === oppWins) {
     titleEl.innerHTML = `🤝 引き分け！<br><span style="font-size:0.7em; color:#fff;">互角の白熱した勝負でした！</span>`;
   } else {
@@ -1124,19 +1146,45 @@ async function showFinalSeriesResult() {
       </tr>`;
   });
 
-  // オンライン対戦結果のFirestore保存（自分の通算勝利数更新）
-  if (currentUser) {
+  const isHost = (role === 'host');
+  const myEntries = isHost ? (roomData.player1_entries || []) : (roomData.player2_entries || []);
+  
+  const matchSeries = roomData?.match_series || roomData?.selected_series || ["series_01"];
+  const seriesIdList = Array.isArray(matchSeries) ? matchSeries : [matchSeries];
+  const currentSeriesIdx = roomData?.current_series_index || 0;
+  const hasNextSeries = (currentSeriesIdx + 1) < seriesIdList.length;
+
+  const modalBtn = document.getElementById('modalNextBtn');
+  if (hasNextSeries) {
+    modalBtn.textContent = `➡️ 次の回戦（第${currentSeriesIdx + 2}回戦）の出走登録へ`;
+  } else {
+    modalBtn.textContent = `🏠 全対戦終了：ロビーへ戻る`;
+  }
+
+  // オンライン対戦結果・使用済み馬リスト等の保存
+  if (currentUser && roomId) {
     try {
       if (isMatchWin) {
         await updateDoc(doc(db, "users", currentUser.uid), {
           total_wins: increment(1)
         });
       }
-      if (roomId) {
-        await updateDoc(doc(db, "online_matches", roomId), {
-          status: "finished"
-        });
+
+      const roomRef = doc(db, "online_matches", roomId);
+      const usedField = isHost ? 'player1_used_horses' : 'player2_used_horses';
+      
+      const updateObj = {};
+      myEntries.forEach(hId => {
+        if (hId !== null && hId !== undefined) {
+          updateObj[usedField] = arrayUnion(String(hId));
+        }
+      });
+
+      if (!hasNextSeries) {
+        updateObj.status = "finished";
       }
+
+      await updateDoc(roomRef, updateObj);
     } catch (e) {
       console.error("対戦結果の保存エラー:", e);
     }
@@ -1145,8 +1193,44 @@ async function showFinalSeriesResult() {
   document.getElementById('final-series-modal').style.display = "block";
 }
 
-window.finishMatchAndGoLobby = function() {
-  window.location.href = 'online.html';
+window.finishMatchAndNextOrLobby = async function() {
+  const matchSeries = roomData?.match_series || roomData?.selected_series || ["series_01"];
+  const seriesIdList = Array.isArray(matchSeries) ? matchSeries : [matchSeries];
+  const currentSeriesIdx = roomData?.current_series_index || 0;
+  const hasNextSeries = (currentSeriesIdx + 1) < seriesIdList.length;
+
+  isNavigatingAway = true;
+  if (roomUnsubscribe) roomUnsubscribe();
+
+  if (hasNextSeries && roomId) {
+    const roomRef = doc(db, "online_matches", roomId);
+    try {
+      // 次の回戦へ移行するための初期化
+      if (role === 'host') {
+        await updateDoc(roomRef, {
+          current_series_index: currentSeriesIdx + 1,
+          player1_matchup_ready: false,
+          player2_matchup_ready: false,
+          player1_strategy_ready: false,
+          player2_strategy_ready: false,
+          player1_ready: false,
+          player2_ready: false,
+          player1_draft: [null, null, null, null, null],
+          player2_draft: [null, null, null, null, null],
+          player1_entries: [null, null, null, null, null],
+          player2_entries: [null, null, null, null, null],
+          races_mob_ids: null,
+          races_track_conditions: null,
+          status: "entry_selecting"
+        });
+      }
+    } catch (e) {
+      console.error("次回戦移行エラー:", e);
+    }
+    window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}`;
+  } else {
+    window.location.href = 'online.html';
+  }
 };
 </script>
 </body>
