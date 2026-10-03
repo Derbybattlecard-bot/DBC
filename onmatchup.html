@@ -311,9 +311,7 @@
   let deckHorses = [];
   let playerDeckIds = [];
   let oppDeckIds = [];
-  let oppSelectedEntries = [null, null, null, null, null];
   
-  // 過去の回戦（確定済み）で対戦相手が消費した馬のIDリスト
   let oppUsedHorseIdsInPast = [];
 
   let selectedEntries = [null, null, null, null, null];
@@ -400,7 +398,6 @@
     oppDeckIds = (role === 'host') ? (roomData.player2_deck || []) : (roomData.player1_deck || []);
     deckHorses = playerDeckIds.map(id => HORSES_MASTER[String(id)]).filter(Boolean);
 
-    // 過去の確定回戦で相手が既に使用済みの馬IDリストを取得
     const isHost = (role === 'host');
     const oppUsedList = isHost ? (roomData.player2_used_horses || []) : (roomData.player1_used_horses || []);
     oppUsedHorseIdsInPast = oppUsedList.map(id => String(id));
@@ -411,7 +408,7 @@
       return;
     }
 
-    currentRoundIndex = roomData.current_round !== undefined ? roomData.current_round : (roomData.current_race || 0);
+    currentRoundIndex = roomData.current_series_index || roomData.current_round || 0;
 
     let oppName = resolveOpponentName(roomData);
     const oppUid = (role === 'host') ? (roomData.guest_uid || roomData.player2_uid) : (roomData.host_uid || roomData.player1_uid);
@@ -583,7 +580,6 @@
         document.getElementById('opponentName').textContent = freshName;
       }
 
-      // 過去の回戦（確定済み）での使用済み馬リストの更新
       const isHost = (role === 'host');
       const oppUsedList = isHost ? (data.player2_used_horses || []) : (data.player1_used_horses || []);
       
@@ -605,6 +601,7 @@
         }
       }
 
+      // 両者のエントリーが完了したらステータスを strategy_selecting に更新して作戦画面へ
       if (data.player1_matchup_ready && data.player2_matchup_ready) {
         if (roomUnsubscribe) roomUnsubscribe();
         isNavigatingAway = true;
@@ -667,32 +664,22 @@
     }
   }
 
-  /**
-   * 被り馬（同名馬）の出走優先権判定ロジック
-   */
   function checkDuplicateHorsePriority(horseId) {
     const targetIdStr = String(horseId);
     const myIdx = playerDeckIds.findIndex(id => String(id) === targetIdStr);
     const oppIdx = oppDeckIds.findIndex(id => String(id) === targetIdStr);
 
-    // 1. 相手のデックにその馬がいない場合は自由に使用可能
     if (oppIdx === -1) return { canUse: true };
 
-    // 2. 過去の回戦（確定済み）で対戦相手がこの馬を既に使用・消費している場合は、自分も使用可能になる
     if (oppUsedHorseIdsInPast.includes(targetIdStr)) {
       return { canUse: true };
     }
 
-    // 3. まだ過去の回戦で相手が使用していない場合（現在の回戦での選択中を含む）:
-    //    リアルタイムな選択状況（ドラフト）は一切無視し、純粋にデック順およびホスト優先権のみで固定判定する
     if (myIdx < oppIdx) {
-      // 自分のデック馬番の方が若い場合：自分に優先出走権あり
       return { canUse: true };
     } else if (myIdx > oppIdx) {
-      // 相手のデック馬番の方が若い場合：相手に優先出走権あり（現在の回戦では常時使用不可）
       return { canUse: false, reason: "相手優先" };
     } else {
-      // デック馬番が同一の場合：ホスト側に優先出走権あり
       const isHost = (role === 'host');
       if (isHost) {
         return { canUse: true };
@@ -875,6 +862,7 @@
     }
   }
 
+  // ★エントリー完了時に status を strategy_selecting に更新し、次フェーズ用の作戦フラグを初期化する★
   window.submitEntries = async function() {
     if (selectedEntries.includes(null)) {
       alert("全5戦の出走馬を選択してください。");
@@ -886,12 +874,20 @@
     document.getElementById('waitingModal').style.display = 'flex';
 
     const roomRef = doc(db, "online_matches", roomId);
+    
+    // 次の作戦画面に備えて、前回の作戦完了フラグをクリアし status も更新
     const updateData = (role === 'host') ? {
       player1_entries: selectedEntries,
-      player1_matchup_ready: true
+      player1_matchup_ready: true,
+      player1_strategy_ready: false,
+      player1_ready: false,
+      status: "strategy_selecting"
     } : {
       player2_entries: selectedEntries,
-      player2_matchup_ready: true
+      player2_matchup_ready: true,
+      player2_strategy_ready: false,
+      player2_ready: false,
+      status: "strategy_selecting"
     };
 
     try {
