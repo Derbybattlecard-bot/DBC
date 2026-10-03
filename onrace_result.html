@@ -427,7 +427,10 @@
     // Hostが全5戦の計算を行い、Firestoreに保存して共有
     if (role === 'host' && !roomData.simulated_results) {
       try {
-        simulatedRaceResults = generateAllRaceResults(roomData);
+        const rawResults = generateAllRaceResults(roomData);
+        // Firestoreは undefined の値を許可しないため、JSON経由でシリアライズ可能オブジェクトに安全変換
+        simulatedRaceResults = JSON.parse(JSON.stringify(rawResults));
+
         await updateDoc(roomRef, {
           simulated_results: simulatedRaceResults,
           status: "racing"
@@ -435,7 +438,7 @@
         startRaceDisplay();
       } catch (e) {
         console.error("レース計算エラー:", e);
-        alert("レースシミュレーション計算中にエラーが発生しました");
+        alert(`レースシミュレーション計算中にエラーが発生しました:\n${e.message || e}`);
       }
     } else if (roomData.simulated_results && roomData.simulated_results.length > 0) {
       simulatedRaceResults = roomData.simulated_results;
@@ -474,18 +477,20 @@
 
   // 決定論的全5戦ロジック計算
   function generateAllRaceResults(room) {
+    if (!room) throw new Error("ルームデータが存在しません");
+
     const matchSeries = room.match_series || room.selected_series || room.final_series || room.series_id || ["series_01"];
     const seriesIdList = Array.isArray(matchSeries) ? matchSeries : [matchSeries];
     
     let rawRaces = [];
     seriesIdList.forEach((sId) => {
-      const sObj = SERIES_MASTER[sId] || Object.values(SERIES_MASTER)[0] || {};
+      const sObj = (sId && SERIES_MASTER[sId]) || (SERIES_MASTER && Object.values(SERIES_MASTER)[0]) || {};
       const racesInSeries = sObj.races || (sObj.rounds && sObj.rounds[0] ? sObj.rounds[0].races : null);
 
       if (Array.isArray(racesInSeries) && racesInSeries.length > 0) {
         racesInSeries.forEach(r => {
           rawRaces.push({
-            race_name: r.race_name || r.name,
+            race_name: r.race_name || r.name || "対戦レース",
             surface: r.surface || "芝",
             distance: r.distance || 2000,
             sex: r.sex || sObj.sex || "制限なし",
@@ -524,16 +529,21 @@
       });
     }
 
+    const p1Entries = Array.isArray(room.player1_entries) ? room.player1_entries : [];
+    const p2Entries = Array.isArray(room.player2_entries) ? room.player2_entries : [];
+    const p1Strats = Array.isArray(room.player1_strategies) ? room.player1_strategies : [];
+    const p2Strats = Array.isArray(room.player2_strategies) ? room.player2_strategies : [];
+
     const trackConds = room.races_track_conditions || ['良','良','良','良','良'];
     const mobIdsMap = room.races_mob_ids || {};
 
     const results = [];
 
     races.forEach((race, rIdx) => {
-      const p1HorseId = room.player1_entries[rIdx];
-      const p2HorseId = room.player2_entries[rIdx];
-      const p1StratObj = (room.player1_strategies && room.player1_strategies[rIdx]) || { strategy: "先行", strategy_level: 3 };
-      const p2StratObj = (room.player2_strategies && room.player2_strategies[rIdx]) || { strategy: "先行", strategy_level: 3 };
+      const p1HorseId = p1Entries[rIdx] || "0001";
+      const p2HorseId = p2Entries[rIdx] || "0002";
+      const p1StratObj = p1Strats[rIdx] || { strategy: "先行", strategy_level: 3 };
+      const p2StratObj = p2Strats[rIdx] || { strategy: "先行", strategy_level: 3 };
 
       const mobIds = mobIdsMap[rIdx] || mobIdsMap[String(rIdx)] || [];
       const trackCond = trackConds[rIdx] || '良';
@@ -549,28 +559,33 @@
       field.push(buildRunnerData(p2Horse, p2StratObj, race, trackCond, "P2", "Guest Player"));
 
       // モブ馬
-      mobIds.forEach((mId, mIdx) => {
-        const mHorse = HORSES_MASTER[String(mId)] || {};
-        const mStyle = getCleanStyle(mHorse.style || mHorse.running_style || "先行");
-        const mStratName = determineStrategy(mStyle, STRATEGY_MASTER);
-        field.push(buildRunnerData(mHorse, { strategy: mStratName, strategy_level: 3 }, race, trackCond, `MOB_${mIdx}`, "モブ"));
-      });
+      if (Array.isArray(mobIds)) {
+        mobIds.forEach((mId, mIdx) => {
+          const mHorse = HORSES_MASTER[String(mId)] || {};
+          const mStyle = getCleanStyle(mHorse.style || mHorse.running_style || "先行");
+          const mStratName = typeof determineStrategy === 'function' ? determineStrategy(mStyle, STRATEGY_MASTER) : "先行";
+          field.push(buildRunnerData(mHorse, { strategy: mStratName, strategy_level: 3 }, race, trackCond, `MOB_${mIdx}`, "モブ"));
+        });
+      }
 
       // 枠順確定
       field.sort(() => (Math.sin(rIdx * 99 + field.length) - 0.5));
       field.forEach((f, idx) => f.gate_number = idx + 1);
 
       // レース計算エンジン実行
-      const raceCalcResult = runRaceLogic(field, race, trackCond);
+      let raceCalcResult = { runners: field, logs: [], pace_branch: "標準展開", formula_used: "基本計算" };
+      if (typeof runRaceLogic === 'function') {
+        raceCalcResult = runRaceLogic(field, race, trackCond) || raceCalcResult;
+      }
 
       results.push({
         race_index: rIdx,
         race_info: race,
         track_condition: trackCond,
-        runners: raceCalcResult.runners,
-        logs: raceCalcResult.logs,
-        pace_branch: raceCalcResult.pace_branch,
-        formula_used: raceCalcResult.formula_used
+        runners: raceCalcResult.runners || field,
+        logs: raceCalcResult.logs || [],
+        pace_branch: raceCalcResult.pace_branch || "標準展開",
+        formula_used: raceCalcResult.formula_used || "基本計算"
       });
     });
 
