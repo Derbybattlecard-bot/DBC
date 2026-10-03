@@ -268,7 +268,7 @@
   <div class="race-title-panel">
     <div class="race-header-top">
       <div class="race-num-badge" id="display-race-num">RACE 1 / 5</div>
-      <button class="btn-header-reset" onclick="resetBattleStatus()">⚠️ リセット</button>
+      <button class="btn-header-reset" onclick="resetBattleStatus()">⚠️️ リセット</button>
     </div>
     <div class="race-venue-dist" id="display-race-title">---</div>
     <span class="race-condition-badge" id="display-race-cond">馬場: ---</span>
@@ -607,20 +607,11 @@ function ensureStats(h) {
   h.style = h.style || master.style || master.running_style || "自在";
 }
 
-// ミニカード画像の多重フォールバック読み込み
+// ミニカード画像の読み込み（馬ID 4桁.jpg）
 function setHorseCardImage(imgEl, horseId) {
   if (!imgEl) return;
   const formattedId = horseId ? String(horseId).padStart(4, '0') : '0000';
-  imgEl.src = `./images/${formattedId}.png`;
-  imgEl.onerror = () => {
-    imgEl.src = `./images/${formattedId}.jpg`;
-    imgEl.onerror = () => {
-      imgEl.src = `./images/0000.png`;
-      imgEl.onerror = () => {
-        imgEl.src = `./images/0000.jpg`;
-      };
-    };
-  };
+  imgEl.src = `./images/${formattedId}.jpg`;
 }
 
 function setupRace(rIdx) {
@@ -836,7 +827,6 @@ function processAbilityQueue() {
     popup.classList.add('p2-pos');
   }
 
-  // 馬番を消して馬名のみスマートに表示
   horseEl.textContent = item.horse.name;
   const displayMsg = item.popupMessage || item.abilityName;
   nameEl.textContent = `【${displayMsg}】`;
