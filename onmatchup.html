@@ -383,7 +383,6 @@
     oppDeckIds = (role === 'host') ? (roomData.player2_deck || []) : (roomData.player1_deck || []);
     deckHorses = playerDeckIds.map(id => HORSES_MASTER[String(id)]).filter(Boolean);
 
-    // デックデータ未設定・異常時の自動検知＆完全クリーンアップ退室
     if (!deckHorses || deckHorses.length === 0) {
       alert("対戦に必要なデックデータが見つかりません。対戦を終了してロビーへ戻ります。");
       await forceCleanupAndExit();
@@ -406,23 +405,61 @@
     }
     document.getElementById('opponentName').textContent = oppName;
 
-    const matchSeriesIds = roomData.match_series || ["series_01", "series_01", "series_01", "series_01", "series_01"];
-    matchRaces = matchSeriesIds.map((sId, index) => {
-      const sObj = SERIES_MASTER[sId] || Object.values(SERIES_MASTER)[0];
-      const raceInfo = (sObj.rounds && sObj.rounds[0] && sObj.rounds[0].races && sObj.rounds[0].races[0]) 
-                        ? sObj.rounds[0].races[0] 
-                        : (sObj.races ? sObj.races[0] : {});
+    // --- 【修正】必ず全5レースを安全に抽出・補填生成するロジック ---
+    let rawRaces = [];
+    const matchSeries = roomData.match_series || roomData.selected_series || roomData.series_id || ["series_01"];
+    const seriesIdList = Array.isArray(matchSeries) ? matchSeries : [matchSeries];
+    
+    seriesIdList.forEach((sId) => {
+      const sObj = SERIES_MASTER[sId] || Object.values(SERIES_MASTER)[0] || {};
+      const racesInSeries = sObj.races || (sObj.rounds && sObj.rounds[0] ? sObj.rounds[0].races : null);
 
-      return {
-        race_num: index + 1,
-        race_name: raceInfo.race_name || raceInfo.name || `第${index + 1}戦`,
-        surface: raceInfo.surface || "芝",
-        distance: raceInfo.distance || 2000,
-        sex: raceInfo.sex || sObj.sex || "制限なし",
-        series_name: sObj.series_name || sObj.name || "",
-        category: sObj.category || sObj.series_category || "地方交流シリーズ"
-      };
+      if (Array.isArray(racesInSeries) && racesInSeries.length > 0) {
+        racesInSeries.forEach(r => {
+          rawRaces.push({
+            race_name: r.race_name || r.name,
+            surface: r.surface || "芝",
+            distance: r.distance || 2000,
+            sex: r.sex || sObj.sex || "制限なし",
+            series_name: sObj.series_name || sObj.name || "",
+            category: sObj.category || sObj.series_category || "地方交流シリーズ"
+          });
+        });
+      } else {
+        rawRaces.push({
+          race_name: sObj.race_name || sObj.name || "特別競走",
+          surface: sObj.surface || "芝",
+          distance: sObj.distance || 2000,
+          sex: sObj.sex || "制限なし",
+          series_name: sObj.series_name || sObj.name || "",
+          category: sObj.category || sObj.series_category || "地方交流シリーズ"
+        });
+      }
     });
+
+    // 規定の予備レースデータ（データ不足時の自動補填用）
+    const fallbackRaces = [
+      { race_name: "桜花賞", surface: "芝", distance: 1600, sex: "制限なし" },
+      { race_name: "朝日杯FS", surface: "芝", distance: 1600, sex: "制限なし" },
+      { race_name: "毎日王冠", surface: "芝", distance: 1800, sex: "制限なし" },
+      { race_name: "天皇賞(秋)", surface: "芝", distance: 2000, sex: "制限なし" },
+      { race_name: "有馬記念", surface: "芝", distance: 2500, sex: "制限なし" }
+    ];
+
+    matchRaces = [];
+    const firstRaceInfo = rawRaces[0] || {};
+    for (let i = 0; i < 5; i++) {
+      const r = rawRaces[i] || fallbackRaces[i];
+      matchRaces.push({
+        race_num: i + 1,
+        race_name: r.race_name || `第${i + 1}戦`,
+        surface: r.surface || "芝",
+        distance: r.distance || 2000,
+        sex: r.sex || "制限なし",
+        series_name: r.series_name || firstRaceInfo.series_name || "対象シリーズ",
+        category: r.category || firstRaceInfo.category || "地方交流シリーズ"
+      });
+    }
 
     const currentRace = matchRaces[currentRoundIndex] || matchRaces[0];
     const categoryName = currentRace.category || "地方交流シリーズ";
