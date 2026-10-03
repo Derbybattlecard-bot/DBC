@@ -405,7 +405,7 @@
     }
     document.getElementById('opponentName').textContent = oppName;
 
-    // --- 【修正】必ず全5レースを安全に抽出・補填生成するロジック ---
+    // --- 全5レースの抽出・補填生成ロジック ---
     let rawRaces = [];
     const matchSeries = roomData.match_series || roomData.selected_series || roomData.series_id || ["series_01"];
     const seriesIdList = Array.isArray(matchSeries) ? matchSeries : [matchSeries];
@@ -437,7 +437,6 @@
       }
     });
 
-    // 規定の予備レースデータ（データ不足時の自動補填用）
     const fallbackRaces = [
       { race_name: "桜花賞", surface: "芝", distance: 1600, sex: "制限なし" },
       { race_name: "朝日杯FS", surface: "芝", distance: 1600, sex: "制限なし" },
@@ -593,20 +592,57 @@
   }
 
   function getSurfaceLabel(surface) { return (!surface || surface.includes('芝')) ? '芝' : 'ダ'; }
+  
   function getHorsePotential(horse, surface) {
     if (!horse) return 0;
     const isTurf = !surface || surface.includes('芝');
     return isTurf ? Number(horse.turf_potential ?? horse.aptitude?.turf_potential ?? 0)
                   : Number(horse.dirt_potential ?? horse.aptitude?.dirt_potential ?? 0);
   }
+  
   function isValidSurface(horse, surface) { return getHorsePotential(horse, surface) > 0; }
+  
   function isValidSex(horseSex, sexLimit) {
     if (!sexLimit || sexLimit === "制限なし" || sexLimit === "なし") return true;
     const isMare = (horseSex || "").includes("牝");
     return sexLimit.includes("牝") ? isMare : !isMare;
   }
+
   function getHorseLegStyle(horse) {
     return horse?.style || horse?.running_style || horse?.leg_style || horse?.strategy || '-';
+  }
+
+  function getHorseDistanceString(horse) {
+    if (!horse) return '';
+    const minD = horse.min_distance ?? horse.aptitude?.min_distance;
+    const maxD = horse.max_distance ?? horse.aptitude?.max_distance;
+
+    if (minD !== undefined && maxD !== undefined && minD !== null && maxD !== null && minD !== '' && maxD !== '') {
+      return minD === maxD ? `${minD}` : `${minD}-${maxD}`;
+    }
+    if (horse.distance) return String(horse.distance);
+    return '';
+  }
+
+  function isValidDistance(horse, raceDistance) {
+    if (!horse) return false;
+    const target = parseInt(raceDistance, 10);
+    const minD = horse.min_distance ?? horse.aptitude?.min_distance;
+    const maxD = horse.max_distance ?? horse.aptitude?.max_distance;
+
+    if (minD !== undefined && maxD !== undefined && minD !== null && maxD !== null && minD !== '' && maxD !== '') {
+      return target >= Number(minD) && target <= Number(maxD);
+    }
+
+    const distStr = getHorseDistanceString(horse);
+    if (!distStr) return true;
+
+    if (distStr.includes('-')) {
+      const [minStr, maxStr] = distStr.split('-');
+      return target >= parseInt(minStr, 10) && target <= parseInt(maxStr, 10);
+    } else {
+      return parseInt(distStr, 10) === target;
+    }
   }
 
   function checkDuplicateHorsePriority(horseId) {
@@ -706,14 +742,18 @@
         if (!isChosenElsewhere) {
           const opt = document.createElement('option');
           opt.value = horse.horse_id;
-          const info = `${horse.name} (${surfaceLabel}${pt} / ${legStyle} / ${horse.sex || '牡'})`;
+          
+          const ptLabel = pt > 0 ? `${surfaceLabel}${pt}` : '適性外';
+          const info = `${horse.name} (${ptLabel} / ${legStyle} / ${horse.sex || '牡'})`;
 
           const priorityCheck = checkDuplicateHorsePriority(horse.horse_id);
 
           if (!isValidSex(horse.sex, raceSexLimit)) {
             opt.textContent = `[性別不可] ${info}`; opt.disabled = true;
           } else if (!isValidSurface(horse, race.surface)) {
-            opt.textContent = `[馬場不可] ${info}`; opt.disabled = true;
+            opt.textContent = `[適性外] ${info}`; opt.disabled = true;
+          } else if (!isValidDistance(horse, race.distance)) {
+            opt.textContent = `[距離不可] ${info}`; opt.disabled = true;
           } else if (pt < minPtPerRace) {
             opt.textContent = `[Pt不足] ${info}`; opt.disabled = true;
           } else if (!priorityCheck.canUse) {
@@ -741,9 +781,12 @@
       const horse = HORSES_MASTER[String(horseId)];
       const race = matchRaces[raceIdx];
       const pt = getHorsePotential(horse, race.surface);
+      const isSurfaceValid = isValidSurface(horse, race.surface);
+      const ptDisplay = isSurfaceValid ? `${getSurfaceLabel(race.surface)}${pt}` : '適性外';
+
       preview.innerHTML = `
-        <span><strong>${getSurfaceLabel(race.surface)}${pt}</strong> | 脚質: <strong>${getHorseLegStyle(horse)}</strong> | 性: <strong>${horse.sex||'牡'}</strong></span>
-        <span>適性馬場OK</span>
+        <span><strong>${ptDisplay}</strong> | 脚質: <strong>${getHorseLegStyle(horse)}</strong> | 性: <strong>${horse.sex||'牡'}</strong></span>
+        <span>${isSurfaceValid ? '適性馬場OK' : '<span style="color:var(--danger-color)">適性外</span>'}</span>
       `;
     } else {
       preview.innerHTML = `<span>適性: - | 脚質: - | 性別: -</span><span>ポテンシャル: -</span>`;
@@ -757,11 +800,17 @@
     const maxTotalPt = 85;
     let totalPt = 0;
     let count = 0;
+    let hasDistError = false;
 
     selectedEntries.forEach((id, rIdx) => {
       if (id && HORSES_MASTER[String(id)] && matchRaces[rIdx]) {
         count++;
-        totalPt += getHorsePotential(HORSES_MASTER[String(id)], matchRaces[rIdx].surface);
+        const horse = HORSES_MASTER[String(id)];
+        const race = matchRaces[rIdx];
+        totalPt += getHorsePotential(horse, race.surface);
+        if (!isValidDistance(horse, race.distance)) {
+          hasDistError = true;
+        }
       }
     });
 
@@ -775,7 +824,11 @@
     const isAllSelected = count === 5;
     const isPtValid = totalPt <= maxTotalPt;
 
-    if (isAllSelected && isPtValid) {
+    if (hasDistError) {
+      limitEl.textContent = "距離適性違反";
+      limitEl.className = "status-val error";
+      startBtn.disabled = true;
+    } else if (isAllSelected && isPtValid) {
       limitEl.textContent = "OK";
       limitEl.className = "status-val ok";
       startBtn.disabled = false;
