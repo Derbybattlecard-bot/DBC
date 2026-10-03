@@ -56,7 +56,6 @@
     font-size: 12px;
   }
 
-  /* 相手のステータスパネル */
   .opponent-status-panel {
     background: #faf5ff;
     border: 2px solid var(--accent-color);
@@ -128,7 +127,6 @@
   .cond-重 { background-color: #ea580c; }
   .cond-不良 { background-color: #dc2626; }
 
-  /* 出走モブ脚質プレビュー */
   .mob-field-preview {
     background: #f3e8ff;
     border: 1px solid #d8b4fe;
@@ -220,7 +218,6 @@
   }
   .btn-submit:disabled { background: #9ca3af; box-shadow: none; cursor: not-allowed; }
 
-  /* 待機モーダル */
   .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 15px; }
   .modal-content { background: #fff; border-radius: 12px; padding: 25px; width: 100%; max-width: 320px; text-align: center; }
   .spinner { width: 40px; height: 40px; border: 4px solid #f3e8ff; border-top: 4px solid var(--accent-color); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px auto; }
@@ -236,11 +233,10 @@
     <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中</div>
   </div>
 
-  <!-- 相手の作戦設定状況表示 -->
   <div class="opponent-status-panel">
     <div>
       <span style="font-size: 10px; color: var(--text-sub); display: block;">対戦相手</span>
-      <strong id="opponentName" style="font-size: 13px;">対戦相手</strong>
+      <strong id="opponentName" style="font-size: 13px;">対戦相手を取得中...</strong>
     </div>
     <div id="opponentStatusBadge" class="opponent-badge selecting">作戦思案中…</div>
   </div>
@@ -265,7 +261,6 @@
   <button class="btn-submit" id="btnGoRace" disabled onclick="submitStrategies()">作戦確定・対戦開始！</button>
 </div>
 
-<!-- 相手の完了待ちモーダル -->
 <div class="modal-overlay" id="waitingModal">
   <div class="modal-content">
     <div class="spinner"></div>
@@ -281,11 +276,11 @@
 
   let currentUser = null;
   let globalUserData = null;
-  let SERIES_MASTER = [];
+  let SERIES_MASTER = {};
   let HORSES_MASTER = {};
   let STRATEGY_MASTER = [];
 
-  let currentSeries = null;
+  let matchRaces = [];
   let playerEntries = [];
   let opponentEntries = [];
   let racesMobIds = {};
@@ -304,7 +299,7 @@
 
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('roomId');
-  const role = urlParams.get('role'); // host または guest
+  const role = urlParams.get('role');
 
   const MAX_TOTAL_LEVEL = 18;
 
@@ -332,7 +327,12 @@
         fetchJsonSafe('horses_master.json')
       ]);
 
-      SERIES_MASTER = seriesData || [];
+      if (Array.isArray(seriesData)) {
+        seriesData.forEach(s => { SERIES_MASTER[s.series_id || s.id] = s; });
+      } else {
+        SERIES_MASTER = seriesData;
+      }
+
       if (Array.isArray(horsesData)) {
         horsesData.forEach(h => { 
           const idStr = String(h.horse_id);
@@ -369,8 +369,8 @@
   function getHorsePt(horse, surface) {
     if (!horse) return 0;
     const isTurf = !surface || surface.includes('芝');
-    return isTurf ? (horse.turf_potential ?? horse.aptitude?.turf_potential ?? 0)
-                  : (horse.dirt_potential ?? horse.aptitude?.dirt_potential ?? 0);
+    return isTurf ? Number(horse.turf_potential ?? horse.aptitude?.turf_potential ?? 0)
+                  : Number(horse.dirt_potential ?? horse.aptitude?.dirt_potential ?? 0);
   }
 
   function getHorseStyle(horse) {
@@ -382,12 +382,22 @@
     if (!style) return "先行して粘り込み";
     const s = String(style);
     let catName = '先行';
-    if (s.includes('逃')) catName = '逃げ';
+    if (s.includes('大逃') || s.includes('逃')) catName = '逃げ';
     else if (s.includes('差')) catName = '差し';
     else if (s.includes('追')) catName = '追込';
 
     const match = STRATEGY_MASTER.find(item => item.category === catName || item.style === catName);
-    return match ? (match.name || match.strategy_name) : "先行して粘り込み";
+    return match ? (match.name || match.strategy_name || match.strategy) : "先行して粘り込み";
+  }
+
+  function resolveOpponentName(roomData) {
+    const isHost = (role === 'host');
+    const directName = isHost 
+      ? (roomData.guest_name || roomData.guestName || roomData.player2_name || roomData.p2_name)
+      : (roomData.host_name || roomData.hostName || roomData.player1_name || roomData.p1_name);
+
+    if (directName) return directName;
+    return isHost ? "ゲストプレイヤー" : "ホストプレイヤー";
   }
 
   async function initStrategyPage() {
@@ -407,10 +417,21 @@
     }
 
     const roomData = roomSnap.data();
-    const seriesId = roomData.series_id || "series_01";
-    currentSeries = SERIES_MASTER.find(s => s.series_id === seriesId) || SERIES_MASTER[0] || {};
 
-    // ホスト / ゲストでの各データの割り当て
+    let oppName = resolveOpponentName(roomData);
+    const oppUid = (role === 'host') ? (roomData.guest_uid || roomData.player2_uid) : (roomData.host_uid || roomData.player1_uid);
+    if (oppUid) {
+      try {
+        const oppUserSnap = await getDoc(doc(db, "users", oppUid));
+        if (oppUserSnap.exists()) {
+          const uData = oppUserSnap.data();
+          oppName = uData.nickname || uData.displayName || uData.name || uData.userName || oppName;
+        }
+      } catch (err) {}
+    }
+    const oppNameEl = document.getElementById('opponentName');
+    if (oppNameEl) oppNameEl.textContent = oppName;
+
     if (role === 'host') {
       playerEntries = roomData.player1_entries || [];
       opponentEntries = roomData.player2_entries || [];
@@ -422,7 +443,53 @@
     racesMobIds = roomData.races_mob_ids || {};
     loadedTrackConditions = roomData.races_track_conditions || ['良', '良', '良', '良', '良'];
 
-    // 初期作戦の割り当て
+    let rawRaces = [];
+    const matchSeries = roomData.match_series || roomData.selected_series || roomData.final_series || roomData.series_id || ["series_01"];
+    const seriesIdList = Array.isArray(matchSeries) ? matchSeries : [matchSeries];
+    
+    seriesIdList.forEach((sId) => {
+      const sObj = SERIES_MASTER[sId] || Object.values(SERIES_MASTER)[0] || {};
+      const racesInSeries = sObj.races || (sObj.rounds && sObj.rounds[0] ? sObj.rounds[0].races : null);
+
+      if (Array.isArray(racesInSeries) && racesInSeries.length > 0) {
+        racesInSeries.forEach(r => {
+          rawRaces.push({
+            race_name: r.race_name || r.name,
+            surface: r.surface || "芝",
+            distance: r.distance || 2000,
+            sex: r.sex || sObj.sex || "制限なし"
+          });
+        });
+      } else {
+        rawRaces.push({
+          race_name: sObj.race_name || sObj.name || "特別競走",
+          surface: sObj.surface || "芝",
+          distance: sObj.distance || 2000,
+          sex: sObj.sex || "制限なし"
+        });
+      }
+    });
+
+    const fallbackRaces = [
+      { race_name: "桜花賞", surface: "芝", distance: 1600, sex: "制限なし" },
+      { race_name: "朝日杯FS", surface: "芝", distance: 1600, sex: "制限なし" },
+      { race_name: "毎日王冠", surface: "芝", distance: 1800, sex: "制限なし" },
+      { race_name: "天皇賞(秋)", surface: "芝", distance: 2000, sex: "制限なし" },
+      { race_name: "有馬記念", surface: "芝", distance: 2500, sex: "制限なし" }
+    ];
+
+    matchRaces = [];
+    for (let i = 0; i < 5; i++) {
+      const r = rawRaces[i] || fallbackRaces[i];
+      matchRaces.push({
+        race_num: i + 1,
+        race_name: r.race_name || `第${i + 1}戦`,
+        surface: r.surface || "芝",
+        distance: r.distance || 2000,
+        sex: r.sex || "制限なし"
+      });
+    }
+
     playerEntries.forEach((hId, rIdx) => {
       const horse = HORSES_MASTER[String(hId)];
       const style = getHorseStyle(horse);
@@ -435,7 +502,6 @@
     listenRoomStatus();
   }
 
-  // リアルタイムリスナー (相手の完了検知 & 切断監視)
   function listenRoomStatus() {
     const roomRef = doc(db, "online_matches", roomId);
     roomUnsubscribe = onSnapshot(roomRef, (snapshot) => {
@@ -451,18 +517,18 @@
         return;
       }
 
-      // 相手の作戦完了バッジ更新
       const opponentReady = (role === 'host') ? data.player2_strategy_ready : data.player1_strategy_ready;
       const badge = document.getElementById('opponentStatusBadge');
-      if (opponentReady) {
-        badge.textContent = "作戦決定完了！";
-        badge.className = "opponent-badge ready";
-      } else {
-        badge.textContent = "作戦思案中…";
-        badge.className = "opponent-badge selecting";
+      if (badge) {
+        if (opponentReady) {
+          badge.textContent = "作戦決定完了！";
+          badge.className = "opponent-badge ready";
+        } else {
+          badge.textContent = "作戦思案中…";
+          badge.className = "opponent-badge selecting";
+        }
       }
 
-      // 双方完了したら自動遷移（対戦結果画面へ）
       if (data.player1_strategy_ready && data.player2_strategy_ready) {
         if (roomUnsubscribe) roomUnsubscribe();
         isNavigatingAway = true;
@@ -472,11 +538,10 @@
   }
 
   function renderRaceCards() {
-    const races = (currentSeries?.rounds && currentSeries.rounds[0]?.races) || [{},{},{},{},{}];
     const container = document.getElementById('raceCardList');
     container.innerHTML = '';
 
-    races.forEach((race, rIdx) => {
+    matchRaces.forEach((race, rIdx) => {
       const myHorseId = playerEntries[rIdx];
       const myHorse = HORSES_MASTER[String(myHorseId)] || {};
       const myPt = getHorsePt(myHorse, race.surface);
@@ -490,19 +555,21 @@
       const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
       const trackCond = loadedTrackConditions[rIdx] || '良';
 
-      // モブ馬脚質集計
       const styleCounts = { "逃げ": 0, "先行": 0, "差し": 0, "追込": 0 };
       mobIds.forEach(mId => {
         const mob = HORSES_MASTER[String(mId)];
+        if (!mob) return;
         const style = getHorseStyle(mob);
-        if (styleCounts[style] !== undefined) styleCounts[style]++;
+        if (style.includes('大逃') || style.includes('逃')) styleCounts["逃げ"]++;
+        else if (style.includes('先') || style.includes('好')) styleCounts["先行"]++;
+        else if (style.includes('差')) styleCounts["差し"]++;
+        else styleCounts["追込"]++;
       });
 
       const card = document.createElement('div');
       card.className = 'race-card';
       const surfaceClass = (race.surface && race.surface.includes('芝')) ? 'surface-turf' : 'surface-dirt';
 
-      // 作戦ドロップダウン用HTML
       let stratOptionsHtml = '';
       const categories = [
         { prefix: 'NIGE_',   catName: '逃げ', title: '【逃げ系】' },
@@ -531,7 +598,6 @@
         levelOptionsHtml += `<option value="${lvl}" ${lvl === 3 ? 'selected' : ''}>Lv.${lvl}</option>`;
       }
 
-      // 出走メンバー確認用テーブル（※枠順・馬番はまだ決定していないため非表示/- 表示）
       let gridRowsHtml = `
         <tr class="row-player">
           <td>-</td>
@@ -571,7 +637,6 @@
           </div>
         </div>
 
-        <!-- 出走モブ脚質展開 -->
         <div class="mob-field-preview">
           <span style="font-weight:bold; color:var(--accent-color);">🏇 出走モブ脚質分布:</span>
           <div class="mob-style-counts">
@@ -656,7 +721,6 @@
     }
   }
 
-  // 作戦確定送信
   window.submitStrategies = async function() {
     const btn = document.getElementById('btnGoRace');
     btn.disabled = true;
@@ -681,7 +745,6 @@
     }
   };
 
-  // 離脱処理
   window.leaveMatch = async function() {
     if (confirm("対戦を途中で退室しますか？（相手には不戦勝となります）")) {
       isNavigatingAway = true;
