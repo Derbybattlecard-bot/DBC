@@ -499,11 +499,10 @@
 
   function listenRoomStatus() {
     const roomRef = doc(db, "online_matches", roomId);
-    roomUnsubscribe = onSnapshot(roomRef, (snapshot) => {
+    roomUnsubscribe = onSnapshot(roomRef, async (snapshot) => {
       if (!snapshot.exists()) return;
       const data = snapshot.data();
 
-      // 既に画面遷移中の場合は何もしない
       if (isNavigatingAway) return;
 
       if (data.status === "cancelled") {
@@ -513,7 +512,6 @@
         return;
       }
 
-      // 準備状態の判定（キー名の表記揺れにも柔軟に対応）
       const p1Ready = !!(data.player1_strategy_ready || data.player1_ready);
       const p2Ready = !!(data.player2_strategy_ready || data.player2_ready);
       const opponentReady = (role === 'host') ? p2Ready : p1Ready;
@@ -529,10 +527,19 @@
         }
       }
 
-      // 両者の作戦設定が完了したら同時にレース画面へ遷移
+      // 両者の作戦設定が完了したら status: "race_running" に更新してレース画面へ遷移
       if (p1Ready && p2Ready) {
         isNavigatingAway = true;
         if (roomUnsubscribe) roomUnsubscribe();
+
+        if (role === 'host') {
+          try {
+            await updateDoc(roomRef, { status: "race_running" });
+          } catch (err) {
+            console.error("ステータス更新エラー:", err);
+          }
+        }
+
         window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}`;
       }
     });
@@ -728,7 +735,6 @@
     document.getElementById('waitingModal').style.display = 'flex';
 
     const roomRef = doc(db, "online_matches", roomId);
-    // 両方のキー名を同時にセットして互換性を担保
     const updateData = (role === 'host') ? {
       player1_strategies: myStrategies,
       player1_strategy_ready: true,
