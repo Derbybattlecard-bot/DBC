@@ -216,11 +216,6 @@
   }
   .error-title { color: var(--opponent-color); font-size: 1.3em; font-weight: bold; margin-bottom: 10px; }
   .error-msg { font-size: 0.9em; margin-bottom: 20px; line-height: 1.5; color: #ddd; }
-  .btn-reset {
-    background: linear-gradient(135deg, #cc2222, #990000); color: #fff; font-weight: bold;
-    font-size: 1em; cursor: pointer; border: 1px solid #ff6666; width: 100%; padding: 12px;
-    border-radius: 6px; margin-bottom: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.4);
-  }
   .btn-secondary {
     background: #333; color: #ccc; font-weight: bold; font-size: 0.9em; cursor: pointer;
     border: 1px solid #555; width: 100%; padding: 10px; border-radius: 6px;
@@ -356,6 +351,7 @@ let globalUserData = null;
 let roomData = null;
 
 let currentRaceIndex = 0;
+// 1シリーズは必ず5レース固定
 let totalRounds = 5;
 let fullRaceGrids = [];
 let trackCondition = "良";
@@ -382,7 +378,7 @@ let oppNameStr = "対戦相手";
 
 const urlParams = new URLSearchParams(window.location.search);
 const roomId = urlParams.get('roomId');
-const role = urlParams.get('role'); // 'host' または 'guest'
+const role = urlParams.get('role');
 
 window.showErrorModal = function(msg) {
   const msgEl = document.getElementById('error-modal-msg');
@@ -514,8 +510,8 @@ function buildRaceGridsFromOnlineData() {
 
   const racesMobIds = roomData.races_mob_ids || {};
   
-  const matchSeries = roomData.match_series || [];
-  totalRounds = matchSeries.length > 0 ? matchSeries.length : 5;
+  // 1シリーズ＝必ず5レース
+  totalRounds = 5;
 
   if (!myEntries || myEntries.length < totalRounds || !oppEntries || oppEntries.length < totalRounds) {
     showErrorModal("出走馬エントリーデータが見つかりません。");
@@ -527,10 +523,10 @@ function buildRaceGridsFromOnlineData() {
   for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
     const grid = [];
 
-    // 1. 自分 (YOU) の馬
+    // 1. 自分 (YOU) の馬（データ欠損時の安全フォールバック付き）
     const myHorseId = String(myEntries[rIdx]);
     const myMaster = HORSES_MASTER[myHorseId] || { name: "自馬", horse_id: myHorseId };
-    const myStratObj = myStrats[rIdx] || {};
+    const myStratObj = (myStrats && myStrats[rIdx]) ? myStrats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
 
     grid.push({
       ...myMaster,
@@ -538,15 +534,15 @@ function buildRaceGridsFromOnlineData() {
       isCpu: false,
       isOpponent: false,
       ownerName: myNameStr,
-      tactic: myStratObj.strategy || "先行",
+      tactic: myStratObj.strategy || "先行して粘り込み",
       level: myStratObj.strategy_level || 3,
       gate_number: isHost ? 1 : 2
     });
 
-    // 2. 相手 (OPPONENT) の馬
+    // 2. 相手 (OPPONENT) の馬（データ欠損時の安全フォールバック付き）
     const oppHorseId = String(oppEntries[rIdx]);
     const oppMaster = HORSES_MASTER[oppHorseId] || { name: "相手馬", horse_id: oppHorseId };
-    const oppStratObj = oppStrats[rIdx] || {};
+    const oppStratObj = (oppStrats && oppStrats[rIdx]) ? oppStrats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
 
     grid.push({
       ...oppMaster,
@@ -554,7 +550,7 @@ function buildRaceGridsFromOnlineData() {
       isCpu: false,
       isOpponent: true,
       ownerName: oppNameStr,
-      tactic: oppStratObj.strategy || "先行",
+      tactic: oppStratObj.strategy || "先行して粘り込み",
       level: oppStratObj.strategy_level || 3,
       gate_number: isHost ? 2 : 1
     });
@@ -613,19 +609,20 @@ function setupRace(rIdx) {
   const racesTrackConditions = roomData?.races_track_conditions || [];
   trackCondition = racesTrackConditions[rIdx] || "良";
 
-  const matchSeries = roomData?.match_series || [];
-  const seriesId = matchSeries[rIdx];
+  // 現在のシリーズ情報を正確にロード
+  const matchSeries = roomData?.match_series || roomData?.selected_series || ["series_01"];
+  const currentSeriesIndex = roomData?.current_series_index || 0;
+  const seriesId = Array.isArray(matchSeries) ? (matchSeries[currentSeriesIndex] || matchSeries[0]) : matchSeries;
   const seriesInfo = seriesMasterData[seriesId] || Object.values(seriesMasterData)[0] || {};
   
+  const racesInSeries = seriesInfo.races || (seriesInfo.rounds && seriesInfo.rounds[0] ? seriesInfo.rounds[0].races : null);
   let roundRace = null;
-  if (seriesInfo.races && seriesInfo.races[0]) {
-    roundRace = seriesInfo.races[0];
-  } else if (seriesInfo.rounds && seriesInfo.rounds[0] && seriesInfo.rounds[0].races) {
-    roundRace = seriesInfo.rounds[0].races[0];
+  if (Array.isArray(racesInSeries) && racesInSeries[rIdx]) {
+    roundRace = racesInSeries[rIdx];
   }
 
   currentRaceInfo = roundRace || {
-    race_name: seriesInfo.series_name || seriesInfo.name || "特別競走",
+    race_name: seriesInfo.series_name || seriesInfo.name || `第${rIdx + 1}戦`,
     track: seriesInfo.track || "中山",
     surface: seriesInfo.surface || "芝",
     distance: seriesInfo.distance || 2000
@@ -704,7 +701,7 @@ function setupRace(rIdx) {
   const playerObj = activeHorses.find(h => h.isPlayer) || { name: "自馬", tactic: "先行", level: 3 };
   const oppObj = activeHorses.find(h => h.isOpponent) || { name: "相手馬", tactic: "逃げ", level: 3 };
 
-  document.getElementById('display-race-num').textContent = `RACE ${rIdx + 1} / ${totalRounds}`;
+  document.getElementById('display-race-num').textContent = `RACE ${rIdx + 1} / 5`;
   document.getElementById('display-race-title').textContent = `${currentRaceInfo.race_name}（${currentRaceInfo.track} ${currentRaceInfo.surface} ${currentRaceInfo.distance}m）`;
   document.getElementById('display-race-cond').textContent = `馬場: ${trackCondition}`;
   
