@@ -197,9 +197,12 @@
         batch.delete(qDoc.ref);
       });
 
+      // システム仕様書で定義されている未終了の全対戦ステータスをクリーンアップ対象にする[span_0](start_span)[span_0](end_span)
+      const activeStatuses = ["matching", "deck_selecting", "entry_selecting", "racing", "ready", "playing"];
+
       const matchesRef = collection(db, "online_matches");
-      const qHost = query(matchesRef, where("host_uid", "==", userId), where("status", "in", ["matching", "ready", "playing"]));
-      const qGuest = query(matchesRef, where("guest_uid", "==", userId), where("status", "in", ["matching", "ready", "playing"]));
+      const qHost = query(matchesRef, where("host_uid", "==", userId), where("status", "in", activeStatuses));
+      const qGuest = query(matchesRef, where("guest_uid", "==", userId), where("status", "in", activeStatuses));
       
       const [hostSnap, guestSnap] = await Promise.all([getDocs(qHost), getDocs(qGuest)]);
 
