@@ -313,6 +313,7 @@
   let oppDeckIds = [];
   
   let oppUsedHorseIdsInPast = [];
+  let initialCardPriorities = {};
 
   let selectedEntries = [null, null, null, null, null];
   let racesMobData = {}; 
@@ -401,6 +402,7 @@
     const isHost = (role === 'host');
     const oppUsedList = isHost ? (roomData.player2_used_horses || []) : (roomData.player1_used_horses || []);
     oppUsedHorseIdsInPast = oppUsedList.map(id => String(id));
+    initialCardPriorities = roomData.initial_card_priorities || {};
 
     if (!deckHorses || deckHorses.length === 0) {
       alert("対戦に必要なデックデータが見つかりません。対戦を終了してロビーへ戻ります。");
@@ -601,11 +603,12 @@
         }
       }
 
-      // 両者のエントリーが完了したらステータスを strategy_selecting に更新して作戦画面へ
+      // 両者のエントリーが完了したら作戦指示画面へ
       if (data.player1_matchup_ready && data.player2_matchup_ready) {
         if (roomUnsubscribe) roomUnsubscribe();
         isNavigatingAway = true;
-        window.location.href = `onstrategy.html?roomId=${roomId}&role=${role}`;
+        const modeQuery = matchMode ? `&mode=${matchMode}` : '';
+        window.location.href = `onstrategy.html?roomId=${roomId}&role=${role}${modeQuery}`;
       }
     });
   }
@@ -664,23 +667,41 @@
     }
   }
 
+  // ★仕様書第6章：優先出走権（initial_card_priorities / used_horses）の判定判定★
   function checkDuplicateHorsePriority(horseId) {
     const targetIdStr = String(horseId);
+    const isHost = (role === 'host');
+    const myRoleKey = isHost ? 'host' : 'guest';
+
+    // 1. 相手が過去ラウンドで使用済みであればロック解除（使える）
+    if (oppUsedHorseIdsInPast.includes(targetIdStr)) {
+      return { canUse: true };
+    }
+
+    // 2. 事前構築された initial_card_priorities があればそちらを優先参照
+    if (initialCardPriorities && initialCardPriorities[targetIdStr]) {
+      const priorityOwner = initialCardPriorities[targetIdStr]; // 'host' / 'guest' / 'p1' / 'p2'
+      const isMyPriority = (priorityOwner === myRoleKey) || 
+                           (isHost && (priorityOwner === 'p1' || priorityOwner === 'player1')) ||
+                           (!isHost && (priorityOwner === 'p2' || priorityOwner === 'player2'));
+      if (isMyPriority) {
+        return { canUse: true };
+      } else {
+        return { canUse: false, reason: "相手優先" };
+      }
+    }
+
+    // 3. initial_card_priorities がない場合のフォールバック（デック内位置・ホスト優先）
     const myIdx = playerDeckIds.findIndex(id => String(id) === targetIdStr);
     const oppIdx = oppDeckIds.findIndex(id => String(id) === targetIdStr);
 
     if (oppIdx === -1) return { canUse: true };
-
-    if (oppUsedHorseIdsInPast.includes(targetIdStr)) {
-      return { canUse: true };
-    }
 
     if (myIdx < oppIdx) {
       return { canUse: true };
     } else if (myIdx > oppIdx) {
       return { canUse: false, reason: "相手優先" };
     } else {
-      const isHost = (role === 'host');
       if (isHost) {
         return { canUse: true };
       } else {
@@ -862,7 +883,7 @@
     }
   }
 
-  // ★エントリー完了時に status を strategy_selecting に更新し、次フェーズ用の作戦フラグを初期化する★
+  // ★エントリー完了処理★
   window.submitEntries = async function() {
     if (selectedEntries.includes(null)) {
       alert("全5戦の出走馬を選択してください。");
@@ -875,7 +896,6 @@
 
     const roomRef = doc(db, "online_matches", roomId);
     
-    // 次の作戦画面に備えて、前回の作戦完了フラグをクリアし status も更新
     const updateData = (role === 'host') ? {
       player1_entries: selectedEntries,
       player1_matchup_ready: true,
@@ -916,11 +936,13 @@
         const resetData = isHost ? {
           player1_ready: false,
           player1_matchup_ready: false,
+          p1_status: "deck_selecting",
           player1_draft: [null, null, null, null, null],
           player1_entries: [null, null, null, null, null]
         } : {
           player2_ready: false,
           player2_matchup_ready: false,
+          p2_status: "deck_selecting",
           player2_draft: [null, null, null, null, null],
           player2_entries: [null, null, null, null, null]
         };
