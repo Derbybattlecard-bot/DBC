@@ -281,7 +281,7 @@
   <div id="commentary-box">
     <div style="color: var(--accent-green); font-weight: bold; font-size: 0.8em;">【対戦実況中継】</div>
     <div id="log-content">オンライン出走データを読み込み中...</div>
-    <button class="btn-next" id="nextBtn" onclick="handleButtonClick()">🏁 レーススタート！</button>
+    <button class="btn-next" id="nextBtn" onclick="handleButtonClick()" disabled>⏳ 出走準備中...</button>
   </div>
 
   <div class="vs-container">
@@ -409,6 +409,7 @@ let myNameStr = "あなた";
 let oppNameStr = "対戦相手";
 let roomUnsubscribe = null;
 let isNavigatingAway = false;
+let isCalculating = false; // レース結果計算中のフラグ
 
 const urlParams = new URLSearchParams(window.location.search);
 const roomId = urlParams.get('roomId');
@@ -615,8 +616,16 @@ function listenRoomStatus() {
         oppStatusBadge.className = "status-badge ready";
       }
 
-      if (role === 'host' && !data.race_results_cache) {
+      // ホストかつ計算未完了の場合、全レース計算を実行
+      if (role === 'host' && !data.race_results_cache && !isCalculating) {
+        isCalculating = true;
+        if (startBtn && raceState === 'ready') {
+          startBtn.disabled = true;
+          startBtn.innerText = "⏳ レース結果を計算中...";
+        }
         await calculateAndUploadAllRaces();
+        isCalculating = false;
+        return; // 書き込み完了後の onSnapshot に任せる
       }
 
       if (data.race_results_cache && data.race_results_cache.length === 5) {
@@ -891,11 +900,14 @@ function setupRace(rIdx) {
 
   renderLanes();
 
+  // 初期状態ではボタンを「待機中」として設定する
   const btn = document.getElementById('nextBtn');
-  btn.disabled = false;
-  btn.innerText = "🏁 レーススタート！";
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = "⏳ 相手の作戦完了を待っています...";
+  }
   document.getElementById('result-container').style.display = "none";
-  updateLog(`第${rIdx + 1}戦（${currentRaceInfo.race_name}）の出走準備が完了しました。`);
+  updateLog(`第${rIdx + 1}戦（${currentRaceInfo.race_name}）の出走準備を行っています...`);
 }
 
 function getKana3(name) {
@@ -1027,7 +1039,6 @@ async function startRace() {
     return;
   }
 
-  // ★重要修正: キャッシュされた計算結果を「現在の端末（自分）」の視点に再同期・ローカライズする
   const rawResults = JSON.parse(JSON.stringify(raceResultData.results));
   const isHost = (role === 'host');
   const myGateNum = isHost ? 1 : 2;
@@ -1265,7 +1276,6 @@ function renderResults(scoredList) {
   document.getElementById('result-container').style.display = "block";
 }
 
-// ★修正: 常に「自分の馬(isPlayer)」と「相手の馬(isOpponent)」を着順比較して勝者を判定する
 function recordHistory(scoredList) {
   const myHorse = scoredList.find(h => h.isPlayer);
   const oppHorse = scoredList.find(h => h.isOpponent);
