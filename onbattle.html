@@ -220,6 +220,10 @@
   .tr-locked { background-color: #fef2f2; color: #991b1b; }
   .badge-locked { background: #ef4444; color: white; padding: 1px 4px; border-radius: 3px; font-size: 9px; margin-left: 4px; }
 
+  /* 使用済み馬の表示スタイル */
+  .tr-used { background-color: #f3f4f6 !important; color: #9ca3af !important; text-decoration: line-through; }
+  .badge-used { background: #6b7280; color: white; padding: 1px 4px; border-radius: 3px; font-size: 9px; margin-left: 4px; text-decoration: none; display: inline-block; }
+
   .btn-start { background: linear-gradient(135deg, #f97316, #ea580c); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; box-shadow: 0 4px 0 #c2410c; width: 100%; transition: all 0.1s; }
   .btn-start:disabled { background: #9ca3af; box-shadow: none; cursor: not-allowed; opacity: 0.6; }
   .btn-start:active:not(:disabled) { transform: translateY(4px); box-shadow: none; }
@@ -608,7 +612,12 @@
     const deck = (globalUserData.decks || [])[selectedDeckIndex] || { horse_ids: [] };
 
     const isHost = (role === 'host');
+    // 自分の使用済み馬および相手の使用済み馬を取得
+    const myUsedHorses = roomDataCache ? (isHost ? (roomDataCache.player1_used_horses || []) : (roomDataCache.player2_used_horses || [])) : [];
     const oppUsedHorses = roomDataCache ? (isHost ? (roomDataCache.player2_used_horses || []) : (roomDataCache.player1_used_horses || [])) : [];
+    
+    const myUsedSet = new Set(myUsedHorses.map(id => String(id)));
+    const oppUsedSet = new Set(oppUsedHorses.map(id => String(id)));
     const priorities = roomDataCache?.initial_card_priorities || {};
 
     for (let i = 0; i < 18; i++) {
@@ -617,24 +626,37 @@
       const tr = document.createElement('tr');
 
       if (horse) {
+        const hIdStr = String(horseId);
+        const isMyUsed = myUsedSet.has(hIdStr);
         let isLocked = false;
-        if (horseId && priorities[horseId]) {
+
+        // 自分が過去に使っておらず、相手に優先権がある場合は重複ロック
+        if (!isMyUsed && horseId && priorities[horseId]) {
           const priorityOwner = priorities[horseId];
           const myRoleKey = isHost ? 'host' : 'guest';
-          if (priorityOwner !== myRoleKey && !oppUsedHorses.includes(String(horseId))) {
+          if (priorityOwner !== myRoleKey && !oppUsedSet.has(hIdStr)) {
             isLocked = true;
           }
         }
 
-        if (isLocked) {
+        if (isMyUsed) {
+          tr.className = 'tr-used';
+        } else if (isLocked) {
           tr.className = 'tr-locked';
+        }
+
+        let badgeHtml = '';
+        if (isMyUsed) {
+          badgeHtml = '<span class="badge-used">使用済み</span>';
+        } else if (isLocked) {
+          badgeHtml = '<span class="badge-locked">重複ロック中</span>';
         }
 
         tr.innerHTML = `
           <td>${i + 1}</td>
           <td class="horse-name-cell">
             ${horse.name}
-            ${isLocked ? '<span class="badge-locked">重複ロック中</span>' : ''}
+            ${badgeHtml}
           </td>
           <td>${horse.sex || '牡'}</td>
           <td>${horse.surface || '芝'}</td>
@@ -1136,10 +1158,18 @@
     const updateData = isHost ? {
       player1_deck: selectedDeck.horse_ids || [],
       player1_ready: true,
+      player1_matchup_ready: false,                    // ★onmatchup用の準備フラグをリセット
+      player1_strategy_ready: false,                   // ★作戦画面用の準備フラグをリセット
+      player1_entries: [null, null, null, null, null], // ★エントリー選択をクリア
+      player1_draft: [null, null, null, null, null],   // ★ドラフト選択をクリア
       p1_status: "ready"
     } : {
       player2_deck: selectedDeck.horse_ids || [],
       player2_ready: true,
+      player2_matchup_ready: false,                    // ★onmatchup用の準備フラグをリセット
+      player2_strategy_ready: false,                   // ★作戦画面用の準備フラグをリセット
+      player2_entries: [null, null, null, null, null], // ★エントリー選択をクリア
+      player2_draft: [null, null, null, null, null],   // ★ドラフト選択をクリア
       p2_status: "ready"
     };
 
