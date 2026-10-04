@@ -178,7 +178,6 @@
   .card-label.p1 { color: var(--player-color); }
   .card-label.p2 { color: var(--opponent-color); }
   
-  /* 追加: ステータス確認バッジ */
   .status-badge {
     font-size: 10px;
     padding: 2px 6px;
@@ -490,7 +489,6 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// 各馬のステータス・作戦データを事前補正する共通処理
 function prepareHorseData(h) {
   ensureStats(h);
 
@@ -518,7 +516,6 @@ function prepareHorseData(h) {
   }
 }
 
-// ホスト側で5レース分を一括計算してFirestoreに保存する処理
 async function calculateAndUploadAllRaces() {
   if (roomData.race_results_cache && roomData.race_results_cache.length === 5) {
     return;
@@ -529,8 +526,6 @@ async function calculateAndUploadAllRaces() {
   try {
     for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
       const raceGrid = fullRaceGrids[rIdx];
-      
-      // 計算前に全出走馬のパラメータ・作戦設定を確実に行う
       raceGrid.forEach(h => prepareHorseData(h));
 
       const racesTrackConditions = roomData?.races_track_conditions || [];
@@ -620,12 +615,10 @@ function listenRoomStatus() {
         oppStatusBadge.className = "status-badge ready";
       }
 
-      // ホスト側：全レース計算の実行
       if (role === 'host' && !data.race_results_cache) {
         await calculateAndUploadAllRaces();
       }
 
-      // 全端末：計算キャッシュが反映されるまでボタンを制御
       if (data.race_results_cache && data.race_results_cache.length === 5) {
         if (startBtn && raceState === 'ready') {
           startBtn.disabled = false;
@@ -1027,7 +1020,6 @@ async function startRace() {
   btn.disabled = true;
   btn.innerText = "🏃 レース進行中...";
 
-  // キャッシュ済みの計算結果を取得
   const raceResultData = roomData?.race_results_cache?.[currentRaceIndex];
   
   if (!raceResultData) {
@@ -1035,7 +1027,20 @@ async function startRace() {
     return;
   }
 
-  calculatedResults = raceResultData.results;
+  // ★重要修正: キャッシュされた計算結果を「現在の端末（自分）」の視点に再同期・ローカライズする
+  const rawResults = JSON.parse(JSON.stringify(raceResultData.results));
+  const isHost = (role === 'host');
+  const myGateNum = isHost ? 1 : 2;
+  const oppGateNum = isHost ? 2 : 1;
+
+  rawResults.forEach(h => {
+    h.isPlayer = (h.gate_number === myGateNum);
+    h.isOpponent = (h.gate_number === oppGateNum);
+    if (h.isPlayer) h.ownerName = myNameStr;
+    if (h.isOpponent) h.ownerName = oppNameStr;
+  });
+
+  calculatedResults = rawResults;
   currentRacePace = raceResultData.pace;
   currentRaceBranch = raceResultData.branch.name;
 
@@ -1260,18 +1265,20 @@ function renderResults(scoredList) {
   document.getElementById('result-container').style.display = "block";
 }
 
+// ★修正: 常に「自分の馬(isPlayer)」と「相手の馬(isOpponent)」を着順比較して勝者を判定する
 function recordHistory(scoredList) {
-  const p1 = scoredList.find(h => h.isPlayer);
-  const p2 = scoredList.find(h => h.isOpponent);
-  const p1Rank = p1 ? (scoredList.indexOf(p1) + 1) : 99;
-  const p2Rank = p2 ? (scoredList.indexOf(p2) + 1) : 99;
+  const myHorse = scoredList.find(h => h.isPlayer);
+  const oppHorse = scoredList.find(h => h.isOpponent);
+  
+  const myRank = myHorse ? (scoredList.indexOf(myHorse) + 1) : 99;
+  const oppRank = oppHorse ? (scoredList.indexOf(oppHorse) + 1) : 99;
 
   let isWin = false;
   let winnerText = "引き分け";
-  if (p1Rank < p2Rank) {
+  if (myRank < oppRank) {
     isWin = true;
     winnerText = myNameStr;
-  } else if (p2Rank < p1Rank) {
+  } else if (oppRank < myRank) {
     isWin = false;
     winnerText = oppNameStr;
   }
@@ -1279,19 +1286,20 @@ function recordHistory(scoredList) {
   seriesHistory.push({
     raceNum: currentRaceIndex + 1,
     raceName: currentRaceInfo.race_name,
-    p1Rank: p1Rank,
-    p2Rank: p2Rank,
+    myRank: myRank,
+    oppRank: oppRank,
     win: isWin,
     winner: winnerText
   });
 }
 
-async function showFinalSeriesResult() {
+function showFinalSeriesResult() {
   let myWins = 0;
   let oppWins = 0;
+
   seriesHistory.forEach(h => {
-    if (h.p1Rank < h.p2Rank) myWins++;
-    else if (h.p2Rank < h.p1Rank) oppWins++;
+    if (h.myRank < h.oppRank) myWins++;
+    else if (h.oppRank < h.myRank) oppWins++;
   });
 
   const titleEl = document.getElementById('series-result-title');
@@ -1316,8 +1324,8 @@ async function showFinalSeriesResult() {
     historyBody.innerHTML += `
       <tr>
         <td>R${h.raceNum}</td>
-        <td>${h.p1Rank}着</td>
-        <td>${h.p2Rank}着</td>
+        <td>${h.myRank}着</td>
+        <td>${h.oppRank}着</td>
         <td><strong>${h.winner}</strong></td>
       </tr>`;
   });
@@ -1333,14 +1341,13 @@ async function showFinalSeriesResult() {
       } : {
         player2_series_finished: true
       };
-      await updateDoc(roomRef, updateObj);
+      updateDoc(roomRef, updateObj);
     } catch (e) {
       console.error("最終結果更新エラー:", e);
     }
   }
 }
 
-// 次の回戦へ進む / ロビーへ戻るボタンの処理
 window.finishMatchAndNextOrLobby = async function() {
   isNavigatingAway = true;
   if (roomUnsubscribe) roomUnsubscribe();
