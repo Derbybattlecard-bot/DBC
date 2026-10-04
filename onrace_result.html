@@ -415,6 +415,34 @@ const urlParams = new URLSearchParams(window.location.search);
 const roomId = urlParams.get('roomId');
 const role = urlParams.get('role');
 
+// --- シード付き確定乱数（ホスト・ゲスト間で同一の馬番シャッフルを実現） ---
+function getSeedFromString(str) {
+  let hash = 0;
+  if (!str) return 12345;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function seededRandom(seed) {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
+function shuffleArrayWithSeed(array, seed) {
+  const arr = [...array];
+  let s = seed;
+  for (let i = arr.length - 1; i > 0; i--) {
+    s += 1;
+    const rand = seededRandom(s);
+    const j = Math.floor(rand * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 window.showErrorModal = function(msg) {
   const msgEl = document.getElementById('error-modal-msg');
   if (msgEl) msgEl.textContent = msg;
@@ -562,6 +590,78 @@ async function calculateAndUploadAllRaces() {
   }
 }
 
+// 準備状態とボタンテキストを判定して更新する共通関数
+async function checkAndUpdateReadyState() {
+  if (!roomData) return;
+
+  const data = roomData;
+  const p1Ready = !!(data.player1_strategy_ready || data.player1_ready);
+  const p2Ready = !!(data.player2_strategy_ready || data.player2_ready);
+  const opponentReady = (role === 'host') ? p2Ready : p1Ready;
+
+  const oppBadgeEl = document.getElementById('p2-card-strat');
+  const oppStatusBadge = document.getElementById('p2-status-badge');
+  const startBtn = document.getElementById('nextBtn');
+
+  if (!p1Ready || !p2Ready) {
+    if (oppBadgeEl) {
+      oppBadgeEl.textContent = opponentReady ? "作戦: 決定完了！" : "作戦: 相手思案中… ⏳";
+      oppBadgeEl.style.color = opponentReady ? "#00ff66" : "#f97316";
+    }
+    if (oppStatusBadge) {
+      oppStatusBadge.textContent = opponentReady ? "準備完了 ✅" : "思案中 ⏳";
+      oppStatusBadge.className = opponentReady ? "status-badge ready" : "status-badge waiting";
+    }
+    if (startBtn && raceState === 'ready') {
+      startBtn.disabled = true;
+      startBtn.innerText = "⏳ 相手の作戦完了を待っています...";
+    }
+    updateLog("相手の作戦決定を待っています... 作戦が揃うとレースを開始できます。");
+  } else {
+    buildRaceGridsFromOnlineData();
+    const oppObj = activeHorses.find(h => h.isOpponent);
+    if (oppBadgeEl) {
+      if (oppObj) {
+        oppBadgeEl.textContent = `作戦: ${oppObj.tactic} (Lv.${oppObj.level})`;
+      } else {
+        oppBadgeEl.textContent = "作戦: 決定完了！";
+      }
+      oppBadgeEl.style.color = "var(--gold-color)";
+    }
+    if (oppStatusBadge) {
+      oppStatusBadge.textContent = "準備完了 ✅";
+      oppStatusBadge.className = "status-badge ready";
+    }
+
+    // ホストかつ計算未完了の場合、全レース計算を実行
+    if (role === 'host' && !data.race_results_cache && !isCalculating) {
+      isCalculating = true;
+      if (startBtn && raceState === 'ready') {
+        startBtn.disabled = true;
+        startBtn.innerText = "⏳ レース結果を計算中...";
+      }
+      await calculateAndUploadAllRaces();
+      isCalculating = false;
+      return;
+    }
+
+    if (data.race_results_cache && data.race_results_cache.length === 5) {
+      if (startBtn && raceState === 'ready') {
+        startBtn.disabled = false;
+        startBtn.innerText = "🏁 レーススタート！";
+      }
+      if (raceState === 'ready') {
+        updateLog(`第${currentRaceIndex + 1}戦（${currentRaceInfo.race_name}）の出走準備が完了しました。`);
+      }
+    } else {
+      if (startBtn && raceState === 'ready') {
+        startBtn.disabled = true;
+        startBtn.innerText = "⏳ レース結果を計算中...";
+      }
+    }
+  }
+}
+
 function listenRoomStatus() {
   const roomRef = doc(db, "online_matches", roomId);
   roomUnsubscribe = onSnapshot(roomRef, async (snapshot) => {
@@ -578,71 +678,7 @@ function listenRoomStatus() {
       return;
     }
 
-    const p1Ready = !!(data.player1_strategy_ready || data.player1_ready);
-    const p2Ready = !!(data.player2_strategy_ready || data.player2_ready);
-    const opponentReady = (role === 'host') ? p2Ready : p1Ready;
-
-    const oppBadgeEl = document.getElementById('p2-card-strat');
-    const oppStatusBadge = document.getElementById('p2-status-badge');
-    const startBtn = document.getElementById('nextBtn');
-
-    if (!p1Ready || !p2Ready) {
-      if (oppBadgeEl) {
-        oppBadgeEl.textContent = opponentReady ? "作戦: 決定完了！" : "作戦: 相手思案中… ⏳";
-        oppBadgeEl.style.color = opponentReady ? "#00ff66" : "#f97316";
-      }
-      if (oppStatusBadge) {
-        oppStatusBadge.textContent = opponentReady ? "準備完了 ✅" : "思案中 ⏳";
-        oppStatusBadge.className = opponentReady ? "status-badge ready" : "status-badge waiting";
-      }
-      if (startBtn && raceState === 'ready') {
-        startBtn.disabled = true;
-        startBtn.innerText = "⏳ 相手の作戦完了を待っています...";
-      }
-      updateLog("相手の作戦決定を待っています... 作戦が揃うとレースを開始できます。");
-    } else {
-      buildRaceGridsFromOnlineData();
-      const oppObj = activeHorses.find(h => h.isOpponent);
-      if (oppBadgeEl) {
-        if (oppObj) {
-          oppBadgeEl.textContent = `作戦: ${oppObj.tactic} (Lv.${oppObj.level})`;
-        } else {
-          oppBadgeEl.textContent = "作戦: 決定完了！";
-        }
-        oppBadgeEl.style.color = "var(--gold-color)";
-      }
-      if (oppStatusBadge) {
-        oppStatusBadge.textContent = "準備完了 ✅";
-        oppStatusBadge.className = "status-badge ready";
-      }
-
-      // ホストかつ計算未完了の場合、全レース計算を実行
-      if (role === 'host' && !data.race_results_cache && !isCalculating) {
-        isCalculating = true;
-        if (startBtn && raceState === 'ready') {
-          startBtn.disabled = true;
-          startBtn.innerText = "⏳ レース結果を計算中...";
-        }
-        await calculateAndUploadAllRaces();
-        isCalculating = false;
-        return; // 書き込み完了後の onSnapshot に任せる
-      }
-
-      if (data.race_results_cache && data.race_results_cache.length === 5) {
-        if (startBtn && raceState === 'ready') {
-          startBtn.disabled = false;
-          startBtn.innerText = "🏁 レーススタート！";
-        }
-        if (raceState === 'ready') {
-          updateLog(`第${currentRaceIndex + 1}戦（${currentRaceInfo.race_name}）の出走準備が完了しました。`);
-        }
-      } else {
-        if (startBtn && raceState === 'ready') {
-          startBtn.disabled = true;
-          startBtn.innerText = "⏳ レース結果を計算中...";
-        }
-      }
-    }
+    await checkAndUpdateReadyState();
 
     if (data.status === "entry_selecting" || data.status === "matchup") {
       isNavigatingAway = true;
@@ -718,60 +754,69 @@ function buildRaceGridsFromOnlineData() {
 
   fullRaceGrids = [];
 
+  // ルームIDから共通のシードを生成
+  const baseSeed = getSeedFromString(roomId || "default_room");
+
   for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
-    const grid = [];
+    const rawGrid = [];
 
     const myHorseId = String(myEntries[rIdx]);
     const myMaster = HORSES_MASTER[myHorseId] || { name: "自馬", horse_id: myHorseId };
     const myStratObj = (myStrats && myStrats[rIdx]) ? myStrats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
 
-    grid.push({
+    rawGrid.push({
       ...myMaster,
       isPlayer: true,
       isCpu: false,
       isOpponent: false,
       ownerName: myNameStr,
       tactic: myStratObj.strategy || "先行して粘り込み",
-      level: myStratObj.strategy_level || 3,
-      gate_number: isHost ? 1 : 2
+      level: myStratObj.strategy_level || 3
     });
 
     const oppHorseId = String(oppEntries[rIdx]);
     const oppMaster = HORSES_MASTER[oppHorseId] || { name: "相手馬", horse_id: oppHorseId };
     const oppStratObj = (oppStrats && oppStrats[rIdx]) ? oppStrats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
 
-    grid.push({
+    rawGrid.push({
       ...oppMaster,
       isPlayer: false,
       isCpu: false,
       isOpponent: true,
       ownerName: oppNameStr,
       tactic: oppStratObj.strategy || "先行して粘り込み",
-      level: oppStratObj.strategy_level || 3,
-      gate_number: isHost ? 2 : 1
+      level: oppStratObj.strategy_level || 3
     });
 
     const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
 
-    mobIds.forEach((mobId, mIdx) => {
+    mobIds.forEach((mobId) => {
       const mobMaster = HORSES_MASTER[String(mobId)] || { name: "モブ馬", horse_id: mobId };
       const mobStyle = mobMaster.style || mobMaster.running_style || "自在";
-      const mobGate = mIdx + 3; 
-      const mobStrat = determineStrategy(mobId, mobStyle, mobGate, strategyMasterData, false);
+      const mobStrat = determineStrategy(mobId, mobStyle, 1, strategyMasterData, false);
 
-      grid.push({
+      rawGrid.push({
         ...mobMaster,
         isPlayer: false,
         isCpu: false,
         isOpponent: false,
         tactic: mobStrat.tactic,
-        level: mobStrat.level,
-        gate_number: mobGate
+        level: mobStrat.level
       });
     });
 
-    grid.sort((a, b) => (a.gate_number || 0) - (b.gate_number || 0));
-    fullRaceGrids.push(grid);
+    // レースごとの確定的シード値で全馬をシャッフル（ホスト・ゲスト間で完全同期）
+    const raceSeed = baseSeed + (rIdx + 1) * 100;
+    const shuffledGrid = shuffleArrayWithSeed(rawGrid, raceSeed);
+
+    // シャッフル後の順番を馬番(gate_number)として1から割り当て
+    shuffledGrid.forEach((horse, idx) => {
+      horse.gate_number = idx + 1;
+    });
+
+    // 馬番（gate_number）昇順に並べ替えて格納
+    shuffledGrid.sort((a, b) => a.gate_number - b.gate_number);
+    fullRaceGrids.push(shuffledGrid);
   }
   return true;
 }
@@ -868,19 +913,19 @@ function setupRace(rIdx) {
     track: currentRaceInfo.track
   };
 
-  const playerObj = activeHorses.find(h => h.isPlayer) || { name: "自馬", tactic: "先行", level: 3 };
-  const oppObj = activeHorses.find(h => h.isOpponent) || { name: "相手馬", tactic: "逃げ", level: 3 };
+  const playerObj = activeHorses.find(h => h.isPlayer) || { name: "自馬", tactic: "先行", level: 3, gate_number: 1 };
+  const oppObj = activeHorses.find(h => h.isOpponent) || { name: "相手馬", tactic: "逃げ", level: 3, gate_number: 2 };
 
   document.getElementById('display-race-num').textContent = `RACE ${rIdx + 1} / 5`;
   document.getElementById('display-race-title').textContent = `${currentRaceInfo.race_name}（${currentRaceInfo.track} ${currentRaceInfo.surface} ${currentRaceInfo.distance}m）`;
   document.getElementById('display-race-cond').textContent = `馬場: ${trackCondition}`;
   
   document.getElementById('p1-card-label').textContent = `★ YOU (${myNameStr})`;
-  document.getElementById('p1-card-name').textContent = playerObj.name;
+  document.getElementById('p1-card-name').textContent = `${playerObj.gate_number}番 ${playerObj.name}`;
   document.getElementById('p1-card-strat').textContent = `作戦: ${playerObj.tactic} (Lv.${playerObj.level})`;
   
   document.getElementById('p2-card-label').textContent = `OPPONENT (${oppNameStr})`;
-  document.getElementById('p2-card-name').textContent = oppObj.name;
+  document.getElementById('p2-card-name').textContent = `${oppObj.gate_number}番 ${oppObj.name}`;
   document.getElementById('p2-card-strat').textContent = `作戦: ${oppObj.tactic} (Lv.${oppObj.level})`;
 
   const p1ImgId = playerObj.horse_id ? String(playerObj.horse_id).padStart(4, '0') : '0000';
@@ -900,14 +945,10 @@ function setupRace(rIdx) {
 
   renderLanes();
 
-  // 初期状態ではボタンを「待機中」として設定する
-  const btn = document.getElementById('nextBtn');
-  if (btn) {
-    btn.disabled = true;
-    btn.innerText = "⏳ 相手の作戦完了を待っています...";
-  }
   document.getElementById('result-container').style.display = "none";
-  updateLog(`第${rIdx + 1}戦（${currentRaceInfo.race_name}）の出走準備を行っています...`);
+  
+  // 準備状況とボタン状態の適正化処理を実行
+  checkAndUpdateReadyState();
 }
 
 function getKana3(name) {
@@ -932,7 +973,7 @@ function renderLanes() {
     htmlBuffer += `
       <div class="horse-lane">
         <div class="horse-icon" id="horse-icon-${i}" style="left: ${initialLeftPx}px;">
-          <span class="horse-emoji" id="emoji-${i}">🏇</span><span class="${nameClass}">${getKana3(h.name)}</span>
+          <span class="horse-emoji" id="emoji-${i}">🏇</span><span class="${nameClass}">${h.gate_number}.${getKana3(h.name)}</span>
         </div>
       </div>`;
   });
@@ -1041,12 +1082,15 @@ async function startRace() {
 
   const rawResults = JSON.parse(JSON.stringify(raceResultData.results));
   const isHost = (role === 'host');
-  const myGateNum = isHost ? 1 : 2;
-  const oppGateNum = isHost ? 2 : 1;
+
+  // エントリーデータに合わせた属性判定
+  const myHorseId = String((isHost ? roomData.player1_entries : roomData.player2_entries)?.[currentRaceIndex]);
+  const oppHorseId = String((isHost ? roomData.player2_entries : roomData.player1_entries)?.[currentRaceIndex]);
 
   rawResults.forEach(h => {
-    h.isPlayer = (h.gate_number === myGateNum);
-    h.isOpponent = (h.gate_number === oppGateNum);
+    const hIdStr = String(h.horse_id);
+    h.isPlayer = (hIdStr === myHorseId && h.isPlayer !== false);
+    h.isOpponent = (hIdStr === oppHorseId && !h.isPlayer);
     if (h.isPlayer) h.ownerName = myNameStr;
     if (h.isOpponent) h.ownerName = oppNameStr;
   });
@@ -1095,7 +1139,7 @@ async function startRace() {
       p1Horses.forEach(h => {
         const abs = h.phase1_abilities.map(a => `【${a}】`).join("");
         const label = h.isPlayer ? '<span style="color:var(--player-color); font-weight:bold;">[YOU]</span>' : '<span style="color:var(--opponent-color); font-weight:bold;">[OPP]</span>';
-        abilityLogs.push(`${label} ${h.name}の能力 ${abs} が発動！`);
+        abilityLogs.push(`${label} ${h.gate_number}番 ${h.name}の能力 ${abs} が発動！`);
 
         h.phase1_abilities.forEach(abName => {
           const msg = (h.popup_messages && h.popup_messages[abName]) || abName;
@@ -1261,7 +1305,7 @@ function renderResults(scoredList) {
       <tr>
         <td><strong>${r + 1}着</strong>${typeBadge}</td>
         <td style="text-align:left;">
-          <span class="${nameClass}" style="font-weight:bold;">${item.name}</span>
+          <span class="${nameClass}" style="font-weight:bold;">${item.gate_number || '-'}番 ${item.name}</span>
           <span class="horse-sub-info">脚質:${horseStyle} / 作戦:${tacticName}(Lv.${tacticLevel})</span>
         </td>
         <td>
