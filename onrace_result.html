@@ -324,7 +324,7 @@
 <script type="module">
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { doc, getDoc, updateDoc, onSnapshot, increment, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"; // ※適宜共有パス
+import { doc, getDoc, updateDoc, onSnapshot, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 import { determineStrategy } from "./js/mob.js";
 import { runRaceLogic } from "./js/race_calculator.js";
@@ -458,10 +458,10 @@ onAuthStateChanged(auth, async (user) => {
 
 function listenRoomStatus() {
   const roomRef = doc(db, "online_matches", roomId);
-  roomUnsubscribe = onSnapshot(roomRef, (snapshot) => {
+  roomUnsubscribe = onSnapshot(roomRef, async (snapshot) => {
     if (!snapshot.exists()) return;
     const data = snapshot.data();
-    roomData = data; // 最新データの保持
+    roomData = data;
 
     if (isNavigatingAway) return;
 
@@ -472,7 +472,55 @@ function listenRoomStatus() {
       return;
     }
 
-    // ホストがDBを更新して次回戦の準備を開始した場合の自動遷移検知
+    // プレイヤーごとの準備状態を取得
+    const p1Ready = !!(data.player1_strategy_ready || data.player1_ready);
+    const p2Ready = !!(data.player2_strategy_ready || data.player2_ready);
+    const opponentReady = (role === 'host') ? p2Ready : p1Ready;
+
+    // 対戦相手カードやステータスバッチの表示更新
+    const oppBadgeEl = document.getElementById('p2-card-strat');
+    const startBtn = document.getElementById('nextBtn');
+
+    if (!p1Ready || !p2Ready) {
+      // どちらかが作戦未選択の場合
+      if (oppBadgeEl) {
+        oppBadgeEl.textContent = opponentReady ? "作戦: 決定完了！" : "作戦: 相手思案中… ⏳";
+        oppBadgeEl.style.color = opponentReady ? "#00ff66" : "#f97316";
+      }
+      if (startBtn && raceState === 'ready') {
+        startBtn.disabled = true;
+        startBtn.innerText = "⏳ 相手の作戦完了を待っています...";
+      }
+      updateLog("相手の作戦決定を待っています... 作戦が揃うとレースを開始できます。");
+    } else {
+      // 両者の作戦決定が完了している場合
+      buildRaceGridsFromOnlineData();
+      const oppObj = activeHorses.find(h => h.isOpponent);
+      if (oppBadgeEl) {
+        if (oppObj) {
+          oppBadgeEl.textContent = `作戦: ${oppObj.tactic} (Lv.${oppObj.level})`;
+        } else {
+          oppBadgeEl.textContent = "作戦: 決定完了！";
+        }
+        oppBadgeEl.style.color = "var(--gold-color)";
+      }
+      if (role === 'host' && data.status !== "race_running") {
+        try {
+          await updateDoc(roomRef, { status: "race_running" });
+        } catch (err) {
+          console.error("ステータス更新エラー:", err);
+        }
+      }
+      if (startBtn && raceState === 'ready') {
+        startBtn.disabled = false;
+        startBtn.innerText = "🏁 レーススタート！";
+      }
+      if (raceState === 'ready') {
+        updateLog(`第${currentRaceIndex + 1}戦（${currentRaceInfo.race_name}）の出走準備が完了しました。`);
+      }
+    }
+
+    // 次の回戦へ移行した場合の自動移動検知
     if (data.status === "entry_selecting" || data.status === "matchup") {
       isNavigatingAway = true;
       if (roomUnsubscribe) roomUnsubscribe();
@@ -1094,14 +1142,14 @@ function renderResults(scoredList) {
         <td><strong>${r + 1}着</strong>${typeBadge}</td>
         <td style="text-align:left;">
           <span class="${nameClass}" style="font-weight:bold;">${item.name}</span>
-          <span class="horse-sub-info">[${horseStyle}] ${tacticName} (Lv.${tacticLevel})</span>
+          <span class="horse-sub-info">脚質:${horseStyle} / 作戦:${tacticName}(Lv.${tacticLevel})</span>
         </td>
         <td>
-         <strong>${item.positionRank}番手</strong>
-          <span class="pos-info">(${item.positionPoint}pt)</span>
+          <span>${item.positionPoint !== undefined ? Math.round(item.positionPoint) : '-'} Pt</span>
+          <span class="pos-info">${item.finalPositionGroup || '-'}</span>
         </td>
-        <td><strong style="color:var(--gold-color); font-size:1.1em;">${Math.floor(item.finalScore)}</strong></td>
-        <td class="detail-text">${detailText}</td>
+        <td><strong>${item.score !== undefined ? Math.round(item.score) : '-'}</strong></td>
+        <td><div class="detail-text">${detailText}</div></td>
       </tr>`;
   });
 
@@ -1109,146 +1157,120 @@ function renderResults(scoredList) {
 }
 
 function recordHistory(scoredList) {
-  const pRank = scoredList.findIndex(item => item.isPlayer) + 1;
-  const oRank = scoredList.findIndex(item => item.isOpponent) + 1;
-  seriesHistory.push({ raceNum: currentRaceIndex + 1, pRank: pRank, oRank: oRank, win: pRank < oRank });
+  const p1 = scoredList.find(h => h.isPlayer);
+  const p2 = scoredList.find(h => h.isOpponent);
+  const p1Rank = p1 ? (scoredList.indexOf(p1) + 1) : 99;
+  const p2Rank = p2 ? (scoredList.indexOf(p2) + 1) : 99;
+
+  let isWin = false;
+  let winnerText = "引き分け";
+  if (p1Rank < p2Rank) {
+    isWin = true;
+    winnerText = myNameStr;
+  } else if (p2Rank < p1Rank) {
+    isWin = false;
+    winnerText = oppNameStr;
+  }
+
+  seriesHistory.push({
+    raceNum: currentRaceIndex + 1,
+    raceName: currentRaceInfo.race_name,
+    p1Rank: p1Rank,
+    p2Rank: p2Rank,
+    win: isWin,
+    winner: winnerText
+  });
 }
 
 async function showFinalSeriesResult() {
-  const playerWins = seriesHistory.filter(h => h.win).length;
-  const oppWins = seriesHistory.length - playerWins;
-  const isMatchWin = playerWins > oppWins;
+  let myWins = 0;
+  let oppWins = 0;
+  seriesHistory.forEach(h => {
+    if (h.p1Rank < h.p2Rank) myWins++;
+    else if (h.p2Rank < h.p1Rank) oppWins++;
+  });
 
   const titleEl = document.getElementById('series-result-title');
-  if (isMatchWin) {
-    titleEl.innerHTML = `🎉 あなたの対戦勝利！！<br><span style="font-size:0.7em; color:#fff;">このシリーズを制しました！</span>`;
-  } else if (playerWins === oppWins) {
-    titleEl.innerHTML = `🤝 引き分け！<br><span style="font-size:0.7em; color:#fff;">互角の白熱した勝負でした！</span>`;
+  const scoreEl = document.getElementById('series-score-detail');
+
+  if (myWins > oppWins) {
+    titleEl.textContent = "🏆 勝利！ シリーズ制覇おめでとうございます！";
+    titleEl.style.color = "var(--gold-color)";
+  } else if (oppWins > myWins) {
+    titleEl.textContent = "💀 敗北… 次のシリーズでリベンジしましょう！";
+    titleEl.style.color = "var(--opponent-color)";
   } else {
-    titleEl.innerHTML = `💀 相手の対戦勝利...<br><span style="font-size:0.7em; color:#fff;">次回の雪辱に期待！</span>`;
+    titleEl.textContent = "🤝 引き分け！ 互角の勝負でした！";
+    titleEl.style.color = "#ffffff";
   }
 
-  document.getElementById('series-score-detail').innerHTML = `
-    <span style="color:var(--player-color)">あなた ${playerWins}勝</span> - <span style="color:var(--opponent-color)">相手 ${oppWins}勝</span>
-  `;
-  const tbody = document.getElementById('series-history-body');
-  tbody.innerHTML = "";
-  seriesHistory.forEach(h => {
-    let winnerText = `<span style="color:#aaa;">引き分け</span>`;
-    if (h.pRank < h.oRank) winnerText = `<span class="p1-name">あなた</span>`;
-    else if (h.oRank < h.pRank) winnerText = `<span class="p2-name">相手</span>`;
+  scoreEl.innerHTML = `最終戦績: <span style="color:var(--player-color);">${myWins}勝</span> - <span style="color:var(--opponent-color);">${oppWins}勝</span>`;
 
-    tbody.innerHTML += `
+  const historyBody = document.getElementById('series-history-body');
+  historyBody.innerHTML = "";
+  seriesHistory.forEach(h => {
+    historyBody.innerHTML += `
       <tr>
-        <td>第${h.raceNum}戦</td>
-        <td>${h.pRank}着</td>
-        <td>${h.oRank}着</td>
-        <td>${winnerText}</td>
+        <td>R${h.raceNum}</td>
+        <td>${h.p1Rank}着</td>
+        <td>${h.p2Rank}着</td>
+        <td><strong>${h.winner}</strong></td>
       </tr>`;
   });
 
-  const isHost = (role === 'host');
-  const myEntries = isHost ? (roomData.player1_entries || []) : (roomData.player2_entries || []);
-  
-  const matchSeries = roomData?.match_series || roomData?.selected_series || ["series_01"];
-  const seriesIdList = Array.isArray(matchSeries) ? matchSeries : [matchSeries];
-  const currentSeriesIdx = roomData?.current_series_index || 0;
-  const hasNextSeries = (currentSeriesIdx + 1) < seriesIdList.length;
+  document.getElementById('final-series-modal').style.display = "block";
 
-  const modalBtn = document.getElementById('modalNextBtn');
-  if (hasNextSeries) {
-    modalBtn.textContent = `➡️ 次の回戦（第${currentSeriesIdx + 2}回戦）の出走登録へ`;
-  } else {
-    modalBtn.textContent = `🏠 全対戦終了：ロビーへ戻る`;
-  }
-
-  // ★ オンライン対戦結果・使用済み馬リスト等の確実に非同期保存
-  if (currentUser && roomId) {
+  if (roomId) {
     try {
-      if (isMatchWin) {
-        await updateDoc(doc(db, "users", currentUser.uid), {
-          total_wins: increment(1)
-        });
-      }
-
       const roomRef = doc(db, "online_matches", roomId);
-      const usedField = isHost ? 'player1_used_horses' : 'player2_used_horses';
-      
-      const updateObj = {};
-      myEntries.forEach(hId => {
-        if (hId !== null && hId !== undefined) {
-          updateObj[usedField] = arrayUnion(String(hId));
-        }
-      });
-
-      if (!hasNextSeries) {
-        updateObj.status = "finished";
-      }
-
+      const isHost = (role === 'host');
+      const updateObj = isHost ? {
+        player1_series_finished: true
+      } : {
+        player2_series_finished: true
+      };
       await updateDoc(roomRef, updateObj);
     } catch (e) {
-      console.error("対戦結果の保存エラー:", e);
+      console.error("最終結果更新エラー:", e);
     }
   }
-
-  document.getElementById('final-series-modal').style.display = "block";
 }
 
-// ★ 次の回戦への移行またはロビーへの戻り処理（修正版）
 window.finishMatchAndNextOrLobby = async function() {
-  const modalBtn = document.getElementById('modalNextBtn');
-  if (modalBtn) modalBtn.disabled = true;
+  isNavigatingAway = true;
+  if (roomUnsubscribe) roomUnsubscribe();
 
-  const matchSeries = roomData?.match_series || roomData?.selected_series || ["series_01"];
-  const seriesIdList = Array.isArray(matchSeries) ? matchSeries : [matchSeries];
-  const currentSeriesIdx = roomData?.current_series_index || 0;
-  const hasNextSeries = (currentSeriesIdx + 1) < seriesIdList.length;
-
-  if (hasNextSeries && roomId) {
-    const isHost = (role === 'host');
-
-    if (isHost) {
-      if (modalBtn) modalBtn.textContent = "⏳ 次の回戦へ移行中...";
+  if (roomId) {
+    try {
       const roomRef = doc(db, "online_matches", roomId);
-      try {
-        // ホストが次の回戦のDB状態を初期化してステータス更新
-        await updateDoc(roomRef, {
-          current_series_index: currentSeriesIdx + 1,
-          player1_matchup_ready: false,
-          player2_matchup_ready: false,
-          player1_strategy_ready: false,
-          player2_strategy_ready: false,
-          player1_ready: false,
-          player2_ready: false,
-          player1_draft: [null, null, null, null, null],
-          player2_draft: [null, null, null, null, null],
-          player1_entries: [null, null, null, null, null],
-          player2_entries: [null, null, null, null, null],
-          races_mob_ids: null,
-          races_track_conditions: null,
-          status: "entry_selecting"
-        });
-      } catch (e) {
-        console.error("次回戦移行エラー:", e);
-        if (modalBtn) modalBtn.disabled = false;
-        alert("次回戦への移行に失敗しました。再度お試しください。");
-        return;
-      }
+      const roomSnap = await getDoc(roomRef);
+      if (roomSnap.exists()) {
+        const data = roomSnap.data();
+        const currentSeriesIdx = data.current_series_index || 0;
+        const matchSeries = data.match_series || data.selected_series || [];
 
-      isNavigatingAway = true;
-      if (roomUnsubscribe) roomUnsubscribe();
-      window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}`;
-    } else {
-      // ゲストはホストがDBを更新するのを待機（onSnapshotが反応して自動遷移します）
-      if (modalBtn) modalBtn.textContent = "⏳ ホストの操作を待っています...";
+        if (Array.isArray(matchSeries) && currentSeriesIdx + 1 < matchSeries.length) {
+          if (role === 'host') {
+            await updateDoc(roomRef, {
+              current_series_index: increment(1),
+              status: "entry_selecting",
+              player1_ready: false,
+              player2_ready: false,
+              player1_strategy_ready: false,
+              player2_strategy_ready: false
+            });
+          }
+          window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}`;
+          return;
+        }
+      }
+    } catch (e) {
+      console.error("次シリーズ移行エラー:", e);
     }
-  } else {
-    // 全回戦終了時はロビーへ戻る
-    isNavigatingAway = true;
-    if (roomUnsubscribe) roomUnsubscribe();
-    window.location.href = 'online.html';
   }
+  window.location.href = 'online.html';
 };
 </script>
+
 </body>
 </html>
