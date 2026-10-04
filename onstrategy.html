@@ -286,7 +286,6 @@
   let racesMobIds = {};
   let loadedTrackConditions = [];
   
-  // 1シリーズ＝必ず5レース分固定
   let myStrategies = [
     { strategy: "", strategy_level: 3 },
     { strategy: "", strategy_level: 3 },
@@ -301,6 +300,7 @@
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('roomId');
   const role = urlParams.get('role');
+  const matchMode = urlParams.get('mode') || 'light';
 
   const MAX_TOTAL_LEVEL = 18;
 
@@ -388,7 +388,7 @@
     else if (s.includes('追')) catName = '追込';
 
     const match = STRATEGY_MASTER.find(item => item.category === catName || item.style === catName);
-    return match ? (match.name || match.strategy_name || match.strategy) : "先行して粘り込み";
+    return match ? (match.name || match.strategy_name || match.strategy || match.title) : "先行して粘り込み";
   }
 
   function resolveOpponentName(roomData) {
@@ -527,20 +527,21 @@
         }
       }
 
-      // 両者の作戦設定が完了したら status: "race_running" に更新してレース画面へ遷移
+      // ★仕様書3.1準拠：両者作戦完了で status: "racing" に更新しレース結果画面へ★
       if (p1Ready && p2Ready) {
         isNavigatingAway = true;
         if (roomUnsubscribe) roomUnsubscribe();
 
         if (role === 'host') {
           try {
-            await updateDoc(roomRef, { status: "race_running" });
+            await updateDoc(roomRef, { status: "racing" });
           } catch (err) {
             console.error("ステータス更新エラー:", err);
           }
         }
 
-        window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}`;
+        const modeQuery = matchMode ? `&mode=${matchMode}` : '';
+        window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}${modeQuery}`;
       }
     });
   }
@@ -586,20 +587,39 @@
         { prefix: 'OIKOMI_', catName: '追込', title: '【追込系】' }
       ];
 
+      const addedStratNames = new Set();
+
       categories.forEach(cat => {
         stratOptionsHtml += `<optgroup label="${cat.title}">`;
         const categoryStrats = STRATEGY_MASTER.filter(s => {
-          if (s.strategy_id) return s.strategy_id.startsWith(cat.prefix);
-          return s.category === cat.catName || s.style === cat.catName;
+          if (s.strategy_id && typeof s.strategy_id === 'string') return s.strategy_id.startsWith(cat.prefix);
+          const cName = s.category || s.style || s.leg_style || '';
+          return cName.includes(cat.catName);
         });
         
         categoryStrats.forEach(s => {
-          const sName = s.name || s.strategy_name || s.strategy;
+          const sName = s.name || s.strategy_name || s.strategy || s.title || "作戦";
+          addedStratNames.add(sName);
           const isSelected = myStrategies[rIdx].strategy === sName;
           stratOptionsHtml += `<option value="${sName}" ${isSelected ? 'selected' : ''}>${sName}</option>`;
         });
         stratOptionsHtml += `</optgroup>`;
       });
+
+      // カテゴリ外の作戦が存在する場合のフォールバック
+      const remainingStrats = STRATEGY_MASTER.filter(s => {
+        const sName = s.name || s.strategy_name || s.strategy || s.title;
+        return sName && !addedStratNames.has(sName);
+      });
+      if (remainingStrats.length > 0) {
+        stratOptionsHtml += `<optgroup label="【その他】">`;
+        remainingStrats.forEach(s => {
+          const sName = s.name || s.strategy_name || s.strategy || s.title;
+          const isSelected = myStrategies[rIdx].strategy === sName;
+          stratOptionsHtml += `<option value="${sName}" ${isSelected ? 'selected' : ''}>${sName}</option>`;
+        });
+        stratOptionsHtml += `</optgroup>`;
+      }
 
       let levelOptionsHtml = '';
       for (let lvl = 1; lvl <= 5; lvl++) {
