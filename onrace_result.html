@@ -165,10 +165,38 @@
   .mini-card.p1 { border-color: var(--player-color); background: rgba(59, 130, 246, 0.1); }
   .mini-card.p2 { border-color: var(--opponent-color); background: rgba(239, 68, 68, 0.1); }
   
-  .card-horse-img { width: 148px; height: auto; margin: 5px 0; image-rendering: pixelated; }
-  .card-label { font-size: 11px; font-weight: bold; border-bottom: 1px dashed #555; padding-bottom: 4px; margin-bottom: 4px; }
+  .card-label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px dashed #555;
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+  }
+
+  .card-label { font-size: 11px; font-weight: bold; }
   .card-label.p1 { color: var(--player-color); }
   .card-label.p2 { color: var(--opponent-color); }
+  
+  /* 追加: ステータス確認バッジ */
+  .status-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: bold;
+  }
+  .status-badge.waiting {
+    background: rgba(249, 115, 22, 0.2);
+    border: 1px solid #f97316;
+    color: #fdba74;
+  }
+  .status-badge.ready {
+    background: rgba(0, 255, 102, 0.2);
+    border: 1px solid var(--accent-green);
+    color: var(--accent-green);
+  }
+
+  .card-horse-img { width: 148px; height: auto; margin: 5px 0; image-rendering: pixelated; }
   .card-horse-name { font-weight: bold; font-size: 13px; color: #fff; margin: 4px 0; }
   .card-strat-info { font-size: 11px; color: var(--gold-color); font-weight: bold; }
   .vs-badge { font-weight: bold; color: #aaa; font-size: 14px; }
@@ -259,14 +287,20 @@
 
   <div class="vs-container">
     <div class="mini-card p1">
-      <div class="card-label p1" id="p1-card-label">★ YOU</div>
+      <div class="card-label-row">
+        <div class="card-label p1" id="p1-card-label">★ YOU</div>
+        <span class="status-badge ready">READY ✅</span>
+      </div>
       <img src="" alt="horse" class="card-horse-img" id="p1-card-img">
       <div class="card-horse-name" id="p1-card-name">-</div>
       <div class="card-strat-info" id="p1-card-strat">作戦: - (Lv.-)</div>
     </div>
     <div class="vs-badge">VS</div>
     <div class="mini-card p2">
-      <div class="card-label p2" id="p2-card-label">OPPONENT</div>
+      <div class="card-label-row">
+        <div class="card-label p2" id="p2-card-label">OPPONENT</div>
+        <span class="status-badge waiting" id="p2-status-badge">思案中 ⏳</span>
+      </div>
       <img src="" alt="horse" class="card-horse-img" id="p2-card-img">
       <div class="card-horse-name" id="p2-card-name">-</div>
       <div class="card-strat-info" id="p2-card-strat">作戦: - (Lv.-)</div>
@@ -456,6 +490,34 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
+// 各馬のステータス・作戦データを事前補正する共通処理
+function prepareHorseData(h) {
+  ensureStats(h);
+
+  let matchedStrat = null;
+  if (strategyMasterData && h.tactic) {
+    matchedStrat = strategyMasterData.find(s => s.name === h.tactic || s.tactic === h.tactic);
+  }
+
+  if (matchedStrat) {
+    h.stratObj = matchedStrat;
+    Object.keys(matchedStrat).forEach(key => {
+      if (typeof matchedStrat[key] === 'number') {
+        h[`strat_${key}`] = matchedStrat[key]; 
+      }
+    });
+  }
+
+  const lvl = h.level || 1;
+  h.strat_potential = lvl * 2;
+  h.strat_name = matchedStrat ? matchedStrat.name : (h.tactic || "通常");
+
+  const master = HORSES_MASTER[String(h.horse_id)] || {};
+  if (master.ability) {
+    h.ability = master.ability;
+  }
+}
+
 // ホスト側で5レース分を一括計算してFirestoreに保存する処理
 async function calculateAndUploadAllRaces() {
   if (roomData.race_results_cache && roomData.race_results_cache.length === 5) {
@@ -464,31 +526,35 @@ async function calculateAndUploadAllRaces() {
 
   const allRaceResults = [];
 
-  for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
-    const raceGrid = fullRaceGrids[rIdx];
-    const racesTrackConditions = roomData?.races_track_conditions || [];
-    const tCond = racesTrackConditions[rIdx] || "良";
-    
-    const matchSeries = roomData?.match_series || roomData?.selected_series || ["series_01"];
-    const currentSeriesIndex = roomData?.current_series_index || 0;
-    const seriesId = Array.isArray(matchSeries) ? (matchSeries[currentSeriesIndex] || matchSeries[0]) : matchSeries;
-    const seriesInfo = seriesMasterData[seriesId] || Object.values(seriesMasterData)[0] || {};
-    const racesInSeries = seriesInfo.races || (seriesInfo.rounds && seriesInfo.rounds[0] ? seriesInfo.rounds[0].races : null);
-    const roundRace = (Array.isArray(racesInSeries) && racesInSeries[rIdx]) ? racesInSeries[rIdx] : null;
-
-    const rInfo = {
-      race_name: roundRace?.race_name || `第${rIdx + 1}戦`,
-      race_number: rIdx + 1,
-      surface: roundRace?.surface || "芝",
-      distance: roundRace?.distance || 2000,
-      track: roundRace?.track || "中山"
-    };
-
-    const result = runRaceLogic(raceGrid, raceMasterData, tCond, rInfo, abilityMasterData);
-    allRaceResults.push(JSON.parse(JSON.stringify(result)));
-  }
-
   try {
+    for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
+      const raceGrid = fullRaceGrids[rIdx];
+      
+      // 計算前に全出走馬のパラメータ・作戦設定を確実に行う
+      raceGrid.forEach(h => prepareHorseData(h));
+
+      const racesTrackConditions = roomData?.races_track_conditions || [];
+      const tCond = racesTrackConditions[rIdx] || "良";
+      
+      const matchSeries = roomData?.match_series || roomData?.selected_series || ["series_01"];
+      const currentSeriesIndex = roomData?.current_series_index || 0;
+      const seriesId = Array.isArray(matchSeries) ? (matchSeries[currentSeriesIndex] || matchSeries[0]) : matchSeries;
+      const seriesInfo = seriesMasterData[seriesId] || Object.values(seriesMasterData)[0] || {};
+      const racesInSeries = seriesInfo.races || (seriesInfo.rounds && seriesInfo.rounds[0] ? seriesInfo.rounds[0].races : null);
+      const roundRace = (Array.isArray(racesInSeries) && racesInSeries[rIdx]) ? racesInSeries[rIdx] : null;
+
+      const rInfo = {
+        race_name: roundRace?.race_name || `第${rIdx + 1}戦`,
+        race_number: rIdx + 1,
+        surface: roundRace?.surface || "芝",
+        distance: roundRace?.distance || 2000,
+        track: roundRace?.track || "中山"
+      };
+
+      const result = runRaceLogic(raceGrid, raceMasterData, tCond, rInfo, abilityMasterData);
+      allRaceResults.push(JSON.parse(JSON.stringify(result)));
+    }
+
     const roomRef = doc(db, "online_matches", roomId);
     await updateDoc(roomRef, {
       race_results_cache: allRaceResults,
@@ -496,7 +562,7 @@ async function calculateAndUploadAllRaces() {
     });
   } catch (err) {
     console.error("全レース計算結果の送信失敗:", err);
-    showErrorModal("レース計算データの送信に失敗しました。");
+    showErrorModal("レース計算データの作成・送信に失敗しました。");
   }
 }
 
@@ -521,12 +587,17 @@ function listenRoomStatus() {
     const opponentReady = (role === 'host') ? p2Ready : p1Ready;
 
     const oppBadgeEl = document.getElementById('p2-card-strat');
+    const oppStatusBadge = document.getElementById('p2-status-badge');
     const startBtn = document.getElementById('nextBtn');
 
     if (!p1Ready || !p2Ready) {
       if (oppBadgeEl) {
         oppBadgeEl.textContent = opponentReady ? "作戦: 決定完了！" : "作戦: 相手思案中… ⏳";
         oppBadgeEl.style.color = opponentReady ? "#00ff66" : "#f97316";
+      }
+      if (oppStatusBadge) {
+        oppStatusBadge.textContent = opponentReady ? "準備完了 ✅" : "思案中 ⏳";
+        oppStatusBadge.className = opponentReady ? "status-badge ready" : "status-badge waiting";
       }
       if (startBtn && raceState === 'ready') {
         startBtn.disabled = true;
@@ -543,6 +614,10 @@ function listenRoomStatus() {
           oppBadgeEl.textContent = "作戦: 決定完了！";
         }
         oppBadgeEl.style.color = "var(--gold-color)";
+      }
+      if (oppStatusBadge) {
+        oppStatusBadge.textContent = "準備完了 ✅";
+        oppStatusBadge.className = "status-badge ready";
       }
 
       // ホスト側：全レース計算の実行
@@ -780,31 +855,7 @@ function setupRace(rIdx) {
       h.ally_win_streak = allyStreak;
       h.prev_ally_race_lost = prevAllyLost;
     }
-
-    let matchedStrat = null;
-    if (strategyMasterData && h.tactic) {
-      matchedStrat = strategyMasterData.find(s => s.name === h.tactic || s.tactic === h.tactic);
-    }
-
-    if (matchedStrat) {
-      h.stratObj = matchedStrat;
-      Object.keys(matchedStrat).forEach(key => {
-        if (typeof matchedStrat[key] === 'number') {
-          h[`strat_${key}`] = matchedStrat[key]; 
-        }
-      });
-    }
-
-    const lvl = h.level || 1;
-    h.strat_potential = lvl * 2;
-    h.strat_name = matchedStrat ? matchedStrat.name : (h.tactic || "通常");
-
-    const master = HORSES_MASTER[String(h.horse_id)] || {};
-    if (master.ability) {
-      h.ability = master.ability;
-    }
-
-    ensureStats(h);
+    prepareHorseData(h);
   });
 
   raceInfo = {
@@ -883,9 +934,9 @@ function renderLanes() {
   lanes.innerHTML = htmlBuffer;
 
   setHorseDirection(currentTrackConfig.phase1_3_dir);
-  }
+}
 
-  function setHorseDirection(direction) {
+function setHorseDirection(direction) {
   activeHorses.forEach((_, i) => {
     let el = document.getElementById(`emoji-${i}`);
     if (el) {
@@ -1289,7 +1340,7 @@ async function showFinalSeriesResult() {
   }
 }
 
-// 次の回戦へ進む / ロビーへ戻るボタンの処理（次戦用リセット処理およびonbattle.html遷移を統合）
+// 次の回戦へ進む / ロビーへ戻るボタンの処理
 window.finishMatchAndNextOrLobby = async function() {
   isNavigatingAway = true;
   if (roomUnsubscribe) roomUnsubscribe();
