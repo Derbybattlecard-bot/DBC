@@ -292,6 +292,7 @@
           combinedSeries.push(combinedSeries[0] || "series_01");
         }
 
+        // 仕様書 Ver 2.0 に即したステータス構造で対戦ルームを初期化[span_4](start_span)[span_4](end_span)
         await setDoc(doc(db, "online_matches", newRoomId), {
           host_uid: hostUid,
           guest_uid: currentUser.uid,
@@ -299,9 +300,19 @@
           player2: currentUser.uid,
           player1_deck: hostData.host_deck || [],
           player2_deck: myDeckIds,
+          
+          status: "deck_selecting",      // 全体ステータス（仕様書 3.1）[span_5](start_span)[span_5](end_span)
+          p1_status: "deck_selecting",   // ホスト側個別ステータス（仕様書 3.2）[span_6](start_span)[span_6](end_span)
+          p2_status: "deck_selecting",   // ゲスト側個別ステータス（仕様書 3.2）[span_7](start_span)[span_7](end_span)
+          current_series_index: 0,       // 第1回戦インデックス（仕様書 4.1）[span_8](start_span)[span_8](end_span)
+          
+          player1_ready: false,
+          player2_ready: false,
+          player1_entries: [null, null, null, null, null],
+          player2_entries: [null, null, null, null, null],
+          
           match_series: combinedSeries.slice(0, 5),
           mode: matchedMode,
-          status: "ready",
           created_at: new Date().toISOString()
         });
 
