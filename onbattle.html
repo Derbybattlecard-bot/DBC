@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DERBY BATTLE CARD - 対戦準備 (onbattle.html)</title>
+<title>DERBY BATTLE CARD - 対戦準備</title>
 <style>
   :root {
     --bg-gradient: linear-gradient(135deg, #2e1065 0%, #4c1d95 50%, #5b21b6 100%);
@@ -300,6 +300,7 @@
 
   let isNavigatingAway = false;
   let isReadySent = false;
+  let isFinalizingSeries = false;
   let waitingTimeoutTimer = null;
 
   const urlParams = new URLSearchParams(window.location.search);
@@ -574,6 +575,7 @@
 
   function renderDeckTable() {
     const tbody = document.getElementById('deckHorseList');
+    if (!tbody) return;
     tbody.innerHTML = '';
     const deck = (globalUserData.decks || [])[selectedDeckIndex] || { horse_ids: [] };
 
@@ -588,8 +590,8 @@
 
       if (horse) {
         let isLocked = false;
-        if (horseId && priorities[horseId]) {
-          const priorityOwner = priorities[horseId];
+        const priorityOwner = horseId != null ? (priorities[horseId] || priorities[String(horseId)]) : null;
+        if (priorityOwner) {
           const myRoleKey = isHost ? 'host' : 'guest';
           if (priorityOwner !== myRoleKey && !oppUsedHorses.includes(String(horseId))) {
             isLocked = true;
@@ -634,6 +636,9 @@
 
       const data = snapshot.data();
       roomDataCache = data;
+
+      // 重複判定等の最新状態を反省させるためデッキテーブルをアップデート
+      renderDeckTable();
 
       if (data.status === "cancelled") {
         if (!isNavigatingAway) {
@@ -716,7 +721,7 @@
         const hasP2Ban = isBanSet(data.p2_banned_index);
 
         if (hasP1Ban && hasP2Ban) {
-          if (!data.match_series || !Array.isArray(data.match_series) || data.match_series.length < totalRounds) {
+          if (isHost && (!data.match_series || !Array.isArray(data.match_series) || data.match_series.length < totalRounds)) {
             finalizeMatchSeries(data);
           }
           renderCompletedMatchView(data);
@@ -842,9 +847,6 @@
 
     const mySeries = isHost ? p1Series : p2Series;
     const oppSeries = isHost ? p2Series : p1Series;
-
-    const myKept = isHost ? p1Kept : p2Kept;
-    const oppKept = isHost ? p2Kept : p1Kept;
 
     const myBanIdx = isHost ? p2BanIdx : p1BanIdx;
     const oppBanIdx = isHost ? p1BanIdx : p2BanIdx;
@@ -1094,7 +1096,7 @@
       const snap = await getDoc(roomRef);
       if (snap.exists()) {
         const data = snap.data();
-        if (isBanSet(data.p1_banned_index) && isBanSet(data.p2_banned_index)) {
+        if (isHost && isBanSet(data.p1_banned_index) && isBanSet(data.p2_banned_index)) {
           await finalizeMatchSeries(data);
         }
       }
@@ -1165,7 +1167,10 @@
   }
 
   async function finalizeMatchSeries(roomData) {
+    if (isFinalizingSeries) return;
     if (roomData.match_series && Array.isArray(roomData.match_series) && roomData.match_series.length === totalRounds) return;
+
+    isFinalizingSeries = true;
 
     const p1Series = roomData.player1_series || ["SERIES_001", "SERIES_002", "SERIES_003"];
     const p2Series = roomData.player2_series || ["SERIES_001", "SERIES_002", "SERIES_003"];
@@ -1224,7 +1229,10 @@
       finalSeriesList = [...round1_2, round3];
     }
 
-    if (finalSeriesList.length < totalRounds) return;
+    if (finalSeriesList.length < totalRounds) {
+      isFinalizingSeries = false;
+      return;
+    }
 
     const roomRef = doc(db, "online_matches", roomId);
     try {
@@ -1233,6 +1241,8 @@
       });
     } catch (e) {
       console.error("対戦シリーズ書き込みエラー:", e);
+    } finally {
+      isFinalizingSeries = false;
     }
   }
 
