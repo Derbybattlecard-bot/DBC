@@ -376,7 +376,6 @@ let myNameStr = "あなた";
 let oppNameStr = "対戦相手";
 let roomUnsubscribe = null;
 let isNavigatingAway = false;
-let isCalculating = false; // 二重計算防止フラグ
 
 const urlParams = new URLSearchParams(window.location.search);
 const roomId = urlParams.get('roomId');
@@ -459,43 +458,37 @@ onAuthStateChanged(auth, async (user) => {
 
 // ホスト側で5レース分を一括計算してFirestoreに保存する処理
 async function calculateAndUploadAllRaces() {
-  if (isCalculating) return;
-  if (roomData?.race_results_cache && roomData.race_results_cache.length === 5) {
+  if (roomData.race_results_cache && roomData.race_results_cache.length === 5) {
     return;
   }
 
-  isCalculating = true;
   const allRaceResults = [];
 
+  for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
+    const raceGrid = fullRaceGrids[rIdx];
+    const racesTrackConditions = roomData?.races_track_conditions || [];
+    const tCond = racesTrackConditions[rIdx] || "良";
+    
+    const matchSeries = roomData?.match_series || roomData?.selected_series || ["series_01"];
+    const currentSeriesIndex = roomData?.current_series_index || 0;
+    const seriesId = Array.isArray(matchSeries) ? (matchSeries[currentSeriesIndex] || matchSeries[0]) : matchSeries;
+    const seriesInfo = seriesMasterData[seriesId] || Object.values(seriesMasterData)[0] || {};
+    const racesInSeries = seriesInfo.races || (seriesInfo.rounds && seriesInfo.rounds[0] ? seriesInfo.rounds[0].races : null);
+    const roundRace = (Array.isArray(racesInSeries) && racesInSeries[rIdx]) ? racesInSeries[rIdx] : null;
+
+    const rInfo = {
+      race_name: roundRace?.race_name || `第${rIdx + 1}戦`,
+      race_number: rIdx + 1,
+      surface: roundRace?.surface || "芝",
+      distance: roundRace?.distance || 2000,
+      track: roundRace?.track || "中山"
+    };
+
+    const result = runRaceLogic(raceGrid, raceMasterData, tCond, rInfo, abilityMasterData);
+    allRaceResults.push(JSON.parse(JSON.stringify(result)));
+  }
+
   try {
-    for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
-      const raceGrid = fullRaceGrids[rIdx];
-      if (!raceGrid || raceGrid.length === 0) {
-        throw new Error(`第${rIdx + 1}レースの出走馬データ(raceGrid)が生成されていません。`);
-      }
-
-      const racesTrackConditions = roomData?.races_track_conditions || [];
-      const tCond = racesTrackConditions[rIdx] || "良";
-      
-      const matchSeries = roomData?.match_series || roomData?.selected_series || ["series_01"];
-      const currentSeriesIndex = roomData?.current_series_index || 0;
-      const seriesId = Array.isArray(matchSeries) ? (matchSeries[currentSeriesIndex] || matchSeries[0]) : matchSeries;
-      const seriesInfo = seriesMasterData[seriesId] || Object.values(seriesMasterData)[0] || {};
-      const racesInSeries = seriesInfo.races || (seriesInfo.rounds && seriesInfo.rounds[0] ? seriesInfo.rounds[0].races : null);
-      const roundRace = (Array.isArray(racesInSeries) && racesInSeries[rIdx]) ? racesInSeries[rIdx] : null;
-
-      const rInfo = {
-        race_name: roundRace?.race_name || `第${rIdx + 1}戦`,
-        race_number: rIdx + 1,
-        surface: roundRace?.surface || "芝",
-        distance: roundRace?.distance || 2000,
-        track: roundRace?.track || "中山"
-      };
-
-      const result = runRaceLogic(raceGrid, raceMasterData, tCond, rInfo, abilityMasterData);
-      allRaceResults.push(JSON.parse(JSON.stringify(result)));
-    }
-
     const roomRef = doc(db, "online_matches", roomId);
     await updateDoc(roomRef, {
       race_results_cache: allRaceResults,
@@ -503,9 +496,7 @@ async function calculateAndUploadAllRaces() {
     });
   } catch (err) {
     console.error("全レース計算結果の送信失敗:", err);
-    showErrorModal("レース計算中にエラーが発生しました: " + (err.message || err));
-  } finally {
-    isCalculating = false;
+    showErrorModal("レース計算データの送信に失敗しました。");
   }
 }
 
