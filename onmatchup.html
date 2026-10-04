@@ -272,7 +272,7 @@
     </div>
     <div class="status-item">
       <span class="status-label">合計ポテンシャル</span>
-      <span class="status-val" id="totalPotential">0 / 85</span>
+      <span class="status-val" id="totalPotential">0 / --</span>
     </div>
     <div class="status-item">
       <span class="status-label">制限判定</span>
@@ -321,6 +321,10 @@
   let roomUnsubscribe = null;
   let isNavigatingAway = false;
   let currentRoundIndex = 0;
+
+  // シリーズマスターから動的に設定されるポテンシャル制限
+  let currentMaxTotalPt = 85;
+  let currentMinPtPerRace = 14;
 
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('roomId');
@@ -427,12 +431,17 @@
     document.getElementById('opponentName').textContent = oppName;
 
     let rawRaces = [];
-    const matchSeries = roomData.match_series || roomData.selected_series || roomData.series_id || ["series_01"];
+    const matchSeries = roomData.match_series || roomData.selected_series || roomData.series_id || ["SERIES_001"];
     const seriesIdList = Array.isArray(matchSeries) ? matchSeries : [matchSeries];
     
     seriesIdList.forEach((sId) => {
       const sObj = SERIES_MASTER[sId] || Object.values(SERIES_MASTER)[0] || {};
       const racesInSeries = sObj.races || (sObj.rounds && sObj.rounds[0] ? sObj.rounds[0].races : null);
+
+      // シリーズマスターからポテンシャル制限設定を取得
+      const potLimit = sObj.potential_limit || {};
+      const maxTotal = potLimit.max_total_potential ?? 85;
+      const minPerRace = potLimit.min_potential_per_race ?? 14;
 
       if (Array.isArray(racesInSeries) && racesInSeries.length > 0) {
         racesInSeries.forEach(r => {
@@ -442,7 +451,9 @@
             distance: r.distance || 2000,
             sex: r.sex || sObj.sex || "制限なし",
             series_name: sObj.series_name || sObj.name || "",
-            category: sObj.category || sObj.series_category || "地方交流シリーズ"
+            category: sObj.category || sObj.series_category || sObj.group || "地方交流シリーズ",
+            max_total_potential: maxTotal,
+            min_potential_per_race: minPerRace
           });
         });
       } else {
@@ -452,21 +463,23 @@
           distance: sObj.distance || 2000,
           sex: sObj.sex || "制限なし",
           series_name: sObj.series_name || sObj.name || "",
-          category: sObj.category || sObj.series_category || "地方交流シリーズ"
+          category: sObj.category || sObj.series_category || sObj.group || "地方交流シリーズ",
+          max_total_potential: maxTotal,
+          min_potential_per_race: minPerRace
         });
       }
     });
 
     const fallbackRaces = [
-      { race_name: "桜花賞", surface: "芝", distance: 1600, sex: "制限なし" },
-      { race_name: "朝日杯FS", surface: "芝", distance: 1600, sex: "制限なし" },
-      { race_name: "毎日王冠", surface: "芝", distance: 1800, sex: "制限なし" },
-      { race_name: "天皇賞(秋)", surface: "芝", distance: 2000, sex: "制限なし" },
-      { race_name: "有馬記念", surface: "芝", distance: 2500, sex: "制限なし" }
+      { race_name: "北九州記念", surface: "芝", distance: 1200, sex: "制限なし", max_total_potential: 85, min_potential_per_race: 14 },
+      { race_name: "吾妻小富士ステークス", surface: "ダート", distance: 1700, sex: "制限なし", max_total_potential: 85, min_potential_per_race: 14 },
+      { race_name: "クイーンステークス", surface: "芝", distance: 1800, sex: "牝馬限定", max_total_potential: 85, min_potential_per_race: 14 },
+      { race_name: "函館記念", surface: "芝", distance: 2000, sex: "制限なし", max_total_potential: 85, min_potential_per_race: 14 },
+      { race_name: "日本海ステークス", surface: "芝", distance: 2200, sex: "制限なし", max_total_potential: 85, min_potential_per_race: 14 }
     ];
 
     matchRaces = [];
-    const firstRaceInfo = rawRaces[0] || {};
+    const firstRaceInfo = rawRaces[0] || fallbackRaces[0];
     for (let i = 0; i < 5; i++) {
       const r = rawRaces[i] || fallbackRaces[i];
       matchRaces.push({
@@ -476,12 +489,19 @@
         distance: r.distance || 2000,
         sex: r.sex || "制限なし",
         series_name: r.series_name || firstRaceInfo.series_name || "対象シリーズ",
-        category: r.category || firstRaceInfo.category || "地方交流シリーズ"
+        category: r.category || firstRaceInfo.category || "地方交流シリーズ",
+        max_total_potential: r.max_total_potential ?? firstRaceInfo.max_total_potential ?? 85,
+        min_potential_per_race: r.min_potential_per_race ?? firstRaceInfo.min_potential_per_race ?? 14
       });
     }
 
     const currentRace = matchRaces[currentRoundIndex] || matchRaces[0];
     const categoryName = currentRace.category || "地方交流シリーズ";
+    
+    // 現在のシリーズの制限ポテンシャル値をグローバルに更新
+    currentMaxTotalPt = currentRace.max_total_potential;
+    currentMinPtPerRace = currentRace.min_potential_per_race;
+
     document.getElementById('seriesRoundLabel').textContent = `第${currentRoundIndex + 1}回戦 対象シリーズ (${categoryName})`;
     document.getElementById('displaySeriesName').textContent = currentRace.series_name || "対象シリーズ";
 
@@ -667,7 +687,7 @@
     }
   }
 
-  // ★仕様書第6章：優先出走権（initial_card_priorities / used_horses）の判定判定★
+  // 優先出走権（initial_card_priorities / used_horses）の判定
   function checkDuplicateHorsePriority(horseId) {
     const targetIdStr = String(horseId);
     const isHost = (role === 'host');
@@ -680,7 +700,7 @@
 
     // 2. 事前構築された initial_card_priorities があればそちらを優先参照
     if (initialCardPriorities && initialCardPriorities[targetIdStr]) {
-      const priorityOwner = initialCardPriorities[targetIdStr]; // 'host' / 'guest' / 'p1' / 'p2'
+      const priorityOwner = initialCardPriorities[targetIdStr];
       const isMyPriority = (priorityOwner === myRoleKey) || 
                            (isHost && (priorityOwner === 'p1' || priorityOwner === 'player1')) ||
                            (!isHost && (priorityOwner === 'p2' || priorityOwner === 'player2'));
@@ -765,7 +785,7 @@
   }
 
   function populateDropdowns() {
-    const minPtPerRace = 14;
+    const minPtPerRace = currentMinPtPerRace;
 
     matchRaces.forEach((race, rIdx) => {
       const select = document.getElementById(`selectRace${rIdx}`);
@@ -799,7 +819,7 @@
           } else if (!isValidDistance(horse, race.distance)) {
             opt.textContent = `[距離不可] ${info}`; opt.disabled = true;
           } else if (pt < minPtPerRace) {
-            opt.textContent = `[Pt不足] ${info}`; opt.disabled = true;
+            opt.textContent = `[Pt不足(${minPtPerRace}未満)] ${info}`; opt.disabled = true;
           } else if (!priorityCheck.canUse) {
             opt.textContent = `[${priorityCheck.reason}] ${info}`; opt.disabled = true;
           } else {
@@ -841,7 +861,7 @@
   };
 
   function updateStatus() {
-    const maxTotalPt = 85;
+    const maxTotalPt = currentMaxTotalPt;
     let totalPt = 0;
     let count = 0;
     let hasDistError = false;
@@ -883,7 +903,7 @@
     }
   }
 
-  // ★エントリー完了処理★
+  // エントリー完了処理
   window.submitEntries = async function() {
     if (selectedEntries.includes(null)) {
       alert("全5戦の出走馬を選択してください。");
