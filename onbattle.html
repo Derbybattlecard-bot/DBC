@@ -679,7 +679,6 @@
 
       // 1. 相手のリアルタイムステータス監視＆UIボタン制御
       const opponentStatusField = isHost ? 'p2_status' : 'p1_status';
-      // 1回戦目(0)は初期状態として "deck_selecting"、2回戦目以降で未設定の場合は "racing"
       const defaultOppStatus = (currentSeriesIdx === 0) ? "deck_selecting" : "racing";
       const opponentStatus = data[opponentStatusField] || defaultOppStatus;
       
@@ -703,7 +702,6 @@
 
       // 2. ラウンド数に応じた BAN / デッキ選択制御
       if (currentSeriesIdx === 0) {
-        // 【第1戦目】BANフェーズを実行
         const oppSeries = isHost ? data.player2_series : data.player1_series;
         if (oppSeries && Array.isArray(oppSeries) && oppSeries.length > 0) {
           opponentSeriesList = [...oppSeries];
@@ -730,7 +728,6 @@
           }
         }
       } else {
-        // 【第2戦目以降（次回戦）】BAN選択はスキップ
         renderNextRoundSeriesView(data, currentSeriesIdx);
         enableDeckSelection(opponentStatus);
       }
@@ -862,7 +859,6 @@
 
     let html = '';
 
-    // 【上段】お互いに除外（BAN）した2つのシリーズ
     html += `
       <div style="background:#fef2f2; border:2px solid #ef4444; border-radius:12px; padding:14px; margin-bottom:14px; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
         <div class="ban-title" style="color: #dc2626; text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 2px;">
@@ -915,7 +911,6 @@
 
     html += `</div></div>`;
 
-    // 【下段】決定対戦シリーズ（全〇回戦）
     html += `
       <div style="background:#ffffff; border:2px solid #10b981; border-radius:12px; padding:14px; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
         <div class="ban-title" style="color: #047857; text-align: center; font-size: 15px; font-weight: bold; margin-bottom: 2px;">
