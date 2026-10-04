@@ -737,17 +737,20 @@ async function loadMasterData() {
 function buildRaceGridsFromOnlineData() {
   const isHost = (role === 'host');
   
-  const myEntries = isHost ? (roomData.player1_entries || []) : (roomData.player2_entries || []);
-  const oppEntries = isHost ? (roomData.player2_entries || []) : (roomData.player1_entries || []);
-  
-  const myStrats = isHost ? (roomData.player1_strategies || []) : (roomData.player2_strategies || []);
-  const oppStrats = isHost ? (roomData.player2_strategies || []) : (roomData.player1_strategies || []);
+  // プレイヤー1（ホスト）とプレイヤー2（ゲスト）のデータを固定順で取得
+  const p1Entries = roomData.player1_entries || [];
+  const p2Entries = roomData.player2_entries || [];
+  const p1Strats = roomData.player1_strategies || [];
+  const p2Strats = roomData.player2_strategies || [];
+
+  const p1Name = isHost ? myNameStr : oppNameStr;
+  const p2Name = isHost ? oppNameStr : myNameStr;
 
   const racesMobIds = roomData.races_mob_ids || {};
   
   totalRounds = 5;
 
-  if (!myEntries || myEntries.length < totalRounds || !oppEntries || oppEntries.length < totalRounds) {
+  if (!p1Entries || p1Entries.length < totalRounds || !p2Entries || p2Entries.length < totalRounds) {
     showErrorModal("出走馬エントリーデータが見つかりません。");
     return false;
   }
@@ -760,34 +763,37 @@ function buildRaceGridsFromOnlineData() {
   for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
     const rawGrid = [];
 
-    const myHorseId = String(myEntries[rIdx]);
-    const myMaster = HORSES_MASTER[myHorseId] || { name: "自馬", horse_id: myHorseId };
-    const myStratObj = (myStrats && myStrats[rIdx]) ? myStrats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
+    // 1. 常に Index 0 に Player 1（ホスト馬）を配置
+    const p1HorseId = String(p1Entries[rIdx]);
+    const p1Master = HORSES_MASTER[p1HorseId] || { name: "P1馬", horse_id: p1HorseId };
+    const p1StratObj = (p1Strats && p1Strats[rIdx]) ? p1Strats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
 
     rawGrid.push({
-      ...myMaster,
-      isPlayer: true,
+      ...p1Master,
+      isPlayer: isHost,         // 自分がホストならYOU、ゲストならOPP
+      isOpponent: !isHost,
       isCpu: false,
-      isOpponent: false,
-      ownerName: myNameStr,
-      tactic: myStratObj.strategy || "先行して粘り込み",
-      level: myStratObj.strategy_level || 3
+      ownerName: p1Name,
+      tactic: p1StratObj.strategy || "先行して粘り込み",
+      level: p1StratObj.strategy_level || 3
     });
 
-    const oppHorseId = String(oppEntries[rIdx]);
-    const oppMaster = HORSES_MASTER[oppHorseId] || { name: "相手馬", horse_id: oppHorseId };
-    const oppStratObj = (oppStrats && oppStrats[rIdx]) ? oppStrats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
+    // 2. 常に Index 1 に Player 2（ゲスト馬）を配置
+    const p2HorseId = String(p2Entries[rIdx]);
+    const p2Master = HORSES_MASTER[p2HorseId] || { name: "P2馬", horse_id: p2HorseId };
+    const p2StratObj = (p2Strats && p2Strats[rIdx]) ? p2Strats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
 
     rawGrid.push({
-      ...oppMaster,
-      isPlayer: false,
+      ...p2Master,
+      isPlayer: !isHost,        // 自分がゲストならYOU、ホストならOPP
+      isOpponent: isHost,
       isCpu: false,
-      isOpponent: true,
-      ownerName: oppNameStr,
-      tactic: oppStratObj.strategy || "先行して粘り込み",
-      level: oppStratObj.strategy_level || 3
+      ownerName: p2Name,
+      tactic: p2StratObj.strategy || "先行して粘り込み",
+      level: p2StratObj.strategy_level || 3
     });
 
+    // 3. モブ馬を Index 2 以降に配置
     const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
 
     mobIds.forEach((mobId) => {
@@ -805,16 +811,16 @@ function buildRaceGridsFromOnlineData() {
       });
     });
 
-    // レースごとの確定的シード値で全馬をシャッフル（ホスト・ゲスト間で完全同期）
+    // ホスト・ゲストで完全に一致した rawGrid 配列をシャッフル
     const raceSeed = baseSeed + (rIdx + 1) * 100;
     const shuffledGrid = shuffleArrayWithSeed(rawGrid, raceSeed);
 
-    // シャッフル後の順番を馬番(gate_number)として1から割り当て
+    // シャッフル後の順番を馬番(gate_number)として割り当て
     shuffledGrid.forEach((horse, idx) => {
       horse.gate_number = idx + 1;
     });
 
-    // 馬番（gate_number）昇順に並べ替えて格納
+    // 馬番順に並べ替えて格納
     shuffledGrid.sort((a, b) => a.gate_number - b.gate_number);
     fullRaceGrids.push(shuffledGrid);
   }
