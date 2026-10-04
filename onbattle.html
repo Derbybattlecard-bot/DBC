@@ -218,12 +218,12 @@
     <div class="match-type-tag" id="onlineMatchTag">ONLINE MATCH</div>
     <div class="challenge-label">＼ オンライン対戦 準備画面 ／</div>
     <div class="opponent-display" id="opponentNameDisplay">VS 対戦相手を取得中…</div>
-    <!-- 相手のリアルタイムステータスバッジ (仕様書 5.2) -->
-    <div id="opponent-status-badge" class="badge badge-warning">🟡 相手：レース確認中...</div>
+    <!-- 相手のリアルタイムステータスバッジ -->
+    <div id="opponent-status-badge" class="badge badge-info">🔵 相手：戦略選択中</div>
     <div class="sub-status" id="onlineSubText">相手のシリーズを1つ除外してから、使用するデッキを選択してください</div>
   </div>
 
-  <!-- 自分のシリーズ持ち込み情報（シリーズ決定後は非表示） -->
+  <!-- 自分のシリーズ持ち込み情報 -->
   <div class="my-series-panel" id="mySeriesPanel">
     <strong>📋 あなたの持ち込みシリーズ（相手に公開）:</strong>
     <div class="my-series-list" id="mySeriesContainer">
@@ -538,11 +538,13 @@
     const updateData = (role === 'host') ? { 
       player1_series: mySeries,
       player1_name: myName,
-      player1_uid: currentUser.uid
+      player1_uid: currentUser.uid,
+      p1_status: "deck_selecting"
     } : { 
       player2_series: mySeries,
       player2_name: myName,
-      player2_uid: currentUser.uid
+      player2_uid: currentUser.uid,
+      p2_status: "deck_selecting"
     };
     await setDoc(roomRef, updateData, { merge: true });
   }
@@ -570,7 +572,6 @@
     renderDeckTable();
   };
 
-  /* カード重複（馬のカブり）ロック判定・表示を組み込んだデッキテーブル描画（仕様書 6.3/6.4） */
   function renderDeckTable() {
     const tbody = document.getElementById('deckHorseList');
     tbody.innerHTML = '';
@@ -587,7 +588,6 @@
 
       if (horse) {
         let isLocked = false;
-        // カード優先権のチェック（優先権が相手にあり、かつ相手がまだ出走させていない場合は重複ロック）
         if (horseId && priorities[horseId]) {
           const priorityOwner = priorities[horseId];
           const myRoleKey = isHost ? 'host' : 'guest';
@@ -618,7 +618,7 @@
     }
   }
 
-  /* 非同期作戦タイム統合・ステータス監視メインループ (仕様書 5.2) */
+  /* 非同期作戦タイム統合・ステータス監視メインループ */
   function initOnlineRoomWatch() {
     const roomRef = doc(db, "online_matches", roomId);
 
@@ -677,29 +677,31 @@
 
       document.getElementById('opponentNameDisplay').textContent = `VS ${oppName} 選手`;
 
-      // 1. 相手のリアルタイムステータス監視＆UIボタン制御マトリクス (仕様書 5.2)
+      // 1. 相手のリアルタイムステータス監視＆UIボタン制御
       const opponentStatusField = isHost ? 'p2_status' : 'p1_status';
-      const opponentStatus = data[opponentStatusField] || "racing";
+      // 1回戦目(0)は初期状態として "deck_selecting"、2回戦目以降で未設定の場合は "racing"
+      const defaultOppStatus = (currentSeriesIdx === 0) ? "deck_selecting" : "racing";
+      const opponentStatus = data[opponentStatusField] || defaultOppStatus;
       
       const readyBtn = document.getElementById('btnReady');
       const badgeEl = document.getElementById('opponent-status-badge');
 
-      if (opponentStatus === "racing") {
+      if (opponentStatus === "racing" && currentSeriesIdx > 0) {
         badgeEl.className = "badge badge-warning";
         badgeEl.innerHTML = "🟡 相手：レース確認中...";
         if (!isReadySent) {
           readyBtn.disabled = true;
           readyBtn.textContent = "相手がレース確認を終了するまでお待ちください";
         }
-      } else if (opponentStatus === "deck_selecting") {
-        badgeEl.className = "badge badge-info";
-        badgeEl.innerHTML = "🔵 相手：戦略選択中";
       } else if (opponentStatus === "ready") {
         badgeEl.className = "badge badge-success";
         badgeEl.innerHTML = "🟢 相手：準備完了！";
+      } else {
+        badgeEl.className = "badge badge-info";
+        badgeEl.innerHTML = "🔵 相手：戦略選択中";
       }
 
-      // 2. ラウンド数に応じた BAN / デッキ選択制御 (仕様書 2.2)
+      // 2. ラウンド数に応じた BAN / デッキ選択制御
       if (currentSeriesIdx === 0) {
         // 【第1戦目】BANフェーズを実行
         const oppSeries = isHost ? data.player2_series : data.player1_series;
@@ -728,7 +730,7 @@
           }
         }
       } else {
-        // 【第2戦目以降（次回戦）】BAN選択はスキップし、決定済みシリーズを強調表示
+        // 【第2戦目以降（次回戦）】BAN選択はスキップ
         renderNextRoundSeriesView(data, currentSeriesIdx);
         enableDeckSelection(opponentStatus);
       }
@@ -765,7 +767,8 @@
 
     const btnReady = document.getElementById('btnReady');
     if (btnReady) {
-      if (opponentStatus === "racing") {
+      const currentSeriesIdx = roomDataCache?.current_series_index || 0;
+      if (opponentStatus === "racing" && currentSeriesIdx > 0) {
         btnReady.disabled = true;
         btnReady.textContent = "相手がレース確認を終了するまでお待ちください";
       } else {
@@ -775,7 +778,7 @@
     }
   }
 
-  /* 第2戦目以降の対戦シリーズ案内表示（仕様書 2.2） */
+  /* 第2戦目以降の対戦シリーズ案内表示 */
   function renderNextRoundSeriesView(data, currentSeriesIdx) {
     const mySeriesPanel = document.getElementById('mySeriesPanel');
     if (mySeriesPanel) mySeriesPanel.style.display = 'none';
@@ -820,7 +823,7 @@
     `;
   }
 
-  /* 両者のBAN完了時：除外（BAN）シリーズを上、決定対戦シリーズを下に配置 */
+  /* 両者のBAN完了時表示 */
   function renderCompletedMatchView(data) {
     const mySeriesPanel = document.getElementById('mySeriesPanel');
     if (mySeriesPanel) {
@@ -1105,7 +1108,7 @@
     }
   };
 
-  /* 準備完了送信処理 (仕様書 3.2, 5.2 に基づき pX_status を "ready" に自動更新) */
+  /* 準備完了送信処理 */
   window.setPlayerReady = async function() {
     if (!roomId || isReadySent) return;
     
