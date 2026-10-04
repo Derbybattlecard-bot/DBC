@@ -883,9 +883,9 @@ function renderLanes() {
   lanes.innerHTML = htmlBuffer;
 
   setHorseDirection(currentTrackConfig.phase1_3_dir);
-}
+  }
 
-function setHorseDirection(direction) {
+  function setHorseDirection(direction) {
   activeHorses.forEach((_, i) => {
     let el = document.getElementById(`emoji-${i}`);
     if (el) {
@@ -1289,7 +1289,7 @@ async function showFinalSeriesResult() {
   }
 }
 
-// 次の回戦へ進む / ロビーへ戻るボタンの処理（キャッシュリセット処理含む）
+// 次の回戦へ進む / ロビーへ戻るボタンの処理（次戦用リセット処理およびonbattle.html遷移を統合）
 window.finishMatchAndNextOrLobby = async function() {
   isNavigatingAway = true;
   if (roomUnsubscribe) roomUnsubscribe();
@@ -1302,20 +1302,25 @@ window.finishMatchAndNextOrLobby = async function() {
         const data = roomSnap.data();
         const currentSeriesIdx = data.current_series_index || 0;
         const matchSeries = data.match_series || data.selected_series || [];
+        const matchMode = urlParams.get('mode') || data.match_mode || 'online';
 
         if (Array.isArray(matchSeries) && currentSeriesIdx + 1 < matchSeries.length) {
           if (role === 'host') {
             await updateDoc(roomRef, {
               current_series_index: increment(1),
-              status: "entry_selecting",
               player1_ready: false,
               player2_ready: false,
               player1_strategy_ready: false,
               player2_strategy_ready: false,
-              race_results_cache: deleteField() // 次の回戦へ進むためキャッシュをクリア
+              player1_entries: deleteField(),
+              player2_entries: deleteField(),
+              player1_strategies: deleteField(),
+              player2_strategies: deleteField(),
+              race_results_cache: deleteField(),
+              status: "deck_selecting"
             });
           }
-          window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}`;
+          window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
           return;
         }
       }
