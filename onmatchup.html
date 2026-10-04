@@ -313,6 +313,7 @@
   let oppDeckIds = [];
   
   let oppUsedHorseIdsInPast = [];
+  let myUsedHorseIdsInPast = []; // ★自プレイヤーの過去使用済み馬IDリスト
   let initialCardPriorities = {};
 
   let selectedEntries = [null, null, null, null, null];
@@ -406,6 +407,11 @@
     const isHost = (role === 'host');
     const oppUsedList = isHost ? (roomData.player2_used_horses || []) : (roomData.player1_used_horses || []);
     oppUsedHorseIdsInPast = oppUsedList.map(id => String(id));
+
+    // ★ 自分の過去使用済み馬を取得
+    const myUsedList = isHost ? (roomData.player1_used_horses || []) : (roomData.player2_used_horses || []);
+    myUsedHorseIdsInPast = myUsedList.map(id => String(id));
+
     initialCardPriorities = roomData.initial_card_priorities || {};
 
     if (!deckHorses || deckHorses.length === 0) {
@@ -604,10 +610,14 @@
 
       const isHost = (role === 'host');
       const oppUsedList = isHost ? (data.player2_used_horses || []) : (data.player1_used_horses || []);
+      const myUsedList = isHost ? (data.player1_used_horses || []) : (data.player2_used_horses || []);
       
-      const newPastUsedStr = JSON.stringify(oppUsedList.map(id => String(id)));
-      if (JSON.stringify(oppUsedHorseIdsInPast) !== newPastUsedStr) {
+      const newOppPastUsedStr = JSON.stringify(oppUsedList.map(id => String(id)));
+      const newMyPastUsedStr = JSON.stringify(myUsedList.map(id => String(id)));
+
+      if (JSON.stringify(oppUsedHorseIdsInPast) !== newOppPastUsedStr || JSON.stringify(myUsedHorseIdsInPast) !== newMyPastUsedStr) {
         oppUsedHorseIdsInPast = oppUsedList.map(id => String(id));
+        myUsedHorseIdsInPast = myUsedList.map(id => String(id));
         populateDropdowns();
       }
 
@@ -812,7 +822,10 @@
 
           const priorityCheck = checkDuplicateHorsePriority(horse.horse_id);
 
-          if (!isValidSex(horse.sex, raceSexLimit)) {
+          // ★ 自分が過去ラウンドで使用済みの馬は選択不可にする
+          if (myUsedHorseIdsInPast.includes(horseIdStr)) {
+            opt.textContent = `[使用済み] ${info}`; opt.disabled = true;
+          } else if (!isValidSex(horse.sex, raceSexLimit)) {
             opt.textContent = `[性別不可] ${info}`; opt.disabled = true;
           } else if (!isValidSurface(horse, race.surface)) {
             opt.textContent = `[適性外] ${info}`; opt.disabled = true;
