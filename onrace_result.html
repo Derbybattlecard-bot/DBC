@@ -348,7 +348,7 @@
 <!-- エラーモーダル -->
 <div id="error-modal">
   <div class="error-modal-content">
-    <div class="error-title">⚠️ エラー発生 / データ異常</div>
+    <div class="error-title">⚠️️ エラー発生 / データ異常</div>
     <div class="error-msg" id="error-modal-msg">対戦データに問題が発生したか、正しく読み込めませんでした。</div>
     <button class="btn-secondary" onclick="window.location.href='online.html'">🔙 オンラインロビー（online.html）に戻る</button>
   </div>
@@ -441,6 +441,21 @@ function shuffleArrayWithSeed(array, seed) {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
+}
+
+// undefinedプロパティを再帰的に除去（Firestore保存エラー防止）
+function removeUndefinedFields(obj) {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(removeUndefinedFields);
+  }
+  const cleanObj = {};
+  for (const key of Object.keys(obj)) {
+    if (obj[key] !== undefined) {
+      cleanObj[key] = removeUndefinedFields(obj[key]);
+    }
+  }
+  return cleanObj;
 }
 
 window.showErrorModal = function(msg) {
@@ -576,7 +591,8 @@ async function calculateAndUploadAllRaces() {
       };
 
       const result = runRaceLogic(raceGrid, raceMasterData, tCond, rInfo, abilityMasterData);
-      allRaceResults.push(JSON.parse(JSON.stringify(result)));
+      const cleanResult = removeUndefinedFields(JSON.parse(JSON.stringify(result)));
+      allRaceResults.push(cleanResult);
     }
 
     const roomRef = doc(db, "online_matches", roomId);
