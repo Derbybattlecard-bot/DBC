@@ -30,7 +30,7 @@ const OVERSEAS_TRACKS = [
 ];
 
 /**
- * 作戦マスターデータから定義された脚質パラメータ（style / category）を取得
+ * 作戦マスターデータから定義された脚質パラメータ（4種類: 逃げ/先行/差し/追込）を取得
  */
 function getTacticStyleFromMaster(horse) {
   if (!horse) return "";
@@ -44,7 +44,7 @@ function getTacticStyleFromMaster(horse) {
 }
 
 /**
- * 馬マスターデータから定義された脚質パラメータ（style / running_style）を取得
+ * 馬マスターデータから定義された脚質パラメータ（8種類: 大逃/逃げ/先行/好位/差し/追込/自在/逃追）を取得
  */
 function getHorseStyleFromMaster(horse) {
   if (!horse) return "";
@@ -209,6 +209,10 @@ function weightedRandomSelect(probObj) {
   return keys[keys.length - 1] || "ミドルペース";
 }
 
+/**
+ * レースペースの決定処理
+ * 判定条件: 馬の元脚質や「大逃」「逃」の判定を撤廃し、選択された作戦（tacticStyle）が「逃げ」の馬のみをカウント
+ */
 function determinePace(horses, raceMaster, trackCondition) {
   const paceMaster = raceMaster?.pace_decision_master;
   if (!paceMaster) return "ミドルペース";
@@ -217,11 +221,8 @@ function determinePace(horses, raceMaster, trackCondition) {
   const condMaster = isHeavy ? paceMaster.heavy_or_bad : paceMaster.good_or_slightly_heavy;
   if (!condMaster) return "ミドルペース";
 
-  const leadHorses = horses.filter(h => {
-    const style = getHorseStyleFromMaster(h);
-    const tacticStyle = getTacticStyleFromMaster(h);
-    return style === "逃げ" || style === "大逃" || style === "逃" || tacticStyle === "逃げ";
-  });
+  // 作戦（tacticStyle）が「逃げ」の馬のみを抽出
+  const leadHorses = horses.filter(h => getTacticStyleFromMaster(h) === "逃げ");
 
   const leadCount = leadHorses.length;
   let probObj = null;
@@ -258,9 +259,9 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
   const dist = Number(raceInfo?.distance || 0);
   const isFemale = ["牝", "牝馬"].includes(horse.sex);
   
-  const horseStyle = getHorseStyleFromMaster(horse);
+  // 逃げ判定は選択作戦（tacticStyle）が「逃げ」の場合のみに統一
   const tacticStyle = getTacticStyleFromMaster(horse);
-  const isEscape = horseStyle === "逃げ" || horseStyle === "大逃" || horseStyle === "逃" || tacticStyle === "逃げ";
+  const isEscape = (tacticStyle === "逃げ");
 
   if (condition.startsWith("track_")) {
     const venue = condition.replace("track_", "");
@@ -299,11 +300,7 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
       return true;
 
     case "single_escape": {
-      const leadHorses = allHorses.filter(h => {
-        const hStyle = getHorseStyleFromMaster(h);
-        const tStyle = getTacticStyleFromMaster(h);
-        return hStyle === "逃げ" || hStyle === "大逃" || hStyle === "逃" || tStyle === "逃げ";
-      });
+      const leadHorses = allHorses.filter(h => getTacticStyleFromMaster(h) === "逃げ");
 
       if (leadHorses.length !== 1) return false;
 
@@ -538,7 +535,6 @@ function applyPhase3Abilities(resultList, raceInfo, trackCondition, racePace) {
 
 /**
  * フェーズ4: 展開・最終計算アビリティ判定（マスターデータ駆動型）
- * 「動的ポテンシャル加算 (dynamic_pot_minus_10)」および「3展開全パラ+1等」を自動処理
  */
 function applyPhase4Abilities(horse, pace, branchName, abilityMasterData) {
   if (!isEligibleForAbility(horse)) return 0;
@@ -555,18 +551,15 @@ function applyPhase4Abilities(horse, pace, branchName, abilityMasterData) {
   horse.ability.forEach(abilityName => {
     const masterAbility = getAbilityMasterData(abilityName, abilityMasterData);
     
-    // マスターデータが存在する場合はマスター駆動で処理
     if (masterAbility && masterAbility.effects) {
       masterAbility.effects.forEach(effect => {
         if (effect.phase !== "phase4") return;
 
-        // 展開一致判定（target_branchesが設定されている場合）
         if (effect.condition === "branch_match" && effect.target_branches) {
           const isMatched = effect.target_branches.some(b => branchName.includes(b) || b.includes(branchName));
           if (!isMatched) return;
         }
 
-        // 確率判定（probabilityが指定されている場合）
         if (effect.probability !== undefined && Math.random() >= effect.probability) {
           return;
         }
@@ -671,7 +664,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
 
   processMarkStrategy(resultList);
 
-  // STEP 0: ペース事前判定
+  // STEP 0: ペース事前判定（作戦「逃げ」の馬数のみで確定）
   const selectedPace = determinePace(resultList, raceMaster, trackCondition);
 
   resultList.forEach(copy => {
@@ -682,6 +675,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
   resultList.forEach((h) => {
     const tacticCategory = getTacticStyleFromMaster(h);
 
+    // 1-1. 作戦脚質Pt（4種類）
     let tacticStylePt = 40;
     if (tacticCategory === "逃げ") {
       tacticStylePt = 90;
@@ -693,27 +687,25 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       tacticStylePt = 20;
     }
 
+    // 1-2. 馬の元脚質による補正（全8種類）
     const horseStyle = getHorseStyleFromMaster(h);
     let styleCalcPt = 0;
 
     if (horseStyle === "大逃") {
-      styleCalcPt = tacticStylePt + 50;
-    } else if (horseStyle === "逃げ" || horseStyle === "逃") {
-      styleCalcPt = tacticStylePt + 40;
-    } else if (horseStyle === "先行" || horseStyle === "好位") {
-      styleCalcPt = tacticStylePt + 30;
-    } else if (horseStyle === "差し") {
+      styleCalcPt = 120; // 作戦Pt不問で固定120pt
+    } else if (horseStyle === "逃げ") {
       styleCalcPt = tacticStylePt + 20;
-    } else if (horseStyle === "追込") {
-      styleCalcPt = tacticStylePt + 10;
     } else if (horseStyle === "自在" || horseStyle === "逃追") {
       styleCalcPt = tacticStylePt + 15;
+    } else if (horseStyle === "好位") {
+      styleCalcPt = tacticStylePt + 10;
     } else {
-      styleCalcPt = tacticStylePt + 20;
+      // 先行 / 差し / 追込 （補正なし）
+      styleCalcPt = tacticStylePt;
     }
 
     const horseSpeed = h.calc_speed || 0;
-    const randomVal = Math.floor(Math.random() * 5);
+    const randomVal = Math.floor(Math.random() * 5); // 0〜4の乱数
 
     let basePos = styleCalcPt + horseSpeed + randomVal;
     h.positionPoint = applyPhase2Abilities(h, basePos, abilityMasterData);
@@ -821,7 +813,6 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       posAddPt = fieldSize + 1 - h.positionRank;
     }
 
-    // マスターデータ駆動のフェーズ4アビリティ加算
     let extraScore = applyPhase4Abilities(h, selectedPace, selectedBranch.name, abilityMasterData);
     let randomBonus = Math.random() * 1;
 
