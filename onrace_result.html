@@ -409,13 +409,13 @@ let myNameStr = "あなた";
 let oppNameStr = "対戦相手";
 let roomUnsubscribe = null;
 let isNavigatingAway = false;
-let isCalculating = false; // レース結果計算中のフラグ
+let isCalculating = false;
 
 const urlParams = new URLSearchParams(window.location.search);
 const roomId = urlParams.get('roomId');
 const role = urlParams.get('role');
 
-// --- シード付き確定乱数（ホスト・ゲスト間で同一の馬番シャッフルを実現） ---
+// シード付き確定乱数
 function getSeedFromString(str) {
   let hash = 0;
   if (!str) return 12345;
@@ -590,7 +590,6 @@ async function calculateAndUploadAllRaces() {
   }
 }
 
-// 準備状態とボタンテキストを判定して更新する共通関数
 async function checkAndUpdateReadyState() {
   if (!roomData) return;
 
@@ -633,7 +632,6 @@ async function checkAndUpdateReadyState() {
       oppStatusBadge.className = "status-badge ready";
     }
 
-    // ホストかつ計算未完了の場合、全レース計算を実行
     if (role === 'host' && !data.race_results_cache && !isCalculating) {
       isCalculating = true;
       if (startBtn && raceState === 'ready') {
@@ -678,13 +676,31 @@ function listenRoomStatus() {
       return;
     }
 
-    await checkAndUpdateReadyState();
+    // 全対戦（全シリーズ）終了時
+    if (data.status === "completed") {
+      isNavigatingAway = true;
+      if (roomUnsubscribe) roomUnsubscribe();
+      window.location.href = 'online.html';
+      return;
+    }
+
+    // 次の回戦（シリーズ）への移行検知
+    if (data.status === "deck_selecting" || data.status === "deck_selected") {
+      isNavigatingAway = true;
+      if (roomUnsubscribe) roomUnsubscribe();
+      const matchMode = urlParams.get('mode') || data.match_mode || 'online';
+      window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
+      return;
+    }
 
     if (data.status === "entry_selecting" || data.status === "matchup") {
       isNavigatingAway = true;
       if (roomUnsubscribe) roomUnsubscribe();
       window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}`;
+      return;
     }
+
+    await checkAndUpdateReadyState();
   });
 }
 
@@ -737,7 +753,6 @@ async function loadMasterData() {
 function buildRaceGridsFromOnlineData() {
   const isHost = (role === 'host');
   
-  // プレイヤー1（ホスト）とプレイヤー2（ゲスト）のデータを固定順で取得
   const p1Entries = roomData.player1_entries || [];
   const p2Entries = roomData.player2_entries || [];
   const p1Strats = roomData.player1_strategies || [];
@@ -756,21 +771,20 @@ function buildRaceGridsFromOnlineData() {
   }
 
   fullRaceGrids = [];
-
-  // ルームIDから共通のシードを生成
   const baseSeed = getSeedFromString(roomId || "default_room");
 
   for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
     const rawGrid = [];
 
-    // 1. 常に Index 0 に Player 1（ホスト馬）を配置
+    // Player 1 (ホスト) の馬： playerRole: 'host' を付与
     const p1HorseId = String(p1Entries[rIdx]);
     const p1Master = HORSES_MASTER[p1HorseId] || { name: "P1馬", horse_id: p1HorseId };
     const p1StratObj = (p1Strats && p1Strats[rIdx]) ? p1Strats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
 
     rawGrid.push({
       ...p1Master,
-      isPlayer: isHost,         // 自分がホストならYOU、ゲストならOPP
+      playerRole: 'host',
+      isPlayer: isHost,
       isOpponent: !isHost,
       isCpu: false,
       ownerName: p1Name,
@@ -778,14 +792,15 @@ function buildRaceGridsFromOnlineData() {
       level: p1StratObj.strategy_level || 3
     });
 
-    // 2. 常に Index 1 に Player 2（ゲスト馬）を配置
+    // Player 2 (ゲスト) の馬： playerRole: 'guest' を付与
     const p2HorseId = String(p2Entries[rIdx]);
     const p2Master = HORSES_MASTER[p2HorseId] || { name: "P2馬", horse_id: p2HorseId };
     const p2StratObj = (p2Strats && p2Strats[rIdx]) ? p2Strats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
 
     rawGrid.push({
       ...p2Master,
-      isPlayer: !isHost,        // 自分がゲストならYOU、ホストならOPP
+      playerRole: 'guest',
+      isPlayer: !isHost,
       isOpponent: isHost,
       isCpu: false,
       ownerName: p2Name,
@@ -793,7 +808,7 @@ function buildRaceGridsFromOnlineData() {
       level: p2StratObj.strategy_level || 3
     });
 
-    // 3. モブ馬を Index 2 以降に配置
+    // モブ馬
     const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
 
     mobIds.forEach((mobId) => {
@@ -803,6 +818,7 @@ function buildRaceGridsFromOnlineData() {
 
       rawGrid.push({
         ...mobMaster,
+        playerRole: 'mob',
         isPlayer: false,
         isCpu: false,
         isOpponent: false,
@@ -811,16 +827,13 @@ function buildRaceGridsFromOnlineData() {
       });
     });
 
-    // ホスト・ゲストで完全に一致した rawGrid 配列をシャッフル
     const raceSeed = baseSeed + (rIdx + 1) * 100;
     const shuffledGrid = shuffleArrayWithSeed(rawGrid, raceSeed);
 
-    // シャッフル後の順番を馬番(gate_number)として割り当て
     shuffledGrid.forEach((horse, idx) => {
       horse.gate_number = idx + 1;
     });
 
-    // 馬番順に並べ替えて格納
     shuffledGrid.sort((a, b) => a.gate_number - b.gate_number);
     fullRaceGrids.push(shuffledGrid);
   }
@@ -950,10 +963,7 @@ function setupRace(rIdx) {
   }
 
   renderLanes();
-
   document.getElementById('result-container').style.display = "none";
-  
-  // 準備状況とボタン状態の適正化処理を実行
   checkAndUpdateReadyState();
 }
 
@@ -1089,16 +1099,20 @@ async function startRace() {
   const rawResults = JSON.parse(JSON.stringify(raceResultData.results));
   const isHost = (role === 'host');
 
-  // エントリーデータに合わせた属性判定
-  const myHorseId = String((isHost ? roomData.player1_entries : roomData.player2_entries)?.[currentRaceIndex]);
-  const oppHorseId = String((isHost ? roomData.player2_entries : roomData.player1_entries)?.[currentRaceIndex]);
-
+  // playerRole から確実かつ独立して isPlayer / isOpponent を設定
   rawResults.forEach(h => {
-    const hIdStr = String(h.horse_id);
-    h.isPlayer = (hIdStr === myHorseId && h.isPlayer !== false);
-    h.isOpponent = (hIdStr === oppHorseId && !h.isPlayer);
-    if (h.isPlayer) h.ownerName = myNameStr;
-    if (h.isOpponent) h.ownerName = oppNameStr;
+    if (h.playerRole === 'host') {
+      h.isPlayer = isHost;
+      h.isOpponent = !isHost;
+      h.ownerName = isHost ? myNameStr : oppNameStr;
+    } else if (h.playerRole === 'guest') {
+      h.isPlayer = !isHost;
+      h.isOpponent = isHost;
+      h.ownerName = !isHost ? myNameStr : oppNameStr;
+    } else {
+      h.isPlayer = false;
+      h.isOpponent = false;
+    }
   });
 
   calculatedResults = rawResults;
@@ -1290,6 +1304,16 @@ function renderResults(scoredList) {
   const tbody = document.getElementById('result-body');
   tbody.innerHTML = "";
   
+  const getPosPt = (item) => (item.positionPoint ?? item.posPt ?? item.position_point ?? 0);
+  const sortedByPos = [...scoredList]
+    .map((item) => ({ item, posPt: getPosPt(item) }))
+    .sort((a, b) => b.posPt - a.posPt);
+
+  const posOrderMap = new Map();
+  sortedByPos.forEach((entry, idx) => {
+    posOrderMap.set(entry.item, idx + 1);
+  });
+
   scoredList.forEach((item, r) => {
     let typeBadge = "";
     let nameClass = "";
@@ -1305,20 +1329,34 @@ function renderResults(scoredList) {
     const tacticName = item.tactic || "通常";
     const tacticLevel = item.level || 1;
 
+    let posOrder = item.positionOrder ?? item.posOrder ?? item.order ?? item.positionRank ?? item.posRank;
+    if (posOrder === undefined || posOrder === null) {
+      posOrder = posOrderMap.get(item);
+    }
+    const posOrderStr = posOrder ? `${posOrder}番手` : '-';
+
+    const rawPosPt = item.positionPoint ?? item.posPt ?? item.position_point;
+    const posPtStr = (rawPosPt !== undefined && rawPosPt !== null) ? `(${Math.round(rawPosPt)}pt)` : '';
+
+    const rawScore = item.score ?? item.totalScore ?? item.evalScore ?? item.finalScore ?? item.total_score ?? item.totalPt ?? item.evalPt ?? item.point;
+    const displayScore = (rawScore !== undefined && rawScore !== null && !isNaN(rawScore)) 
+      ? Math.round(rawScore) 
+      : '-';
+
     let detailText = item.detailText || "算定詳細なし";
 
     tbody.innerHTML += `
       <tr>
         <td><strong>${r + 1}着</strong>${typeBadge}</td>
         <td style="text-align:left;">
-          <span class="${nameClass}" style="font-weight:bold;">${item.gate_number || '-'}番 ${item.name}</span>
-          <span class="horse-sub-info">脚質:${horseStyle} / 作戦:${tacticName}(Lv.${tacticLevel})</span>
+          <span class="${nameClass}" style="font-weight:bold;">${item.gate_number ? item.gate_number + '番 ' : ''}${item.name}</span>
+          <span class="horse-sub-info">[${horseStyle}] ${tacticName} (Lv.${tacticLevel})</span>
         </td>
         <td>
-          <span>${item.positionPoint !== undefined ? Math.round(item.positionPoint) : '-'} Pt</span>
-          <span class="pos-info">${item.finalPositionGroup || '-'}</span>
+          <div style="font-weight:bold; color:#fff;">${posOrderStr}</div>
+          <span class="pos-info">${posPtStr}</span>
         </td>
-        <td><strong>${item.score !== undefined ? Math.round(item.score) : '-'}</strong></td>
+        <td><strong>${displayScore}</strong></td>
         <td><div class="detail-text">${detailText}</div></td>
       </tr>`;
   });
@@ -1409,6 +1447,14 @@ function showFinalSeriesResult() {
 }
 
 window.finishMatchAndNextOrLobby = async function() {
+  if (isNavigatingAway) return;
+  
+  const modalBtn = document.getElementById('modalNextBtn');
+  if (modalBtn) {
+    modalBtn.disabled = true;
+    modalBtn.textContent = "⏳ 移動中...";
+  }
+
   isNavigatingAway = true;
   if (roomUnsubscribe) roomUnsubscribe();
 
@@ -1422,6 +1468,7 @@ window.finishMatchAndNextOrLobby = async function() {
         const matchSeries = data.match_series || data.selected_series || [];
         const matchMode = urlParams.get('mode') || data.match_mode || 'online';
 
+        // 次の回戦（シリーズ）が存在する場合
         if (Array.isArray(matchSeries) && currentSeriesIdx + 1 < matchSeries.length) {
           if (role === 'host') {
             await updateDoc(roomRef, {
@@ -1440,6 +1487,13 @@ window.finishMatchAndNextOrLobby = async function() {
           }
           window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
           return;
+        } else {
+          // 全回戦（全シリーズ）終了時
+          if (role === 'host') {
+            await updateDoc(roomRef, {
+              status: "completed"
+            });
+          }
         }
       }
     } catch (e) {
