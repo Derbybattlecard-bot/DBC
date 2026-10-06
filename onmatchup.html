@@ -374,9 +374,9 @@
 
       if (Array.isArray(horsesData)) {
         horsesData.forEach(h => {
-          const idStr = normalizeHorseId(h.horse_id);
+          const idStr = String(h.horse_id);
           HORSES_MASTER[idStr] = h;
-          HORSES_MASTER[String(h.horse_id)] = h;
+          HORSES_MASTER[idStr.padStart(4, '0')] = h;
         });
       }
 
@@ -446,7 +446,7 @@
     }
     document.getElementById('opponentName').textContent = oppName;
 
-    // ★修正箇所: 現在の回戦数(currentRoundIndex)に対応するシリーズのみを取得する
+    // 現在の回戦数(currentRoundIndex)に対応するシリーズのみを取得する
     let rawRaces = [];
     const matchSeries = roomData.match_series || roomData.selected_series || roomData.series_id || ["SERIES_001"];
     const seriesIdList = Array.isArray(matchSeries) ? matchSeries : [matchSeries];
@@ -715,8 +715,8 @@
       return { canUse: true };
     }
 
-    if (initialCardPriorities && (initialCardPriorities[targetIdStr] || initialCardPriorities[horseId])) {
-      const priorityOwner = initialCardPriorities[targetIdStr] || initialCardPriorities[horseId];
+    if (initialCardPriorities && initialCardPriorities[targetIdStr]) {
+      const priorityOwner = initialCardPriorities[targetIdStr];
       const isMyPriority = (priorityOwner === myRoleKey) || 
                            (isHost && (priorityOwner === 'p1' || priorityOwner === 'player1')) ||
                            (!isHost && (priorityOwner === 'p2' || priorityOwner === 'player2'));
@@ -827,7 +827,7 @@
 
           const priorityCheck = checkDuplicateHorsePriority(horse.horse_id);
 
-          // ★修正箇所: 正規化されたIDで判定を行う
+          // 正規化されたIDで判定を行う
           if (myUsedHorseIdsInPast.includes(horseIdStr)) {
             opt.textContent = `[使用済み] ${info}`; opt.disabled = true;
           } else if (!isValidSex(horse.sex, raceSexLimit)) {
@@ -885,9 +885,9 @@
     let hasDistError = false;
 
     selectedEntries.forEach((id, rIdx) => {
-      if (id && (HORSES_MASTER[String(id)] || HORSES_MASTER[normalizeHorseId(id)]) && matchRaces[rIdx]) {
+      const horse = id ? (HORSES_MASTER[String(id)] || HORSES_MASTER[normalizeHorseId(id)]) : null;
+      if (id && horse && matchRaces[rIdx]) {
         count++;
-        const horse = HORSES_MASTER[String(id)] || HORSES_MASTER[normalizeHorseId(id)];
         const race = matchRaces[rIdx];
         totalPt += getHorsePotential(horse, race.surface);
         if (!isValidDistance(horse, race.distance)) {
