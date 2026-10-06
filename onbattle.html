@@ -334,17 +334,25 @@
 
   let isNavigatingAway = false;
   let isReadySent = false;
-  let waitingTimeoutTimer = null;
 
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('roomId');
   const role = urlParams.get('role');
   const matchMode = urlParams.get('mode') || 'light';
 
-  const totalRounds = (matchMode === 'standard') ? 5 : 3;
   const isSingleDeckMode = (matchMode === 'survival');
 
   let roomUnsubscribe = null;
+
+  // 馬IDを4桁文字列に正規化する関数
+  function normalizeHorseId(id) {
+    if (id === null || id === undefined) return "";
+    const num = parseInt(id, 10);
+    if (!isNaN(num)) {
+      return String(num).padStart(4, '0');
+    }
+    return String(id).trim();
+  }
 
   function getDisplayName(userObj, authUser) {
     if (userObj) {
@@ -376,13 +384,6 @@
   function getSeriesCategory(sObj) {
     if (!sObj) return "一般";
     return sObj.category || sObj.series_category || sObj.series_type || sObj.type || sObj.group || sObj.cat || sObj.genre || "一般";
-  }
-
-  function formatSurface(surface) {
-    if (!surface) return "芝";
-    if (surface.includes("ダート") || surface.includes("ダ")) return "ダ";
-    if (surface.includes("障害") || surface.includes("障")) return "障";
-    return "芝";
   }
 
   function parseToNumber(val) {
@@ -483,15 +484,15 @@
       ]);
       HORSES_MASTER = {};
       if (Array.isArray(horsesArr)) {
-        horsesArr.forEach(h => HORSES_MASTER[h.horse_id] = h);
+        horsesArr.forEach(h => {
+          const idStr = normalizeHorseId(h.horse_id);
+          HORSES_MASTER[idStr] = h;
+          HORSES_MASTER[String(h.horse_id)] = h;
+        });
       }
     } catch (e) {
       console.error("馬マスタの読み込みに失敗しました:", e);
     }
-  }
-
-  function isBanSet(val) {
-    return val !== undefined && val !== null && val !== "";
   }
 
   onAuthStateChanged(auth, async (user) => {
@@ -612,25 +613,24 @@
     const deck = (globalUserData.decks || [])[selectedDeckIndex] || { horse_ids: [] };
 
     const isHost = (role === 'host');
-    // 自分の使用済み馬および相手の使用済み馬を取得
     const myUsedHorses = roomDataCache ? (isHost ? (roomDataCache.player1_used_horses || []) : (roomDataCache.player2_used_horses || [])) : [];
     const oppUsedHorses = roomDataCache ? (isHost ? (roomDataCache.player2_used_horses || []) : (roomDataCache.player1_used_horses || [])) : [];
     
-    const myUsedSet = new Set(myUsedHorses.map(id => String(id)));
-    const oppUsedSet = new Set(oppUsedHorses.map(id => String(id)));
+    // ★正規化IDをSetに保持
+    const myUsedSet = new Set(myUsedHorses.map(id => normalizeHorseId(id)));
+    const oppUsedSet = new Set(oppUsedHorses.map(id => normalizeHorseId(id)));
     const priorities = roomDataCache?.initial_card_priorities || {};
 
     for (let i = 0; i < 18; i++) {
       const horseId = deck.horse_ids[i];
-      const horse = HORSES_MASTER[horseId];
+      const horse = HORSES_MASTER[horseId] || HORSES_MASTER[normalizeHorseId(horseId)];
       const tr = document.createElement('tr');
 
       if (horse) {
-        const hIdStr = String(horseId);
+        const hIdStr = normalizeHorseId(horseId);
         const isMyUsed = myUsedSet.has(hIdStr);
         let isLocked = false;
 
-        // 自分が過去に使っておらず、相手に優先権がある場合は重複ロック
         if (!isMyUsed && horseId && priorities[horseId]) {
           const priorityOwner = priorities[horseId];
           const myRoleKey = isHost ? 'host' : 'guest';
@@ -670,7 +670,18 @@
     }
   }
 
-  /* 非同期作戦タイム統合・ステータス監視メインループ */
+  function buildRaceBadgesHTML(sObj) {
+    const races = sObj?.races || (sObj?.rounds && sObj.rounds[0] ? sObj.rounds[0].races : null);
+    if (!Array.isArray(races) || races.length === 0) return '<span class="race-badge">全5戦 設定あり</span>';
+
+    return races.slice(0, 5).map(r => {
+      const name = r.race_name || r.name || "特別";
+      const surface = (r.surface || "芝").includes("ダ") ? "ダ" : "芝";
+      const dist = r.distance || 2000;
+      return `<span class="race-badge">${name} (${surface}${dist})</span>`;
+    }).join('');
+  }
+
   function initOnlineRoomWatch() {
     const roomRef = doc(db, "online_matches", roomId);
 
@@ -700,198 +711,160 @@
       }
 
       const isHost = (role === 'host');
-      const currentSeriesIdx = data.current_series_index || 0;
+      const oppName = isHost 
+        ? (data.player2_name || data.guest_name || "ゲストプレイヤー")
+        : (data.player1_name || data.host_name || "ホストプレイヤー");
+      document.getElementById('opponentNameDisplay').textContent = `VS ${oppName}`;
 
-      // 対戦相手の情報取得
-      let oppUid = isHost 
-        ? (data.player2_uid || data.player2 || data.guest_uid)
-        : (data.player1_uid || data.player1 || data.host_uid);
-
-      let oppName = isHost 
-        ? (data.player2_name || data.guest_name || data.guestName)
-        : (data.player1_name || data.host_name || data.hostName);
-
-      if (oppUid) {
-        try {
-          const oppUserSnap = await getDoc(doc(db, "users", oppUid));
-          if (oppUserSnap.exists()) {
-            const fetchedName = getDisplayName(oppUserSnap.data(), null);
-            if (fetchedName && fetchedName !== "プレイヤー") {
-              oppName = fetchedName;
-            }
-          }
-        } catch (err) {}
-      }
-
-      if (!oppName || oppName === "プレイヤー") {
-        oppName = isHost ? (data.player2_name || "対戦相手") : (data.player1_name || "対戦相手");
-      }
-
-      document.getElementById('opponentNameDisplay').textContent = `VS ${oppName} 選手`;
-
-      // 1. 相手のリアルタイムステータス監視＆UIボタン制御
-      const opponentStatusField = isHost ? 'p2_status' : 'p1_status';
-      const defaultOppStatus = (currentSeriesIdx === 0) ? "deck_selecting" : "racing";
-      const opponentStatus = data[opponentStatusField] || defaultOppStatus;
-      
-      const readyBtn = document.getElementById('btnReady');
-      const badgeEl = document.getElementById('opponent-status-badge');
-
-      if (opponentStatus === "racing" && currentSeriesIdx > 0) {
-        badgeEl.className = "badge badge-warning";
-        badgeEl.innerHTML = "🟡 相手：レース確認中...";
-        if (!isReadySent) {
-          readyBtn.disabled = true;
-          readyBtn.textContent = "相手がレース確認を終了するまでお待ちください";
-        }
-      } else if (opponentStatus === "ready") {
-        badgeEl.className = "badge badge-success";
-        badgeEl.innerHTML = "🟢 相手：準備完了！";
-      } else {
-        badgeEl.className = "badge badge-info";
-        badgeEl.innerHTML = "🔵 相手：戦略選択中";
-      }
-
-      // 2. ラウンド数に応じた BAN / デッキ選択制御
-      if (currentSeriesIdx === 0) {
-        const oppSeries = isHost ? data.player2_series : data.player1_series;
-        if (oppSeries && Array.isArray(oppSeries) && oppSeries.length > 0) {
-          opponentSeriesList = [...oppSeries];
-        }
-
-        const myBanIdx = isHost ? data.p1_banned_index : data.p2_banned_index;
-        if (isBanSet(myBanIdx)) {
-          selectedBanIndex = Number(myBanIdx);
-        }
-
-        const hasP1Ban = isBanSet(data.p1_banned_index);
-        const hasP2Ban = isBanSet(data.p2_banned_index);
-
-        if (hasP1Ban && hasP2Ban) {
-          if (!data.match_series || !Array.isArray(data.match_series) || data.match_series.length < totalRounds) {
-            finalizeMatchSeries(data);
-          }
-          renderCompletedMatchView(data);
-          enableDeckSelection(opponentStatus);
-        } else if (opponentSeriesList.length > 0) {
-          renderBanPanel();
-          if (selectedBanIndex !== null) {
-            enableDeckSelection(opponentStatus);
-          }
-        }
-      } else {
-        // 2回戦目以降も全シリーズ表示（開催中バッジ付き）を実行
-        renderCompletedMatchView(data);
-        enableDeckSelection(opponentStatus);
-      }
-
-      // ルーム情報更新に伴いデックテーブルを再描画（使用済み馬・ロック状態の更新）
-      renderDeckTable();
-
-      // 3. お互いに準備完了となった場合の遷移処理
-      const myReady = isHost ? data.player1_ready : data.player2_ready;
+      const oppBan = isHost ? data.player2_banned_series : data.player1_banned_series;
+      const myBan = isHost ? data.player1_banned_series : data.player2_banned_series;
       const oppReady = isHost ? data.player2_ready : data.player1_ready;
 
-      if (myReady && oppReady) {
-        closeWaitingModal();
+      const badge = document.getElementById('opponent-status-badge');
+      if (oppReady) {
+        badge.textContent = "🟢 相手：準備完了！";
+        badge.className = "badge badge-success";
+      } else if (oppBan !== undefined && oppBan !== null) {
+        badge.textContent = "🟡 相手：デッキ選択中";
+        badge.className = "badge badge-warning";
+      } else {
+        badge.textContent = "🔵 相手：シリーズBAN選択中";
+        badge.className = "badge badge-info";
+      }
+
+      opponentSeriesList = isHost ? (data.player2_series || []) : (data.player1_series || []);
+      
+      const bothBanned = (data.player1_banned_series !== undefined && data.player1_banned_series !== null) &&
+                         (data.player2_banned_series !== undefined && data.player2_banned_series !== null);
+
+      if (bothBanned) {
+        if (isHost && (!data.match_series || data.match_series.length === 0)) {
+          const finalSeriesList = calculateMatchSeries(data);
+          await updateDoc(roomRef, { match_series: finalSeriesList });
+        }
+        renderCompletedMatchView(data);
+      } else {
+        renderBanOptions();
+      }
+
+      if (myBan !== undefined && myBan !== null) {
+        enableDeckSelection();
+      }
+
+      if (data.player1_ready && data.player2_ready) {
         if (roomUnsubscribe) roomUnsubscribe();
         isNavigatingAway = true;
-
-        if (isHost && data.status !== "entry_selecting") {
-          try {
-            await updateDoc(roomRef, { status: "entry_selecting" });
-          } catch (err) {
-            console.error("ステータス更新エラー:", err);
-          }
-        }
-
-        window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
+        closeWaitingModal();
+        const modeQuery = matchMode ? `&mode=${matchMode}` : '';
+        window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}${modeQuery}`;
       }
     });
   }
 
-  function enableDeckSelection(opponentStatus) {
-    if (isReadySent) return;
-
-    const deckPanel = document.getElementById('deckPanel');
-    if (deckPanel) deckPanel.classList.remove('disabled');
-    const deckTitle = document.getElementById('deckPanelTitle');
-    if (deckTitle) deckTitle.textContent = "② 使用デッキを選択";
-
-    const btnReady = document.getElementById('btnReady');
-    if (btnReady) {
-      const currentSeriesIdx = roomDataCache?.current_series_index || 0;
-      if (opponentStatus === "racing" && currentSeriesIdx > 0) {
-        btnReady.disabled = true;
-        btnReady.textContent = "相手がレース確認を終了するまでお待ちください";
-      } else {
-        btnReady.disabled = false;
-        btnReady.textContent = "準備完了（対戦開始）";
-      }
-    }
-  }
-
-  /* 両者のBAN完了時 & 全回戦シリーズ表示 */
-  function renderCompletedMatchView(data) {
-    const mySeriesPanel = document.getElementById('mySeriesPanel');
-    if (mySeriesPanel) {
-      mySeriesPanel.style.display = 'none';
-    }
-
-    const banPanel = document.getElementById('banPanel');
-    banPanel.classList.add('completed');
-
-    const isHost = (role === 'host');
-    const currentSeriesIdx = data.current_series_index || 0;
-
+  function calculateMatchSeries(data) {
     const p1Series = data.player1_series || ["SERIES_001", "SERIES_002", "SERIES_003"];
     const p2Series = data.player2_series || ["SERIES_001", "SERIES_002", "SERIES_003"];
 
-    const p1BanIdx = Number(data.p2_banned_index);
-    const p2BanIdx = Number(data.p1_banned_index);
+    const p1Kept = p1Series.filter((_, idx) => idx !== data.player2_banned_series);
+    const p2Kept = p2Series.filter((_, idx) => idx !== data.player1_banned_series);
 
-    const p1Kept = p1Series.filter((_, idx) => idx !== p1BanIdx);
-    const p2Kept = p2Series.filter((_, idx) => idx !== p2BanIdx);
+    const availablePool = [...p1Kept, ...p2Kept].sort(() => Math.random() - 0.5);
 
-    const mySeries = isHost ? p1Series : p2Series;
-    const oppSeries = isHost ? p2Series : p1Series;
+    const roundsCount = (matchMode === 'standard') ? 5 : 3;
+    const matchSeries = [];
 
-    const myKept = isHost ? p1Kept : p2Kept;
-    const oppKept = isHost ? p2Kept : p1Kept;
+    for (let r = 0; r < roundsCount; r++) {
+      if (availablePool.length > 0) {
+        matchSeries.push(availablePool.pop());
+      } else {
+        matchSeries.push(p1Kept[0] || "SERIES_001");
+      }
+    }
+    return matchSeries;
+  }
 
-    const myBanIdx = isHost ? p2BanIdx : p1BanIdx;
-    const oppBanIdx = isHost ? p1BanIdx : p2BanIdx;
-
-    const myBannedId = oppSeries[myBanIdx];
-    const oppBannedId = mySeries[oppBanIdx];
-
-    let matchSeries = data.match_series;
-    if (!matchSeries || !Array.isArray(matchSeries) || matchSeries.length === 0) {
-      matchSeries = [...p1Kept, ...p2Kept].slice(0, totalRounds);
+  function renderBanOptions() {
+    const container = document.getElementById('banContainer');
+    if (!opponentSeriesList || opponentSeriesList.length === 0) {
+      container.innerHTML = `<div style="text-align:center; color:#9ca3af; padding:10px;">相手の持ち込みシリーズ情報を待っています…</div>`;
+      return;
     }
 
-    // サブ案内の切り替え
-    const subTextEl = document.getElementById('onlineSubText');
-    if (subTextEl) {
-      subTextEl.textContent = (currentSeriesIdx === 0)
-        ? "決定した対戦コースを確認し、使用するデッキを選択してください"
-        : `第 ${currentSeriesIdx + 1} 回戦の戦略（デッキ）を選択してください`;
-    }
+    container.innerHTML = '';
+    opponentSeriesList.forEach((sId, idx) => {
+      const sObj = getSeriesObj(sId);
+      const sName = sObj.series_name || sObj.name || sId;
+      const category = getSeriesCategory(sObj);
+      const raceBadgesHTML = buildRaceBadgesHTML(sObj);
+      const ptStats = getSeriesPotentialInfo(sObj);
 
-    let html = '';
+      const isSelected = (selectedBanIndex === idx);
+      const card = document.createElement('div');
+      card.className = `ban-card ${isSelected ? 'selected' : ''}`;
+      card.onclick = () => selectBanSeries(idx);
 
-    // お互いに除外したシリーズ
-    html += `
-      <div style="background:#fef2f2; border:2px solid #ef4444; border-radius:12px; padding:14px; margin-bottom:14px; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
-        <div class="ban-title" style="color: #dc2626; text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 2px;">
-          お互いに除外（BAN）した2つのシリーズ
+      card.innerHTML = `
+        <div class="ban-card-row1">
+          <span class="ban-category-badge">🏷 ${category}</span>
+          <span class="ban-tag">${isSelected ? '選択中 (除外)' : 'タップして除外'}</span>
         </div>
-        <div style="font-size: 11px; text-align: center; color: #991b1b; margin-bottom: 10px;">
-          両プレイヤーがそれぞれの持ち込みから拒否指定したシリーズです。
+        <div class="ban-card-title">🏆 ${sName}</div>
+        <div class="ban-card-races">${raceBadgesHTML}</div>
+        <div class="ban-card-pt">
+          <div>合計上限 <span class="pt-val">${ptStats.totalPt}</span></div>
+          <div style="color:#cbd5e1;">|</div>
+          <div>出走可能 <span class="pt-val">${ptStats.eligiblePt}以上</span></div>
         </div>
+      `;
+      container.appendChild(card);
+    });
+  }
 
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-    `;
+  window.selectBanSeries = async function(idx) {
+    if (isReadySent) return;
+
+    selectedBanIndex = idx;
+    renderBanOptions();
+
+    const isHost = (role === 'host');
+    const roomRef = doc(db, "online_matches", roomId);
+    
+    await updateDoc(roomRef, {
+      [isHost ? 'player1_banned_series' : 'player2_banned_series']: idx
+    });
+
+    enableDeckSelection();
+  };
+
+  function enableDeckSelection() {
+    const panel = document.getElementById('deckPanel');
+    panel.classList.remove('disabled');
+    document.getElementById('deckPanelTitle').textContent = "② 使用デッキを選択";
+
+    const btn = document.getElementById('btnReady');
+    btn.disabled = false;
+    btn.textContent = "このデッキで出走準備完了！";
+  }
+
+  function renderCompletedMatchView(data) {
+    const container = document.getElementById('banContainer');
+    const panel = document.getElementById('banPanel');
+    panel.classList.add('completed');
+
+    document.getElementById('banPanelTitle').textContent = "① シリーズ除外（BAN）決定";
+    document.getElementById('banPanelSubText').textContent = "お互いのBAN選択が完了し、本節の対象シリーズが確定しました。";
+
+    const isHost = (role === 'host');
+    const myBannedIdx = isHost ? data.player1_banned_series : data.player2_banned_series;
+    const oppBannedIdx = isHost ? data.player2_banned_series : data.player1_banned_series;
+
+    const mySeries = isHost ? (data.player1_series || []) : (data.player2_series || []);
+    const oppSeries = isHost ? (data.player2_series || []) : (data.player1_series || []);
+
+    const myBannedId = oppSeries[myBannedIdx];
+    const oppBannedId = mySeries[oppBannedIdx];
+
+    let html = `<div style="display:flex; flex-direction:column; gap:8px;">`;
 
     const bannedItems = [
       { sId: myBannedId, label: 'あなたが除外（相手持ち込み）' },
@@ -925,371 +898,78 @@
       `;
     });
 
-    html += `</div></div>`;
-
-    // 決定対戦シリーズ（全回戦表示）
-    html += `
-      <div style="background:#ffffff; border:2px solid #10b981; border-radius:12px; padding:14px; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
-        <div class="ban-title" style="color: #047857; text-align: center; font-size: 15px; font-weight: bold; margin-bottom: 2px;">
-          決定対戦シリーズ（全 ${matchSeries.length} 回戦）
-        </div>
-        <div style="font-size: 11px; text-align: center; color: #4b5563; margin-bottom: 10px;">
-          お互いの除外選択を経て決定した本戦の対戦コースです。
-        </div>
-
-        <div class="legend-bar">
-          <div class="legend-item"><span class="legend-color self"></span> あなた持ち込み</div>
-          <div class="legend-item"><span class="legend-color opponent"></span> 相手持ち込み</div>
-          <div class="legend-item"><span class="legend-color random"></span> 抽選・追加選出</div>
-        </div>
-
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-    `;
-
-    const myKeptPool = [...myKept];
-    const oppKeptPool = [...oppKept];
-
-    matchSeries.forEach((sId, idx) => {
-      const sObj = getSeriesObj(sId);
-      const sName = sObj.series_name || sObj.name || sId;
-      const category = getSeriesCategory(sObj);
-      const raceBadgesHTML = buildRaceBadgesHTML(sObj);
-      const ptStats = getSeriesPotentialInfo(sObj);
-
-      let ownerClass = 'is-random';
-      let ownerLabel = '抽選選出';
-
-      const myIdxInPool = myKeptPool.indexOf(sId);
-      const oppIdxInPool = oppKeptPool.indexOf(sId);
-
-      if (myIdxInPool !== -1 && oppIdxInPool === -1) {
-        ownerClass = 'is-self';
-        ownerLabel = 'あなた持ち込み';
-        myKeptPool.splice(myIdxInPool, 1);
-      } else if (oppIdxInPool !== -1) {
-        ownerClass = 'is-opponent';
-        ownerLabel = '相手持ち込み';
-        oppKeptPool.splice(oppIdxInPool, 1);
-      } else {
-        ownerClass = 'is-random';
-        ownerLabel = totalRounds === 5 ? '5戦目カテゴリ特別抽選' : '3戦目抽選';
-      }
-
-      // 現在の回戦判定
-      const isCurrentRound = (idx === currentSeriesIdx);
-      const roundBadgeHTML = isCurrentRound
-        ? `<span class="badge-current-round">▶ 開催中 第${idx + 1}戦 (${ownerLabel})</span>`
-        : `<span class="badge-other-round">第${idx + 1}戦 (${ownerLabel})</span>`;
-
-      html += `
-        <div class="ban-summary-card kept ${ownerClass} ${isCurrentRound ? 'is-current' : ''}">
-          <div class="ban-card-row1">
-            ${roundBadgeHTML}
-            <span class="ban-category-badge">🏷 ${category}</span>
-          </div>
-          <div class="ban-card-title" style="font-size: 13.5px; font-weight: bold; color: #1e1b4b; margin-top: 4px;">
-            🏆 ${sName}
-          </div>
-          <div class="ban-card-races">${raceBadgesHTML}</div>
-          <div class="ban-card-pt">
-            <div>合計上限 <span class="pt-val">${ptStats.totalPt}</span></div>
-            <div style="color:#cbd5e1;">|</div>
-            <div>出走可能 <span class="pt-val">${ptStats.eligiblePt}以上</span></div>
-          </div>
-        </div>
-      `;
-    });
-
-    html += `</div></div>`;
-
-    banPanel.innerHTML = html;
+    html += `</div>`;
+    container.innerHTML = html;
   }
 
-  function renderBanPanel() {
-    const mySeriesPanel = document.getElementById('mySeriesPanel');
-    if (mySeriesPanel) {
-      mySeriesPanel.style.display = 'block';
-    }
-
-    const banPanel = document.getElementById('banPanel');
-    const container = document.getElementById('banContainer');
-    if (!container) return;
-    container.innerHTML = '';
-
-    if (selectedBanIndex === null) {
-      banPanel.classList.remove('completed');
-      document.getElementById('banPanelTitle').textContent = "① 相手のシリーズを1つ除外";
-      document.getElementById('banPanelSubText').textContent = "相手が持ち込んだ3つのシリーズから、拒否したいシリーズを1つ選んでください。";
-
-      opponentSeriesList.forEach((sId, idx) => {
-        const sObj = getSeriesObj(sId);
-        const sName = sObj.series_name || sObj.name || `シリーズ (${sId})`;
-        const category = getSeriesCategory(sObj);
-        const raceBadgesHTML = buildRaceBadgesHTML(sObj);
-        const ptStats = getSeriesPotentialInfo(sObj);
-
-        const card = document.createElement('div');
-        card.className = 'ban-card';
-        card.onclick = () => selectBan(idx);
-
-        card.innerHTML = `
-          <div class="ban-card-row1">
-            <span class="ban-category-badge">🏷 ${category}</span>
-            <span class="ban-tag">クリックして除外</span>
-          </div>
-          <div class="ban-card-title">🏆 ${sName}</div>
-          <div class="ban-card-races">${raceBadgesHTML}</div>
-          <div class="ban-card-pt">
-            <div>合計上限 <span class="pt-val">${ptStats.totalPt}</span></div>
-            <div style="color:#cbd5e1;">|</div>
-            <div>出走可能 <span class="pt-val">${ptStats.eligiblePt}以上</span></div>
-          </div>
-        `;
-        container.appendChild(card);
-      });
-    } else {
-      banPanel.classList.add('completed');
-      document.getElementById('banPanelTitle').textContent = "① シリーズ除外完了 (確定)";
-      document.getElementById('banPanelSubText').textContent = "※あなたの除外設定が反映されました。相手の選択を待っています。";
-
-      opponentSeriesList.forEach((sId, idx) => {
-        const sObj = getSeriesObj(sId);
-        const sName = sObj.series_name || sObj.name || `シリーズ (${sId})`;
-        const category = getSeriesCategory(sObj);
-        const raceBadgesHTML = buildRaceBadgesHTML(sObj);
-        const ptStats = getSeriesPotentialInfo(sObj);
-        const isBanned = (selectedBanIndex === idx);
-
-        const card = document.createElement('div');
-        card.className = `ban-summary-card ${isBanned ? 'banned' : 'kept'}`;
-
-        card.innerHTML = `
-          <div class="ban-card-row1">
-            <span class="ban-category-badge">🏷 ${category}</span>
-            <span class="${isBanned ? 'ban-tag-banned' : 'ban-tag-kept'}">
-              ${isBanned ? '🚫 あなたが除外（対戦なし）' : '✅ 対戦可能候補シリーズ'}
-            </span>
-          </div>
-          <div class="ban-card-title" style="${isBanned ? 'text-decoration: line-through; color: #9ca3af;' : ''}">
-            🏆 ${sName}
-          </div>
-          <div class="ban-card-races">${raceBadgesHTML}</div>
-          <div class="ban-card-pt">
-            <div>合計上限 <span class="pt-val">${ptStats.totalPt}</span></div>
-            <div style="color:#cbd5e1;">|</div>
-            <div>出走可能 <span class="pt-val">${ptStats.eligiblePt}以上</span></div>
-          </div>
-        `;
-        container.appendChild(card);
-      });
-    }
-  }
-
-  function buildRaceBadgesHTML(sObj) {
-    let races = [];
-    if (sObj.rounds && sObj.rounds[0] && sObj.rounds[0].races) races = sObj.rounds[0].races;
-    else if (sObj.races) races = sObj.races;
-
-    if (races.length > 0) {
-      return races.map((r, rIdx) => {
-        const venue = r.track || r.venue || r.racecourse || r.course || "";
-        const rawSurface = r.surface || r.track_type || "芝";
-        const surfaceStr = formatSurface(rawSurface);
-        const dist = r.distance ? `${r.distance}m` : "";
-        return `<span class="race-badge">R${rIdx + 1}: ${venue} ${surfaceStr}${dist}</span>`;
-      }).join('');
-    }
-    return `<span class="race-badge">コース情報読み込み中</span>`;
-  }
-
-  window.selectBan = async function(idx) {
-    if (isReadySent || selectedBanIndex !== null || !roomId) return;
-
-    selectedBanIndex = idx;
-    
-    const isHost = (role === 'host');
-    const updateData = isHost ? { p1_banned_index: idx } : { p2_banned_index: idx };
-
-    const roomRef = doc(db, "online_matches", roomId);
-    try {
-      await updateDoc(roomRef, updateData);
-
-      const snap = await getDoc(roomRef);
-      if (snap.exists()) {
-        const data = snap.data();
-        if (isBanSet(data.p1_banned_index) && isBanSet(data.p2_banned_index)) {
-          await finalizeMatchSeries(data);
-        }
-      }
-    } catch (err) {
-      console.error("BAN送信エラー:", err);
-    }
-  };
-
-  /* 準備完了送信処理 */
   window.setPlayerReady = async function() {
-    if (!roomId || isReadySent) return;
-    
-    const currentSeriesIdx = roomDataCache?.current_series_index || 0;
-    if (currentSeriesIdx === 0 && selectedBanIndex === null) {
-      alert("除外する相手のシリーズを1つ選択してください。");
+    const isHost = (role === 'host');
+    const myBanned = isHost ? roomDataCache?.player1_banned_series : roomDataCache?.player2_banned_series;
+
+    if (myBanned === undefined || myBanned === null) {
+      alert("相手のシリーズを1つ選択して除外してください。");
+      return;
+    }
+
+    const selectedDeck = (globalUserData.decks || [])[selectedDeckIndex];
+    if (!selectedDeck || !selectedDeck.horse_ids || selectedDeck.horse_ids.length === 0) {
+      alert("選択したデッキに馬が登録されていません。");
       return;
     }
 
     isReadySent = true;
-
-    document.getElementById('banPanel').classList.add('locked-ui');
-    document.getElementById('deckPanel').classList.add('locked-ui');
-
-    const readyBtn = document.getElementById('btnReady');
-    readyBtn.disabled = true;
-    readyBtn.textContent = "相手の準備完了を待っています…";
-    document.getElementById('waitingModal').style.display = 'flex';
-
-    if (waitingTimeoutTimer) clearTimeout(waitingTimeoutTimer);
-    waitingTimeoutTimer = setTimeout(() => {
-      if (document.getElementById('waitingModal').style.display === 'flex') {
-        alert("相手からの応答がありません。通信が切断された可能性があります。");
-        leaveMatch();
-      }
-    }, 45000);
+    document.getElementById('btnReady').disabled = true;
+    showWaitingModal();
 
     const roomRef = doc(db, "online_matches", roomId);
-    const selectedDeck = (globalUserData.decks || [])[selectedDeckIndex] || { horse_ids: [] };
-
-    const isHost = (role === 'host');
     const updateData = isHost ? {
-      player1_deck: selectedDeck.horse_ids || [],
+      player1_deck: selectedDeck.horse_ids,
       player1_ready: true,
-      player1_matchup_ready: false,                    // ★onmatchup用の準備フラグをリセット
-      player1_strategy_ready: false,                   // ★作戦画面用の準備フラグをリセット
-      player1_entries: [null, null, null, null, null], // ★エントリー選択をクリア
-      player1_draft: [null, null, null, null, null],   // ★ドラフト選択をクリア
       p1_status: "ready"
     } : {
-      player2_deck: selectedDeck.horse_ids || [],
+      player2_deck: selectedDeck.horse_ids,
       player2_ready: true,
-      player2_matchup_ready: false,                    // ★onmatchup用の準備フラグをリセット
-      player2_strategy_ready: false,                   // ★作戦画面用の準備フラグをリセット
-      player2_entries: [null, null, null, null, null], // ★エントリー選択をクリア
-      player2_draft: [null, null, null, null, null],   // ★ドラフト選択をクリア
       p2_status: "ready"
     };
 
     try {
       await updateDoc(roomRef, updateData);
     } catch (err) {
-      console.error("更新エラー:", err);
-      alert("通信に失敗しました。");
+      console.error("準備完了送信エラー:", err);
+      alert("通信エラーが発生しました。");
       isReadySent = false;
-      document.getElementById('banPanel').classList.remove('locked-ui');
-      document.getElementById('deckPanel').classList.remove('locked-ui');
-      readyBtn.disabled = false;
-      readyBtn.textContent = "準備完了（対戦開始）";
+      document.getElementById('btnReady').disabled = false;
       closeWaitingModal();
     }
   };
 
+  function showWaitingModal() {
+    document.getElementById('waitingModal').style.display = 'flex';
+  }
+
   function closeWaitingModal() {
-    if (waitingTimeoutTimer) clearTimeout(waitingTimeoutTimer);
     document.getElementById('waitingModal').style.display = 'none';
   }
 
-  async function finalizeMatchSeries(roomData) {
-    if (roomData.match_series && Array.isArray(roomData.match_series) && roomData.match_series.length === totalRounds) return;
-
-    const p1Series = roomData.player1_series || ["SERIES_001", "SERIES_002", "SERIES_003"];
-    const p2Series = roomData.player2_series || ["SERIES_001", "SERIES_002", "SERIES_003"];
-    
-    const p1BanIdx = Number(roomData.p2_banned_index);
-    const p2BanIdx = Number(roomData.p1_banned_index);
-
-    const p1Kept = p1Series.filter((_, idx) => idx !== p1BanIdx);
-    const p2Kept = p2Series.filter((_, idx) => idx !== p2BanIdx);
-
-    const p1PickIdx = Math.floor(Math.random() * p1Kept.length);
-    const p1First = p1Kept[p1PickIdx];
-    const p1Second = p1Kept[1 - p1PickIdx];
-
-    const p2PickIdx = Math.floor(Math.random() * p2Kept.length);
-    const p2First = p2Kept[p2PickIdx];
-    const p2Second = p2Kept[1 - p2PickIdx];
-
-    const round1_2 = [p1First, p2First];
-    if (Math.random() < 0.5) round1_2.reverse();
-
-    let finalSeriesList = [];
-
-    if (totalRounds === 5) {
-      const round3_4 = [p1Second, p2Second];
-      if (Math.random() < 0.5) round3_4.reverse();
-
-      const first4 = [...round1_2, ...round3_4];
-
-      const usedCategories = new Set(
-        first4.map(sId => getSeriesCategory(getSeriesObj(sId)))
-      );
-
-      const allSeriesKeys = Object.keys(SERIES_MASTER);
-      const uniqueCatCandidates = allSeriesKeys.filter(sId => {
-        const sObj = getSeriesObj(sId);
-        const cat = getSeriesCategory(sObj);
-        return !usedCategories.has(cat);
-      });
-
-      let round5 = null;
-      if (uniqueCatCandidates.length > 0) {
-        round5 = uniqueCatCandidates[Math.floor(Math.random() * uniqueCatCandidates.length)];
-      } else {
-        const unusedSeries = allSeriesKeys.filter(sId => !first4.includes(sId));
-        const pool = unusedSeries.length > 0 ? unusedSeries : allSeriesKeys;
-        round5 = pool[Math.floor(Math.random() * pool.length)];
-      }
-
-      finalSeriesList = [...first4, round5];
-
-    } else {
-      const remainderPool = [p1Second, p2Second].filter(Boolean);
-      const round3 = remainderPool[Math.floor(Math.random() * remainderPool.length)];
-
-      finalSeriesList = [...round1_2, round3];
-    }
-
-    if (finalSeriesList.length < totalRounds) return;
-
-    const roomRef = doc(db, "online_matches", roomId);
-    try {
-      await updateDoc(roomRef, {
-        match_series: finalSeriesList
-      });
-    } catch (e) {
-      console.error("対戦シリーズ書き込みエラー:", e);
-    }
-  }
-
   window.leaveMatch = async function() {
-    if (confirm("対戦を辞退してロビーに戻りますか？")) {
+    if (confirm("対戦を辞退してルームを出ますか？")) {
       isNavigatingAway = true;
+      if (roomUnsubscribe) roomUnsubscribe();
+
       if (roomId && currentUser) {
         try {
-          await updateDoc(doc(db, "online_matches", roomId), { 
-            status: "cancelled", 
-            cancelled_by: currentUser.uid 
+          const roomRef = doc(db, "online_matches", roomId);
+          await updateDoc(roomRef, {
+            status: "cancelled",
+            cancelled_by: currentUser.uid
           });
-        } catch (e) {}
+        } catch (e) {
+          console.error("退室クリーンアップエラー:", e);
+        }
       }
       window.location.href = 'online.html';
     }
   };
-
-  window.addEventListener('beforeunload', (e) => {
-    if (roomId && !isNavigatingAway && currentUser) {
-      updateDoc(doc(db, "online_matches", roomId), { 
-        status: "cancelled", 
-        cancelled_by: currentUser.uid 
-      });
-    }
-  });
 </script>
 
 </body>
