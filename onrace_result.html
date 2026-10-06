@@ -408,6 +408,7 @@ let raceInfo = null;
 let myNameStr = "あなた";
 let oppNameStr = "対戦相手";
 let roomUnsubscribe = null;
+let roomPollingInterval = null; // 10秒ごとの自動手動同期タイマー
 let isNavigatingAway = false;
 let isCalculating = false;
 
@@ -458,6 +459,17 @@ function removeUndefinedFields(obj) {
   return cleanObj;
 }
 
+function stopRoomListening() {
+  if (roomUnsubscribe) {
+    roomUnsubscribe();
+    roomUnsubscribe = null;
+  }
+  if (roomPollingInterval) {
+    clearInterval(roomPollingInterval);
+    roomPollingInterval = null;
+  }
+}
+
 window.showErrorModal = function(msg) {
   const msgEl = document.getElementById('error-modal-msg');
   if (msgEl) msgEl.textContent = msg;
@@ -468,7 +480,7 @@ window.showErrorModal = function(msg) {
 window.quitOnlineMatch = async function() {
   if (!confirm("対戦を途中で退室しますか？（対戦ロビーに戻ります）")) return;
   isNavigatingAway = true;
-  if (roomUnsubscribe) roomUnsubscribe();
+  stopRoomListening();
 
   if (roomId && currentUser) {
     try {
@@ -648,14 +660,19 @@ async function checkAndUpdateReadyState() {
       oppStatusBadge.className = "status-badge ready";
     }
 
-    if (role === 'host' && !data.race_results_cache && !isCalculating) {
+    if (role === 'host' && (!data.race_results_cache || data.race_results_cache.length !== 5) && !isCalculating) {
       isCalculating = true;
       if (startBtn && raceState === 'ready') {
         startBtn.disabled = true;
         startBtn.innerText = "⏳ レース結果を計算中...";
       }
-      await calculateAndUploadAllRaces();
-      isCalculating = false;
+      try {
+        await calculateAndUploadAllRaces();
+      } catch (e) {
+        console.error(e);
+      } finally {
+        isCalculating = false;
+      }
       return;
     }
 
@@ -676,48 +693,72 @@ async function checkAndUpdateReadyState() {
   }
 }
 
+async function handleRoomDataUpdate(data) {
+  if (isNavigatingAway || !data) return;
+
+  if (data.status === "cancelled") {
+    isNavigatingAway = true;
+    stopRoomListening();
+    alert("対戦相手が切断・退室しました。");
+    window.location.href = 'online.html';
+    return;
+  }
+
+  // 全対戦（全シリーズ）終了時
+  if (data.status === "completed") {
+    isNavigatingAway = true;
+    stopRoomListening();
+    window.location.href = 'online.html';
+    return;
+  }
+
+  // 次の回戦（シリーズ）への移行検知
+  if (data.status === "deck_selecting" || data.status === "deck_selected") {
+    isNavigatingAway = true;
+    stopRoomListening();
+    const matchMode = urlParams.get('mode') || data.match_mode || 'online';
+    window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
+    return;
+  }
+
+  if (data.status === "entry_selecting" || data.status === "matchup") {
+    isNavigatingAway = true;
+    stopRoomListening();
+    window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}`;
+    return;
+  }
+
+  await checkAndUpdateReadyState();
+}
+
+async function fetchLatestRoomData() {
+  if (!roomId || isNavigatingAway) return;
+  try {
+    const roomSnap = await getDoc(doc(db, "online_matches", roomId));
+    if (roomSnap.exists()) {
+      roomData = roomSnap.data();
+      await handleRoomDataUpdate(roomData);
+    }
+  } catch (err) {
+    console.warn("定期データ同期エラー:", err);
+  }
+}
+
 function listenRoomStatus() {
   const roomRef = doc(db, "online_matches", roomId);
+  
+  // 1. リアルタイムリスナー設定
   roomUnsubscribe = onSnapshot(roomRef, async (snapshot) => {
     if (!snapshot.exists()) return;
-    const data = snapshot.data();
-    roomData = data;
-
-    if (isNavigatingAway) return;
-
-    if (data.status === "cancelled") {
-      isNavigatingAway = true;
-      alert("対戦相手が切断・退室しました。");
-      window.location.href = 'online.html';
-      return;
-    }
-
-    // 全対戦（全シリーズ）終了時
-    if (data.status === "completed") {
-      isNavigatingAway = true;
-      if (roomUnsubscribe) roomUnsubscribe();
-      window.location.href = 'online.html';
-      return;
-    }
-
-    // 次の回戦（シリーズ）への移行検知
-    if (data.status === "deck_selecting" || data.status === "deck_selected") {
-      isNavigatingAway = true;
-      if (roomUnsubscribe) roomUnsubscribe();
-      const matchMode = urlParams.get('mode') || data.match_mode || 'online';
-      window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
-      return;
-    }
-
-    if (data.status === "entry_selecting" || data.status === "matchup") {
-      isNavigatingAway = true;
-      if (roomUnsubscribe) roomUnsubscribe();
-      window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}`;
-      return;
-    }
-
-    await checkAndUpdateReadyState();
+    roomData = snapshot.data();
+    await handleRoomDataUpdate(roomData);
   });
+
+  // 2. 通信パケットやonSnapshot遅延対策として10秒ごとの手動ポーリングを並行動作
+  if (roomPollingInterval) clearInterval(roomPollingInterval);
+  roomPollingInterval = setInterval(() => {
+    fetchLatestRoomData();
+  }, 10000);
 }
 
 async function fetchJsonWithFallback(filename) {
@@ -1472,7 +1513,7 @@ window.finishMatchAndNextOrLobby = async function() {
   }
 
   isNavigatingAway = true;
-  if (roomUnsubscribe) roomUnsubscribe();
+  stopRoomListening();
 
   if (roomId) {
     try {
