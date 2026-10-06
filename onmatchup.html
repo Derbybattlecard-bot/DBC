@@ -332,6 +332,16 @@
   const role = urlParams.get('role');
   const matchMode = urlParams.get('mode') || 'light';
 
+  // 馬IDを4桁文字列に正規化する関数
+  function normalizeHorseId(id) {
+    if (id === null || id === undefined) return "";
+    const num = parseInt(id, 10);
+    if (!isNaN(num)) {
+      return String(num).padStart(4, '0');
+    }
+    return String(id).trim();
+  }
+
   async function fetchJsonSafe(filename) {
     const candidatePaths = [`./data/${filename}`, `data/${filename}`, `/data/${filename}`];
     for (const path of candidatePaths) {
@@ -364,9 +374,9 @@
 
       if (Array.isArray(horsesData)) {
         horsesData.forEach(h => {
-          const idStr = String(h.horse_id);
+          const idStr = normalizeHorseId(h.horse_id);
           HORSES_MASTER[idStr] = h;
-          HORSES_MASTER[idStr.padStart(4, '0')] = h;
+          HORSES_MASTER[String(h.horse_id)] = h;
         });
       }
 
@@ -402,15 +412,15 @@
 
     playerDeckIds = (role === 'host') ? (roomData.player1_deck || []) : (roomData.player2_deck || []);
     oppDeckIds = (role === 'host') ? (roomData.player2_deck || []) : (roomData.player1_deck || []);
-    deckHorses = playerDeckIds.map(id => HORSES_MASTER[String(id)]).filter(Boolean);
+    deckHorses = playerDeckIds.map(id => HORSES_MASTER[String(id)] || HORSES_MASTER[normalizeHorseId(id)]).filter(Boolean);
 
     const isHost = (role === 'host');
     const oppUsedList = isHost ? (roomData.player2_used_horses || []) : (roomData.player1_used_horses || []);
-    oppUsedHorseIdsInPast = oppUsedList.map(id => String(id));
+    oppUsedHorseIdsInPast = oppUsedList.map(id => normalizeHorseId(id));
 
-    // 自分の過去使用済み馬を取得 (文字列へキャスト統一)
+    // 自分の過去使用済み馬を取得 (正規化)
     const myUsedList = isHost ? (roomData.player1_used_horses || []) : (roomData.player2_used_horses || []);
-    myUsedHorseIdsInPast = myUsedList.map(id => String(id));
+    myUsedHorseIdsInPast = myUsedList.map(id => normalizeHorseId(id));
 
     initialCardPriorities = roomData.initial_card_priorities || {};
 
@@ -436,44 +446,45 @@
     }
     document.getElementById('opponentName').textContent = oppName;
 
+    // ★修正箇所: 現在の回戦数(currentRoundIndex)に対応するシリーズのみを取得する
     let rawRaces = [];
     const matchSeries = roomData.match_series || roomData.selected_series || roomData.series_id || ["SERIES_001"];
     const seriesIdList = Array.isArray(matchSeries) ? matchSeries : [matchSeries];
     
-    seriesIdList.forEach((sId) => {
-      const sObj = SERIES_MASTER[sId] || Object.values(SERIES_MASTER)[0] || {};
-      const racesInSeries = sObj.races || (sObj.rounds && sObj.rounds[0] ? sObj.rounds[0].races : null);
+    // 現在の回戦に対応するシリーズIDを選出
+    const currentSeriesId = seriesIdList[currentRoundIndex] || seriesIdList[0] || "SERIES_001";
+    const sObj = SERIES_MASTER[currentSeriesId] || SERIES_MASTER[String(currentSeriesId).toUpperCase()] || Object.values(SERIES_MASTER)[0] || {};
+    
+    const racesInSeries = sObj.races || (sObj.rounds && sObj.rounds[0] ? sObj.rounds[0].races : null);
+    const potLimit = sObj.potential_limit || {};
+    const maxTotal = potLimit.max_total_potential ?? 85;
+    const minPerRace = potLimit.min_potential_per_race ?? 14;
 
-      const potLimit = sObj.potential_limit || {};
-      const maxTotal = potLimit.max_total_potential ?? 85;
-      const minPerRace = potLimit.min_potential_per_race ?? 14;
-
-      if (Array.isArray(racesInSeries) && racesInSeries.length > 0) {
-        racesInSeries.forEach(r => {
-          rawRaces.push({
-            race_name: r.race_name || r.name,
-            surface: r.surface || "芝",
-            distance: r.distance || 2000,
-            sex: r.sex || sObj.sex || "制限なし",
-            series_name: sObj.series_name || sObj.name || "",
-            category: sObj.category || sObj.series_category || sObj.group || "地方交流シリーズ",
-            max_total_potential: maxTotal,
-            min_potential_per_race: minPerRace
-          });
-        });
-      } else {
+    if (Array.isArray(racesInSeries) && racesInSeries.length > 0) {
+      racesInSeries.forEach(r => {
         rawRaces.push({
-          race_name: sObj.race_name || sObj.name || "特別競走",
-          surface: sObj.surface || "芝",
-          distance: sObj.distance || 2000,
-          sex: sObj.sex || "制限なし",
+          race_name: r.race_name || r.name,
+          surface: r.surface || "芝",
+          distance: r.distance || 2000,
+          sex: r.sex || sObj.sex || "制限なし",
           series_name: sObj.series_name || sObj.name || "",
           category: sObj.category || sObj.series_category || sObj.group || "地方交流シリーズ",
           max_total_potential: maxTotal,
           min_potential_per_race: minPerRace
         });
-      }
-    });
+      });
+    } else {
+      rawRaces.push({
+        race_name: sObj.race_name || sObj.name || "特別競走",
+        surface: sObj.surface || "芝",
+        distance: sObj.distance || 2000,
+        sex: sObj.sex || "制限なし",
+        series_name: sObj.series_name || sObj.name || "",
+        category: sObj.category || sObj.series_category || sObj.group || "地方交流シリーズ",
+        max_total_potential: maxTotal,
+        min_potential_per_race: minPerRace
+      });
+    }
 
     const fallbackRaces = [
       { race_name: "北九州記念", surface: "芝", distance: 1200, sex: "制限なし", max_total_potential: 85, min_potential_per_race: 14 },
@@ -500,7 +511,7 @@
       });
     }
 
-    const currentRace = matchRaces[currentRoundIndex] || matchRaces[0];
+    const currentRace = matchRaces[0];
     const categoryName = currentRace.category || "地方交流シリーズ";
     
     currentMaxTotalPt = currentRace.max_total_potential;
@@ -545,7 +556,7 @@
           const decks = userDoc.data().decks || [];
           decks.forEach(deck => {
             (deck.horse_ids || []).forEach(hId => {
-              if (hId !== null && hId !== undefined) excludedSet.add(String(hId));
+              if (hId !== null && hId !== undefined) excludedSet.add(normalizeHorseId(hId));
             });
           });
         }
@@ -554,8 +565,8 @@
       console.error("全デック馬ID取得失敗:", err);
     }
 
-    (roomData.player1_deck || []).forEach(id => excludedSet.add(String(id)));
-    (roomData.player2_deck || []).forEach(id => excludedSet.add(String(id)));
+    (roomData.player1_deck || []).forEach(id => excludedSet.add(normalizeHorseId(id)));
+    (roomData.player2_deck || []).forEach(id => excludedSet.add(normalizeHorseId(id)));
 
     return excludedSet;
   }
@@ -566,12 +577,12 @@
 
     races.forEach((race, rIdx) => {
       const mobPool = allHorses.filter(h => {
-        const hId = String(h.horse_id);
+        const hId = normalizeHorseId(h.horse_id);
         if (excludedIds.has(hId)) return false;
         return getHorsePotential(h, race.surface) > 0;
       }).sort(() => Math.random() - 0.5);
 
-      const selected = mobPool.slice(0, 14).map(m => String(m.horse_id));
+      const selected = mobPool.slice(0, 14).map(m => normalizeHorseId(m.horse_id));
       while (selected.length < 14) selected.push("0000");
       mobIds[rIdx] = selected;
     });
@@ -610,13 +621,13 @@
       const oppUsedList = isHost ? (data.player2_used_horses || []) : (data.player1_used_horses || []);
       const myUsedList = isHost ? (data.player1_used_horses || []) : (data.player2_used_horses || []);
       
-      const newOppPastUsedStr = JSON.stringify(oppUsedList.map(id => String(id)));
-      const newMyPastUsedStr = JSON.stringify(myUsedList.map(id => String(id)));
+      const newOppPastUsedStr = JSON.stringify(oppUsedList.map(id => normalizeHorseId(id)));
+      const newMyPastUsedStr = JSON.stringify(myUsedList.map(id => normalizeHorseId(id)));
 
       // 使用済み馬のリストに変更があれば最新化してドロップダウンを再構築
       if (JSON.stringify(oppUsedHorseIdsInPast) !== newOppPastUsedStr || JSON.stringify(myUsedHorseIdsInPast) !== newMyPastUsedStr) {
-        oppUsedHorseIdsInPast = oppUsedList.map(id => String(id));
-        myUsedHorseIdsInPast = myUsedList.map(id => String(id));
+        oppUsedHorseIdsInPast = oppUsedList.map(id => normalizeHorseId(id));
+        myUsedHorseIdsInPast = myUsedList.map(id => normalizeHorseId(id));
         populateDropdowns();
       }
 
@@ -696,7 +707,7 @@
   }
 
   function checkDuplicateHorsePriority(horseId) {
-    const targetIdStr = String(horseId);
+    const targetIdStr = normalizeHorseId(horseId);
     const isHost = (role === 'host');
     const myRoleKey = isHost ? 'host' : 'guest';
 
@@ -704,8 +715,8 @@
       return { canUse: true };
     }
 
-    if (initialCardPriorities && initialCardPriorities[targetIdStr]) {
-      const priorityOwner = initialCardPriorities[targetIdStr];
+    if (initialCardPriorities && (initialCardPriorities[targetIdStr] || initialCardPriorities[horseId])) {
+      const priorityOwner = initialCardPriorities[targetIdStr] || initialCardPriorities[horseId];
       const isMyPriority = (priorityOwner === myRoleKey) || 
                            (isHost && (priorityOwner === 'p1' || priorityOwner === 'player1')) ||
                            (!isHost && (priorityOwner === 'p2' || priorityOwner === 'player2'));
@@ -716,8 +727,8 @@
       }
     }
 
-    const myIdx = playerDeckIds.findIndex(id => String(id) === targetIdStr);
-    const oppIdx = oppDeckIds.findIndex(id => String(id) === targetIdStr);
+    const myIdx = playerDeckIds.findIndex(id => normalizeHorseId(id) === targetIdStr);
+    const oppIdx = oppDeckIds.findIndex(id => normalizeHorseId(id) === targetIdStr);
 
     if (oppIdx === -1) return { canUse: true };
 
@@ -749,7 +760,7 @@
       const styleCounts = { "逃": 0, "先": 0, "差": 0, "追": 0 };
       
       mobList.forEach(mId => {
-        const mob = HORSES_MASTER[String(mId)] || HORSES_MASTER[String(mId).padStart(4, '0')];
+        const mob = HORSES_MASTER[String(mId)] || HORSES_MASTER[normalizeHorseId(mId)];
         if (!mob) return;
         const style = getHorseLegStyle(mob);
         if (style.includes('大逃') || style.includes('逃')) styleCounts['逃']++;
@@ -802,8 +813,8 @@
       select.innerHTML = '<option value="">-- 出走馬を選択してください --</option>';
 
       deckHorses.forEach(horse => {
-        const horseIdStr = String(horse.horse_id);
-        const isChosenElsewhere = selectedEntries.some((id, idx) => idx !== rIdx && String(id) === horseIdStr);
+        const horseIdStr = normalizeHorseId(horse.horse_id);
+        const isChosenElsewhere = selectedEntries.some((id, idx) => idx !== rIdx && normalizeHorseId(id) === horseIdStr);
         const pt = getHorsePotential(horse, race.surface);
         const legStyle = getHorseLegStyle(horse);
 
@@ -816,7 +827,7 @@
 
           const priorityCheck = checkDuplicateHorsePriority(horse.horse_id);
 
-          // 自分が過去ラウンドで使用済みの馬は絶対選択不可にする
+          // ★修正箇所: 正規化されたIDで判定を行う
           if (myUsedHorseIdsInPast.includes(horseIdStr)) {
             opt.textContent = `[使用済み] ${info}`; opt.disabled = true;
           } else if (!isValidSex(horse.sex, raceSexLimit)) {
@@ -833,7 +844,7 @@
             opt.textContent = info;
           }
 
-          if (String(horse.horse_id) === String(currentVal)) opt.selected = true;
+          if (normalizeHorseId(horse.horse_id) === normalizeHorseId(currentVal)) opt.selected = true;
           select.appendChild(opt);
         }
       });
@@ -848,8 +859,8 @@
     updateDoc(roomRef, draftField).catch(e => console.error("Draft update failed:", e));
 
     const preview = document.getElementById(`previewRace${raceIdx}`);
-    if (horseId && HORSES_MASTER[String(horseId)]) {
-      const horse = HORSES_MASTER[String(horseId)];
+    if (horseId && (HORSES_MASTER[String(horseId)] || HORSES_MASTER[normalizeHorseId(horseId)])) {
+      const horse = HORSES_MASTER[String(horseId)] || HORSES_MASTER[normalizeHorseId(horseId)];
       const race = matchRaces[raceIdx];
       const pt = getHorsePotential(horse, race.surface);
       const isSurfaceValid = isValidSurface(horse, race.surface);
@@ -874,9 +885,9 @@
     let hasDistError = false;
 
     selectedEntries.forEach((id, rIdx) => {
-      if (id && HORSES_MASTER[String(id)] && matchRaces[rIdx]) {
+      if (id && (HORSES_MASTER[String(id)] || HORSES_MASTER[normalizeHorseId(id)]) && matchRaces[rIdx]) {
         count++;
-        const horse = HORSES_MASTER[String(id)];
+        const horse = HORSES_MASTER[String(id)] || HORSES_MASTER[normalizeHorseId(id)];
         const race = matchRaces[rIdx];
         totalPt += getHorsePotential(horse, race.surface);
         if (!isValidDistance(horse, race.distance)) {
