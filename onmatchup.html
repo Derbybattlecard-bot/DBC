@@ -313,7 +313,7 @@
   let oppDeckIds = [];
   
   let oppUsedHorseIdsInPast = [];
-  let myUsedHorseIdsInPast = []; // ★自プレイヤーの過去使用済み馬IDリスト
+  let myUsedHorseIdsInPast = []; // 自プレイヤーの過去使用済み馬IDリスト
   let initialCardPriorities = {};
 
   let selectedEntries = [null, null, null, null, null];
@@ -408,7 +408,7 @@
     const oppUsedList = isHost ? (roomData.player2_used_horses || []) : (roomData.player1_used_horses || []);
     oppUsedHorseIdsInPast = oppUsedList.map(id => String(id));
 
-    // ★ 自分の過去使用済み馬を取得
+    // 自分の過去使用済み馬を取得 (文字列へキャスト統一)
     const myUsedList = isHost ? (roomData.player1_used_horses || []) : (roomData.player2_used_horses || []);
     myUsedHorseIdsInPast = myUsedList.map(id => String(id));
 
@@ -444,7 +444,6 @@
       const sObj = SERIES_MASTER[sId] || Object.values(SERIES_MASTER)[0] || {};
       const racesInSeries = sObj.races || (sObj.rounds && sObj.rounds[0] ? sObj.rounds[0].races : null);
 
-      // シリーズマスターからポテンシャル制限設定を取得
       const potLimit = sObj.potential_limit || {};
       const maxTotal = potLimit.max_total_potential ?? 85;
       const minPerRace = potLimit.min_potential_per_race ?? 14;
@@ -504,7 +503,6 @@
     const currentRace = matchRaces[currentRoundIndex] || matchRaces[0];
     const categoryName = currentRace.category || "地方交流シリーズ";
     
-    // 現在のシリーズの制限ポテンシャル値をグローバルに更新
     currentMaxTotalPt = currentRace.max_total_potential;
     currentMinPtPerRace = currentRace.min_potential_per_race;
 
@@ -615,6 +613,7 @@
       const newOppPastUsedStr = JSON.stringify(oppUsedList.map(id => String(id)));
       const newMyPastUsedStr = JSON.stringify(myUsedList.map(id => String(id)));
 
+      // 使用済み馬のリストに変更があれば最新化してドロップダウンを再構築
       if (JSON.stringify(oppUsedHorseIdsInPast) !== newOppPastUsedStr || JSON.stringify(myUsedHorseIdsInPast) !== newMyPastUsedStr) {
         oppUsedHorseIdsInPast = oppUsedList.map(id => String(id));
         myUsedHorseIdsInPast = myUsedList.map(id => String(id));
@@ -633,7 +632,6 @@
         }
       }
 
-      // 両者のエントリーが完了したら作戦指示画面へ
       if (data.player1_matchup_ready && data.player2_matchup_ready) {
         if (roomUnsubscribe) roomUnsubscribe();
         isNavigatingAway = true;
@@ -697,18 +695,15 @@
     }
   }
 
-  // 優先出走権（initial_card_priorities / used_horses）の判定
   function checkDuplicateHorsePriority(horseId) {
     const targetIdStr = String(horseId);
     const isHost = (role === 'host');
     const myRoleKey = isHost ? 'host' : 'guest';
 
-    // 1. 相手が過去ラウンドで使用済みであればロック解除（使える）
     if (oppUsedHorseIdsInPast.includes(targetIdStr)) {
       return { canUse: true };
     }
 
-    // 2. 事前構築された initial_card_priorities があればそちらを優先参照
     if (initialCardPriorities && initialCardPriorities[targetIdStr]) {
       const priorityOwner = initialCardPriorities[targetIdStr];
       const isMyPriority = (priorityOwner === myRoleKey) || 
@@ -721,7 +716,6 @@
       }
     }
 
-    // 3. initial_card_priorities がない場合のフォールバック（デック内位置・ホスト優先）
     const myIdx = playerDeckIds.findIndex(id => String(id) === targetIdStr);
     const oppIdx = oppDeckIds.findIndex(id => String(id) === targetIdStr);
 
@@ -822,7 +816,7 @@
 
           const priorityCheck = checkDuplicateHorsePriority(horse.horse_id);
 
-          // ★ 自分が過去ラウンドで使用済みの馬は選択不可にする
+          // 自分が過去ラウンドで使用済みの馬は絶対選択不可にする
           if (myUsedHorseIdsInPast.includes(horseIdStr)) {
             opt.textContent = `[使用済み] ${info}`; opt.disabled = true;
           } else if (!isValidSex(horse.sex, raceSexLimit)) {
@@ -916,7 +910,6 @@
     }
   }
 
-  // エントリー完了処理
   window.submitEntries = async function() {
     if (selectedEntries.includes(null)) {
       alert("全5戦の出走馬を選択してください。");
