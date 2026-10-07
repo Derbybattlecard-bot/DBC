@@ -1476,18 +1476,47 @@ window.finishMatchAndNextOrLobby = async function() {
         // 次の回戦（シリーズ）が存在する場合
         if (Array.isArray(matchSeries) && currentSeriesIdx + 1 < matchSeries.length) {
           if (role === 'host') {
+            // ▼▼▼ 修正箇所：使用済み馬の抽出と結合 ▼▼▼
+            // これまでの使用済み馬配列を取得（なければ空配列）
+            const currentP1Used = data.player1_used_horses || [];
+            const currentP2Used = data.player2_used_horses || [];
+            
+            // 今回エントリーした馬を取得（nullなどの空データを念のため除外）
+            const p1EntriesValid = (data.player1_entries || []).filter(e => e);
+            const p2EntriesValid = (data.player2_entries || []).filter(e => e);
+            
+            // 過去の使用済み馬と今回の馬を合体
+            const newP1Used = [...currentP1Used, ...p1EntriesValid];
+            const newP2Used = [...currentP2Used, ...p2EntriesValid];
+            // ▲▲▲ 修正箇所ここまで ▲▲▲
+
             await updateDoc(roomRef, {
               current_series_index: increment(1),
+              
+              // ① 使用済み馬のリストを更新
+              player1_used_horses: newP1Used,
+              player2_used_horses: newP2Used,
+              
+              // ② 準備完了フラグをすべて解除 (matchup_ready を追加)
               player1_ready: false,
               player2_ready: false,
+              player1_matchup_ready: false,
+              player2_matchup_ready: false,
               player1_strategy_ready: false,
               player2_strategy_ready: false,
-              player1_entries: deleteField(),
-              player2_entries: deleteField(),
+              
+              // ③ 馬と作戦データを初期化 (ご指定の通り配列で上書き)
+              player1_entries: [null, null, null, null, null],
+              player2_entries: [null, null, null, null, null],
+              player1_draft: [null, null, null, null, null],
+              player2_draft: [null, null, null, null, null],
+              
+              // (作戦データとリザルトキャッシュはフィールドごと削除でOK)
               player1_strategies: deleteField(),
               player2_strategies: deleteField(),
               race_results_cache: deleteField(),
-              status: "deck_selecting"
+              
+              status: "deck_selecting" // 次の画面のステータスへ
             });
           }
           window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
