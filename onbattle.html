@@ -512,19 +512,66 @@
     return !isNaN(num) && num >= 0 && num <= 2;
   }
 
-  // ルームデータから使用済み馬リストを安全に取得
+  // ルームデータから使用済み馬リストを安全かつ網羅的に取得
   function extractUsedHorses(data, isP1) {
     if (!data) return [];
-    const rawArr = isP1 
-      ? (data.player1_used_horses || data.p1_used_horses || data.player1_used || data.p1_used || [])
-      : (data.player2_used_horses || data.p2_used_horses || data.player2_used || data.p2_used || []);
-    
-    if (!Array.isArray(rawArr)) return [];
-    return rawArr.map(item => {
-      if (item === null || item === undefined) return null;
-      if (typeof item === 'object') return item.horse_id || item.id || item.code || item;
-      return item;
-    }).filter(id => id != null);
+    const usedSet = new Set();
+
+    function addVal(val) {
+      if (val === null || val === undefined || val === '') return;
+      if (typeof val === 'object') {
+        const id = val.horse_id || val.id || val.code || val.horseId;
+        if (id != null) addVal(id);
+      } else {
+        getNormalizedIdVariants(val).forEach(v => usedSet.add(v));
+      }
+    }
+
+    // 1. ルーム直下の使用済み馬フィールド
+    const pKeys = isP1 
+      ? ['player1_used_horses', 'p1_used_horses', 'player1_used', 'p1_used', 'used_horses_p1', 'p1_used_cards']
+      : ['player2_used_horses', 'p2_used_horses', 'player2_used', 'p2_used', 'used_horses_p2', 'p2_used_cards'];
+
+    pKeys.forEach(key => {
+      const arr = data[key];
+      if (Array.isArray(arr)) {
+        arr.forEach(item => addVal(item));
+      } else if (arr && typeof arr === 'object') {
+        Object.values(arr).forEach(item => addVal(item));
+      }
+    });
+
+    // 2. 過去ラウンド・履歴（rounds, history, results等）からの走査抽出
+    const historySources = [data.rounds, data.history, data.results, data.race_results, data.matches];
+    historySources.forEach(source => {
+      if (!source) return;
+      const items = Array.isArray(source) ? source : Object.values(source);
+      items.forEach(item => {
+        if (!item || typeof item !== 'object') return;
+
+        const targetKeys = isP1 
+          ? ['p1_horse', 'player1_horse', 'p1_card', 'player1_card', 'p1_selected_horse', 'player1_selected_horse', 'p1_horse_id', 'player1_horse_id', 'p1_used_horse']
+          : ['p2_horse', 'player2_horse', 'p2_card', 'player2_card', 'p2_selected_horse', 'player2_selected_horse', 'p2_horse_id', 'player2_horse_id', 'p2_used_horse'];
+
+        targetKeys.forEach(tk => {
+          if (item[tk] !== undefined) addVal(item[tk]);
+        });
+
+        const subArrays = [item.races, item.card_selections, item.selected_horses, item.selections];
+        subArrays.forEach(sub => {
+          if (!sub) return;
+          const subItems = Array.isArray(sub) ? sub : Object.values(sub);
+          subItems.forEach(subItem => {
+            if (!subItem || typeof subItem !== 'object') return;
+            targetKeys.forEach(tk => {
+              if (subItem[tk] !== undefined) addVal(subItem[tk]);
+            });
+          });
+        });
+      });
+    });
+
+    return Array.from(usedSet);
   }
 
   onAuthStateChanged(auth, async (user) => {
@@ -620,12 +667,29 @@
 
   function renderDeckInfo() {
     const decks = globalUserData.decks || [];
+    const isHost = (role === 'host');
+    const rawMyUsed = extractUsedHorses(roomDataCache, isHost);
+    const myUsedSet = new Set();
+    rawMyUsed.forEach(id => {
+      getNormalizedIdVariants(id).forEach(v => myUsedSet.add(v));
+    });
+
     [0, 1].forEach(idx => {
       if (idx === 1 && isSingleDeckMode) return;
       const deck = decks[idx] || { deck_name: `メインデッキ ${idx + 1}`, horse_ids: [] };
-      const validCount = (deck.horse_ids || []).filter(id => id != null).length;
+      const horseIds = deck.horse_ids || [];
+      const validCount = horseIds.filter(id => id != null && id !== "").length;
+
+      let availableCount = 0;
+      horseIds.forEach(hId => {
+        if (hId == null || hId === "") return;
+        const variants = getNormalizedIdVariants(hId);
+        const isUsed = variants.some(v => myUsedSet.has(v));
+        if (!isUsed) availableCount++;
+      });
+
       document.getElementById(`deckName${idx}`).textContent = deck.deck_name || `メインデッキ ${idx + 1}`;
-      document.getElementById(`deckCount${idx}`).textContent = validCount;
+      document.getElementById(`deckCount${idx}`).innerHTML = `${validCount} <span style="font-size:10px; color:#10b981; font-weight:bold;">(可能:${availableCount})</span>`;
     });
   }
 
@@ -851,6 +915,7 @@
         enableDeckSelection(opponentStatus);
       }
 
+      renderDeckInfo();
       renderDeckTable();
 
       const myReady = isHost ? data.player1_ready : data.player2_ready;
@@ -1272,10 +1337,30 @@
     }
 
     const deck = (globalUserData.decks || [])[selectedDeckIndex] || { horse_ids: [] };
-    const validCount = (deck.horse_ids || []).filter(id => id != null).length;
+    const validCount = (deck.horse_ids || []).filter(id => id != null && id !== "").length;
     if (validCount < 18) {
       alert(`選択したデッキの登録頭数が18頭未満です (${validCount}/18頭)。18頭登録済みのデッキを選択してください。`);
       return;
+    }
+
+    const isHost = (role === 'host');
+    const rawMyUsed = extractUsedHorses(roomDataCache, isHost);
+    const myUsedSet = new Set();
+    rawMyUsed.forEach(id => {
+      getNormalizedIdVariants(id).forEach(v => myUsedSet.add(v));
+    });
+
+    let availableCount = 0;
+    (deck.horse_ids || []).forEach(hId => {
+      if (hId == null || hId === "") return;
+      const variants = getNormalizedIdVariants(hId);
+      if (!variants.some(v => myUsedSet.has(v))) availableCount++;
+    });
+
+    if (availableCount < 5) {
+      if (!confirm(`選択したデッキの出走可能（未出走）な馬が${availableCount}頭しか残っていません。このまま準備完了にしますか？`)) {
+        return;
+      }
     }
 
     isReadySent = true;
@@ -1286,7 +1371,6 @@
 
     document.getElementById('waitingModal').style.display = 'flex';
 
-    const isHost = (role === 'host');
     const updateData = isHost ? {
       player1_deck: deck.horse_ids,
       player1_ready: true,
