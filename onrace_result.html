@@ -341,7 +341,10 @@
       <thead><tr><th>R</th><th>あなた (着順)</th><th>相手 (着順)</th><th>勝者</th></tr></thead>
       <tbody id="series-history-body"></tbody>
     </table>
-    <button class="btn-next" id="modalNextBtn" style="margin-top: 20px;" onclick="finishMatchAndNextOrLobby()">🏠 次の回戦へ進む / ロビーへ</button>
+
+    <!-- ホスト状態表示テキストエリア -->
+    <div id="modalHostStatusMsg" style="margin-top: 15px; font-size: 0.9em; font-weight: bold; color: var(--gold-color);"></div>
+    <button class="btn-next" id="modalNextBtn" style="margin-top: 10px;" onclick="finishMatchAndNextOrLobby()">🏠 次の回戦へ進む / ロビーへ</button>
   </div>
 </div>
 
@@ -357,7 +360,7 @@
 <script type="module">
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { doc, getDoc, updateDoc, onSnapshot, increment, deleteField } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { doc, getDoc, updateDoc, onSnapshot, increment, deleteField } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js" ? "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js" : "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 import { determineStrategy } from "./js/mob.js";
 import { runRaceLogic } from "./js/race_calculator.js";
@@ -728,6 +731,47 @@ async function handleRoomDataUpdate(data) {
     return;
   }
 
+  // 結果モーダル表示中のホスト/ゲスト連動処理（ホストの操作状態を受信）
+  const isHost = (role === 'host');
+  const modalBtn = document.getElementById('modalNextBtn');
+  const statusMsgEl = document.getElementById('modalHostStatusMsg');
+  const matchSeries = data.match_series || data.selected_series || [];
+  const currentSeriesIdx = data.current_series_index || 0;
+  const hasNextSeries = Array.isArray(matchSeries) && (currentSeriesIdx + 1 < matchSeries.length);
+
+  if (document.getElementById('final-series-modal').style.display === "block" && hasNextSeries) {
+    if (!isHost) {
+      if (data.host_next_ready) {
+        if (modalBtn && modalBtn.textContent !== "⏳ 移動中...") {
+          modalBtn.disabled = false;
+          modalBtn.textContent = "➡️ 次の回戦へ進む（ホスト準備完了）";
+        }
+        if (statusMsgEl) {
+          statusMsgEl.textContent = "✅ ホストが次回戦に進みました！「次の回戦へ進む」を押してください。";
+          statusMsgEl.style.color = "var(--accent-green)";
+        }
+      } else {
+        if (modalBtn && modalBtn.textContent !== "⏳ 移動中...") {
+          modalBtn.disabled = true;
+          modalBtn.textContent = "⏳ ホストの選択待ち...";
+        }
+        if (statusMsgEl) {
+          statusMsgEl.textContent = "⏳ ホストが「次の回戦へ進む」を押すまでお待ちください。";
+          statusMsgEl.style.color = "#aaa";
+        }
+      }
+    } else {
+      if (data.host_next_ready && modalBtn && modalBtn.textContent !== "⏳ 移動中...") {
+        modalBtn.disabled = true;
+        modalBtn.textContent = "⏳ ゲストの操作待ち...";
+        if (statusMsgEl) {
+          statusMsgEl.textContent = "【ホスト操作完了】ゲストが「次の回戦へ進む」を押すのを待っています...";
+          statusMsgEl.style.color = "var(--accent-green)";
+        }
+      }
+    }
+  }
+
   await checkAndUpdateReadyState();
 }
 
@@ -806,8 +850,7 @@ async function loadMasterData() {
     showErrorModal("マスターデータの読み込みに失敗しました。");
   }
 }
-
-function buildRaceGridsFromOnlineData() {
+  function buildRaceGridsFromOnlineData() {
   const isHost = (role === 'host');
   
   const p1Entries = roomData.player1_entries || [];
@@ -1330,7 +1373,7 @@ async function startRace() {
   }, 12600); 
 }
 
-function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear", moveDir = "left_to_right") {
+  function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear", moveDir = "left_to_right") {
   const trackContainer = document.getElementById('track-container');
   if (!trackContainer) return;
   const trackWidth = trackContainer.clientWidth - 20;
@@ -1485,12 +1528,58 @@ function showFinalSeriesResult() {
       </tr>`;
   });
 
+  const isHost = (role === 'host');
+  const modalBtn = document.getElementById('modalNextBtn');
+  const statusMsgEl = document.getElementById('modalHostStatusMsg');
+
+  const matchSeries = roomData?.match_series || roomData?.selected_series || [];
+  const currentSeriesIdx = roomData?.current_series_index || 0;
+  const hasNextSeries = Array.isArray(matchSeries) && (currentSeriesIdx + 1 < matchSeries.length);
+
+  if (!hasNextSeries) {
+    if (modalBtn) {
+      modalBtn.disabled = false;
+      modalBtn.textContent = "🏠 ロビーへ戻る";
+    }
+    if (statusMsgEl) statusMsgEl.textContent = "全シリーズが終了しました。";
+  } else {
+    if (isHost) {
+      if (modalBtn) {
+        modalBtn.disabled = false;
+        modalBtn.textContent = "➡️ 次の回戦へ進む";
+      }
+      if (statusMsgEl) {
+        statusMsgEl.textContent = roomData?.host_next_ready ? "【ホスト操作完了】ゲストの操作を待っています..." : "あなたが「次の回戦へ進む」を押すと、ゲストが進行可能になります。";
+        statusMsgEl.style.color = roomData?.host_next_ready ? "var(--accent-green)" : "var(--gold-color)";
+      }
+    } else {
+      if (roomData?.host_next_ready) {
+        if (modalBtn) {
+          modalBtn.disabled = false;
+          modalBtn.textContent = "➡️ 次の回戦へ進む（ホスト準備完了）";
+        }
+        if (statusMsgEl) {
+          statusMsgEl.textContent = "✅ ホストが次回戦に進みました！「次の回戦へ進む」を押してください。";
+          statusMsgEl.style.color = "var(--accent-green)";
+        }
+      } else {
+        if (modalBtn) {
+          modalBtn.disabled = true;
+          modalBtn.textContent = "⏳ ホストの選択待ち...";
+        }
+        if (statusMsgEl) {
+          statusMsgEl.textContent = "⏳ ホストが「次の回戦へ進む」を押すまでお待ちください。";
+          statusMsgEl.style.color = "#aaa";
+        }
+      }
+    }
+  }
+
   document.getElementById('final-series-modal').style.display = "block";
 
   if (roomId) {
     try {
       const roomRef = doc(db, "online_matches", roomId);
-      const isHost = (role === 'host');
       const updateObj = isHost ? {
         player1_series_finished: true
       } : {
@@ -1505,16 +1594,10 @@ function showFinalSeriesResult() {
 
 window.finishMatchAndNextOrLobby = async function() {
   if (isNavigatingAway) return;
-  
+
   const modalBtn = document.getElementById('modalNextBtn');
-  if (modalBtn) {
-    modalBtn.disabled = true;
-    modalBtn.textContent = "⏳ 移動中...";
-  }
-
-  isNavigatingAway = true;
-  stopRoomListening();
-
+  const statusMsgEl = document.getElementById('modalHostStatusMsg');
+  
   if (roomId) {
     try {
       const roomRef = doc(db, "online_matches", roomId);
@@ -1524,10 +1607,33 @@ window.finishMatchAndNextOrLobby = async function() {
         const currentSeriesIdx = data.current_series_index || 0;
         const matchSeries = data.match_series || data.selected_series || [];
         const matchMode = urlParams.get('mode') || data.match_mode || 'online';
+        const isHost = (role === 'host');
 
         // 次の回戦（シリーズ）が存在する場合
         if (Array.isArray(matchSeries) && currentSeriesIdx + 1 < matchSeries.length) {
-          if (role === 'host') {
+          if (isHost) {
+            // ホストの場合：ホスト準備完了フラグを設定し、ゲストの入力を待つ
+            if (modalBtn) {
+              modalBtn.disabled = true;
+              modalBtn.textContent = "⏳ ゲストの操作待ち...";
+            }
+            if (statusMsgEl) {
+              statusMsgEl.textContent = "【ホスト操作完了】ゲストが「次の回戦へ進む」を押すのを待っています...";
+              statusMsgEl.style.color = "var(--accent-green)";
+            }
+            await updateDoc(roomRef, {
+              host_next_ready: true
+            });
+            return; // ホストはここで止め、ゲストが押した時の status: "deck_selecting" 更新を待つ
+          } else {
+            // ゲストの場合：データ初期化と次回戦への更新を行い、遷移する
+            if (modalBtn) {
+              modalBtn.disabled = true;
+              modalBtn.textContent = "⏳ 移動中...";
+            }
+            isNavigatingAway = true;
+            stopRoomListening();
+
             await updateDoc(roomRef, {
               current_series_index: increment(1),
               player1_ready: false,
@@ -1539,14 +1645,22 @@ window.finishMatchAndNextOrLobby = async function() {
               player1_strategies: deleteField(),
               player2_strategies: deleteField(),
               race_results_cache: deleteField(),
+              host_next_ready: deleteField(),
               status: "deck_selecting"
             });
+            window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
+            return;
           }
-          window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
-          return;
         } else {
           // 全回戦（全シリーズ）終了時
-          if (role === 'host') {
+          if (modalBtn) {
+            modalBtn.disabled = true;
+            modalBtn.textContent = "⏳ 移動中...";
+          }
+          isNavigatingAway = true;
+          stopRoomListening();
+
+          if (isHost) {
             await updateDoc(roomRef, {
               status: "completed"
             });
