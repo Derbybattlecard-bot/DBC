@@ -236,6 +236,11 @@
     cursor: pointer;
     text-align: center;
   }
+
+  .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 15px; }
+  .modal-content { background: #fff; border-radius: 12px; padding: 25px; width: 100%; max-width: 320px; text-align: center; }
+  .spinner { width: 40px; height: 40px; border: 4px solid #f3e8ff; border-top: 4px solid var(--accent-color); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px auto; }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -284,6 +289,14 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="waitingModal">
+  <div class="modal-content">
+    <div class="spinner"></div>
+    <div style="font-size: 16px; font-weight: bold; color: var(--accent-color); margin-bottom: 6px;">相手のエントリー完了を待っています…</div>
+    <div style="font-size: 12px; color: #6b7280;">作戦決定画面に自動移行します</div>
+  </div>
+</div>
+
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
@@ -300,7 +313,7 @@
   let oppDeckIds = [];
   
   let oppUsedHorseIdsInPast = [];
-  let myUsedHorseIdsInPast = [];
+  let myUsedHorseIdsInPast = []; // 自プレイヤーの過去使用済み馬IDリスト（4桁ゼロパディング文字列）
   let initialCardPriorities = {};
 
   let selectedEntries = [null, null, null, null, null];
@@ -310,6 +323,7 @@
   let isNavigatingAway = false;
   let currentRoundIndex = 0;
 
+  // シリーズマスターから動的に設定されるポテンシャル制限
   let currentMaxTotalPt = 85;
   let currentMinPtPerRace = 14;
 
@@ -318,69 +332,20 @@
   const role = urlParams.get('role');
   const matchMode = urlParams.get('mode') || 'light';
 
-  // 馬IDの4桁ゼロ埋め正規化関数
+  // 馬IDを4桁文字列に正規化する共通関数
   function normalizeHorseId(id) {
     if (id === null || id === undefined) return "";
     if (typeof id === 'object') {
-      id = id.horse_id || id.id || id.horseId;
+      id = id.horse_id || id.id || id.code || id.horseId || "";
     }
-    const num = parseInt(id, 10);
+    const str = String(id).trim();
+    if (!str) return "";
+
+    const num = parseInt(str, 10);
     if (!isNaN(num)) {
       return String(num).padStart(4, '0');
     }
-    return String(id).trim();
-  }
-
-  // ★ 過去の使用馬IDをネスト配列やオブジェクト構造から確実に抽出・正規化する関数 ★
-  function extractUsedHorseIds(rawData) {
-    if (!rawData) return [];
-    let ids = [];
-    if (Array.isArray(rawData)) {
-      rawData.forEach(item => {
-        if (item === null || item === undefined) return;
-        if (Array.isArray(item)) {
-          ids.push(...extractUsedHorseIds(item));
-        } else if (typeof item === 'object') {
-          const id = item.horse_id || item.id || item.horseId;
-          if (id !== undefined && id !== null) ids.push(normalizeHorseId(id));
-        } else {
-          ids.push(normalizeHorseId(item));
-        }
-      });
-    } else if (typeof rawData === 'object') {
-      Object.values(rawData).forEach(val => {
-        ids.push(...extractUsedHorseIds(val));
-      });
-    } else {
-      ids.push(normalizeHorseId(rawData));
-    }
-    return Array.from(new Set(ids.filter(id => id !== "" && id !== "0000")));
-  }
-
-  // ルームデータ全体から特定の役割（host/guest）の過去使用馬IDリストを取得
-  function getUsedHorseIdsForRole(roomData, targetRole) {
-    if (!roomData) return [];
-    const isP1 = (targetRole === 'host' || targetRole === 'p1' || targetRole === 'player1');
-    const usedKey = isP1 ? 'player1_used_horses' : 'player2_used_horses';
-    const entriesKey = isP1 ? 'player1_entries' : 'player2_entries';
-    
-    let list = [];
-
-    // 1. 直下の used_horses フィールドから抽出
-    if (roomData[usedKey]) {
-      list.push(...extractUsedHorseIds(roomData[usedKey]));
-    }
-
-    // 2. 過去ラウンド構造（rounds, round_history, results 等）から抽出
-    const roundsData = roomData.rounds || roomData.round_history || roomData.results || [];
-    if (Array.isArray(roundsData)) {
-      roundsData.forEach(r => {
-        if (r && r[usedKey]) list.push(...extractUsedHorseIds(r[usedKey]));
-        if (r && r[entriesKey]) list.push(...extractUsedHorseIds(r[entriesKey]));
-      });
-    }
-
-    return Array.from(new Set(list));
+    return str;
   }
 
   async function fetchJsonSafe(filename) {
@@ -415,9 +380,11 @@
 
       if (Array.isArray(horsesData)) {
         horsesData.forEach(h => {
-          const idStr = String(h.horse_id);
-          HORSES_MASTER[idStr] = h;
-          HORSES_MASTER[idStr.padStart(4, '0')] = h;
+          const idStr = normalizeHorseId(h.horse_id);
+          if (idStr) {
+            HORSES_MASTER[idStr] = h;
+            HORSES_MASTER[String(h.horse_id)] = h; // 互換用
+          }
         });
       }
 
@@ -451,14 +418,19 @@
 
     const roomData = roomSnap.data();
 
-    playerDeckIds = (role === 'host') ? (roomData.player1_deck || []) : (roomData.player2_deck || []);
-    oppDeckIds = (role === 'host') ? (roomData.player2_deck || []) : (roomData.player1_deck || []);
-    deckHorses = playerDeckIds.map(id => HORSES_MASTER[String(id)] || HORSES_MASTER[normalizeHorseId(id)]).filter(Boolean);
+    // 読み込み時に全て 4桁ゼロ埋め文字列に変換
+    playerDeckIds = ((role === 'host') ? (roomData.player1_deck || []) : (roomData.player2_deck || [])).map(id => normalizeHorseId(id)).filter(Boolean);
+    oppDeckIds = ((role === 'host') ? (roomData.player2_deck || []) : (roomData.player1_deck || [])).map(id => normalizeHorseId(id)).filter(Boolean);
+    
+    deckHorses = playerDeckIds.map(id => HORSES_MASTER[id]).filter(Boolean);
 
     const isHost = (role === 'host');
-    // 過去使用馬リストの抽出（型・ネスト対応版）
-    oppUsedHorseIdsInPast = getUsedHorseIdsForRole(roomData, isHost ? 'guest' : 'host');
-    myUsedHorseIdsInPast = getUsedHorseIdsForRole(roomData, isHost ? 'host' : 'guest');
+    const oppUsedList = isHost ? (roomData.player2_used_horses || []) : (roomData.player1_used_horses || []);
+    oppUsedHorseIdsInPast = oppUsedList.map(id => normalizeHorseId(id)).filter(Boolean);
+
+    // 自分の過去使用済み馬を取得 (4桁文字列へ正規化)
+    const myUsedList = isHost ? (roomData.player1_used_horses || []) : (roomData.player2_used_horses || []);
+    myUsedHorseIdsInPast = myUsedList.map(id => normalizeHorseId(id)).filter(Boolean);
 
     initialCardPriorities = roomData.initial_card_priorities || {};
 
@@ -488,39 +460,40 @@
     const matchSeries = roomData.match_series || roomData.selected_series || roomData.series_id || ["SERIES_001"];
     const seriesIdList = Array.isArray(matchSeries) ? matchSeries : [matchSeries];
     
-    const currentSeriesId = seriesIdList[currentRoundIndex] || seriesIdList[0] || "SERIES_001";
-    const sObj = SERIES_MASTER[currentSeriesId] || SERIES_MASTER[String(currentSeriesId).toUpperCase()] || Object.values(SERIES_MASTER)[0] || {};
-    
-    const racesInSeries = sObj.races || (sObj.rounds && sObj.rounds[0] ? sObj.rounds[0].races : null);
-    const potLimit = sObj.potential_limit || {};
-    const maxTotal = potLimit.max_total_potential ?? 85;
-    const minPerRace = potLimit.min_potential_per_race ?? 14;
+    seriesIdList.forEach((sId) => {
+      const sObj = SERIES_MASTER[sId] || Object.values(SERIES_MASTER)[0] || {};
+      const racesInSeries = sObj.races || (sObj.rounds && sObj.rounds[0] ? sObj.rounds[0].races : null);
 
-    if (Array.isArray(racesInSeries) && racesInSeries.length > 0) {
-      racesInSeries.forEach(r => {
+      const potLimit = sObj.potential_limit || {};
+      const maxTotal = potLimit.max_total_potential ?? 85;
+      const minPerRace = potLimit.min_potential_per_race ?? 14;
+
+      if (Array.isArray(racesInSeries) && racesInSeries.length > 0) {
+        racesInSeries.forEach(r => {
+          rawRaces.push({
+            race_name: r.race_name || r.name,
+            surface: r.surface || "芝",
+            distance: r.distance || 2000,
+            sex: r.sex || sObj.sex || "制限なし",
+            series_name: sObj.series_name || sObj.name || "",
+            category: sObj.category || sObj.series_category || sObj.group || "地方交流シリーズ",
+            max_total_potential: maxTotal,
+            min_potential_per_race: minPerRace
+          });
+        });
+      } else {
         rawRaces.push({
-          race_name: r.race_name || r.name,
-          surface: r.surface || "芝",
-          distance: r.distance || 2000,
-          sex: r.sex || sObj.sex || "制限なし",
+          race_name: sObj.race_name || sObj.name || "特別競走",
+          surface: sObj.surface || "芝",
+          distance: sObj.distance || 2000,
+          sex: sObj.sex || "制限なし",
           series_name: sObj.series_name || sObj.name || "",
           category: sObj.category || sObj.series_category || sObj.group || "地方交流シリーズ",
           max_total_potential: maxTotal,
           min_potential_per_race: minPerRace
         });
-      });
-    } else {
-      rawRaces.push({
-        race_name: sObj.race_name || sObj.name || "特別競走",
-        surface: sObj.surface || "芝",
-        distance: sObj.distance || 2000,
-        sex: sObj.sex || "制限なし",
-        series_name: sObj.series_name || sObj.name || "",
-        category: sObj.category || sObj.series_category || sObj.group || "地方交流シリーズ",
-        max_total_potential: maxTotal,
-        min_potential_per_race: minPerRace
-      });
-    }
+      }
+    });
 
     const fallbackRaces = [
       { race_name: "北九州記念", surface: "芝", distance: 1200, sex: "制限なし", max_total_potential: 85, min_potential_per_race: 14 },
@@ -547,7 +520,7 @@
       });
     }
 
-    const currentRace = matchRaces[0];
+    const currentRace = matchRaces[currentRoundIndex] || matchRaces[0];
     const categoryName = currentRace.category || "地方交流シリーズ";
     
     currentMaxTotalPt = currentRace.max_total_potential;
@@ -592,7 +565,8 @@
           const decks = userDoc.data().decks || [];
           decks.forEach(deck => {
             (deck.horse_ids || []).forEach(hId => {
-              if (hId !== null && hId !== undefined) excludedSet.add(normalizeHorseId(hId));
+              const norm = normalizeHorseId(hId);
+              if (norm) excludedSet.add(norm);
             });
           });
         }
@@ -601,8 +575,8 @@
       console.error("全デック馬ID取得失敗:", err);
     }
 
-    (roomData.player1_deck || []).forEach(id => excludedSet.add(normalizeHorseId(id)));
-    (roomData.player2_deck || []).forEach(id => excludedSet.add(normalizeHorseId(id)));
+    (roomData.player1_deck || []).forEach(id => { const norm = normalizeHorseId(id); if (norm) excludedSet.add(norm); });
+    (roomData.player2_deck || []).forEach(id => { const norm = normalizeHorseId(id); if (norm) excludedSet.add(norm); });
 
     return excludedSet;
   }
@@ -654,15 +628,16 @@
       }
 
       const isHost = (role === 'host');
-      const newOppPast = getUsedHorseIdsForRole(data, isHost ? 'guest' : 'host');
-      const newMyPast = getUsedHorseIdsForRole(data, isHost ? 'host' : 'guest');
+      const oppUsedList = isHost ? (data.player2_used_horses || []) : (data.player1_used_horses || []);
+      const myUsedList = isHost ? (data.player1_used_horses || []) : (data.player2_used_horses || []);
       
-      const newOppPastUsedStr = JSON.stringify(newOppPast);
-      const newMyPastUsedStr = JSON.stringify(newMyPast);
+      const newOppPastUsedStr = JSON.stringify(oppUsedList.map(id => normalizeHorseId(id)));
+      const newMyPastUsedStr = JSON.stringify(myUsedList.map(id => normalizeHorseId(id)));
 
+      // 使用済み馬のリストに変更があれば最新化してドロップダウンを再構築
       if (JSON.stringify(oppUsedHorseIdsInPast) !== newOppPastUsedStr || JSON.stringify(myUsedHorseIdsInPast) !== newMyPastUsedStr) {
-        oppUsedHorseIdsInPast = newOppPast;
-        myUsedHorseIdsInPast = newMyPast;
+        oppUsedHorseIdsInPast = oppUsedList.map(id => normalizeHorseId(id)).filter(Boolean);
+        myUsedHorseIdsInPast = myUsedList.map(id => normalizeHorseId(id)).filter(Boolean);
         populateDropdowns();
       }
 
@@ -676,6 +651,13 @@
           badge.textContent = "選定中…";
           badge.className = "opponent-badge selecting";
         }
+      }
+
+      if (data.player1_matchup_ready && data.player2_matchup_ready) {
+        if (roomUnsubscribe) roomUnsubscribe();
+        isNavigatingAway = true;
+        const modeQuery = matchMode ? `&mode=${matchMode}` : '';
+        window.location.href = `onstrategy.html?roomId=${roomId}&role=${role}${modeQuery}`;
       }
     });
   }
@@ -788,7 +770,7 @@
       const styleCounts = { "逃": 0, "先": 0, "差": 0, "追": 0 };
       
       mobList.forEach(mId => {
-        const mob = HORSES_MASTER[String(mId)] || HORSES_MASTER[normalizeHorseId(mId)];
+        const mob = HORSES_MASTER[normalizeHorseId(mId)];
         if (!mob) return;
         const style = getHorseLegStyle(mob);
         if (style.includes('大逃') || style.includes('逃')) styleCounts['逃']++;
@@ -834,7 +816,7 @@
       const select = document.getElementById(`selectRace${rIdx}`);
       if (!select) return;
       
-      const currentVal = selectedEntries[rIdx];
+      const currentVal = selectedEntries[rIdx] ? normalizeHorseId(selectedEntries[rIdx]) : null;
       const raceSexLimit = race.sex || "制限なし";
       const surfaceLabel = getSurfaceLabel(race.surface);
 
@@ -842,19 +824,20 @@
 
       deckHorses.forEach(horse => {
         const horseIdStr = normalizeHorseId(horse.horse_id);
-        const isChosenElsewhere = selectedEntries.some((id, idx) => idx !== rIdx && normalizeHorseId(id) === horseIdStr);
+        const isChosenElsewhere = selectedEntries.some((id, idx) => idx !== rIdx && id && normalizeHorseId(id) === horseIdStr);
         const pt = getHorsePotential(horse, race.surface);
         const legStyle = getHorseLegStyle(horse);
 
         if (!isChosenElsewhere) {
           const opt = document.createElement('option');
-          opt.value = horse.horse_id;
+          opt.value = horseIdStr; // 4桁ゼロ埋め文字列を設定
           
           const ptLabel = pt > 0 ? `${surfaceLabel}${pt}` : '適性外';
           const info = `${horse.name} (${ptLabel} / ${legStyle} / ${horse.sex || '牡'})`;
 
-          const priorityCheck = checkDuplicateHorsePriority(horse.horse_id);
+          const priorityCheck = checkDuplicateHorsePriority(horseIdStr);
 
+          // 自分が過去ラウンドで使用済みの馬は絶対選択不可にする
           if (myUsedHorseIdsInPast.includes(horseIdStr)) {
             opt.textContent = `[使用済み] ${info}`; opt.disabled = true;
           } else if (!isValidSex(horse.sex, raceSexLimit)) {
@@ -871,7 +854,7 @@
             opt.textContent = info;
           }
 
-          if (normalizeHorseId(horse.horse_id) === normalizeHorseId(currentVal)) opt.selected = true;
+          if (horseIdStr === currentVal) opt.selected = true;
           select.appendChild(opt);
         }
       });
@@ -879,15 +862,16 @@
   }
 
   window.onHorseSelected = function(raceIdx, horseId) {
-    selectedEntries[raceIdx] = horseId || null;
+    const normId = normalizeHorseId(horseId);
+    selectedEntries[raceIdx] = normId || null;
 
     const roomRef = doc(db, "online_matches", roomId);
     const draftField = (role === 'host') ? { player1_draft: selectedEntries } : { player2_draft: selectedEntries };
     updateDoc(roomRef, draftField).catch(e => console.error("Draft update failed:", e));
 
     const preview = document.getElementById(`previewRace${raceIdx}`);
-    if (horseId && (HORSES_MASTER[String(horseId)] || HORSES_MASTER[normalizeHorseId(horseId)])) {
-      const horse = HORSES_MASTER[String(horseId)] || HORSES_MASTER[normalizeHorseId(horseId)];
+    if (normId && HORSES_MASTER[normId]) {
+      const horse = HORSES_MASTER[normId];
       const race = matchRaces[raceIdx];
       const pt = getHorsePotential(horse, race.surface);
       const isSurfaceValid = isValidSurface(horse, race.surface);
@@ -912,9 +896,10 @@
     let hasDistError = false;
 
     selectedEntries.forEach((id, rIdx) => {
-      const horse = id ? (HORSES_MASTER[String(id)] || HORSES_MASTER[normalizeHorseId(id)]) : null;
-      if (id && horse && matchRaces[rIdx]) {
+      const normId = normalizeHorseId(id);
+      if (normId && HORSES_MASTER[normId] && matchRaces[rIdx]) {
         count++;
+        const horse = HORSES_MASTER[normId];
         const race = matchRaces[rIdx];
         totalPt += getHorsePotential(horse, race.surface);
         if (!isValidDistance(horse, race.distance)) {
@@ -956,17 +941,21 @@
 
     const startBtn = document.getElementById('btnBattleStart');
     startBtn.disabled = true;
+    document.getElementById('waitingModal').style.display = 'flex';
+
+    // 確実に4桁ゼロパディング文字列で保存
+    const normalizedEntries = selectedEntries.map(id => normalizeHorseId(id));
 
     const roomRef = doc(db, "online_matches", roomId);
     
     const updateData = (role === 'host') ? {
-      player1_entries: selectedEntries,
+      player1_entries: normalizedEntries,
       player1_matchup_ready: true,
       player1_strategy_ready: false,
       player1_ready: false,
       status: "strategy_selecting"
     } : {
-      player2_entries: selectedEntries,
+      player2_entries: normalizedEntries,
       player2_matchup_ready: true,
       player2_strategy_ready: false,
       player2_ready: false,
@@ -975,15 +964,11 @@
 
     try {
       await updateDoc(roomRef, updateData);
-      isNavigatingAway = true;
-      if (roomUnsubscribe) roomUnsubscribe();
-      
-      const modeQuery = matchMode ? `&mode=${matchMode}` : '';
-      window.location.href = `onstrategy.html?roomId=${roomId}&role=${role}${modeQuery}`;
     } catch (err) {
       console.error("エントリー保存エラー:", err);
       alert("通信エラーが発生しました。");
       startBtn.disabled = false;
+      document.getElementById('waitingModal').style.display = 'none';
     }
   };
 
