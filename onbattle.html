@@ -218,11 +218,11 @@
   .horse-name-cell { text-align: left; font-weight: bold; padding-left: 4px !important; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
   
   .tr-locked { background-color: #fef2f2; color: #991b1b; }
-  .badge-locked { background: #ef4444; color: white; padding: 1px 4px; border-radius: 3px; font-size: 9px; margin-left: 4px; }
+  .badge-locked { background: #ef4444; color: white; padding: 1px 4px; border-radius: 3px; font-size: 9px; display: inline-block; }
 
   /* 使用済み馬の表示スタイル */
   .tr-used { background-color: #f3f4f6 !important; color: #9ca3af !important; text-decoration: line-through; }
-  .badge-used { background: #6b7280; color: white; padding: 1px 4px; border-radius: 3px; font-size: 9px; margin-left: 4px; text-decoration: none; display: inline-block; }
+  .badge-used { background: #6b7280; color: white; padding: 1px 4px; border-radius: 3px; font-size: 9px; text-decoration: none; display: inline-block; }
 
   .btn-start { background: linear-gradient(135deg, #f97316, #ea580c); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; box-shadow: 0 4px 0 #c2410c; width: 100%; transition: all 0.1s; }
   .btn-start:disabled { background: #9ca3af; box-shadow: none; cursor: not-allowed; opacity: 0.6; }
@@ -295,6 +295,7 @@
             <th style="width:70px;">馬場</th>
             <th style="width:75px;">距離</th>
             <th style="width:35px;">脚質</th>
+            <th style="width:45px;">状態</th>
           </tr>
         </thead>
         <tbody id="deckHorseList"></tbody>
@@ -657,26 +658,24 @@
           tr.className = 'tr-locked';
         }
 
-        let badgeHtml = '';
+        let statusHtml = '<span style="color:#10b981; font-weight:bold;">出走可</span>';
         if (isMyUsed) {
-          badgeHtml = '<span class="badge-used">使用済み</span>';
+          statusHtml = '<span class="badge-used">使用済</span>';
         } else if (isLocked) {
-          badgeHtml = '<span class="badge-locked">重複ロック中</span>';
+          statusHtml = '<span class="badge-locked">ロック</span>';
         }
 
         tr.innerHTML = `
           <td>${i + 1}</td>
-          <td class="horse-name-cell">
-            ${horse.name}
-            ${badgeHtml}
-          </td>
+          <td class="horse-name-cell">${horse.name}</td>
           <td>${horse.sex || '牡'}</td>
           <td>${horse.surface || '芝'}</td>
           <td>${horse.min_distance ? `${horse.min_distance}-${horse.max_distance}m` : '-'}</td>
           <td>${horse.style || '-'}</td>
+          <td>${statusHtml}</td>
         `;
       } else {
-        tr.innerHTML = `<td>${i + 1}</td><td colspan="5" style="color:#aaa;">(未設定)</td>`;
+        tr.innerHTML = `<td>${i + 1}</td><td colspan="6" style="color:#aaa;">(未設定)</td>`;
       }
       tbody.appendChild(tr);
     }
