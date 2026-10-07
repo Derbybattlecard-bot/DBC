@@ -580,15 +580,18 @@
     const myName = getDisplayName(globalUserData, currentUser);
     const roomRef = doc(db, "online_matches", roomId);
     
+    // 入室時に前戦の準備完了フラグが残らないよう明示的に player_ready: false をリセット設定
     const updateData = (role === 'host') ? { 
       player1_series: mySeries,
       player1_name: myName,
       player1_uid: currentUser.uid,
+      player1_ready: false,
       p1_status: "deck_selecting"
     } : { 
       player2_series: mySeries,
       player2_name: myName,
       player2_uid: currentUser.uid,
+      player2_ready: false,
       p2_status: "deck_selecting"
     };
     await setDoc(roomRef, updateData, { merge: true });
@@ -626,7 +629,6 @@
     const myUsedHorses = roomDataCache ? (isHost ? (roomDataCache.player1_used_horses || []) : (roomDataCache.player2_used_horses || [])) : [];
     const oppUsedHorses = roomDataCache ? (isHost ? (roomDataCache.player2_used_horses || []) : (roomDataCache.player1_used_horses || [])) : [];
     
-    // 正規化IDをSetに保持
     const myUsedSet = new Set(myUsedHorses.map(id => normalizeHorseId(id)));
     const oppUsedSet = new Set(oppUsedHorses.map(id => normalizeHorseId(id)));
     const priorities = roomDataCache?.initial_card_priorities || {};
@@ -795,6 +797,17 @@
       const myReady = isHost ? data.player1_ready : data.player2_ready;
       const oppReady = isHost ? data.player2_ready : data.player1_ready;
 
+      // ページリロード時に自身が送信済みであった場合の表示制御
+      if (myReady && !isReadySent) {
+        isReadySent = true;
+        if (readyBtn) {
+          readyBtn.disabled = true;
+          readyBtn.textContent = "相手の準備完了を待っています…";
+        }
+        document.getElementById('waitingModal').style.display = 'flex';
+      }
+
+      // 両プレイヤーが「現在の回戦」で準備完了した場合のみ次画面へ進む
       if (myReady && oppReady) {
         closeWaitingModal();
         if (roomUnsubscribe) roomUnsubscribe();
