@@ -338,6 +338,35 @@
     throw new Error(`${filename} 読み込み失敗`);
   }
 
+  /**
+   * 36頭（ホスト18頭＋ゲスト18頭）を全頭比較し、被り馬の優先権（'host' または 'guest'）を算出する関数
+   */
+  function computeCardPriorities(hostDeck, guestDeck) {
+    const priorities = {};
+    if (!Array.isArray(hostDeck) || !Array.isArray(guestDeck)) return priorities;
+
+    const hostNorm = hostDeck.map(id => normalizeHorseId(id));
+    const guestNorm = guestDeck.map(id => normalizeHorseId(id));
+
+    hostNorm.forEach((hId, hostIdx) => {
+      if (!hId) return;
+      const guestIdx = guestNorm.indexOf(hId);
+      if (guestIdx !== -1) {
+        // 同じ馬が存在する場合（被り馬）
+        if (hostIdx < guestIdx) {
+          priorities[hId] = 'host';
+        } else if (guestIdx < hostIdx) {
+          priorities[hId] = 'guest';
+        } else {
+          // インデックスの数字も同じ場合はホスト側に優先権
+          priorities[hId] = 'host';
+        }
+      }
+    });
+
+    return priorities;
+  }
+
   onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = 'auth.html'; return; }
     currentUser = user;
@@ -403,10 +432,22 @@
     const oppUsedList = isHost ? (roomData.player2_used_horses || []) : (roomData.player1_used_horses || []);
     oppUsedHorseIdsInPast = oppUsedList.map(id => normalizeHorseId(id));
 
+    // ★修正箇所: ゲスト時に自身の使用済み馬を正しく取得できるよう修正
     const myUsedList = isHost ? (roomData.player1_used_horses || []) : (roomData.player2_used_horses || []);
     myUsedHorseIdsInPast = myUsedList.map(id => normalizeHorseId(id));
 
-    initialCardPriorities = roomData.initial_card_priorities || {};
+    // ★修正箇所: 最初にお互いの18頭（計36頭）を比較して被り馬の優先権テーブルを作成/取得
+    const hostDeck = roomData.player1_deck || [];
+    const guestDeck = roomData.player2_deck || [];
+    
+    if (roomData.initial_card_priorities && Object.keys(roomData.initial_card_priorities).length > 0) {
+      initialCardPriorities = roomData.initial_card_priorities;
+    } else {
+      initialCardPriorities = computeCardPriorities(hostDeck, guestDeck);
+      if (isHost && Object.keys(initialCardPriorities).length > 0) {
+        updateDoc(roomRef, { initial_card_priorities: initialCardPriorities }).catch(e => console.error(e));
+      }
+    }
 
     if (!deckHorses || deckHorses.length === 0) {
       alert("対戦に必要なデックデータが見つかりません。対戦を終了してロビーへ戻ります。");
@@ -606,6 +647,10 @@
       const newOppPastUsedStr = JSON.stringify(oppUsedList.map(id => normalizeHorseId(id)));
       const newMyPastUsedStr = JSON.stringify(myUsedList.map(id => normalizeHorseId(id)));
 
+      if (data.initial_card_priorities) {
+        initialCardPriorities = data.initial_card_priorities;
+      }
+
       if (JSON.stringify(oppUsedHorseIdsInPast) !== newOppPastUsedStr || JSON.stringify(myUsedHorseIdsInPast) !== newMyPastUsedStr) {
         oppUsedHorseIdsInPast = oppUsedList.map(id => normalizeHorseId(id));
         myUsedHorseIdsInPast = myUsedList.map(id => normalizeHorseId(id));
@@ -680,43 +725,35 @@
     }
   }
 
+  /**
+   * 被り馬の優先権判定ロジック
+   */
   function checkDuplicateHorsePriority(horseId) {
     const targetIdStr = normalizeHorseId(horseId);
     const isHost = (role === 'host');
     const myRoleKey = isHost ? 'host' : 'guest';
 
+    // 最初に算出された36頭比較マップから該当馬の優先権所有者を取得
+    const priorityOwner = initialCardPriorities[targetIdStr];
+
+    // 被り馬でない場合（マップに未登録）は制限なしで使用可
+    if (!priorityOwner) {
+      return { canUse: true };
+    }
+
+    // 自分が優先権保持者の場合は使用可
+    if (priorityOwner === myRoleKey) {
+      return { canUse: true };
+    }
+
+    // 自分に優先権がない場合：優先権保持者（相手）が過去回戦ですでに使用済みであれば解禁
     if (oppUsedHorseIdsInPast.includes(targetIdStr)) {
       return { canUse: true };
     }
 
-    if (initialCardPriorities && initialCardPriorities[targetIdStr]) {
-      const priorityOwner = initialCardPriorities[targetIdStr];
-      const isMyPriority = (priorityOwner === myRoleKey) || 
-                           (isHost && (priorityOwner === 'p1' || priorityOwner === 'player1')) ||
-                           (!isHost && (priorityOwner === 'p2' || priorityOwner === 'player2'));
-      if (isMyPriority) {
-        return { canUse: true };
-      } else {
-        return { canUse: false, reason: "相手優先" };
-      }
-    }
-
-    const myIdx = playerDeckIds.findIndex(id => normalizeHorseId(id) === targetIdStr);
-    const oppIdx = oppDeckIds.findIndex(id => normalizeHorseId(id) === targetIdStr);
-
-    if (oppIdx === -1) return { canUse: true };
-
-    if (myIdx < oppIdx) {
-      return { canUse: true };
-    } else if (myIdx > oppIdx) {
-      return { canUse: false, reason: "相手優先" };
-    } else {
-      if (isHost) {
-        return { canUse: true };
-      } else {
-        return { canUse: false, reason: "ホスト優先" };
-      }
-    }
+    // 相手がまだ使っていない場合は使用不可
+    const reasonLabel = priorityOwner === 'host' ? 'ホスト優先' : '相手優先';
+    return { canUse: false, reason: reasonLabel };
   }
 
   function renderEntryCards() {
@@ -801,6 +838,7 @@
 
           const priorityCheck = checkDuplicateHorsePriority(horse.horse_id);
 
+          // 優先順位に従って判定・グレーアウト（disabled = true）処理
           if (myUsedHorseIdsInPast.includes(horseIdStr)) {
             opt.textContent = `[使用済み] ${info}`; opt.disabled = true;
           } else if (!isValidSex(horse.sex, raceSexLimit)) {
@@ -894,7 +932,6 @@
     }
   }
 
-  // ★ 修正仕様: エントリー完了後、ポップアップ待機を挟まず即座に onstrategy.html へ遷移 ★
   window.submitEntries = async function() {
     if (selectedEntries.includes(null)) {
       alert("全5戦の出走馬を選択してください。");
