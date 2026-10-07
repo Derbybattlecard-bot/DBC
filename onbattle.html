@@ -381,6 +381,18 @@
     return {};
   }
 
+  function getAllUniqueSeriesList() {
+    const map = new Map();
+    Object.values(SERIES_MASTER).forEach(sObj => {
+      if (!sObj || typeof sObj !== 'object') return;
+      const id = sObj.series_id || sObj.id || sObj.code;
+      if (id && !map.has(id)) {
+        map.set(id, sObj);
+      }
+    });
+    return Array.from(map.values());
+  }
+
   function getSeriesCategory(sObj) {
     if (!sObj) return "一般";
     return sObj.category || sObj.series_category || sObj.series_type || sObj.type || sObj.group || sObj.cat || sObj.genre || "一般";
@@ -581,7 +593,6 @@
     const myName = getDisplayName(globalUserData, currentUser);
     const roomRef = doc(db, "online_matches", roomId);
     
-    // 入室時に前戦の準備完了フラグが残らないよう明示的に player_ready: false をリセット設定
     const updateData = (role === 'host') ? { 
       player1_series: mySeries,
       player1_name: myName,
@@ -796,7 +807,6 @@
       const myReady = isHost ? data.player1_ready : data.player2_ready;
       const oppReady = isHost ? data.player2_ready : data.player1_ready;
 
-      // ページリロード時に自身が送信済みであった場合の表示制御
       if (myReady && !isReadySent) {
         isReadySent = true;
         if (readyBtn) {
@@ -806,7 +816,6 @@
         document.getElementById('waitingModal').style.display = 'flex';
       }
 
-      // 両プレイヤーが「現在の回戦」で準備完了した場合のみ次画面へ進む
       if (myReady && oppReady) {
         closeWaitingModal();
         if (roomUnsubscribe) roomUnsubscribe();
@@ -1083,26 +1092,107 @@
     enableDeckSelection(opponentStatus);
   };
 
+  /**
+   * BAN完了時にシリーズの選出結果を確定保存する関数
+   */
   async function finalizeMatchSeries(data) {
     if (role !== 'host') return;
 
     const p1Series = data.player1_series || ["SERIES_001", "SERIES_002", "SERIES_003"];
     const p2Series = data.player2_series || ["SERIES_001", "SERIES_002", "SERIES_003"];
 
-    const p1BanIdx = Number(data.p2_banned_index);
-    const p2BanIdx = Number(data.p1_banned_index);
+    const p1BanIdx = Number(data.p2_banned_index); // P1(Host)のシリーズの中でP2(Guest)にBANされたインデックス
+    const p2BanIdx = Number(data.p1_banned_index); // P2(Guest)のシリーズの中でP1(Host)にBANされたインデックス
 
+    // BAN（除外）されたシリーズのIDを取得
+    const p1BannedId = p1Series[p1BanIdx];
+    const p2BannedId = p2Series[p2BanIdx];
+    const bannedIds = new Set([p1BannedId, p2BannedId].filter(Boolean));
+
+    // BAN後に残ったシリーズ（各2個）
     const p1Kept = p1Series.filter((_, idx) => idx !== p1BanIdx);
     const p2Kept = p2Series.filter((_, idx) => idx !== p2BanIdx);
 
-    const combinedKept = [...p1Kept, ...p2Kept];
+    const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
 
-    const allSeriesIds = Object.keys(SERIES_MASTER).filter(id => !combinedKept.includes(id));
-    allSeriesIds.sort(() => Math.random() - 0.5);
+    let finalMatchSeries = [];
 
-    const finalMatchSeries = [...combinedKept];
-    while (finalMatchSeries.length < totalRounds && allSeriesIds.length > 0) {
-      finalMatchSeries.push(allSeriesIds.pop());
+    if (totalRounds === 3) {
+      // ■ 3回戦マッチの仕様：
+      // お互い1つずつ除外して残った合計4つのシリーズから、お互い1つずつを抽選で1,2回戦のシリーズとし、
+      // その上で残ったどちらかのシリーズを3回戦のシリーズとする。
+      const p1Shuffled = shuffle(p1Kept);
+      const p2Shuffled = shuffle(p2Kept);
+
+      const r12 = shuffle([p1Shuffled[0], p2Shuffled[0]]);
+      const r3 = shuffle([p1Shuffled[1], p2Shuffled[1]])[0];
+
+      finalMatchSeries = [...r12, r3];
+    } else {
+      // ■ 5回戦マッチの仕様：
+      // 合計4つのシリーズから1,2回戦を両者のシリーズから1つずつ抽選し、
+      // 3,4回戦も同様に1つずつ抽選し、
+      // 5戦目は4つのカテゴリとは被らないようにしたうえで、まずカテゴリを抽選し、それからさらにカテゴリ内でシリーズを抽選し決定。
+      const p1Shuffled = shuffle(p1Kept);
+      const p2Shuffled = shuffle(p2Kept);
+
+      const r12 = shuffle([p1Shuffled[0], p2Shuffled[0]]);
+      const r34 = shuffle([p1Shuffled[1], p2Shuffled[1]]);
+
+      const used4Series = [...r12, ...r34];
+
+      // 1〜4戦で使用されたカテゴリの集合
+      const usedCategories = new Set(
+        used4Series.map(sId => getSeriesCategory(getSeriesObj(sId)))
+      );
+
+      // マスタから全固有シリーズを取得
+      const uniqueSeriesList = getAllUniqueSeriesList();
+
+      // 被らないカテゴリと、そのカテゴリに属する選出可能シリーズのマップ作成
+      const candidateCatMap = {};
+
+      uniqueSeriesList.forEach(sObj => {
+        const sId = sObj.series_id || sObj.id || sObj.code;
+        if (!sId) return;
+
+        // BANされたシリーズ、及び1〜4戦で使用済みのシリーズは完全に排除
+        if (bannedIds.has(sId) || used4Series.includes(sId)) return;
+
+        const cat = getSeriesCategory(sObj);
+        // 1〜4戦で使用済みのカテゴリと被るものは除外
+        if (usedCategories.has(cat)) return;
+
+        if (!candidateCatMap[cat]) {
+          candidateCatMap[cat] = [];
+        }
+        candidateCatMap[cat].push(sId);
+      });
+
+      const candidateCatKeys = Object.keys(candidateCatMap);
+
+      let r5SeriesId = null;
+      if (candidateCatKeys.length > 0) {
+        // 1. 被らないカテゴリの中からまずカテゴリを抽選
+        const chosenCat = candidateCatKeys[Math.floor(Math.random() * candidateCatKeys.length)];
+        const seriesInCat = candidateCatMap[chosenCat];
+        // 2. そのカテゴリの中からシリーズをさらに抽選
+        r5SeriesId = seriesInCat[Math.floor(Math.random() * seriesInCat.length)];
+      } else {
+        // フォールバック: 被らないカテゴリが存在しない場合、BAN以外から抽選
+        const fallbackList = uniqueSeriesList.filter(sObj => {
+          const sId = sObj.series_id || sObj.id || sObj.code;
+          return sId && !bannedIds.has(sId) && !used4Series.includes(sId);
+        });
+        if (fallbackList.length > 0) {
+          const chosen = fallbackList[Math.floor(Math.random() * fallbackList.length)];
+          r5SeriesId = chosen.series_id || chosen.id || chosen.code;
+        } else {
+          r5SeriesId = "SERIES_001";
+        }
+      }
+
+      finalMatchSeries = [...used4Series, r5SeriesId];
     }
 
     try {
