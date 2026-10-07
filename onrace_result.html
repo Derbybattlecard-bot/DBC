@@ -406,7 +406,6 @@ let currentRaceInfo = null;
 let myNameStr = "あなた";
 let oppNameStr = "対戦相手";
 let roomUnsubscribe = null;
-let roomPollingInterval = null; 
 let isNavigatingAway = false;
 let isCalculating = false;
 
@@ -461,10 +460,6 @@ function stopRoomListening() {
   if (roomUnsubscribe) {
     roomUnsubscribe();
     roomUnsubscribe = null;
-  }
-  if (roomPollingInterval) {
-    clearInterval(roomPollingInterval);
-    roomPollingInterval = null;
   }
 }
 
@@ -610,7 +605,25 @@ async function calculateAndUploadAllRaces() {
       };
 
       const result = runRaceLogic(raceGrid, raceMasterData, tCond, rInfo, abilityMasterData);
-      const cleanResult = removeUndefinedFields(JSON.parse(JSON.stringify(result)));
+      
+      // データ軽量化処理: Firebaseの1MB書き込み制限回避のため、画面表示に必要な結果データのみを抽出して保存する
+      const minimalResult = {
+        pace_type: result.pace_type || "平均ペース",
+        formula_string: result.formula_string || "基準値計算",
+        rankings: (result.rankings || result.results || []).map(r => ({
+          name: r.name || r.horse_name,
+          horse_name: r.name || r.horse_name,
+          tactic: r.tactic || '自在',
+          position: r.position,
+          final_score: r.final_score,
+          score_breakdown: r.score_breakdown || r.detail || '-',
+          isPlayer: !!r.isPlayer,
+          isOpponent: !!r.isOpponent,
+          playerRole: r.playerRole || 'cpu'
+        }))
+      };
+
+      const cleanResult = removeUndefinedFields(minimalResult);
       allRaceResults.push(cleanResult);
     }
 
@@ -652,7 +665,10 @@ async function checkAndUpdateReadyState() {
     }
     updateLog("相手の作戦決定を待っています... 作戦が揃うとレースを開始できます。");
   } else {
-    buildRaceGridsFromOnlineData();
+    // 冗長な再構築を防ぐ
+    if (fullRaceGrids.length === 0) {
+      buildRaceGridsFromOnlineData();
+    }
     const oppObj = activeHorses.find(h => h.isOpponent);
     if (oppBadgeEl) {
       if (oppObj) {
@@ -779,19 +795,6 @@ async function handleRoomDataUpdate(data) {
   await checkAndUpdateReadyState();
 }
 
-async function fetchLatestRoomData() {
-  if (!roomId || isNavigatingAway) return;
-  try {
-    const roomSnap = await getDoc(doc(db, "online_matches", roomId));
-    if (roomSnap.exists()) {
-      roomData = roomSnap.data();
-      await handleRoomDataUpdate(roomData);
-    }
-  } catch (err) {
-    console.warn("定期データ同期エラー:", err);
-  }
-}
-
 function listenRoomStatus() {
   const roomRef = doc(db, "online_matches", roomId);
   
@@ -800,11 +803,6 @@ function listenRoomStatus() {
     roomData = snapshot.data();
     await handleRoomDataUpdate(roomData);
   });
-
-  if (roomPollingInterval) clearInterval(roomPollingInterval);
-  roomPollingInterval = setInterval(() => {
-    fetchLatestRoomData();
-  }, 10000);
 }
 
 async function fetchJsonWithFallback(filename) {
