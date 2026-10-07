@@ -210,11 +210,11 @@
   .deck-table td { padding: 5px 2px; border-bottom: 1px solid #f3e8ff; white-space: nowrap; }
   .horse-name-cell { text-align: left; font-weight: bold; padding-left: 4px !important; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
   
-  .tr-locked { background-color: #fef2f2; color: #991b1b; }
+  .tr-locked { background-color: #fef2f2 !important; color: #991b1b !important; }
   .badge-locked { background: #ef4444; color: white; padding: 1px 4px; border-radius: 3px; font-size: 9px; display: inline-block; }
 
-  .tr-used { background-color: #f3f4f6 !important; color: #9ca3af !important; text-decoration: line-through; }
-  .badge-used { background: #6b7280; color: white; padding: 1px 4px; border-radius: 3px; font-size: 9px; text-decoration: none; display: inline-block; }
+  .tr-used { background-color: #f3f4f6 !important; color: #9ca3af !important; text-decoration: line-through !important; }
+  .badge-used { background: #6b7280; color: white; padding: 1px 4px; border-radius: 3px; font-size: 9px; text-decoration: none !important; display: inline-block; }
 
   .btn-start { background: linear-gradient(135deg, #f97316, #ea580c); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; box-shadow: 0 4px 0 #c2410c; width: 100%; transition: all 0.1s; }
   .btn-start:disabled { background: #9ca3af; box-shadow: none; cursor: not-allowed; opacity: 0.6; }
@@ -331,13 +331,17 @@
 
   let roomUnsubscribe = null;
 
-  function normalizeHorseId(id) {
-    if (id === null || id === undefined) return "";
-    const num = parseInt(id, 10);
+  // 馬IDの正規化パターン（生の値、文字列、4桁パディングなど）を生成
+  function getNormalizedIdVariants(id) {
+    if (id === null || id === undefined || id === "") return [];
+    const str = String(id).trim();
+    const num = parseInt(str, 10);
+    const set = new Set([str]);
     if (!isNaN(num)) {
-      return String(num).padStart(4, '0');
+      set.add(String(num));
+      set.add(String(num).padStart(4, '0'));
     }
-    return String(id).trim();
+    return Array.from(set);
   }
 
   function getDisplayName(userObj, authUser) {
@@ -491,8 +495,10 @@
       if (Array.isArray(horsesArr)) {
         horsesArr.forEach(h => {
           const idStr = String(h.horse_id);
-          HORSES_MASTER[idStr] = h;
-          HORSES_MASTER[idStr.padStart(4, '0')] = h;
+          const variants = getNormalizedIdVariants(idStr);
+          variants.forEach(v => {
+            HORSES_MASTER[v] = h;
+          });
         });
       }
     } catch (e) {
@@ -504,6 +510,21 @@
     if (val === undefined || val === null || val === "") return false;
     const num = Number(val);
     return !isNaN(num) && num >= 0 && num <= 2;
+  }
+
+  // ルームデータから使用済み馬リストを安全に取得
+  function extractUsedHorses(data, isP1) {
+    if (!data) return [];
+    const rawArr = isP1 
+      ? (data.player1_used_horses || data.p1_used_horses || data.player1_used || data.p1_used || [])
+      : (data.player2_used_horses || data.p2_used_horses || data.player2_used || data.p2_used || []);
+    
+    if (!Array.isArray(rawArr)) return [];
+    return rawArr.map(item => {
+      if (item === null || item === undefined) return null;
+      if (typeof item === 'object') return item.horse_id || item.id || item.code || item;
+      return item;
+    }).filter(id => id != null);
   }
 
   onAuthStateChanged(auth, async (user) => {
@@ -622,32 +643,68 @@
 
   function renderDeckTable() {
     const tbody = document.getElementById('deckHorseList');
+    if (!tbody) return;
     tbody.innerHTML = '';
-    const deck = (globalUserData.decks || [])[selectedDeckIndex] || { horse_ids: [] };
 
+    const deck = (globalUserData.decks || [])[selectedDeckIndex] || { horse_ids: [] };
     const isHost = (role === 'host');
-    const myUsedHorses = roomDataCache ? (isHost ? (roomDataCache.player1_used_horses || []) : (roomDataCache.player2_used_horses || [])) : [];
-    const oppUsedHorses = roomDataCache ? (isHost ? (roomDataCache.player2_used_horses || []) : (roomDataCache.player1_used_horses || [])) : [];
+
+    const rawMyUsed = extractUsedHorses(roomDataCache, isHost);
+    const rawOppUsed = extractUsedHorses(roomDataCache, !isHost);
     
-    const myUsedSet = new Set(myUsedHorses.map(id => normalizeHorseId(id)));
-    const oppUsedSet = new Set(oppUsedHorses.map(id => normalizeHorseId(id)));
+    const myUsedSet = new Set();
+    rawMyUsed.forEach(id => {
+      getNormalizedIdVariants(id).forEach(v => myUsedSet.add(v));
+    });
+
+    const oppUsedSet = new Set();
+    rawOppUsed.forEach(id => {
+      getNormalizedIdVariants(id).forEach(v => oppUsedSet.add(v));
+    });
+
     const priorities = roomDataCache?.initial_card_priorities || {};
 
     for (let i = 0; i < 18; i++) {
-      const horseId = deck.horse_ids[i];
-      const horse = HORSES_MASTER[horseId] || HORSES_MASTER[normalizeHorseId(horseId)];
+      const horseId = deck.horse_ids ? deck.horse_ids[i] : null;
       const tr = document.createElement('tr');
 
-      if (horse) {
-        const hIdStr = normalizeHorseId(horseId);
-        const isMyUsed = myUsedSet.has(hIdStr);
+      if (horseId != null && horseId !== "") {
+        const variants = getNormalizedIdVariants(horseId);
+        
+        let horse = null;
+        for (const v of variants) {
+          if (HORSES_MASTER[v]) {
+            horse = HORSES_MASTER[v];
+            break;
+          }
+        }
+
+        const isMyUsed = variants.some(v => myUsedSet.has(v));
         let isLocked = false;
 
-        if (!isMyUsed && horseId && priorities[horseId]) {
-          const priorityOwner = priorities[horseId];
-          const myRoleKey = isHost ? 'host' : 'guest';
-          if (priorityOwner !== myRoleKey && !oppUsedSet.has(hIdStr)) {
-            isLocked = true;
+        if (!isMyUsed) {
+          let priorityOwner = null;
+          for (const v of variants) {
+            if (priorities[v] !== undefined) {
+              priorityOwner = priorities[v];
+              break;
+            }
+          }
+
+          if (priorityOwner) {
+            const isMyPriority = (priorityOwner === 'host' && isHost) || 
+                                 (priorityOwner === 'guest' && !isHost) || 
+                                 (priorityOwner === 'p1' && isHost) || 
+                                 (priorityOwner === 'p2' && !isHost) ||
+                                 (priorityOwner === 'player1' && isHost) ||
+                                 (priorityOwner === 'player2' && !isHost);
+
+            if (!isMyPriority) {
+              const isOpponentUsed = variants.some(v => oppUsedSet.has(v));
+              if (!isOpponentUsed) {
+                isLocked = true;
+              }
+            }
           }
         }
 
@@ -664,13 +721,19 @@
           statusHtml = '<span class="badge-locked">ロック</span>';
         }
 
+        const hName = horse ? horse.name : `馬ID:${horseId}`;
+        const hSex = horse ? (horse.sex || '牡') : '-';
+        const hSurface = horse ? (horse.surface || '芝') : '-';
+        const hDist = horse ? (horse.min_distance ? `${horse.min_distance}-${horse.max_distance}m` : '-') : '-';
+        const hStyle = horse ? (horse.style || '-') : '-';
+
         tr.innerHTML = `
           <td>${i + 1}</td>
-          <td class="horse-name-cell">${horse.name}</td>
-          <td>${horse.sex || '牡'}</td>
-          <td>${horse.surface || '芝'}</td>
-          <td>${horse.min_distance ? `${horse.min_distance}-${horse.max_distance}m` : '-'}</td>
-          <td>${horse.style || '-'}</td>
+          <td class="horse-name-cell">${hName}</td>
+          <td>${hSex}</td>
+          <td>${hSurface}</td>
+          <td>${hDist}</td>
+          <td>${hStyle}</td>
           <td>${statusHtml}</td>
         `;
       } else {
@@ -946,7 +1009,7 @@
       const raceBadgesHTML = buildRaceBadgesHTML(sObj);
       const ptStats = getSeriesPotentialInfo(sObj);
 
-      const rawOwner = matchOwners[rIdx]; // 'p1', 'p2', or 'random'
+      const rawOwner = matchOwners[rIdx];
       
       let ownerClass = 'is-random';
       let ownerLabel = '🎲 ランダム';
@@ -1122,12 +1185,10 @@
     let finalMatchSeriesOwners = [];
 
     if (totalRounds === 3) {
-      // 1-2回戦：P1から1つ・P2から1つの順序を50%で完全ランダム選出
       const pair1 = Math.random() < 0.5 
         ? [{ id: p1Shuffled[0], owner: 'p1' }, { id: p2Shuffled[0], owner: 'p2' }]
         : [{ id: p2Shuffled[0], owner: 'p2' }, { id: p1Shuffled[0], owner: 'p1' }];
 
-      // 3回戦：残りのP1/P2からランダム抽出
       const p1Rem = { id: p1Shuffled[1], owner: 'p1' };
       const p2Rem = { id: p2Shuffled[1], owner: 'p2' };
       const r3Obj = shuffle([p1Rem, p2Rem])[0];
@@ -1136,20 +1197,16 @@
       finalMatchSeries = allRounds.map(r => r.id);
       finalMatchSeriesOwners = allRounds.map(r => r.owner);
     } else {
-      // 5回戦モード
-      // 1-2回戦：P1から1つ・P2から1つの順序を50%で完全ランダム選出
       const pair1 = Math.random() < 0.5 
         ? [{ id: p1Shuffled[0], owner: 'p1' }, { id: p2Shuffled[0], owner: 'p2' }]
         : [{ id: p2Shuffled[0], owner: 'p2' }, { id: p1Shuffled[0], owner: 'p1' }];
 
-      // 3-4回戦：残りのP1から1つ・P2から1つの順序を50%で完全ランダム選出
       const pair2 = Math.random() < 0.5 
         ? [{ id: p1Shuffled[1], owner: 'p1' }, { id: p2Shuffled[1], owner: 'p2' }]
         : [{ id: p2Shuffled[1], owner: 'p2' }, { id: p1Shuffled[1], owner: 'p1' }];
 
       const used4Series = [...pair1.map(r => r.id), ...pair2.map(r => r.id)];
 
-      // 5回戦：被りなしカテゴリからランダム選出
       const usedCategories = new Set(
         used4Series.map(sId => getSeriesCategory(getSeriesObj(sId)))
       );
