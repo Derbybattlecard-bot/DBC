@@ -396,7 +396,7 @@
   function resolveOpponentName(roomData) {
     const isHost = (role === 'host');
     const directName = isHost 
-      ? (roomData.guest_name || roomData.guestName || roomData.player2_name || roomData.p2_name)
+      ? (roomData.guest_name || roomData.guestName || roomData.player2_name || roomData.p1_name)
       : (roomData.host_name || roomData.hostName || roomData.player1_name || roomData.p1_name);
 
     if (directName) return directName;
@@ -414,13 +414,25 @@
     }
 
     const roomData = roomSnap.data();
+    const isHost = (role === 'host');
 
-    playerDeckIds = ((role === 'host') ? (roomData.player1_deck || []) : (roomData.player2_deck || [])).map(id => normalizeHorseId(id)).filter(Boolean);
-    oppDeckIds = ((role === 'host') ? (roomData.player2_deck || []) : (roomData.player1_deck || [])).map(id => normalizeHorseId(id)).filter(Boolean);
+    // ★重要修正: 当該プレイヤーの新規回戦用エントリー状態を確実に初期化（誤自動遷移防止）
+    const myReadyKey = isHost ? 'player1_matchup_ready' : 'player2_matchup_ready';
+    const myDraftKey = isHost ? 'player1_draft' : 'player2_draft';
+    const myEntriesKey = isHost ? 'player1_entries' : 'player2_entries';
+
+    await updateDoc(roomRef, {
+      [myReadyKey]: false,
+      [myDraftKey]: [null, null, null, null, null],
+      [myEntriesKey]: [null, null, null, null, null]
+    });
+
+    playerDeckIds = (isHost ? (roomData.player1_deck || []) : (roomData.player2_deck || [])).map(id => normalizeHorseId(id)).filter(Boolean);
+    oppDeckIds = (isHost ? (roomData.player2_deck || []) : (roomData.player1_deck || [])).map(id => normalizeHorseId(id)).filter(Boolean);
     
     deckHorses = playerDeckIds.map(id => HORSES_MASTER[id]).filter(Boolean);
 
-    const isHost = (role === 'host');
+    // ★重要修正: myUsedListでisHostがfalseの場合にplayer2_used_horsesを参照するよう修正
     const oppUsedList = isHost ? (roomData.player2_used_horses || []) : (roomData.player1_used_horses || []);
     oppUsedHorseIdsInPast = oppUsedList.map(id => normalizeHorseId(id)).filter(Boolean);
 
@@ -438,7 +450,7 @@
     currentRoundIndex = roomData.current_series_index || roomData.current_round || 0;
 
     let oppName = resolveOpponentName(roomData);
-    const oppUid = (role === 'host') ? (roomData.guest_uid || roomData.player2_uid) : (roomData.host_uid || roomData.player1_uid);
+    const oppUid = isHost ? (roomData.guest_uid || roomData.player2_uid) : (roomData.host_uid || roomData.player1_uid);
     
     if (oppUid) {
       try {
