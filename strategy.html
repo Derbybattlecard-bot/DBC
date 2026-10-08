@@ -430,6 +430,18 @@
       const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
       const trackCond = loadedTrackConditions[rIdx] || '良';
 
+      // モブ馬脚質の集計処理
+      const styleCounts = { "逃げ": 0, "先行": 0, "差し": 0, "追込": 0 };
+      mobIds.forEach(mId => {
+        const mob = HORSES_MASTER[String(mId)];
+        if (!mob) return;
+        const style = getHorseStyle(mob);
+        if (style.includes('大逃') || style.includes('逃')) styleCounts["逃げ"]++;
+        else if (style.includes('先') || style.includes('好')) styleCounts["先行"]++;
+        else if (style.includes('差')) styleCounts["差し"]++;
+        else styleCounts["追込"]++;
+      });
+
       const card = document.createElement('div');
       card.className = 'race-card';
 
@@ -516,6 +528,16 @@
             <select class="select-level" id="selectLevel${rIdx}" onchange="onStrategyChanged(${rIdx})">
               ${levelOptionsHtml}
             </select>
+          </div>
+        </div>
+
+        <div class="mob-field-preview" style="background:#e8f5e9; border:1px solid #c8e6c9; border-radius:6px; padding:6px 10px; font-size:11px; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-weight:bold; color:var(--accent-color);">🏇 出走モブ脚質分布:</span>
+          <div class="mob-style-counts" style="font-weight:bold;">
+            <span>逃:${styleCounts["逃げ"]}</span>
+            <span style="margin-left:6px;">先:${styleCounts["先行"]}</span>
+            <span style="margin-left:6px;">差:${styleCounts["差し"]}</span>
+            <span style="margin-left:6px;">追:${styleCounts["追込"]}</span>
           </div>
         </div>
 
