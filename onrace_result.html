@@ -458,6 +458,12 @@ function removeUndefinedFields(obj) {
   return cleanObj;
 }
 
+// 馬名から3文字を抽出するヘルパー関数
+function getKana3(name) {
+  if (!name) return "";
+  return name.substring(0, 3);
+}
+
 window.showErrorModal = function(msg) {
   const msgEl = document.getElementById('error-modal-msg');
   if (msgEl) msgEl.textContent = msg;
@@ -1008,10 +1014,11 @@ function initView() {
       icon.style.right = "auto";
     }
     
+    const shortName = getKana3(horse.name);
     if (currentTrackConfig.phase1_3_dir === "right_to_left") {
-      icon.innerHTML = `<span style="font-size:10px; margin-right:4px;">${horse.gate_number}</span>${horse.name} ${emojiHtml}`;
+      icon.innerHTML = `<span style="font-size:10px; margin-right:4px;">${horse.gate_number}</span>${shortName} ${emojiHtml}`;
     } else {
-      icon.innerHTML = `${emojiHtml} <span style="font-size:10px; margin-right:4px;">${horse.gate_number}</span>${horse.name}`;
+      icon.innerHTML = `${emojiHtml} <span style="font-size:10px; margin-right:4px;">${horse.gate_number}</span>${shortName}`;
     }
     
     lane.appendChild(icon);
@@ -1171,6 +1178,8 @@ function animatePhase(phaseName, targetPositions, duration, direction) {
 
       startObj[h.gate_number] = currentVal;
 
+      const shortName = getKana3(h.name);
+
       if (direction === "right_to_left") {
         el.style.left = "auto";
         el.style.right = `${currentVal}%`;
@@ -1179,7 +1188,7 @@ function animatePhase(phaseName, targetPositions, duration, direction) {
         const htmlStr = el.innerHTML;
         if (!htmlStr.includes("margin-right:4px")) {
           const baseEmoji = emojiEl.innerText;
-          el.innerHTML = `<span style="font-size:10px; margin-right:4px;">${h.gate_number}</span>${h.name} <span class="horse-emoji flipped" id="emoji-${h.gate_number}">${baseEmoji}</span>`;
+          el.innerHTML = `<span style="font-size:10px; margin-right:4px;">${h.gate_number}</span>${shortName} <span class="horse-emoji flipped" id="emoji-${h.gate_number}">${baseEmoji}</span>`;
         }
       } else if (direction === "left_to_right") {
         el.style.right = "auto";
@@ -1187,9 +1196,9 @@ function animatePhase(phaseName, targetPositions, duration, direction) {
         if (emojiEl) emojiEl.classList.remove("flipped");
 
         const htmlStr = el.innerHTML;
-        if (!htmlStr.includes("</span>" + h.name)) {
+        if (!htmlStr.includes("</span>" + shortName)) {
           const baseEmoji = emojiEl.innerText;
-          el.innerHTML = `<span class="horse-emoji" id="emoji-${h.gate_number}">${baseEmoji}</span> <span style="font-size:10px; margin-right:4px;">${h.gate_number}</span>${h.name}`;
+          el.innerHTML = `<span class="horse-emoji" id="emoji-${h.gate_number}">${baseEmoji}</span> <span style="font-size:10px; margin-right:4px;">${h.gate_number}</span>${shortName}`;
         }
       } else {
         el.style.right = "auto";
@@ -1378,7 +1387,6 @@ function showFinalSeriesResult() {
       </tr>`;
   });
 
-  // ★ ゲスト側のボタンを無効化する処理を追加
   const modalBtn = document.getElementById('modalNextBtn');
   if (modalBtn) {
     if (role === 'guest') {
@@ -1410,7 +1418,7 @@ function showFinalSeriesResult() {
 
 window.finishMatchAndNextOrLobby = async function() {
   if (isNavigatingAway) return;
-  if (role !== 'host') return; // ★ ゲストは実行不可（ホストの更新による自動遷移に任せる）
+  if (role !== 'host') return; 
   
   const modalBtn = document.getElementById('modalNextBtn');
   if (modalBtn) {
@@ -1431,28 +1439,22 @@ window.finishMatchAndNextOrLobby = async function() {
         const matchSeries = data.match_series || data.selected_series || [];
         const matchMode = urlParams.get('mode') || data.match_mode || 'online';
 
-        // 次の回戦（シリーズ）が存在する場合
         if (Array.isArray(matchSeries) && currentSeriesIdx + 1 < matchSeries.length) {
-          // これまでの使用済み馬配列を取得（なければ空配列）
           const currentP1Used = data.player1_used_horses || [];
           const currentP2Used = data.player2_used_horses || [];
           
-          // 今回エントリーした馬を取得（nullなどの空データを念のため除外）
           const p1EntriesValid = (data.player1_entries || []).filter(e => e);
           const p2EntriesValid = (data.player2_entries || []).filter(e => e);
           
-          // 過去の使用済み馬と今回の馬を合体
           const newP1Used = [...currentP1Used, ...p1EntriesValid];
           const newP2Used = [...currentP2Used, ...p2EntriesValid];
 
           await updateDoc(roomRef, {
             current_series_index: increment(1),
             
-            // ① 使用済み馬のリストを更新
             player1_used_horses: newP1Used,
             player2_used_horses: newP2Used,
             
-            // ② 準備完了フラグをすべて解除
             player1_ready: false,
             player2_ready: false,
             player1_matchup_ready: false,
@@ -1460,28 +1462,24 @@ window.finishMatchAndNextOrLobby = async function() {
             player1_strategy_ready: false,
             player2_strategy_ready: false,
             
-            // ③ 馬と作戦データを初期化
             player1_entries: [null, null, null, null, null],
             player2_entries: [null, null, null, null, null],
             player1_draft: [null, null, null, null, null],
             player2_draft: [null, null, null, null, null],
             
-            // 作戦データとリザルトキャッシュ削除
             player1_strategies: deleteField(),
             player2_strategies: deleteField(),
             race_results_cache: deleteField(),
             
-            status: "deck_selecting" // 次の画面のステータスへ（ゲストはこれを検知して移動）
+            status: "deck_selecting" 
           });
           
           window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
           return;
         } else {
-          // 全回戦（全シリーズ）終了時
           await updateDoc(roomRef, {
             status: "completed"
           });
-          // ホストもロビーへ戻る
           window.location.href = 'online.html';
           return;
         }
