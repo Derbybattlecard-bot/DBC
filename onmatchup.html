@@ -313,7 +313,7 @@
   let oppDeckIds = [];
   
   let oppUsedHorseIdsInPast = [];
-  let myUsedHorseIdsInPast = []; // 自プレイヤーの過去使用済み馬IDリスト（4桁ゼロパディング文字列）
+  let myUsedHorseIdsInPast = []; 
   let initialCardPriorities = {};
 
   let selectedEntries = [null, null, null, null, null];
@@ -323,7 +323,6 @@
   let isNavigatingAway = false;
   let currentRoundIndex = 0;
 
-  // シリーズマスターから動的に設定されるポテンシャル制限
   let currentMaxTotalPt = 85;
   let currentMinPtPerRace = 14;
 
@@ -332,7 +331,6 @@
   const role = urlParams.get('role');
   const matchMode = urlParams.get('mode') || 'light';
 
-  // 馬IDを4桁文字列に正規化する共通関数
   function normalizeHorseId(id) {
     if (id === null || id === undefined) return "";
     if (typeof id === 'object') {
@@ -383,7 +381,6 @@
           const idStr = normalizeHorseId(h.horse_id);
           if (idStr) {
             HORSES_MASTER[idStr] = h;
-            HORSES_MASTER[String(h.horse_id)] = h; // 互換用
           }
         });
       }
@@ -418,7 +415,6 @@
 
     const roomData = roomSnap.data();
 
-    // 読み込み時に全て 4桁ゼロ埋め文字列に変換
     playerDeckIds = ((role === 'host') ? (roomData.player1_deck || []) : (roomData.player2_deck || [])).map(id => normalizeHorseId(id)).filter(Boolean);
     oppDeckIds = ((role === 'host') ? (roomData.player2_deck || []) : (roomData.player1_deck || [])).map(id => normalizeHorseId(id)).filter(Boolean);
     
@@ -428,7 +424,6 @@
     const oppUsedList = isHost ? (roomData.player2_used_horses || []) : (roomData.player1_used_horses || []);
     oppUsedHorseIdsInPast = oppUsedList.map(id => normalizeHorseId(id)).filter(Boolean);
 
-    // 自分の過去使用済み馬を取得 (4桁文字列へ正規化)
     const myUsedList = isHost ? (roomData.player1_used_horses || []) : (roomData.player2_used_horses || []);
     myUsedHorseIdsInPast = myUsedList.map(id => normalizeHorseId(id)).filter(Boolean);
 
@@ -634,7 +629,6 @@
       const newOppPastUsedStr = JSON.stringify(oppUsedList.map(id => normalizeHorseId(id)));
       const newMyPastUsedStr = JSON.stringify(myUsedList.map(id => normalizeHorseId(id)));
 
-      // 使用済み馬のリストに変更があれば最新化してドロップダウンを再構築
       if (JSON.stringify(oppUsedHorseIdsInPast) !== newOppPastUsedStr || JSON.stringify(myUsedHorseIdsInPast) !== newMyPastUsedStr) {
         oppUsedHorseIdsInPast = oppUsedList.map(id => normalizeHorseId(id)).filter(Boolean);
         myUsedHorseIdsInPast = myUsedList.map(id => normalizeHorseId(id)).filter(Boolean);
@@ -830,14 +824,13 @@
 
         if (!isChosenElsewhere) {
           const opt = document.createElement('option');
-          opt.value = horseIdStr; // 4桁ゼロ埋め文字列を設定
+          opt.value = horseIdStr;
           
           const ptLabel = pt > 0 ? `${surfaceLabel}${pt}` : '適性外';
           const info = `${horse.name} (${ptLabel} / ${legStyle} / ${horse.sex || '牡'})`;
 
           const priorityCheck = checkDuplicateHorsePriority(horseIdStr);
 
-          // 自分が過去ラウンドで使用済みの馬は絶対選択不可にする
           if (myUsedHorseIdsInPast.includes(horseIdStr)) {
             opt.textContent = `[使用済み] ${info}`; opt.disabled = true;
           } else if (!isValidSex(horse.sex, raceSexLimit)) {
@@ -943,9 +936,7 @@
     startBtn.disabled = true;
     document.getElementById('waitingModal').style.display = 'flex';
 
-    // 確実に4桁ゼロパディング文字列で保存
     const normalizedEntries = selectedEntries.map(id => normalizeHorseId(id));
-
     const roomRef = doc(db, "online_matches", roomId);
     
     const updateData = (role === 'host') ? {
@@ -1043,6 +1034,8 @@
 
   async function forceCleanupAndExit() {
     isNavigatingAway = true;
+    if (roomUnsubscribe) roomUnsubscribe();
+
     if (roomId && currentUser) {
       try {
         const roomRef = doc(db, "online_matches", roomId);
