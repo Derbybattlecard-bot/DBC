@@ -270,6 +270,16 @@
     throw new Error(`${filename} の読み込みに失敗しました`);
   }
 
+  // シリーズからレース配列を安全に取得するヘルパー関数
+  function getRaces(series) {
+    if (!series) return [];
+    if (Array.isArray(series.races)) return series.races;
+    if (Array.isArray(series.rounds) && series.rounds[0] && Array.isArray(series.rounds[0].races)) {
+      return series.rounds[0].races;
+    }
+    return [];
+  }
+
   onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = 'auth.html'; return; }
     currentUser = user;
@@ -295,15 +305,16 @@
         fetchJsonSafe('horses_master.json')
       ]);
 
-      SERIES_MASTER = seriesData;
-      if (Array.isArray(horsesData)) {
-        horsesData.forEach(h => { 
-          const idStr = String(h.horse_id);
-          HORSES_MASTER[idStr] = h;
-          const paddedId = idStr.padStart(4, '0');
-          if (idStr !== paddedId) HORSES_MASTER[paddedId] = h;
-        });
-      }
+      SERIES_MASTER = Array.isArray(seriesData) ? seriesData : [];
+      
+      const horseList = Array.isArray(horsesData) ? horsesData : Object.values(horsesData || {});
+      horseList.forEach(h => { 
+        if (!h || h.horse_id === undefined) return;
+        const idStr = String(h.horse_id);
+        HORSES_MASTER[idStr] = h;
+        const paddedId = idStr.padStart(4, '0');
+        if (idStr !== paddedId) HORSES_MASTER[paddedId] = h;
+      });
 
       usedCardsHistory = globalUserData?.cpu_battle_status?.used_cards_history || [];
       await initMatchupAndMatchData();
@@ -319,14 +330,13 @@
     const seriesId = status.selected_series_id || (status.series_lineup ? status.series_lineup[(status.current_round || 1) - 1] : null);
     const deckIdx = typeof status.selected_deck_index === 'number' ? status.selected_deck_index : 0;
 
-    currentSeries = SERIES_MASTER.find(s => s.series_id === seriesId) || SERIES_MASTER[0];
+    currentSeries = SERIES_MASTER.find(s => s.series_id === seriesId) || SERIES_MASTER[0] || {};
     
     const currentRound = status.current_round || 1;
     const maxRounds = status.max_rounds || (status.series_lineup ? status.series_lineup.length : 3);
     const wins = status.series_wins || 0;
     const losses = status.series_losses || 0;
     
-    // 動的に全回戦数を表示
     document.getElementById('seriesRoundDisplay').textContent = `第 ${currentRound} 回戦 (全${maxRounds}回戦)`;
     document.getElementById('seriesRecordDisplay').textContent = `${wins}勝 ${losses}敗`;
     document.getElementById('seriesNameDisplay').textContent = `🏆 ${currentSeries.series_name || "対戦シリーズ"}`;
@@ -339,7 +349,7 @@
 
     // ★ モブ馬・CPU・馬場の固定・確定処理 ★
     const currentMatch = status.current_match || {};
-    const races = currentSeries.rounds[0].races;
+    const races = getRaces(currentSeries);
 
     if (currentMatch.cpu_entries && currentMatch.races_mob_ids && currentMatch.races_track_conditions) {
       currentCpuEntries = currentMatch.cpu_entries;
@@ -449,6 +459,7 @@
   function isValidDistance(horse, raceDistance) {
     if (!horse) return false;
     const target = parseInt(raceDistance, 10);
+    if (isNaN(target)) return true;
     
     const minD = horse.min_distance ?? horse.aptitude?.min_distance;
     const maxD = horse.max_distance ?? horse.aptitude?.max_distance;
@@ -493,7 +504,7 @@
   // ─── UIレンダリング ───
 
   function renderEntryCards() {
-    const races = currentSeries.rounds[0].races;
+    const races = getRaces(currentSeries);
     const container = document.getElementById('entryList');
     container.innerHTML = '';
 
@@ -509,9 +520,9 @@
 
       card.innerHTML = `
         <div class="race-info-header">
-          <span class="race-title">第${race.race_num}戦: ${race.race_name}</span>
+          <span class="race-title">第${race.race_num || (rIdx + 1)}戦: ${race.race_name || ''}</span>
           <div class="race-cond-group">
-            <span class="race-cond-badge ${surfaceClass}">${race.surface} ${race.distance}m${sexLabel}</span>
+            <span class="race-cond-badge ${surfaceClass}">${race.surface || ''} ${race.distance || ''}m${sexLabel}</span>
           </div>
         </div>
         
@@ -542,12 +553,14 @@
   }
 
   function populateDropdowns() {
-    const races = currentSeries.rounds[0].races;
+    const races = getRaces(currentSeries);
     const limits = currentSeries.potential_limit || { min_potential_per_race: 15, max_total_potential: 95 };
     const minPtRequired = limits.min_potential_per_race || 0;
 
     races.forEach((race, rIdx) => {
       const select = document.getElementById(`selectRace${rIdx}`);
+      if (!select) return;
+
       const currentVal = selectedEntries[rIdx];
       const raceSexLimit = race.sex || currentSeries.sex || "制限なし";
       const surfaceLabel = getSurfaceLabel(race.surface);
@@ -559,7 +572,9 @@
         const isChosenElsewhere = selectedEntries.some((id, idx) => idx !== rIdx && String(id) === String(horse.horse_id));
         
         const hasContinuousAbility = Array.isArray(horse.ability) && (horse.ability.includes("鉄女") || horse.ability.includes("連闘"));
-        const isUsedPrevious = (usedCardsHistory.includes(horse.horse_id) || usedCardsHistory.includes(horse.name)) && !hasContinuousAbility;
+        const isUsedPrevious = !hasContinuousAbility && usedCardsHistory.some(u => 
+          String(u) === String(horse.horse_id) || u === horse.name
+        );
 
         const matchesSexLimit = isValidSex(horseSex, raceSexLimit);
         const matchesSurface = isValidSurface(horse, race.surface);
@@ -612,7 +627,8 @@
 
     if (horseId && HORSES_MASTER[String(horseId)]) {
       const horse = HORSES_MASTER[String(horseId)];
-      const race = currentSeries.rounds[0].races[raceIdx];
+      const races = getRaces(currentSeries);
+      const race = races[raceIdx] || {};
       const sex = horse.sex || "牡馬";
       const pt = getHorsePotential(horse, race.surface);
       const surfaceLabel = getSurfaceLabel(race.surface);
@@ -620,11 +636,13 @@
       const distStr = getHorseDistanceString(horse);
       const legStyle = getHorseLegStyle(horse);
 
-      preview.innerHTML = `
-        <span>適性: <strong>${surfaceText}</strong> | 脚質: <strong>${legStyle}</strong> | 性別: <strong>${sex}</strong></span>
-        <span>ポテンシャル: <strong>${surfaceLabel}${pt}</strong> (適正距離:${distStr ? distStr + 'm' : '-'})</span>
-      `;
-    } else {
+      if (preview) {
+        preview.innerHTML = `
+          <span>適性: <strong>${surfaceText}</strong> | 脚質: <strong>${legStyle}</strong> | 性別: <strong>${sex}</strong></span>
+          <span>ポテンシャル: <strong>${surfaceLabel}${pt}</strong> (適正距離:${distStr ? distStr + 'm' : '-'})</span>
+        `;
+      }
+    } else if (preview) {
       preview.innerHTML = `<span>適性:- | 脚質:- | 性別:-</span><span>ポテンシャル:-</span>`;
     }
 
@@ -633,7 +651,7 @@
   };
 
   function updateStatus() {
-    const races = currentSeries.rounds[0].races;
+    const races = getRaces(currentSeries);
     const limits = currentSeries.potential_limit || { min_potential_per_race: 15, max_total_potential: 95 };
     
     let totalPt = 0;
@@ -647,7 +665,7 @@
       if (id && HORSES_MASTER[String(id)]) {
         count++;
         const horse = HORSES_MASTER[String(id)];
-        const race = races[rIdx];
+        const race = races[rIdx] || {};
         const pt = getHorsePotential(horse, race.surface);
         const raceSexLimit = race.sex || currentSeries.sex || "制限なし";
 
@@ -862,9 +880,12 @@
       const cpuPt = getHorsePotential(chosenCpu, race.surface);
       remainingCpuPtBudget -= cpuPt;
 
+      const rawStyle = getHorseLegStyle(chosenCpu);
+      const validStyle = (rawStyle && rawStyle !== '-') ? rawStyle : "先行";
+
       cpuEntries.push({
         horse_id: cpuId,
-        strategy: getHorseLegStyle(chosenCpu) || "先行",
+        strategy: validStyle,
         strategy_level: Math.floor(Math.random() * 3) + 2
       });
 
@@ -935,7 +956,7 @@
       }
 
       const formattedEntries = selectedEntries.map(id => ({
-        horse_id: id || "",
+        horse_id: String(id),
         strategy: "先行",
         strategy_level: 3
       }));
@@ -959,7 +980,8 @@
         cpu_battle_status: updatedStatus
       }, { merge: true });
 
-      if (!globalUserData) globalUserData = {}; globalUserData.cpu_battle_status = updatedStatus;
+      if (!globalUserData) globalUserData = {}; 
+      globalUserData.cpu_battle_status = updatedStatus;
 
       sessionStorage.removeItem('player_entry_ids');
       window.location.href = 'strategy.html';
