@@ -575,7 +575,8 @@ function prepareHorseData(h) {
   h.strat_potential = lvl * 2;
   h.strat_name = matchedStrat ? matchedStrat.name : (h.tactic || "通常");
 
-  const master = HORSES_MASTER[String(h.horse_id)] || {};
+  const normId = normalizeHorseId(h.horse_id);
+  const master = HORSES_MASTER[normId] || HORSES_MASTER[String(h.horse_id)] || {};
   if (master.ability) {
     h.ability = master.ability;
   }
@@ -957,7 +958,8 @@ function buildRaceGridsFromOnlineData() {
     mobIds.forEach((mobId) => {
       const normalizedMobId = normalizeHorseId(mobId);
       const mobMaster = HORSES_MASTER[normalizedMobId] || { name: "モブ馬", horse_id: mobId };
-      const mobStyle = mobMaster.style || mobMaster.running_style || "自在";
+      let mobStyle = mobMaster.style || mobMaster.running_style || "自在";
+      if (mobStyle === "大逃げ") mobStyle = "大逃";
       const mobStrat = determineStrategy(mobId, mobStyle, 1, strategyMasterData, false);
 
       rawGrid.push({
@@ -985,7 +987,8 @@ function buildRaceGridsFromOnlineData() {
 }
 
 function ensureStats(h) {
-  const master = HORSES_MASTER[normalizeHorseId(h.horse_id)] || HORSES_MASTER[String(h.horse_id)] || {};
+  const normId = normalizeHorseId(h.horse_id);
+  const master = HORSES_MASTER[normId] || HORSES_MASTER[String(h.horse_id)] || {};
   
   h.turf_potential = h.turf_potential ?? master.turf_potential ?? 0;
   h.dirt_potential = h.dirt_potential ?? master.dirt_potential ?? 0;
@@ -997,7 +1000,10 @@ function ensureStats(h) {
   h.jizoku = h.jizoku ?? master.jizoku ?? 0;
   h.guts = h.guts ?? master.guts ?? 0;
   h.power = h.power ?? master.power ?? 0;
-  h.style = h.style || master.style || master.running_style || "自在";
+  
+  let styleVal = h.style || master.style || master.running_style || "自在";
+  if (styleVal === "大逃げ") styleVal = "大逃";
+  h.style = styleVal;
 }
 
 function setupRace(rIdx) {
