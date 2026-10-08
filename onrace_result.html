@@ -360,7 +360,7 @@
 <script type="module">
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { doc, getDoc, updateDoc, onSnapshot, increment, deleteField } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { doc, getDoc, updateDoc, onSnapshot, increment, deleteField, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 import { determineStrategy } from "./js/mob.js";
 import { runRaceLogic } from "./js/race_calculator.js";
@@ -418,6 +418,12 @@ let isCalculating = false;
 const urlParams = new URLSearchParams(window.location.search);
 const roomId = urlParams.get('roomId');
 const role = urlParams.get('role');
+
+// 馬IDの4桁ゼロパディング正規化
+function normalizeHorseId(id) {
+  if (id === null || id === undefined || id === "") return "";
+  return String(id).padStart(4, '0');
+}
 
 // シード付き確定乱数
 function getSeedFromString(str) {
@@ -575,7 +581,41 @@ function prepareHorseData(h) {
   }
 }
 
+// 出走馬IDを正規化し player1_used_horses / player2_used_horses に確実に登録・同期する関数
+async function ensureUsedHorsesUpdated() {
+  if (!roomData || !roomId) return;
+  const p1Entries = roomData.player1_entries || [];
+  const p2Entries = roomData.player2_entries || [];
+
+  const p1Norm = p1Entries.map(normalizeHorseId).filter(id => id !== "");
+  const p2Norm = p2Entries.map(normalizeHorseId).filter(id => id !== "");
+
+  const currentP1Used = (roomData.player1_used_horses || []).map(normalizeHorseId);
+  const currentP2Used = (roomData.player2_used_horses || []).map(normalizeHorseId);
+
+  const p1NeedAdd = p1Norm.filter(id => !currentP1Used.includes(id));
+  const p2NeedAdd = p2Norm.filter(id => !currentP2Used.includes(id));
+
+  if (p1NeedAdd.length > 0 || p2NeedAdd.length > 0) {
+    const roomRef = doc(db, "online_matches", roomId);
+    const updatePayload = {};
+    if (p1NeedAdd.length > 0) {
+      updatePayload.player1_used_horses = arrayUnion(...p1NeedAdd);
+    }
+    if (p2NeedAdd.length > 0) {
+      updatePayload.player2_used_horses = arrayUnion(...p2NeedAdd);
+    }
+    try {
+      await updateDoc(roomRef, updatePayload);
+    } catch (e) {
+      console.error("使用済み馬データの同期更新エラー:", e);
+    }
+  }
+}
+
 async function calculateAndUploadAllRaces() {
+  await ensureUsedHorsesUpdated();
+
   if (roomData.race_results_cache && roomData.race_results_cache.length === 5) {
     return;
   }
@@ -648,6 +688,8 @@ async function checkAndUpdateReadyState() {
     }
     updateLog("相手の作戦決定を待っています... 作戦が揃うとレースを開始できます。");
   } else {
+    await ensureUsedHorsesUpdated();
+
     buildRaceGridsFromOnlineData();
     const oppObj = activeHorses.find(h => h.isOpponent);
     if (oppBadgeEl) {
@@ -838,9 +880,9 @@ async function loadMasterData() {
     
     if (Array.isArray(horseRes)) {
       horseRes.forEach(h => { 
-        const idStr = String(h.horse_id);
+        const idStr = normalizeHorseId(h.horse_id);
         HORSES_MASTER[idStr] = h;
-        HORSES_MASTER[idStr.padStart(4, '0')] = h;
+        HORSES_MASTER[String(h.horse_id)] = h;
       });
     } else if (typeof horseRes === 'object' && horseRes !== null) {
       HORSES_MASTER = horseRes;
@@ -878,7 +920,7 @@ function buildRaceGridsFromOnlineData() {
     const rawGrid = [];
 
     // Player 1 (ホスト) の馬： playerRole: 'host' を付与
-    const p1HorseId = String(p1Entries[rIdx]);
+    const p1HorseId = normalizeHorseId(p1Entries[rIdx]);
     const p1Master = HORSES_MASTER[p1HorseId] || { name: "P1馬", horse_id: p1HorseId };
     const p1StratObj = (p1Strats && p1Strats[rIdx]) ? p1Strats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
 
@@ -894,7 +936,7 @@ function buildRaceGridsFromOnlineData() {
     });
 
     // Player 2 (ゲスト) の馬： playerRole: 'guest' を付与
-    const p2HorseId = String(p2Entries[rIdx]);
+    const p2HorseId = normalizeHorseId(p2Entries[rIdx]);
     const p2Master = HORSES_MASTER[p2HorseId] || { name: "P2馬", horse_id: p2HorseId };
     const p2StratObj = (p2Strats && p2Strats[rIdx]) ? p2Strats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
 
@@ -913,7 +955,8 @@ function buildRaceGridsFromOnlineData() {
     const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
 
     mobIds.forEach((mobId) => {
-      const mobMaster = HORSES_MASTER[String(mobId)] || { name: "モブ馬", horse_id: mobId };
+      const normalizedMobId = normalizeHorseId(mobId);
+      const mobMaster = HORSES_MASTER[normalizedMobId] || { name: "モブ馬", horse_id: mobId };
       const mobStyle = mobMaster.style || mobMaster.running_style || "自在";
       const mobStrat = determineStrategy(mobId, mobStyle, 1, strategyMasterData, false);
 
@@ -942,7 +985,7 @@ function buildRaceGridsFromOnlineData() {
 }
 
 function ensureStats(h) {
-  const master = HORSES_MASTER[String(h.horse_id)] || {};
+  const master = HORSES_MASTER[normalizeHorseId(h.horse_id)] || HORSES_MASTER[String(h.horse_id)] || {};
   
   h.turf_potential = h.turf_potential ?? master.turf_potential ?? 0;
   h.dirt_potential = h.dirt_potential ?? master.dirt_potential ?? 0;
@@ -1048,8 +1091,8 @@ function setupRace(rIdx) {
   document.getElementById('p2-card-name').textContent = `${oppObj.gate_number}番 ${oppObj.name}`;
   document.getElementById('p2-card-strat').textContent = `作戦: ${oppObj.tactic} (Lv.${oppObj.level})`;
 
-  const p1ImgId = playerObj.horse_id ? String(playerObj.horse_id).padStart(4, '0') : '0000';
-  const p2ImgId = oppObj.horse_id ? String(oppObj.horse_id).padStart(4, '0') : '0000';
+  const p1ImgId = normalizeHorseId(playerObj.horse_id) || '0000';
+  const p2ImgId = normalizeHorseId(oppObj.horse_id) || '0000';
 
   const p1ImgEl = document.getElementById('p1-card-img');
   if (p1ImgEl) {
