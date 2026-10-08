@@ -547,6 +547,16 @@ onAuthStateChanged(auth, async (user) => {
     if (!isSuccess) return;
 
     setupRace(currentRaceIndex);
+
+    // 【修正点1】画面到達時の準備OKステータスを確実にFirestoreへ書き込む
+    try {
+      const roomRef = doc(db, "online_matches", roomId);
+      const readyPayload = isHost ? { player1_ready: true } : { player2_ready: true };
+      await updateDoc(roomRef, readyPayload);
+    } catch (readyErr) {
+      console.error("到着ステータス更新エラー:", readyErr);
+    }
+
     listenRoomStatus();
   } catch (err) {
     console.error("初期化エラー:", err);
@@ -774,7 +784,7 @@ async function handleRoomDataUpdate(data) {
     return;
   }
 
-  // 結果モーダル表示中のホスト/ゲスト連動処理（ホストの操作状態を受信）
+  // 【修正点2】モーダルの表示判定に関わらず「ホスト進出準備完了」を受信したらボタン・メッセージを即時連動同期する
   const isHost = (role === 'host');
   const modalBtn = document.getElementById('modalNextBtn');
   const statusMsgEl = document.getElementById('modalHostStatusMsg');
@@ -782,7 +792,7 @@ async function handleRoomDataUpdate(data) {
   const currentSeriesIdx = data.current_series_index || 0;
   const hasNextSeries = Array.isArray(matchSeries) && (currentSeriesIdx + 1 < matchSeries.length);
 
-  if (document.getElementById('final-series-modal').style.display === "block" && hasNextSeries) {
+  if (hasNextSeries) {
     if (!isHost) {
       if (data.host_next_ready) {
         if (modalBtn && modalBtn.textContent !== "⏳ 移動中...") {
@@ -1642,6 +1652,7 @@ function showFinalSeriesResult() {
   }
 }
 
+// 【修正点3】次回戦移行時、1回戦目の旧データ（エントリー・作戦・出走履歴・結果キャッシュ）を完全に初期化する
 window.finishMatchAndNextOrLobby = async function() {
   if (isNavigatingAway) return;
 
@@ -1674,12 +1685,12 @@ window.finishMatchAndNextOrLobby = async function() {
             await updateDoc(roomRef, {
               host_next_ready: true
             });
-            return; // ホストはここで止め、ゲストが押した時の status: "deck_selecting" 更新を待つ
+            return;
           } else {
-            // ゲストの場合：データ初期化と次回戦への更新を行い、遷移する
+            // ゲストの場合：データを完全クリア・初期化してデッキ選択画面へ移行
             if (modalBtn) {
               modalBtn.disabled = true;
-              modalBtn.textContent = "⏳ 移動中...";
+              modalBtn.textContent = "⏳ 次の回戦を準備中...";
             }
             isNavigatingAway = true;
             stopRoomListening();
@@ -1690,15 +1701,25 @@ window.finishMatchAndNextOrLobby = async function() {
               player2_ready: false,
               player1_strategy_ready: false,
               player2_strategy_ready: false,
+              player1_series_finished: false,
+              player2_series_finished: false,
               player1_entries: deleteField(),
               player2_entries: deleteField(),
               player1_strategies: deleteField(),
               player2_strategies: deleteField(),
+              player1_used_horses: deleteField(),
+              player2_used_horses: deleteField(),
+              races_mob_ids: deleteField(),
+              races_track_conditions: deleteField(),
               race_results_cache: deleteField(),
               host_next_ready: deleteField(),
-              status: "deck_selecting"
+              status: "deck_selecting" // デッキ選択画面へ遷移
             });
-            window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
+
+            // Firestoreへの反映完了を担保するため短時間ディレイ後に遷移
+            setTimeout(() => {
+              window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
+            }, 300);
             return;
           }
         } else {
