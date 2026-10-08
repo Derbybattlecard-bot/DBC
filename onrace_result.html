@@ -1003,23 +1003,21 @@ function initView() {
       baseEmoji = "🟥";
     }
     
-    let emojiHtml = `<span class="horse-emoji" id="emoji-${horse.gate_number}">${baseEmoji}</span>`;
-    
+    let emojiHtml = "";
+    // 🐎 は標準で左向き
     if (currentTrackConfig.phase1_3_dir === "right_to_left") {
-      emojiHtml = `<span class="horse-emoji flipped" id="emoji-${horse.gate_number}">${baseEmoji}</span>`;
+      emojiHtml = `<span class="horse-emoji" id="emoji-${horse.gate_number}">${baseEmoji}</span>`;
       icon.style.left = "auto";
       icon.style.right = "10px";
     } else {
+      emojiHtml = `<span class="horse-emoji flipped" id="emoji-${horse.gate_number}">${baseEmoji}</span>`;
       icon.style.left = "10px";
       icon.style.right = "auto";
     }
     
     const shortName = getKana3(horse.name);
-    if (currentTrackConfig.phase1_3_dir === "right_to_left") {
-      icon.innerHTML = `<span style="font-size:10px; margin-right:4px;">${horse.gate_number}</span>${shortName} ${emojiHtml}`;
-    } else {
-      icon.innerHTML = `${emojiHtml} <span style="font-size:10px; margin-right:4px;">${horse.gate_number}</span>${shortName}`;
-    }
+    // 常に絵文字＋馬名に統一し、馬番は表示しない
+    icon.innerHTML = `${emojiHtml} ${shortName}`;
     
     lane.appendChild(icon);
     lanes.appendChild(lane);
@@ -1179,31 +1177,20 @@ function animatePhase(phaseName, targetPositions, duration, direction) {
       startObj[h.gate_number] = currentVal;
 
       const shortName = getKana3(h.name);
+      const baseEmoji = emojiEl ? emojiEl.innerText : "🐎";
 
       if (direction === "right_to_left") {
         el.style.left = "auto";
         el.style.right = `${currentVal}%`;
-        if (emojiEl) emojiEl.classList.add("flipped");
-        
-        const htmlStr = el.innerHTML;
-        if (!htmlStr.includes("margin-right:4px")) {
-          const baseEmoji = emojiEl.innerText;
-          el.innerHTML = `<span style="font-size:10px; margin-right:4px;">${h.gate_number}</span>${shortName} <span class="horse-emoji flipped" id="emoji-${h.gate_number}">${baseEmoji}</span>`;
-        }
+        el.innerHTML = `<span class="horse-emoji" id="emoji-${h.gate_number}">${baseEmoji}</span> ${shortName}`;
       } else if (direction === "left_to_right") {
         el.style.right = "auto";
         el.style.left = `${currentVal}%`;
-        if (emojiEl) emojiEl.classList.remove("flipped");
-
-        const htmlStr = el.innerHTML;
-        if (!htmlStr.includes("</span>" + shortName)) {
-          const baseEmoji = emojiEl.innerText;
-          el.innerHTML = `<span class="horse-emoji" id="emoji-${h.gate_number}">${baseEmoji}</span> <span style="font-size:10px; margin-right:4px;">${h.gate_number}</span>${shortName}`;
-        }
+        el.innerHTML = `<span class="horse-emoji flipped" id="emoji-${h.gate_number}">${baseEmoji}</span> ${shortName}`;
       } else {
         el.style.right = "auto";
         el.style.left = "50%";
-        if (emojiEl) emojiEl.classList.remove("flipped");
+        el.innerHTML = `<span class="horse-emoji" id="emoji-${h.gate_number}">${baseEmoji}</span> ${shortName}`;
       }
     });
 
