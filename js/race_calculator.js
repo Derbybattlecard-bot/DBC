@@ -1,6 +1,6 @@
 // ============================================================================
 // js/race_calculator.js
-// 競馬シミュレーション・計算エンジン ＆ 実況生成統合モジュール（マスターデータ駆動版）
+// 競馬シミュレーション・計算エンジン ＆ 実況生成統合モジュール（マスターデータ駆動完全版）
 // ============================================================================
 
 // 中央の牝馬出走可能な混合G1レース定義（全15レース）
@@ -211,7 +211,6 @@ function weightedRandomSelect(probObj) {
 
 /**
  * レースペースの決定処理
- * 判定条件: 馬の元脚質や「大逃」「逃」の判定を撤廃し、選択された作戦（tacticStyle）が「逃げ」の馬のみをカウント
  */
 function determinePace(horses, raceMaster, trackCondition) {
   const paceMaster = raceMaster?.pace_decision_master;
@@ -221,7 +220,6 @@ function determinePace(horses, raceMaster, trackCondition) {
   const condMaster = isHeavy ? paceMaster.heavy_or_bad : paceMaster.good_or_slightly_heavy;
   if (!condMaster) return "ミドルペース";
 
-  // 作戦（tacticStyle）が「逃げ」の馬のみを抽出
   const leadHorses = horses.filter(h => getTacticStyleFromMaster(h) === "逃げ");
 
   const leadCount = leadHorses.length;
@@ -254,12 +252,11 @@ function determinePace(horses, raceMaster, trackCondition) {
 function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHorses = [], racePace = "") {
   if (!condition) return false;
 
-  const gate = Number(horse.gate_number || 0);
+  const gate = Number(horse.gate_number ?? horse.horse_number ?? horse.gate ?? 0);
   const track = String(raceInfo?.track || "");
   const dist = Number(raceInfo?.distance || 0);
   const isFemale = ["牝", "牝馬"].includes(horse.sex);
   
-  // 逃げ判定は選択作戦（tacticStyle）が「逃げ」の場合のみに統一
   const tacticStyle = getTacticStyleFromMaster(horse);
   const isEscape = (tacticStyle === "逃げ");
 
@@ -298,6 +295,9 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
     case "race_start":
     case "always": 
       return true;
+
+    case "is_leading":
+      return horse.positionRank === 1;
 
     case "single_escape": {
       const leadHorses = allHorses.filter(h => getTacticStyleFromMaster(h) === "逃げ");
@@ -410,7 +410,7 @@ function processMarkStrategy(resultList) {
 }
 
 /**
- * フェーズ1: 登録/準備段階のアビリティ判定（マスターデータ駆動型）
+ * フェーズ1: 登録/準備段階のアビリティ判定
  */
 function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilityMasterData) {
   horse.calc_speed = horse.speed || 0;
@@ -419,6 +419,7 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
   horse.calc_jizoku = horse.jizoku || 0;
   horse.calc_guts = horse.guts || 0;
   horse.ability_buff = 0;
+  horse.phase1_position_buff = 0;
 
   horse.phase1_abilities = horse.phase1_abilities || [];
   horse.activated_abilities = horse.activated_abilities || [];
@@ -449,7 +450,6 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
   if (!horse.ability || !Array.isArray(horse.ability)) return;
 
   horse.ability.forEach(abilityName => {
-    // 荒ぶる魂・気分屋（25%成功/75%失敗）
     if (abilityName === "荒ぶる魂" || abilityName === "気分屋") {
       horse.popup_messages = horse.popup_messages || {};
       const rand = Math.random();
@@ -473,51 +473,77 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
     masterAbility.effects.forEach(effect => {
       if (effect.phase !== "phase1") return;
 
-      // 確率判定（probabilityが指定されている場合）
+      if (!evalAbilityCondition(effect.condition, horse, raceInfo, trackCondition, allHorses)) {
+        return;
+      }
+
       if (effect.probability !== undefined && Math.random() >= effect.probability) {
         return;
       }
 
-      if (evalAbilityCondition(effect.condition, horse, raceInfo, trackCondition, allHorses)) {
-        if (effect.effect_type === "param_all") {
-          applyAllStatsBuff(horse, effect.value);
-        } else if (effect.effect_type === "param_speed") {
-          horse.calc_speed += effect.value;
-        }
+      if (effect.effect_type === "param_all") {
+        applyAllStatsBuff(horse, effect.value);
+      } else if (effect.effect_type === "param_speed") {
+        horse.calc_speed += effect.value;
+      } else if (effect.effect_type === "position_point") {
+        horse.phase1_position_buff = (horse.phase1_position_buff || 0) + effect.value;
+      }
 
-        if (effect.popup_text || effect.popup_name) {
-          horse.popup_messages = horse.popup_messages || {};
-          horse.popup_messages[abilityName] = effect.popup_text || effect.popup_name;
-        }
+      if (effect.popup_text || effect.popup_name) {
+        horse.popup_messages = horse.popup_messages || {};
+        horse.popup_messages[abilityName] = effect.popup_text || effect.popup_name;
+      }
 
-        if (!horse.phase1_abilities.includes(abilityName)) {
-          horse.phase1_abilities.push(abilityName);
-        }
-        if (!horse.activated_abilities.includes(abilityName)) {
-          horse.activated_abilities.push(abilityName);
-        }
+      if (!horse.phase1_abilities.includes(abilityName)) {
+        horse.phase1_abilities.push(abilityName);
+      }
+      if (!horse.activated_abilities.includes(abilityName)) {
+        horse.activated_abilities.push(abilityName);
       }
     });
   });
 }
 
-function applyPhase2Abilities(horse, positionPoint, abilityMasterData) {
+/**
+ * フェーズ2: 位置取り段階のアビリティ判定
+ */
+function applyPhase2Abilities(horse, positionPoint, abilityMasterData, raceInfo, trackCondition, allHorses) {
   if (!isEligibleForAbility(horse)) return positionPoint;
   if (!horse.ability || !Array.isArray(horse.ability)) return positionPoint;
 
   horse.activated_abilities = horse.activated_abilities || [];
-  let newPoint = positionPoint;
+  let newPoint = positionPoint + (horse.phase1_position_buff || 0);
 
   horse.ability.forEach(abilityName => {
     const master = getAbilityMasterData(abilityName, abilityMasterData);
     if (!master || !master.effects) return;
 
     master.effects.forEach(effect => {
-      if (effect.phase === "phase2" && effect.effect_type === "position_point") {
+      if (effect.phase !== "phase2") return;
+
+      if (!evalAbilityCondition(effect.condition, horse, raceInfo, trackCondition, allHorses)) {
+        return;
+      }
+
+      if (effect.probability !== undefined && Math.random() >= effect.probability) {
+        return;
+      }
+
+      if (effect.effect_type === "position_point") {
         newPoint += effect.value;
-        if (!horse.activated_abilities.includes(abilityName)) {
-          horse.activated_abilities.push(abilityName);
-        }
+      } else if (effect.effect_type === "param_all") {
+        applyAllStatsBuff(horse, effect.value);
+      } else if (effect.effect_type === "param_speed") {
+        horse.calc_speed += effect.value;
+      }
+
+      if (effect.popup_text || effect.popup_name) {
+        horse.popup_messages = horse.popup_messages || {};
+        horse.popup_messages[abilityName] = effect.popup_text || effect.popup_name;
+      }
+
+      if (!horse.activated_abilities.includes(abilityName)) {
+        horse.activated_abilities.push(abilityName);
       }
     });
   });
@@ -525,18 +551,57 @@ function applyPhase2Abilities(horse, positionPoint, abilityMasterData) {
   return newPoint;
 }
 
-function applyPhase3Abilities(resultList, raceInfo, trackCondition, racePace) {
-  if (resultList.length === 0) return;
-  const firstHorse = resultList.find(h => h.positionRank === 1);
-  if (!firstHorse || !isEligibleForAbility(firstHorse)) return;
-  if (!firstHorse.ability || !Array.isArray(firstHorse.ability)) return;
-  firstHorse.activated_abilities = firstHorse.activated_abilities || [];
+/**
+ * フェーズ3: 中盤・隊列判定後のアビリティ判定
+ */
+function applyPhase3Abilities(resultList, raceInfo, trackCondition, racePace, abilityMasterData) {
+  if (!resultList || resultList.length === 0) return;
+
+  resultList.forEach(horse => {
+    if (!isEligibleForAbility(horse) || !Array.isArray(horse.ability)) return;
+
+    horse.activated_abilities = horse.activated_abilities || [];
+
+    horse.ability.forEach(abilityName => {
+      const master = getAbilityMasterData(abilityName, abilityMasterData);
+      if (!master || !master.effects) return;
+
+      master.effects.forEach(effect => {
+        if (effect.phase !== "phase3") return;
+
+        if (!evalAbilityCondition(effect.condition, horse, raceInfo, trackCondition, resultList, racePace)) {
+          return;
+        }
+
+        if (effect.probability !== undefined && Math.random() >= effect.probability) {
+          return;
+        }
+
+        if (effect.effect_type === "param_all") {
+          applyAllStatsBuff(horse, effect.value);
+        } else if (effect.effect_type === "param_speed") {
+          horse.calc_speed += effect.value;
+        } else if (effect.effect_type === "position_point") {
+          horse.positionPoint = (horse.positionPoint || 0) + effect.value;
+        }
+
+        if (effect.popup_text || effect.popup_name) {
+          horse.popup_messages = horse.popup_messages || {};
+          horse.popup_messages[abilityName] = effect.popup_text || effect.popup_name;
+        }
+
+        if (!horse.activated_abilities.includes(abilityName)) {
+          horse.activated_abilities.push(abilityName);
+        }
+      });
+    });
+  });
 }
 
 /**
- * フェーズ4: 展開・最終計算アビリティ判定（マスターデータ駆動型）
+ * フェーズ4: 展開・最終計算アビリティ判定
  */
-function applyPhase4Abilities(horse, pace, branchName, abilityMasterData) {
+function applyPhase4Abilities(horse, pace, branchName, abilityMasterData, raceInfo, trackCondition, allHorses) {
   if (!isEligibleForAbility(horse)) return 0;
   if (!horse.ability || !Array.isArray(horse.ability)) return 0;
 
@@ -558,6 +623,10 @@ function applyPhase4Abilities(horse, pace, branchName, abilityMasterData) {
         if (effect.condition === "branch_match" && effect.target_branches) {
           const isMatched = effect.target_branches.some(b => branchName.includes(b) || b.includes(branchName));
           if (!isMatched) return;
+        } else if (effect.condition && effect.condition !== "branch_match") {
+          if (!evalAbilityCondition(effect.condition, horse, raceInfo, trackCondition, allHorses, pace)) {
+            return;
+          }
         }
 
         if (effect.probability !== undefined && Math.random() >= effect.probability) {
@@ -575,8 +644,8 @@ function applyPhase4Abilities(horse, pace, branchName, abilityMasterData) {
 
         extraScore += buffToAdd;
 
-        if (effect.popup_text) {
-          horse.popup_messages[abilityName] = effect.popup_text;
+        if (effect.popup_text || effect.popup_name) {
+          horse.popup_messages[abilityName] = effect.popup_text || effect.popup_name;
         }
 
         if (!horse.phase4_abilities.includes(abilityName)) {
@@ -664,9 +733,10 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
 
   processMarkStrategy(resultList);
 
-  // STEP 0: ペース事前判定（作戦「逃げ」の馬数のみで確定）
+  // STEP 0: ペース事前判定
   const selectedPace = determinePace(resultList, raceMaster, trackCondition);
 
+  // フェーズ1アビリティ適用
   resultList.forEach(copy => {
     applyPhase1Abilities(copy, raceInfo, trackCondition, resultList, abilityMasterData);
   });
@@ -675,7 +745,6 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
   resultList.forEach((h) => {
     const tacticCategory = getTacticStyleFromMaster(h);
 
-    // 1-1. 作戦脚質Pt（4種類）
     let tacticStylePt = 40;
     if (tacticCategory === "逃げ") {
       tacticStylePt = 90;
@@ -687,12 +756,11 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       tacticStylePt = 20;
     }
 
-    // 1-2. 馬の元脚質による補正（全8種類）
     const horseStyle = getHorseStyleFromMaster(h);
     let styleCalcPt = 0;
 
     if (horseStyle === "大逃") {
-      styleCalcPt = 120; // 作戦Pt不問で固定120pt
+      styleCalcPt = 120;
     } else if (horseStyle === "逃げ") {
       styleCalcPt = tacticStylePt + 20;
     } else if (horseStyle === "自在" || horseStyle === "逃追") {
@@ -700,23 +768,22 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     } else if (horseStyle === "好位") {
       styleCalcPt = tacticStylePt + 10;
     } else {
-      // 先行 / 差し / 追込 （補正なし）
       styleCalcPt = tacticStylePt;
     }
 
     const horseSpeed = h.calc_speed || 0;
-    const randomVal = Math.floor(Math.random() * 5); // 0〜4の乱数
+    const randomVal = Math.floor(Math.random() * 5);
 
     let basePos = styleCalcPt + horseSpeed + randomVal;
-    h.positionPoint = applyPhase2Abilities(h, basePos, abilityMasterData);
+    h.positionPoint = applyPhase2Abilities(h, basePos, abilityMasterData, raceInfo, trackCondition, resultList);
   });
 
   const posSorted = [...resultList].sort((a, b) => {
     if (b.positionPoint !== a.positionPoint) {
       return b.positionPoint - a.positionPoint;
     }
-    const gateA = a.gate_number || a.horse_number || 99;
-    const gateB = b.gate_number || b.horse_number || 99;
+    const gateA = a.gate_number ?? a.horse_number ?? a.gate ?? 99;
+    const gateB = b.gate_number ?? b.horse_number ?? b.gate ?? 99;
     return gateA - gateB;
   });
 
@@ -725,7 +792,8 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     if (target) target.positionRank = rank + 1;
   });
 
-  applyPhase3Abilities(resultList, raceInfo, trackCondition, selectedPace);
+  // フェーズ3アビリティ適用
+  applyPhase3Abilities(resultList, raceInfo, trackCondition, selectedPace, abilityMasterData);
 
   // STEP 2: 展開分岐選択
   let availableBranches = raceMaster?.branches_by_pace?.[selectedPace];
@@ -813,7 +881,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       posAddPt = fieldSize + 1 - h.positionRank;
     }
 
-    let extraScore = applyPhase4Abilities(h, selectedPace, selectedBranch.name, abilityMasterData);
+    let extraScore = applyPhase4Abilities(h, selectedPace, selectedBranch.name, abilityMasterData, raceInfo, trackCondition, resultList);
     let randomBonus = Math.random() * 1;
 
     const totalDevelopmentAdd = styleBonusPt + horseStyleBonusPt + posAddPt + extraScore;
