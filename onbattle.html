@@ -346,25 +346,29 @@
     return str;
   }
 
-  // ★重要修正: ルームデータから対象プレイヤーの過去使用済み馬IDリストを安全かつ確実に取得する
+  // ルームデータから対象プレイヤーの過去使用済み馬IDリストを確実に取得する関数
   function getUsedHorseIdsForRole(roomData, isHost) {
     if (!roomData) return [];
     const roleKey = isHost ? 'player1' : 'player2';
     const altRoleKey = isHost ? 'p1' : 'p2';
 
-    const directList = roomData[`${roleKey}_used_horses`] || roomData[`${altRoleKey}_used_horses`] || [];
-    const usedSet = new Set((Array.isArray(directList) ? directList : []).map(id => normalizeHorseId(id)).filter(Boolean));
+    const usedSet = new Set();
 
-    // 過去のラウンドデータにエントリー情報が存在する場合も統合救済
-    if (Array.isArray(roomData.rounds)) {
-      roomData.rounds.forEach(rd => {
-        const entries = rd[`${roleKey}_entries`] || rd[`${altRoleKey}_entries`] || [];
-        if (Array.isArray(entries)) {
-          entries.forEach(eId => {
-            const norm = normalizeHorseId(eId);
-            if (norm) usedSet.add(norm);
-          });
-        }
+    // 1. used_horses 配列からの取得
+    const directList = roomData[`${roleKey}_used_horses`] || roomData[`${altRoleKey}_used_horses`] || [];
+    if (Array.isArray(directList)) {
+      directList.forEach(id => {
+        const norm = normalizeHorseId(id);
+        if (norm) usedSet.add(norm);
+      });
+    }
+
+    // 2. 万が一 used_horses が無くても直前・過去のエントリーから救済取得
+    const entriesList = roomData[`${roleKey}_entries`] || roomData[`${altRoleKey}_entries`] || [];
+    if (Array.isArray(entriesList)) {
+      entriesList.forEach(id => {
+        const norm = normalizeHorseId(id);
+        if (norm) usedSet.add(norm);
       });
     }
 
@@ -651,7 +655,7 @@
     renderDeckTable();
   };
 
-  // ★重要修正: デックテーブル描画処理（過去の使用済み馬IDを正しく判定して [使用済] / tr-used を適用）
+  // デックテーブル描画処理（過去の使用済み馬IDを正しく判定）
   function renderDeckTable() {
     const tbody = document.getElementById('deckHorseList');
     if (!tbody) return;
@@ -977,7 +981,7 @@
       const raceBadgesHTML = buildRaceBadgesHTML(sObj);
       const ptStats = getSeriesPotentialInfo(sObj);
 
-      const rawOwner = matchOwners[rIdx]; // 'p1', 'p2', or 'random'
+      const rawOwner = matchOwners[rIdx]; 
       
       let ownerClass = 'is-random';
       let ownerLabel = '🎲 ランダム';
@@ -988,9 +992,9 @@
       } else if (rawOwner === 'p2') {
         ownerClass = isHost ? 'is-opponent' : 'is-self';
         ownerLabel = isHost ? '⚔️ 相手選択' : '👤 あなた選択';
-  }
+      }
 
-    const isCurrentRound = (rIdx === currentSeriesIdx);
+      const isCurrentRound = (rIdx === currentSeriesIdx);
       const currentClass = isCurrentRound ? 'is-current' : '';
       const roundBadgeHTML = isCurrentRound
         ? `<span class="badge-current-round">▶ 第${rIdx + 1}回戦 (開催中)</span>`
