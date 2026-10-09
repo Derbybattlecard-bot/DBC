@@ -629,6 +629,7 @@
     const myName = getDisplayName(globalUserData, currentUser);
     const roomRef = doc(db, "online_matches", roomId);
     
+    // 画面に入った時点で、自身の準備完了フラグをリセット（確実にデック選択からスタート）
     const updateData = (role === 'host') ? { 
       player1_series: mySeries,
       player1_name: myName,
@@ -928,8 +929,13 @@
         return;
       }
 
-      // ★ 修正箇所1: 相手が先に進行してルームステータスが entry_selecting や matchup に変更されている場合、自動で追従遷移
-      if (data.status === "entry_selecting" || data.status === "matchup") {
+      const isHost = (role === 'host');
+      const myReady = isHost ? data.player1_ready : data.player2_ready;
+      const oppReady = isHost ? data.player2_ready : data.player1_ready;
+
+      // ★ 安全ガード: 自分がこのページで「準備完了」を押していない（isReadySent === false かつ myReady === false）場合は、
+      // 相手が先行して status が entry_selecting や matchup に変更されていても勝手に遷移させず、デック選択を待つ
+      if ((data.status === "entry_selecting" || data.status === "matchup") && (isReadySent || myReady)) {
         closeWaitingModal();
         if (roomUnsubscribe) roomUnsubscribe();
         isNavigatingAway = true;
@@ -955,7 +961,6 @@
         return;
       }
 
-      const isHost = (role === 'host');
       const currentSeriesIdx = data.current_series_index || 0;
 
       if (isHost && !data.initial_card_priorities && data.player1_all_horses && data.player2_all_horses) {
@@ -1003,7 +1008,7 @@
           readyBtn.disabled = true;
           readyBtn.textContent = "相手がレース確認を終了するまでお待ちください";
         }
-      } else if (opponentStatus === "ready" || (isHost ? data.player2_ready : data.player1_ready)) {
+      } else if (opponentStatus === "ready" || oppReady) {
         badgeEl.className = "badge badge-success";
         badgeEl.innerHTML = "🟢 相手：準備完了！";
       } else {
@@ -1042,9 +1047,7 @@
 
       renderDeckTable();
 
-      const myReady = isHost ? data.player1_ready : data.player2_ready;
-      const oppReady = isHost ? data.player2_ready : data.player1_ready;
-
+      // 自身が準備完了を押した後のUI表示と状態保持
       if (myReady && !isReadySent) {
         isReadySent = true;
         if (readyBtn) {
@@ -1054,7 +1057,7 @@
         document.getElementById('waitingModal').style.display = 'flex';
       }
 
-      // ★ 修正箇所2: 両者の準備完了時、あるいは相手がすでに ready の場合に速やかに遷移
+      // ★ 自身が画面上で「準備完了」を押したこと（isReadySent または myReady）と相手の準備完了が揃って初めて onmatchup.html へ遷移
       if (myReady && oppReady) {
         closeWaitingModal();
         if (roomUnsubscribe) roomUnsubscribe();
