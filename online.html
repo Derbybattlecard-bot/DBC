@@ -20,7 +20,7 @@
   .header-panel { background-color: var(--panel-bg); padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
   .btn-back { background: #ffffff; color: var(--accent-color); border: 1.5px solid var(--accent-color); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; text-decoration: none; }
   .header-right { display: flex; align-items: center; gap: 8px; }
-  .wins-badge { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #78350f; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid #d97706; }
+  .wins-badge { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #78350f; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid #d97706; white-space: nowrap; }
 
   .btn-reset { background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: background 0.2s; }
   .btn-reset:hover { background: #dc2626; }
@@ -62,7 +62,7 @@
   <div class="header-panel">
     <a href="index.html" class="btn-back">← メニュー</a>
     <div class="header-right">
-      <div id="userWinsBadge" class="wins-badge">通算 0 勝</div>
+      <div id="userWinsBadge" class="wins-badge">CPU 0勝 | オンライン 0勝</div>
       <button class="btn-reset" onclick="clearMatchData()">🧹 データクリア</button>
       <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中</div>
     </div>
@@ -159,7 +159,9 @@
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        document.getElementById('userWinsBadge').textContent = `通算 ${userData.total_wins || 0} 勝`;
+        const cpuWins = userData.cpu_wins || userData.vs_cpu_wins || 0;
+        const onlineWins = userData.online_wins || 0;
+        document.getElementById('userWinsBadge').textContent = `CPU ${cpuWins}勝 | オンライン ${onlineWins}勝`;
 
         const selectedSeries = userData.selected_online_series || [];
         if (!Array.isArray(selectedSeries) || selectedSeries.length < 3) {
@@ -197,7 +199,6 @@
         batch.delete(qDoc.ref);
       });
 
-      // システム仕様書で定義されている未終了の全対戦ステータスをクリーンアップ対象にする[span_0](start_span)[span_0](end_span)
       const activeStatuses = ["matching", "deck_selecting", "entry_selecting", "racing", "ready", "playing"];
 
       const matchesRef = collection(db, "online_matches");
@@ -292,7 +293,6 @@
           combinedSeries.push(combinedSeries[0] || "series_01");
         }
 
-        // 仕様書 Ver 2.0 に即したステータス構造で対戦ルームを初期化[span_4](start_span)[span_4](end_span)
         await setDoc(doc(db, "online_matches", newRoomId), {
           host_uid: hostUid,
           guest_uid: currentUser.uid,
@@ -301,10 +301,10 @@
           player1_deck: hostData.host_deck || [],
           player2_deck: myDeckIds,
           
-          status: "deck_selecting",      // 全体ステータス（仕様書 3.1）[span_5](start_span)[span_5](end_span)
-          p1_status: "deck_selecting",   // ホスト側個別ステータス（仕様書 3.2）[span_6](start_span)[span_6](end_span)
-          p2_status: "deck_selecting",   // ゲスト側個別ステータス（仕様書 3.2）[span_7](start_span)[span_7](end_span)
-          current_series_index: 0,       // 第1回戦インデックス（仕様書 4.1）[span_8](start_span)[span_8](end_span)
+          status: "deck_selecting",
+          p1_status: "deck_selecting",
+          p2_status: "deck_selecting",
+          current_series_index: 0,
           
           player1_ready: false,
           player2_ready: false,
