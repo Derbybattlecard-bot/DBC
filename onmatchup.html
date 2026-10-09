@@ -416,7 +416,9 @@
     const roomData = roomSnap.data();
     const isHost = (role === 'host');
 
-    // ★重要修正: 当該プレイヤーの新規回戦用エントリー状態を確実に初期化（誤自動遷移防止）
+    currentRoundIndex = roomData.current_series_index || roomData.current_round || 0;
+
+    // 当該プレイヤーの新規回戦用エントリー状態を確実に初期化
     const myReadyKey = isHost ? 'player1_matchup_ready' : 'player2_matchup_ready';
     const myDraftKey = isHost ? 'player1_draft' : 'player2_draft';
     const myEntriesKey = isHost ? 'player1_entries' : 'player2_entries';
@@ -432,7 +434,6 @@
     
     deckHorses = playerDeckIds.map(id => HORSES_MASTER[id]).filter(Boolean);
 
-    // ★重要修正: myUsedListでisHostがfalseの場合にplayer2_used_horsesを参照するよう修正
     const oppUsedList = isHost ? (roomData.player2_used_horses || []) : (roomData.player1_used_horses || []);
     oppUsedHorseIdsInPast = oppUsedList.map(id => normalizeHorseId(id)).filter(Boolean);
 
@@ -446,8 +447,6 @@
       await forceCleanupAndExit();
       return;
     }
-
-    currentRoundIndex = roomData.current_series_index || roomData.current_round || 0;
 
     let oppName = resolveOpponentName(roomData);
     const oppUid = isHost ? (roomData.guest_uid || roomData.player2_uid) : (roomData.host_uid || roomData.player1_uid);
@@ -463,44 +462,44 @@
     }
     document.getElementById('opponentName').textContent = oppName;
 
+    // ★重要修正: 現在の回戦(currentRoundIndex)に対応するシリーズのみを取得してレース一覧を生成
     let rawRaces = [];
     const matchSeries = roomData.match_series || roomData.selected_series || roomData.series_id || ["SERIES_001"];
     const seriesIdList = Array.isArray(matchSeries) ? matchSeries : [matchSeries];
     
-    seriesIdList.forEach((sId) => {
-      const sObj = SERIES_MASTER[sId] || Object.values(SERIES_MASTER)[0] || {};
-      const racesInSeries = sObj.races || (sObj.rounds && sObj.rounds[0] ? sObj.rounds[0].races : null);
+    const currentSeriesId = seriesIdList[currentRoundIndex] || seriesIdList[0] || "SERIES_001";
+    const sObj = SERIES_MASTER[currentSeriesId] || SERIES_MASTER[String(currentSeriesId).toUpperCase()] || Object.values(SERIES_MASTER)[0] || {};
+    
+    const racesInSeries = sObj.races || (sObj.rounds && sObj.rounds[0] ? sObj.rounds[0].races : null);
+    const potLimit = sObj.potential_limit || {};
+    const maxTotal = potLimit.max_total_potential ?? 85;
+    const minPerRace = potLimit.min_potential_per_race ?? 14;
 
-      const potLimit = sObj.potential_limit || {};
-      const maxTotal = potLimit.max_total_potential ?? 85;
-      const minPerRace = potLimit.min_potential_per_race ?? 14;
-
-      if (Array.isArray(racesInSeries) && racesInSeries.length > 0) {
-        racesInSeries.forEach(r => {
-          rawRaces.push({
-            race_name: r.race_name || r.name,
-            surface: r.surface || "芝",
-            distance: r.distance || 2000,
-            sex: r.sex || sObj.sex || "制限なし",
-            series_name: sObj.series_name || sObj.name || "",
-            category: sObj.category || sObj.series_category || sObj.group || "地方交流シリーズ",
-            max_total_potential: maxTotal,
-            min_potential_per_race: minPerRace
-          });
-        });
-      } else {
+    if (Array.isArray(racesInSeries) && racesInSeries.length > 0) {
+      racesInSeries.forEach(r => {
         rawRaces.push({
-          race_name: sObj.race_name || sObj.name || "特別競走",
-          surface: sObj.surface || "芝",
-          distance: sObj.distance || 2000,
-          sex: sObj.sex || "制限なし",
+          race_name: r.race_name || r.name,
+          surface: r.surface || "芝",
+          distance: r.distance || 2000,
+          sex: r.sex || sObj.sex || "制限なし",
           series_name: sObj.series_name || sObj.name || "",
           category: sObj.category || sObj.series_category || sObj.group || "地方交流シリーズ",
           max_total_potential: maxTotal,
           min_potential_per_race: minPerRace
         });
-      }
-    });
+      });
+    } else {
+      rawRaces.push({
+        race_name: sObj.race_name || sObj.name || "特別競走",
+        surface: sObj.surface || "芝",
+        distance: sObj.distance || 2000,
+        sex: sObj.sex || "制限なし",
+        series_name: sObj.series_name || sObj.name || "",
+        category: sObj.category || sObj.series_category || sObj.group || "地方交流シリーズ",
+        max_total_potential: maxTotal,
+        min_potential_per_race: minPerRace
+      });
+    }
 
     const fallbackRaces = [
       { race_name: "北九州記念", surface: "芝", distance: 1200, sex: "制限なし", max_total_potential: 85, min_potential_per_race: 14 },
@@ -527,7 +526,7 @@
       });
     }
 
-    const currentRace = matchRaces[currentRoundIndex] || matchRaces[0];
+    const currentRace = matchRaces[0];
     const categoryName = currentRace.category || "地方交流シリーズ";
     
     currentMaxTotalPt = currentRace.max_total_potential;
@@ -938,6 +937,7 @@
     }
   }
 
+  // ★重要修正: エントリー完了時に今回選択した馬IDを Firestore の player1_used_horses / player2_used_horses に追記保存
   window.submitEntries = async function() {
     if (selectedEntries.includes(null)) {
       alert("全5戦の出走馬を選択してください。");
@@ -950,15 +950,20 @@
 
     const normalizedEntries = selectedEntries.map(id => normalizeHorseId(id));
     const roomRef = doc(db, "online_matches", roomId);
+    const isHost = (role === 'host');
+
+    const updatedUsedList = Array.from(new Set([...myUsedHorseIdsInPast, ...normalizedEntries]));
     
-    const updateData = (role === 'host') ? {
+    const updateData = isHost ? {
       player1_entries: normalizedEntries,
+      player1_used_horses: updatedUsedList,
       player1_matchup_ready: true,
       player1_strategy_ready: false,
       player1_ready: false,
       status: "strategy_selecting"
     } : {
       player2_entries: normalizedEntries,
+      player2_used_horses: updatedUsedList,
       player2_matchup_ready: true,
       player2_strategy_ready: false,
       player2_ready: false,
@@ -1012,8 +1017,9 @@
     window.location.href = `onbattle.html?roomId=${roomId}&role=${role}${modeQuery}`;
   };
 
+  // ★重要修正: ギブアップ処理（該当回戦のみ相手に1勝を与えて次の回戦へ移動する）
   window.giveUpRound = async function() {
-    if (!confirm("この回戦をギブアップしますか？\n（対戦相手に不戦勝が与えられます）")) {
+    if (!confirm("この回戦をギブアップしますか？\n（対戦相手にこの回戦の不戦勝が与えられます）")) {
       return;
     }
 
@@ -1023,18 +1029,68 @@
     if (roomId && currentUser) {
       try {
         const roomRef = doc(db, "online_matches", roomId);
-        const isHost = (role === 'host');
+        const roomSnap = await getDoc(roomRef);
         
-        await updateDoc(roomRef, {
-          [isHost ? 'player1_giveup' : 'player2_giveup']: true,
-          status: "surrendered",
-          surrendered_by: currentUser.uid
-        });
+        if (roomSnap.exists()) {
+          const roomData = roomSnap.data();
+          const isHost = (role === 'host');
+
+          const currentP1Wins = roomData.p1_wins || roomData.player1_wins || 0;
+          const currentP2Wins = roomData.p2_wins || roomData.player2_wins || 0;
+
+          // 相手に勝利数を加算
+          const newP1Wins = isHost ? currentP1Wins : currentP1Wins + 1;
+          const newP2Wins = isHost ? currentP2Wins + 1 : currentP2Wins;
+
+          const totalRounds = (matchMode === 'standard') ? 5 : 3;
+          const requiredWins = (totalRounds === 5) ? 3 : 2;
+          const nextRoundIdx = currentRoundIndex + 1;
+
+          // 全体決着判定
+          const isMatchFinished = (newP1Wins >= requiredWins || newP2Wins >= requiredWins || nextRoundIdx >= totalRounds);
+
+          const updateObj = {
+            p1_wins: newP1Wins,
+            p2_wins: newP2Wins,
+            player1_wins: newP1Wins,
+            player2_wins: newP2Wins,
+            player1_ready: false,
+            player2_ready: false,
+            player1_matchup_ready: false,
+            player2_matchup_ready: false,
+            player1_strategy_ready: false,
+            player2_strategy_ready: false,
+            player1_draft: [null, null, null, null, null],
+            player2_draft: [null, null, null, null, null],
+            player1_entries: [null, null, null, null, null],
+            player2_entries: [null, null, null, null, null],
+            p1_status: "deck_selecting",
+            p2_status: "deck_selecting"
+          };
+
+          if (isMatchFinished) {
+            updateObj.status = "finished";
+            updateObj.winner = newP1Wins > newP2Wins ? (roomData.host_uid || roomData.player1_uid) : (roomData.guest_uid || roomData.player2_uid);
+            await updateDoc(roomRef, updateObj);
+            alert("この回戦をギブアップしました。全対戦結果が確定しました。");
+            window.location.href = 'online.html';
+            return;
+          } else {
+            updateObj.current_series_index = nextRoundIdx;
+            updateObj.current_round = nextRoundIdx;
+            updateObj.status = "deck_selecting";
+            await updateDoc(roomRef, updateObj);
+            alert(`この回戦をギブアップしました。\n第${nextRoundIdx + 1}回戦の準備へ進みます。`);
+            const modeQuery = matchMode ? `&mode=${matchMode}` : '';
+            window.location.href = `onbattle.html?roomId=${roomId}&role=${role}${modeQuery}`;
+            return;
+          }
+        }
       } catch (e) {
         console.error("ギブアップ処理エラー:", e);
       }
     }
-    alert("この回戦をギブアップしました。");
+    alert("ギブアップ処理中にエラーが発生しました。");
     window.location.href = 'online.html';
   };
 
