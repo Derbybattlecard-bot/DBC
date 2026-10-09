@@ -106,6 +106,11 @@
   .ban-summary-card.kept.is-opponent { border-left-color: #ef4444; border-color: #fca5a5; }
   .ban-summary-card.kept.is-random { border-left-color: #8b5cf6; border-color: #c4b5fd; }
 
+  /* 📊 終了済み回戦のリザルトバッジ用スタイル */
+  .round-result-badge { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin-top: 4px; }
+  .round-result-badge.won { background: #d1fae5; border-color: #6ee7b7; color: #047857; font-weight: bold; }
+  .round-result-badge.lost { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; font-weight: bold; }
+
   .legend-bar { display: flex; justify-content: center; gap: 16px; background-color: #ffffff; padding: 6px 12px; border-radius: 20px; margin-bottom: 8px; font-size: 11px; font-weight: bold; border: 1px solid #cbd5e1; }
   .legend-item { display: flex; align-items: center; gap: 4px; }
   .legend-color { width: 10px; height: 10px; border-radius: 3px; }
@@ -153,7 +158,6 @@
   @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   .btn-cancel { background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; margin-top: 15px; }
 
-  /* 🏆 最終結果モーダル専用スタイル */
   .result-banner { padding: 14px; border-radius: 10px; font-size: 20px; font-weight: 900; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
   .result-banner.win { background: linear-gradient(135deg, #10b981, #059669); color: #ffffff; box-shadow: 0 4px 12px rgba(16,185,129,0.3); }
   .result-banner.loss { background: linear-gradient(135deg, #ef4444, #dc2626); color: #ffffff; box-shadow: 0 4px 12px rgba(239,68,68,0.3); }
@@ -727,7 +731,6 @@
     }
   }
 
-  // ⚖️ 勝利数およびタイブレーク判定関数
   function calculateMatchWinner(data) {
     const p1Wins = data.p1_wins || data.player1_wins || 0;
     const p2Wins = data.p2_wins || data.player2_wins || 0;
@@ -801,7 +804,6 @@
     }
   }
 
-  // 🏆 最終結果モーダル表示（常に 1-2-3着 の着順詳細を一覧表示）
   function showFinalMatchResultModal(data, matchResult) {
     const isHost = (role === 'host');
     const myRoleKey = isHost ? 'p1' : 'p2';
@@ -830,8 +832,6 @@
     document.getElementById('p1WinsVal').textContent = `${p1Wins} 勝`;
     document.getElementById('p2ScoreLabel').textContent = p2Name;
     document.getElementById('p2WinsVal').textContent = `${p2Wins} 勝`;
-
-    const isTiebreak = matchResult.reason && (matchResult.reason.startsWith('tiebreak') || matchResult.reason === 'complete_draw');
 
     if (matchResult.reason && matchResult.reason.startsWith('tiebreak')) {
       const typeMap = { tiebreak_1st: '全レースの累計1着獲得数', tiebreak_2nd: '全レースの累計2着獲得数', tiebreak_3rd: '全レースの累計3着獲得数' };
@@ -932,6 +932,27 @@
         return;
       }
 
+      const isHost = (role === 'host');
+      const myReady = isHost ? data.player1_ready : data.player2_ready;
+      const oppReady = isHost ? data.player2_ready : data.player1_ready;
+
+      if ((myReady && oppReady) || data.status === "entry_selecting") {
+        if (!isNavigatingAway) {
+          closeWaitingModal();
+          if (roomUnsubscribe) roomUnsubscribe();
+          isNavigatingAway = true;
+
+          if (isHost && data.status !== "entry_selecting") {
+            try {
+              await updateDoc(roomRef, { status: "entry_selecting" });
+            } catch (err) {}
+          }
+
+          window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
+          return;
+        }
+      }
+
       const matchResult = calculateMatchWinner(data);
 
       if (matchResult.winner !== null) {
@@ -940,7 +961,7 @@
 
           await checkAndRecordOnlineWin(data, matchResult);
 
-          if (role === 'host' && data.status !== "finished") {
+          if (isHost && data.status !== "finished") {
             const winnerUid = matchResult.winner === 'p1' ? (data.host_uid || data.player1_uid) : (matchResult.winner === 'p2' ? (data.guest_uid || data.player2_uid) : 'draw');
             await updateDoc(roomRef, { status: "finished", winner: winnerUid }).catch(e => console.error(e));
           }
@@ -950,7 +971,6 @@
         return;
       }
 
-      const isHost = (role === 'host');
       const currentSeriesIdx = data.current_series_index || 0;
 
       if (isHost && !data.initial_card_priorities && data.player1_all_horses && data.player2_all_horses) {
@@ -1037,9 +1057,6 @@
 
       renderDeckTable();
 
-      const myReady = isHost ? data.player1_ready : data.player2_ready;
-      const oppReady = isHost ? data.player2_ready : data.player1_ready;
-
       if (myReady && !isReadySent) {
         isReadySent = true;
         if (readyBtn) {
@@ -1047,22 +1064,6 @@
           readyBtn.textContent = "相手の準備完了を待っています…";
         }
         document.getElementById('waitingModal').style.display = 'flex';
-      }
-
-      if (myReady && oppReady) {
-        closeWaitingModal();
-        if (roomUnsubscribe) roomUnsubscribe();
-        isNavigatingAway = true;
-
-        if (isHost && data.status !== "entry_selecting") {
-          try {
-            await updateDoc(roomRef, { status: "entry_selecting" });
-          } catch (err) {
-            console.error("ステータス更新エラー:", err);
-          }
-        }
-
-        window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
       }
     });
   }
@@ -1117,6 +1118,7 @@
 
     let matchSeries = data.match_series || [];
     let matchOwners = data.match_series_owners || [];
+    let matchHistory = data.match_history || [];
 
     const subTextEl = document.getElementById('onlineSubText');
     if (subTextEl) {
@@ -1127,53 +1129,55 @@
 
     let html = '';
 
-    html += `
-      <div style="background:#fef2f2; border:2px solid #ef4444; border-radius:12px; padding:14px; margin-bottom:14px; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
-        <div class="ban-title" style="color: #dc2626; text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 2px;">
-          お互いに除外（BAN）した2つのシリーズ
-        </div>
-        <div style="font-size: 11px; text-align: center; color: #991b1b; margin-bottom: 10px;">
-          両プレイヤーがそれぞれの持ち込みから拒否指定したシリーズです。
-        </div>
+    if (currentSeriesIdx === 0) {
+      html += `
+        <div style="background:#fef2f2; border:2px solid #ef4444; border-radius:12px; padding:14px; margin-bottom:14px; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+          <div class="ban-title" style="color: #dc2626; text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 2px;">
+            お互いに除外（BAN）した2つのシリーズ
+          </div>
+          <div style="font-size: 11px; text-align: center; color: #991b1b; margin-bottom: 10px;">
+            両プレイヤーがそれぞれの持ち込みから拒否指定したシリーズです。
+          </div>
 
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-    `;
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+      `;
 
-    const bannedItems = [
-      { sId: myBannedId, label: 'あなたが除外（相手持ち込み）' },
-      { sId: oppBannedId, label: '相手が除外（あなた持ち込み）' }
-    ];
+      const bannedItems = [
+        { sId: myBannedId, label: 'あなたが除外（相手持ち込み）' },
+        { sId: oppBannedId, label: '相手が除外（あなた持ち込み）' }
+      ];
 
-    bannedItems.forEach(item => {
-      if (!item.sId) return;
-      const sObj = getSeriesObj(item.sId);
-      const sName = sObj.series_name || sObj.name || item.sId;
-      const category = getSeriesCategory(sObj);
-      const raceBadgesHTML = buildRaceBadgesHTML(sObj);
-      const ptStats = getSeriesPotentialInfo(sObj);
+      bannedItems.forEach(item => {
+        if (!item.sId) return;
+        const sObj = getSeriesObj(item.sId);
+        const sName = sObj.series_name || sObj.name || item.sId;
+        const category = getSeriesCategory(sObj);
+        const raceBadgesHTML = buildRaceBadgesHTML(sObj);
+        const ptStats = getSeriesPotentialInfo(sObj);
+
+        html += `
+          <div class="ban-summary-card banned">
+            <div class="ban-card-row1">
+              <span class="ban-category-badge">🏷 ${category}</span>
+              <span class="ban-tag-banned">🚫 ${item.label}</span>
+            </div>
+            <div class="ban-card-title" style="text-decoration: line-through; color: #9ca3af; font-size: 12.5px; margin-top: 2px;">
+              🏆 ${sName}
+            </div>
+            <div class="ban-card-races">${raceBadgesHTML}</div>
+            <div class="ban-card-pt">
+              <div>合計上限 <span class="pt-val">${ptStats.totalPt}</span></div>
+              <div>出走可能 <span class="pt-val">${ptStats.eligiblePt}以上</span></div>
+            </div>
+          </div>
+        `;
+      });
 
       html += `
-        <div class="ban-summary-card banned">
-          <div class="ban-card-row1">
-            <span class="ban-category-badge">🏷 ${category}</span>
-            <span class="ban-tag-banned">🚫 ${item.label}</span>
-          </div>
-          <div class="ban-card-title" style="text-decoration: line-through; color: #9ca3af; font-size: 12.5px; margin-top: 2px;">
-            🏆 ${sName}
-          </div>
-          <div class="ban-card-races">${raceBadgesHTML}</div>
-          <div class="ban-card-pt">
-            <div>合計上限 <span class="pt-val">${ptStats.totalPt}</span></div>
-            <div>出走可能 <span class="pt-val">${ptStats.eligiblePt}以上</span></div>
           </div>
         </div>
       `;
-    });
-
-    html += `
-        </div>
-      </div>
-    `;
+    }
 
     html += `
       <div class="legend-bar">
@@ -1207,10 +1211,40 @@
       }
 
       const isCurrentRound = (rIdx === currentSeriesIdx);
+      const isFinishedRound = (rIdx < currentSeriesIdx);
       const currentClass = isCurrentRound ? 'is-current' : '';
+      
       const roundBadgeHTML = isCurrentRound
         ? `<span class="badge-current-round">▶ 第${rIdx + 1}回戦 (開催中)</span>`
-        : `<span class="badge-other-round">第${rIdx + 1}回戦</span>`;
+        : (isFinishedRound ? `<span class="badge-other-round" style="background:#cbd5e1; color:#334155;">🏁 第${rIdx + 1}回戦 (終了)</span>` : `<span class="badge-other-round">第${rIdx + 1}回戦</span>`);
+
+      // ★ 終了済み回戦のリザルト表示（何勝何敗 ＆ 着順 1-2-3着）
+      let resultBadgeHtml = '';
+      if (isFinishedRound) {
+        const roundRecord = matchHistory.find(h => h.round === (rIdx + 1));
+        if (roundRecord) {
+          const myWins = isHost ? (roundRecord.p1Wins ?? roundRecord.myWins ?? 0) : (roundRecord.p2Wins ?? roundRecord.oppWins ?? 0);
+          const oppWins = isHost ? (roundRecord.p2Wins ?? roundRecord.oppWins ?? 0) : (roundRecord.p1Wins ?? roundRecord.myWins ?? 0);
+          
+          const my1st = isHost ? (roundRecord.p1_1st ?? roundRecord.my1st ?? 0) : (roundRecord.p2_1st ?? roundRecord.opp1st ?? 0);
+          const my2nd = isHost ? (roundRecord.p1_2nd ?? roundRecord.my2nd ?? 0) : (roundRecord.p2_2nd ?? roundRecord.opp2nd ?? 0);
+          const my3rd = isHost ? (roundRecord.p1_3rd ?? roundRecord.my3rd ?? 0) : (roundRecord.p2_3rd ?? roundRecord.opp3rd ?? 0);
+
+          const isRoundWin = roundRecord.winner === (isHost ? 'p1' : 'p2');
+          const resClass = isRoundWin ? 'won' : 'lost';
+          const resText = isRoundWin ? '○ 勝利' : '× 敗北';
+
+          resultBadgeHtml = `
+            <div class="round-result-badge ${resClass}">
+              <span>📊 <strong>${myWins}勝 - ${oppWins}敗</strong> (勝敗)</span>
+              <span>🥇🥈🥉 着順: <strong>${my1st}-${my2nd}-${my3rd}</strong></span>
+              <span><strong>${resText}</strong></span>
+            </div>
+          `;
+        } else {
+          resultBadgeHtml = `<div class="round-result-badge" style="color:#64748b;">🏁 終了済（集計データなし）</div>`;
+        }
+      }
 
       html += `
         <div class="ban-summary-card kept ${ownerClass} ${currentClass}">
@@ -1229,6 +1263,7 @@
             <div>合計上限 <span class="pt-val">${ptStats.totalPt}</span></div>
             <div>出走可能 <span class="pt-val">${ptStats.eligiblePt}以上</span></div>
           </div>
+          ${resultBadgeHtml}
         </div>
       `;
     }
@@ -1489,7 +1524,24 @@
     };
 
     try {
-      await updateDoc(doc(db, "online_matches", roomId), updateData);
+      const roomRef = doc(db, "online_matches", roomId);
+      await updateDoc(roomRef, updateData);
+
+      const latestSnap = await getDoc(roomRef);
+      if (latestSnap.exists()) {
+        const data = latestSnap.data();
+        const r1 = data.player1_ready;
+        const r2 = data.player2_ready;
+        if (r1 && r2) {
+          closeWaitingModal();
+          if (roomUnsubscribe) roomUnsubscribe();
+          isNavigatingAway = true;
+          if (isHost && data.status !== "entry_selecting") {
+            await updateDoc(roomRef, { status: "entry_selecting" }).catch(e => {});
+          }
+          window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
+        }
+      }
     } catch (err) {
       console.error("準備完了送信エラー:", err);
       alert("通信エラーが発生しました。");
