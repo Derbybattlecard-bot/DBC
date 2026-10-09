@@ -346,6 +346,33 @@
     return str;
   }
 
+  // 仕様6.2: 全36頭（リスト位置比較 ＆ タイブレーク）をベースとした優先権事前構築関数
+  function buildInitialCardPriorities(p1All36Horses, p2All36Horses) {
+    const priorities = {};
+    const p1List = (p1All36Horses || []).map(id => normalizeHorseId(id)).filter(Boolean);
+    const p2List = (p2All36Horses || []).map(id => normalizeHorseId(id)).filter(Boolean);
+
+    const allUniqueIds = new Set([...p1List, ...p2List]);
+
+    allUniqueIds.forEach(horseId => {
+      const p1Idx = p1List.indexOf(horseId);
+      const p2Idx = p2List.indexOf(horseId);
+
+      // 両者が保持している場合（重複馬）
+      if (p1Idx !== -1 && p2Idx !== -1) {
+        if (p1Idx < p2Idx) {
+          priorities[horseId] = 'host'; // P1(Host)のインデックスが若い
+        } else if (p2Idx < p1Idx) {
+          priorities[horseId] = 'guest'; // P2(Guest)のインデックスが若い
+        } else {
+          priorities[horseId] = 'host'; // 完全同位置の場合はホスト（Host）優先
+        }
+      }
+    });
+
+    return priorities;
+  }
+
   // ルームデータから対象プレイヤーの過去使用済み馬IDリストを確実に取得する関数
   function getUsedHorseIdsForRole(roomData, isHost) {
     if (!roomData) return [];
@@ -655,7 +682,7 @@
     renderDeckTable();
   };
 
-  // デックテーブル描画処理（過去の使用済み馬IDを正しく判定）
+  // デックテーブル描画処理（優先出走権マップと過去の使用済み馬IDを組み合わせて判定）
   function renderDeckTable() {
     const tbody = document.getElementById('deckHorseList');
     if (!tbody) return;
@@ -745,6 +772,12 @@
 
       const isHost = (role === 'host');
       const currentSeriesIdx = data.current_series_index || 0;
+
+      // ★仕様6.1の実装: ホスト側が全36頭リストの揃ったタイミングで initial_card_priorities を事前構築してFirestoreへ保存
+      if (isHost && !data.initial_card_priorities && data.player1_all_horses && data.player2_all_horses) {
+        const priorities = buildInitialCardPriorities(data.player1_all_horses, data.player2_all_horses);
+        await updateDoc(roomRef, { initial_card_priorities: priorities }).catch(e => console.error("優先権保存エラー:", e));
+      }
 
       let oppUid = isHost 
         ? (data.player2_uid || data.player2 || data.guest_uid)
@@ -1258,13 +1291,21 @@
 
     document.getElementById('waitingModal').style.display = 'flex';
 
+    // 仕様6.1: 自分の保持カード全36頭（デッキ1の18頭 + デッキ2の18頭）を取得
+    const userDecks = globalUserData.decks || [];
+    const d0 = (userDecks[0]?.horse_ids || []).map(id => normalizeHorseId(id)).filter(Boolean);
+    const d1 = (userDecks[1]?.horse_ids || []).map(id => normalizeHorseId(id)).filter(Boolean);
+    const my36Horses = [...d0, ...d1];
+
     const isHost = (role === 'host');
     const updateData = isHost ? {
       player1_deck: deck.horse_ids,
+      player1_all_horses: my36Horses,
       player1_ready: true,
       p1_status: "ready"
     } : {
       player2_deck: deck.horse_ids,
+      player2_all_horses: my36Horses,
       player2_ready: true,
       p2_status: "ready"
     };
