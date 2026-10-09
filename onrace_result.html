@@ -288,7 +288,7 @@
     <div class="mini-card p1">
       <div class="card-label-row">
         <div class="card-label p1" id="p1-card-label">★ YOU</div>
-        <span class="status-badge ready">READY ✅</span>
+        <span class="status-badge ready" id="p1-status-badge">READY ✅</span>
       </div>
       <img src="" alt="horse" class="card-horse-img" id="p1-card-img">
       <div class="card-horse-name" id="p1-card-name">-</div>
@@ -411,7 +411,7 @@ let raceInfo = null;
 let myNameStr = "あなた";
 let oppNameStr = "対戦相手";
 let roomUnsubscribe = null;
-let roomPollingInterval = null; // 10秒ごとの自動手動同期タイマー
+let roomPollingInterval = null; 
 let isNavigatingAway = false;
 let isCalculating = false;
 
@@ -523,6 +523,7 @@ onAuthStateChanged(auth, async (user) => {
     }
     roomData = roomSnap.data();
 
+    // マスターデータの読み込み（失敗した場合は呼び出し元でキャッチ）
     await loadMasterData();
 
     const isHost = (role === 'host');
@@ -548,7 +549,7 @@ onAuthStateChanged(auth, async (user) => {
 
     setupRace(currentRaceIndex);
 
-    // 【修正点1】画面到達時の準備OKステータスを確実にFirestoreへ書き込む
+    // 画面到達時の準備OKステータスを確実にFirestoreへ書き込む
     try {
       const roomRef = doc(db, "online_matches", roomId);
       const readyPayload = isHost ? { player1_ready: true } : { player2_ready: true };
@@ -568,7 +569,7 @@ function prepareHorseData(h) {
   ensureStats(h);
 
   let matchedStrat = null;
-  if (strategyMasterData && h.tactic) {
+  if (Array.isArray(strategyMasterData) && h.tactic) {
     matchedStrat = strategyMasterData.find(s => s.name === h.tactic || s.tactic === h.tactic);
   }
 
@@ -784,7 +785,6 @@ async function handleRoomDataUpdate(data) {
     return;
   }
 
-  // 【修正点2】モーダルの表示判定に関わらず「ホスト進出準備完了」を受信したらボタン・メッセージを即時連動同期する
   const isHost = (role === 'host');
   const modalBtn = document.getElementById('modalNextBtn');
   const statusMsgEl = document.getElementById('modalHostStatusMsg');
@@ -858,8 +858,14 @@ function listenRoomStatus() {
   }, 10000);
 }
 
+// 【修正箇所】JSONファイル読み込みパスにルート相対パス（/data/）を追加
 async function fetchJsonWithFallback(filename) {
-  const paths = [`data/${filename}`, `./data/${filename}`, `../data/${filename}`];
+  const paths = [
+    `./data/${filename}`,
+    `data/${filename}`,
+    `/data/${filename}`,
+    `../data/${filename}`
+  ];
   for (const path of paths) {
     try {
       const res = await fetch(path);
@@ -900,7 +906,8 @@ async function loadMasterData() {
     }
   } catch (error) {
     console.error("マスターデータの読み込み失敗:", error);
-    showErrorModal("マスターデータの読み込みに失敗しました。");
+    // 【修正箇所】エラーを投げて呼び出し元のcatchに伝播させる
+    throw error;
   }
 }
 
@@ -930,9 +937,9 @@ function buildRaceGridsFromOnlineData() {
   for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
     const rawGrid = [];
 
-    // Player 1 (ホスト) の馬： playerRole: 'host' を付与
+    // Player 1 (ホスト) の馬
     const p1HorseId = normalizeHorseId(p1Entries[rIdx]);
-    const p1Master = HORSES_MASTER[p1HorseId] || { name: "P1馬", horse_id: p1HorseId };
+    const p1Master = HORSES_MASTER[p1HorseId] || HORSES_MASTER[String(p1Entries[rIdx])] || { name: "P1馬", horse_id: p1HorseId };
     const p1StratObj = (p1Strats && p1Strats[rIdx]) ? p1Strats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
 
     rawGrid.push({
@@ -946,9 +953,9 @@ function buildRaceGridsFromOnlineData() {
       level: p1StratObj.strategy_level || 3
     });
 
-    // Player 2 (ゲスト) の馬： playerRole: 'guest' を付与
+    // Player 2 (ゲスト) の馬
     const p2HorseId = normalizeHorseId(p2Entries[rIdx]);
-    const p2Master = HORSES_MASTER[p2HorseId] || { name: "P2馬", horse_id: p2HorseId };
+    const p2Master = HORSES_MASTER[p2HorseId] || HORSES_MASTER[String(p2Entries[rIdx])] || { name: "P2馬", horse_id: p2HorseId };
     const p2StratObj = (p2Strats && p2Strats[rIdx]) ? p2Strats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
 
     rawGrid.push({
@@ -967,10 +974,18 @@ function buildRaceGridsFromOnlineData() {
 
     mobIds.forEach((mobId) => {
       const normalizedMobId = normalizeHorseId(mobId);
-      const mobMaster = HORSES_MASTER[normalizedMobId] || { name: "モブ馬", horse_id: mobId };
+      const mobMaster = HORSES_MASTER[normalizedMobId] || HORSES_MASTER[String(mobId)] || { name: "モブ馬", horse_id: mobId };
       let mobStyle = mobMaster.style || mobMaster.running_style || "自在";
       if (mobStyle === "大逃げ") mobStyle = "大逃";
-      const mobStrat = determineStrategy(mobId, mobStyle, 1, strategyMasterData, false);
+      
+      let mobStrat = { tactic: "先行して粘り込み", level: 1 };
+      try {
+        if (typeof determineStrategy === 'function') {
+          mobStrat = determineStrategy(mobId, mobStyle, 1, strategyMasterData, false);
+        }
+      } catch (e) {
+        console.warn("モブ作戦決定スキップ:", e);
+      }
 
       rawGrid.push({
         ...mobMaster,
@@ -978,8 +993,8 @@ function buildRaceGridsFromOnlineData() {
         isPlayer: false,
         isCpu: false,
         isOpponent: false,
-        tactic: mobStrat.tactic,
-        level: mobStrat.level
+        tactic: mobStrat.tactic || "先行して粘り込み",
+        level: mobStrat.level || 1
       });
     });
 
@@ -1259,7 +1274,6 @@ async function startRace() {
   const rawResults = JSON.parse(JSON.stringify(raceResultData.results));
   const isHost = (role === 'host');
 
-  // playerRole から確実かつ独立して isPlayer / isOpponent を設定
   rawResults.forEach(h => {
     if (h.playerRole === 'host') {
       h.isPlayer = isHost;
@@ -1652,7 +1666,6 @@ function showFinalSeriesResult() {
   }
 }
 
-// 【修正点3】次回戦移行時、1回戦目の旧データ（エントリー・作戦・出走履歴・結果キャッシュ）を完全に初期化する
 window.finishMatchAndNextOrLobby = async function() {
   if (isNavigatingAway) return;
 
@@ -1670,10 +1683,8 @@ window.finishMatchAndNextOrLobby = async function() {
         const matchMode = urlParams.get('mode') || data.match_mode || 'online';
         const isHost = (role === 'host');
 
-        // 次の回戦（シリーズ）が存在する場合
         if (Array.isArray(matchSeries) && currentSeriesIdx + 1 < matchSeries.length) {
           if (isHost) {
-            // ホストの場合：ホスト準備完了フラグを設定し、ゲストの入力を待つ
             if (modalBtn) {
               modalBtn.disabled = true;
               modalBtn.textContent = "⏳ ゲストの操作待ち...";
@@ -1687,7 +1698,6 @@ window.finishMatchAndNextOrLobby = async function() {
             });
             return;
           } else {
-            // ゲストの場合：データを完全クリア・初期化してデッキ選択画面へ移行
             if (modalBtn) {
               modalBtn.disabled = true;
               modalBtn.textContent = "⏳ 次の回戦を準備中...";
@@ -1713,17 +1723,15 @@ window.finishMatchAndNextOrLobby = async function() {
               races_track_conditions: deleteField(),
               race_results_cache: deleteField(),
               host_next_ready: deleteField(),
-              status: "deck_selecting" // デッキ選択画面へ遷移
+              status: "deck_selecting" 
             });
 
-            // Firestoreへの反映完了を担保するため短時間ディレイ後に遷移
             setTimeout(() => {
               window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
             }, 300);
             return;
           }
         } else {
-          // 全回戦（全シリーズ）終了時
           if (modalBtn) {
             modalBtn.disabled = true;
             modalBtn.textContent = "⏳ 移動中...";
