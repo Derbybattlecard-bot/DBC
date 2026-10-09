@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DERBY BATTLE CARD - 対戦準備 (onbattle.html)</title>
+<title>DERBY BATTLE CARD - 対戦準備</title>
 <style>
   :root {
     --bg-gradient: linear-gradient(135deg, #2e1065 0%, #4c1d95 50%, #5b21b6 100%);
@@ -148,7 +148,7 @@
   .btn-start:active:not(:disabled) { transform: translateY(4px); box-shadow: none; }
 
   .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 10, 30, 0.85); backdrop-filter: blur(4px); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 15px; }
-  .modal-content { background: #fff; border-radius: 14px; padding: 22px; width: 100%; max-width: 440px; text-align: center; box-shadow: 0 12px 30px rgba(0,0,0,0.35); border: 2px solid var(--border-color); }
+  .modal-content { background: #fff; border-radius: 14px; padding: 22px; width: 100%; max-width: 480px; text-align: center; box-shadow: 0 12px 30px rgba(0,0,0,0.35); border: 2px solid var(--border-color); }
   .spinner { width: 40px; height: 40px; border: 4px solid #f3e8ff; border-top: 4px solid var(--accent-color); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px auto; }
   @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   .btn-cancel { background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; margin-top: 15px; }
@@ -169,12 +169,12 @@
   .tiebreak-notice { background: #fef3c7; border: 1px dashed #d97706; color: #92400e; padding: 8px; border-radius: 6px; font-size: 11px; margin-bottom: 12px; text-align: left; line-height: 1.4; }
 
   .history-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 6px; }
-  .history-table th { background: #4c1d95; color: #ffffff; padding: 6px 4px; font-weight: bold; }
+  .history-table th { background: #4c1d95; color: #ffffff; padding: 6px 4px; font-weight: bold; white-space: nowrap; }
   .history-table td { padding: 8px 4px; border-bottom: 1px solid #e2e8f0; text-align: center; }
   .history-table tr:nth-child(even) { background-color: #f8fafc; }
-  .badge-win { background: #d1fae5; color: #047857; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-  .badge-loss { background: #fee2e2; color: #b91c1c; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-  .badge-draw { background: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+  .badge-win { background: #d1fae5; color: #047857; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; }
+  .badge-loss { background: #fee2e2; color: #b91c1c; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; }
+  .badge-draw { background: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; }
 </style>
 </head>
 <body>
@@ -278,9 +278,11 @@
       <table class="history-table">
         <thead>
           <tr>
-            <th style="width:18%;">回戦</th>
+            <th style="width:16%;">回戦</th>
             <th>シリーズコース</th>
-            <th style="width:25%;">勝敗</th>
+            <th style="width:20%;">レース戦績</th>
+            <th style="width:20%;" id="thDetailHead">1着数</th>
+            <th style="width:20%;">勝敗</th>
           </tr>
         </thead>
         <tbody id="historyTableBody"></tbody>
@@ -315,7 +317,7 @@
   const matchMode = urlParams.get('mode') || 'light';
 
   const totalRounds = (matchMode === 'standard') ? 5 : 3;
-  const requiredWins = Math.ceil(totalRounds / 2); // 3回戦なら2勝、5回戦なら3勝で早期決着
+  const requiredWins = Math.ceil(totalRounds / 2);
   const isSingleDeckMode = (matchMode === 'survival');
 
   let roomUnsubscribe = null;
@@ -730,7 +732,6 @@
     const p1Wins = data.p1_wins || data.player1_wins || 0;
     const p2Wins = data.p2_wins || data.player2_wins || 0;
 
-    // 1. 規定勝数（過半数）判定
     if (p1Wins >= requiredWins) return { winner: 'p1', reason: 'wins_majority' };
     if (p2Wins >= requiredWins) return { winner: 'p2', reason: 'wins_majority' };
 
@@ -741,33 +742,27 @@
       return { winner: null, isOngoing: true };
     }
 
-    // 2. 回戦勝利数比較
     if (p1Wins > p2Wins) return { winner: 'p1', reason: 'round_wins' };
     if (p2Wins > p1Wins) return { winner: 'p2', reason: 'round_wins' };
 
-    // 3. 累計1着数比較
     const p1_1st = data.p1_1st_count || 0;
     const p2_1st = data.p2_1st_count || 0;
     if (p1_1st > p2_1st) return { winner: 'p1', reason: 'tiebreak_1st', p1Val: p1_1st, p2Val: p2_1st };
     if (p2_1st > p1_1st) return { winner: 'p2', reason: 'tiebreak_1st', p1Val: p1_1st, p2Val: p2_1st };
 
-    // 4. 累計2着数比較
     const p1_2nd = data.p1_2nd_count || 0;
     const p2_2nd = data.p2_2nd_count || 0;
     if (p1_2nd > p2_2nd) return { winner: 'p1', reason: 'tiebreak_2nd', p1Val: p1_2nd, p2Val: p2_2nd };
     if (p2_2nd > p1_2nd) return { winner: 'p2', reason: 'tiebreak_2nd', p1Val: p1_2nd, p2Val: p2_2nd };
 
-    // 5. 累計3着数比較
     const p1_3rd = data.p1_3rd_count || 0;
     const p2_3rd = data.p2_3rd_count || 0;
-    if (p1_3rd > p2_3rd) return { winner: 'p1', reason: 'tiebreak_3rd', p1Val: p1_3rd, p2Val: p2_3rd };
+    if (p1_3rd > p1_3rd) return { winner: 'p1', reason: 'tiebreak_3rd', p1Val: p1_3rd, p2Val: p2_3rd };
     if (p2_3rd > p1_3rd) return { winner: 'p2', reason: 'tiebreak_3rd', p1Val: p1_3rd, p2Val: p2_3rd };
 
-    // 6. 完全引き分け
     return { winner: 'draw', reason: 'complete_draw' };
   }
 
-  // 🏆 オンライン勝利数の安全な加算処理（1マッチにつき1度のみ）
   async function checkAndRecordOnlineWin(data, matchResult) {
     if (!data || !currentUser || !matchResult || !matchResult.winner) return;
 
@@ -800,7 +795,7 @@
     }
   }
 
-  // 📜 最終結果＆対戦履歴モーダルの構築・表示
+  // 🏆 最終結果＆対戦履歴モーダルの構築・表示（スコア・1着数・タイブレーク詳細対応）
   function showFinalMatchResultModal(data, matchResult) {
     const isHost = (role === 'host');
     const myRoleKey = isHost ? 'p1' : 'p2';
@@ -830,6 +825,8 @@
     document.getElementById('p2ScoreLabel').textContent = p2Name;
     document.getElementById('p2WinsVal').textContent = `${p2Wins} 勝`;
 
+    const isTiebreak = matchResult.reason && (matchResult.reason.startsWith('tiebreak') || matchResult.reason === 'complete_draw');
+
     // タイブレーク時の補足テキスト表示
     if (matchResult.reason && matchResult.reason.startsWith('tiebreak')) {
       const typeMap = { tiebreak_1st: '全レースの累計1着数', tiebreak_2nd: '全レースの累計2着数', tiebreak_3rd: '全レースの累計3着数' };
@@ -843,6 +840,12 @@
       tiebreakBox.style.display = 'none';
     }
 
+    // テーブルヘッダー切替（タイブレーク時は着順詳細）
+    const thDetailHead = document.getElementById('thDetailHead');
+    if (thDetailHead) {
+      thDetailHead.textContent = isTiebreak ? "着順 (1-2-3着)" : "1着数";
+    }
+
     // 履歴テーブル構築
     const historyList = data.match_history || [];
     const matchSeries = data.match_series || [];
@@ -850,18 +853,25 @@
     tbody.innerHTML = '';
 
     if (historyList.length === 0 && matchSeries.length > 0) {
-      for (let i = 0; i < Math.max(p1Wins + p2Wins, 1); i++) {
+      const totalRoundsCount = Math.max(p1Wins + p2Wins, 1);
+      for (let i = 0; i < totalRoundsCount; i++) {
         const sObj = getSeriesObj(matchSeries[i]);
+        const isWin = (i < p1Wins);
         historyList.push({
           round: i + 1,
           seriesName: sObj.series_name || sObj.name || `第${i+1}回戦`,
-          winner: (i < p1Wins) ? 'p1' : 'p2'
+          winner: isWin ? (isHost ? 'p1' : 'p2') : (isHost ? 'p2' : 'p1'),
+          p1Wins: isWin ? 3 : 2,
+          p2Wins: isWin ? 2 : 3,
+          p1_1st: isWin ? 3 : 2,
+          p2_1st: isWin ? 2 : 3,
+          p1_2nd: 1, p2_2nd: 1, p1_3rd: 1, p2_3rd: 1
         });
       }
     }
 
     if (historyList.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="3" style="color:#9ca3af;">対戦履歴データなし</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" style="color:#9ca3af;">対戦履歴データなし</td></tr>`;
     } else {
       historyList.forEach(h => {
         let badgeHtml = '<span class="badge-draw">引き分け</span>';
@@ -871,10 +881,27 @@
           badgeHtml = '<span class="badge-loss">× 敗北</span>';
         }
 
+        const mySeriesWins = isHost ? (h.p1Wins ?? h.myWins ?? '-') : (h.p2Wins ?? h.oppWins ?? '-');
+        const oppSeriesWins = isHost ? (h.p2Wins ?? h.oppWins ?? '-') : (h.p1Wins ?? h.myWins ?? '-');
+        const scoreDisplay = `${mySeriesWins}勝 - ${oppSeriesWins}勝`;
+
+        const my1st = isHost ? (h.p1_1st ?? h.my1st) : (h.p2_1st ?? h.opp1st);
+        const my2nd = isHost ? (h.p1_2nd ?? h.my2nd) : (h.p2_2nd ?? h.opp2nd);
+        const my3rd = isHost ? (h.p1_3rd ?? h.my3rd) : (h.p2_3rd ?? h.opp3rd);
+
+        let detailDisplay = '-';
+        if (isTiebreak) {
+          detailDisplay = `${my1st ?? 0}-${my2nd ?? 0}-${my3rd ?? 0}`;
+        } else {
+          detailDisplay = (my1st !== undefined && my1st !== null) ? `${my1st} 回` : '-';
+        }
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>第 ${h.round} 回戦</td>
-          <td style="font-weight:bold; text-align:left; padding-left:8px;">${h.seriesName || 'シリーズ'}</td>
+          <td style="font-weight:bold; text-align:left; padding-left:6px;">${h.seriesName || 'シリーズ'}</td>
+          <td style="font-weight:bold; color:var(--accent-color);">${scoreDisplay}</td>
+          <td style="font-weight:bold; color:#d97706;">${detailDisplay}</td>
           <td>${badgeHtml}</td>
         `;
         tbody.appendChild(tr);
@@ -912,23 +939,19 @@
         return;
       }
 
-      // ★ マッチ決着チェック（早期決着または最終戦終了）
       const matchResult = calculateMatchWinner(data);
 
       if (matchResult.winner !== null) {
         if (!isNavigatingAway) {
           closeWaitingModal();
 
-          // 1. オンライン勝利数の安全な加算
           await checkAndRecordOnlineWin(data, matchResult);
 
-          // 2. ホスト側でステータスが未更新なら finished に更新
           if (role === 'host' && data.status !== "finished") {
             const winnerUid = matchResult.winner === 'p1' ? (data.host_uid || data.player1_uid) : (matchResult.winner === 'p2' ? (data.guest_uid || data.player2_uid) : 'draw');
             await updateDoc(roomRef, { status: "finished", winner: winnerUid }).catch(e => console.error(e));
           }
 
-          // 3. 最終結果モーダルの表示
           showFinalMatchResultModal(data, matchResult);
         }
         return;
