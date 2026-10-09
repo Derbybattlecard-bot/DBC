@@ -523,7 +523,7 @@ onAuthStateChanged(auth, async (user) => {
     }
     roomData = roomSnap.data();
 
-    // マスターデータの読み込み（失敗した場合は呼び出し元でキャッチ）
+    // マスターデータの読み込み
     await loadMasterData();
 
     const isHost = (role === 'host');
@@ -748,9 +748,9 @@ async function checkAndUpdateReadyState() {
       }
     }
   }
-  }
+}
 
-  async function handleRoomDataUpdate(data) {
+async function handleRoomDataUpdate(data) {
   if (isNavigatingAway || !data) return;
 
   if (data.status === "cancelled") {
@@ -858,7 +858,6 @@ function listenRoomStatus() {
   }, 10000);
 }
 
-// 【修正箇所】JSONファイル読み込みパスにルート相対パス（/data/）を追加
 async function fetchJsonWithFallback(filename) {
   const paths = [
     `./data/${filename}`,
@@ -906,7 +905,6 @@ async function loadMasterData() {
     }
   } catch (error) {
     console.error("マスターデータの読み込み失敗:", error);
-    // 【修正箇所】エラーを投げて呼び出し元のcatchに伝播させる
     throw error;
   }
 }
@@ -1538,6 +1536,7 @@ function renderResults(scoredList) {
   document.getElementById('result-container').style.display = "block";
 }
 
+// 【修正箇所1】不要な集計ループを除去し、正しく勝敗履歴のみを登録
 function recordHistory(scoredList) {
   const myHorse = scoredList.find(h => h.isPlayer);
   const oppHorse = scoredList.find(h => h.isOpponent);
@@ -1554,6 +1553,20 @@ function recordHistory(scoredList) {
     isWin = false;
     winnerText = oppNameStr;
   }
+
+  seriesHistory.push({
+    raceNum: currentRaceIndex + 1,
+    raceName: currentRaceInfo.race_name,
+    myRank: myRank,
+    oppRank: oppRank,
+    win: isWin,
+    winner: winnerText
+  });
+}
+
+function showFinalSeriesResult() {
+  let myWins = 0;
+  let oppWins = 0;
 
   seriesHistory.forEach(h => {
     if (h.myRank < h.oppRank) myWins++;
