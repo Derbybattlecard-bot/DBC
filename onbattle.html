@@ -280,9 +280,9 @@
           <tr>
             <th style="width:16%;">回戦</th>
             <th>シリーズコース</th>
-            <th style="width:20%;">レース戦績</th>
-            <th style="width:20%;" id="thDetailHead">1着数</th>
-            <th style="width:20%;">勝敗</th>
+            <th style="width:20%;">勝敗成績</th>
+            <th style="width:22%;">着順 (1-2-3着)</th>
+            <th style="width:18%;">勝敗</th>
           </tr>
         </thead>
         <tbody id="historyTableBody"></tbody>
@@ -727,7 +727,7 @@
     }
   }
 
-  // ⚖️ マッチ勝敗判定・タイブレーク計算関数
+  // ⚖️ 勝利数およびタイブレーク判定関数
   function calculateMatchWinner(data) {
     const p1Wins = data.p1_wins || data.player1_wins || 0;
     const p2Wins = data.p2_wins || data.player2_wins || 0;
@@ -745,8 +745,16 @@
     if (p1Wins > p2Wins) return { winner: 'p1', reason: 'round_wins' };
     if (p2Wins > p1Wins) return { winner: 'p2', reason: 'round_wins' };
 
-    const p1_1st = data.p1_1st_count || 0;
-    const p2_1st = data.p2_1st_count || 0;
+    let p1_1st = data.p1_1st_count || data.p1_first_places || 0;
+    let p2_1st = data.p2_1st_count || data.p2_first_places || 0;
+
+    if (!p1_1st && !p2_1st && Array.isArray(data.match_history)) {
+      data.match_history.forEach(h => {
+        p1_1st += (h.p1_1st || h.p1_1st_count || 0);
+        p2_1st += (h.p2_1st || h.p2_1st_count || 0);
+      });
+    }
+
     if (p1_1st > p2_1st) return { winner: 'p1', reason: 'tiebreak_1st', p1Val: p1_1st, p2Val: p2_1st };
     if (p2_1st > p1_1st) return { winner: 'p2', reason: 'tiebreak_1st', p1Val: p1_1st, p2Val: p2_1st };
 
@@ -757,7 +765,7 @@
 
     const p1_3rd = data.p1_3rd_count || 0;
     const p2_3rd = data.p2_3rd_count || 0;
-    if (p1_3rd > p1_3rd) return { winner: 'p1', reason: 'tiebreak_3rd', p1Val: p1_3rd, p2Val: p2_3rd };
+    if (p1_3rd > p2_3rd) return { winner: 'p1', reason: 'tiebreak_3rd', p1Val: p1_3rd, p2Val: p2_3rd };
     if (p2_3rd > p1_3rd) return { winner: 'p2', reason: 'tiebreak_3rd', p1Val: p1_3rd, p2Val: p2_3rd };
 
     return { winner: 'draw', reason: 'complete_draw' };
@@ -786,8 +794,6 @@
           const newWins = (globalUserData.online_wins || 0) + 1;
           globalUserData.online_wins = newWins;
           document.getElementById('userWinsBadge').textContent = `オンライン ${newWins} 勝`;
-
-          console.log("🏆 オンライン勝利数を加算しました！");
         } catch (err) {
           console.error("勝利数加算エラー:", err);
         }
@@ -795,7 +801,7 @@
     }
   }
 
-  // 🏆 最終結果＆対戦履歴モーダルの構築・表示（スコア・1着数・タイブレーク詳細対応）
+  // 🏆 最終結果モーダル表示（常に 1-2-3着 の着順詳細を一覧表示）
   function showFinalMatchResultModal(data, matchResult) {
     const isHost = (role === 'host');
     const myRoleKey = isHost ? 'p1' : 'p2';
@@ -827,26 +833,18 @@
 
     const isTiebreak = matchResult.reason && (matchResult.reason.startsWith('tiebreak') || matchResult.reason === 'complete_draw');
 
-    // タイブレーク時の補足テキスト表示
     if (matchResult.reason && matchResult.reason.startsWith('tiebreak')) {
-      const typeMap = { tiebreak_1st: '全レースの累計1着数', tiebreak_2nd: '全レースの累計2着数', tiebreak_3rd: '全レースの累計3着数' };
+      const typeMap = { tiebreak_1st: '全レースの累計1着獲得数', tiebreak_2nd: '全レースの累計2着獲得数', tiebreak_3rd: '全レースの累計3着獲得数' };
       const label = typeMap[matchResult.reason] || '着順差';
       tiebreakBox.style.display = 'block';
       tiebreakBox.innerHTML = `<strong>⚖️ タイブレーク判定適用:</strong><br>勝利数が同数のため、${label}（${p1Name}: ${matchResult.p1Val}回 / ${p2Name}: ${matchResult.p2Val}回）により勝敗を判定しました。`;
     } else if (matchResult.reason === 'complete_draw') {
       tiebreakBox.style.display = 'block';
-      tiebreakBox.innerHTML = `<strong>⚖️ 完全引き分け:</strong><br>回戦勝利数および1着〜3着獲得数がすべて同一のため引き分けとなりました。`;
+      tiebreakBox.innerHTML = `<strong>⚖️ 完全引き分け:</strong><br>回戦勝利数および着順獲得数がすべて同一のため引き分けとなりました。`;
     } else {
       tiebreakBox.style.display = 'none';
     }
 
-    // テーブルヘッダー切替（タイブレーク時は着順詳細）
-    const thDetailHead = document.getElementById('thDetailHead');
-    if (thDetailHead) {
-      thDetailHead.textContent = isTiebreak ? "着順 (1-2-3着)" : "1着数";
-    }
-
-    // 履歴テーブル構築
     const historyList = data.match_history || [];
     const matchSeries = data.match_series || [];
     const tbody = document.getElementById('historyTableBody');
@@ -863,8 +861,8 @@
           winner: isWin ? (isHost ? 'p1' : 'p2') : (isHost ? 'p2' : 'p1'),
           p1Wins: isWin ? 3 : 2,
           p2Wins: isWin ? 2 : 3,
-          p1_1st: isWin ? 3 : 2,
-          p2_1st: isWin ? 2 : 3,
+          p1_1st: isWin ? 2 : 1,
+          p2_1st: isWin ? 1 : 2,
           p1_2nd: 1, p2_2nd: 1, p1_3rd: 1, p2_3rd: 1
         });
       }
@@ -885,23 +883,18 @@
         const oppSeriesWins = isHost ? (h.p2Wins ?? h.oppWins ?? '-') : (h.p1Wins ?? h.myWins ?? '-');
         const scoreDisplay = `${mySeriesWins}勝 - ${oppSeriesWins}勝`;
 
-        const my1st = isHost ? (h.p1_1st ?? h.my1st) : (h.p2_1st ?? h.opp1st);
-        const my2nd = isHost ? (h.p1_2nd ?? h.my2nd) : (h.p2_2nd ?? h.opp2nd);
-        const my3rd = isHost ? (h.p1_3rd ?? h.my3rd) : (h.p2_3rd ?? h.opp3rd);
+        const my1st = isHost ? (h.p1_1st ?? h.my1st ?? h.p1_first_places ?? 0) : (h.p2_1st ?? h.opp1st ?? h.p2_first_places ?? 0);
+        const my2nd = isHost ? (h.p1_2nd ?? h.my2nd ?? 0) : (h.p2_2nd ?? h.opp2nd ?? 0);
+        const my3rd = isHost ? (h.p1_3rd ?? h.my3rd ?? 0) : (h.p2_3rd ?? h.opp3rd ?? 0);
 
-        let detailDisplay = '-';
-        if (isTiebreak) {
-          detailDisplay = `${my1st ?? 0}-${my2nd ?? 0}-${my3rd ?? 0}`;
-        } else {
-          detailDisplay = (my1st !== undefined && my1st !== null) ? `${my1st} 回` : '-';
-        }
+        const detailDisplay = `${my1st}-${my2nd}-${my3rd}`;
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>第 ${h.round} 回戦</td>
           <td style="font-weight:bold; text-align:left; padding-left:6px;">${h.seriesName || 'シリーズ'}</td>
           <td style="font-weight:bold; color:var(--accent-color);">${scoreDisplay}</td>
-          <td style="font-weight:bold; color:#d97706;">${detailDisplay}</td>
+          <td style="font-weight:bold; color:#d97706; font-family:monospace;">${detailDisplay}</td>
           <td>${badgeHtml}</td>
         `;
         tbody.appendChild(tr);
