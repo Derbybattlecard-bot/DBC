@@ -233,7 +233,7 @@
       <span style="font-size: 10px; color: var(--text-sub); display: block;">対戦相手</span>
       <strong id="opponentName" style="font-size: 13px;">対戦相手を取得中...</strong>
     </div>
-    <div id="opponentStatusBadge" class="opponent-badge selecting">作戦思案中…</div>
+    <div id="opponentStatusBadge" class="opponent-badge selecting">相手チーム編成中… ⏳</div>
   </div>
 
   <div class="status-bar">
@@ -253,7 +253,7 @@
 
   <div id="raceCardList" style="display:flex; flex-direction:column; gap:12px;"></div>
 
-  <button class="btn-submit" id="btnGoRace" disabled onclick="submitStrategies()">作戦確定・対戦開始！</button>
+  <button class="btn-submit" id="btnGoRace" disabled onclick="submitStrategies()">⏳ 相手のチーム編成待ち…</button>
 </div>
 
 <script type="module">
@@ -270,6 +270,7 @@
   let matchRaces = [];
   let playerEntries = [];
   let opponentEntries = [];
+  let isOpponentMatchupReady = false; // 相手のチーム編成（エントリー）完了フラグ
   let racesMobIds = {};
   let loadedTrackConditions = [];
   
@@ -289,6 +290,14 @@
   const role = urlParams.get('role');
 
   const MAX_TOTAL_LEVEL = 18;
+
+  function normalizeHorseId(id) {
+    if (id === null || id === undefined) return "";
+    const str = String(id).trim();
+    if (!str) return "";
+    const num = parseInt(str, 10);
+    return !isNaN(num) ? String(num).padStart(4, '0') : str;
+  }
 
   async function fetchJsonSafe(filename) {
     const candidatePaths = [`./data/${filename}`, `data/${filename}`, `/data/${filename}`];
@@ -322,9 +331,10 @@
 
       if (Array.isArray(horsesData)) {
         horsesData.forEach(h => { 
-          const idStr = String(h.horse_id);
-          HORSES_MASTER[idStr] = h;
-          HORSES_MASTER[idStr.padStart(4, '0')] = h;
+          const idStr = normalizeHorseId(h.horse_id);
+          if (idStr) {
+            HORSES_MASTER[idStr] = h;
+          }
         });
       }
 
@@ -422,9 +432,11 @@
     if (role === 'host') {
       playerEntries = roomData.player1_entries || [];
       opponentEntries = roomData.player2_entries || [];
+      isOpponentMatchupReady = !!roomData.player2_matchup_ready;
     } else {
       playerEntries = roomData.player2_entries || [];
       opponentEntries = roomData.player1_entries || [];
+      isOpponentMatchupReady = !!roomData.player1_matchup_ready;
     }
 
     racesMobIds = roomData.races_mob_ids || {};
@@ -471,7 +483,7 @@
 
     playerEntries.forEach((hId, rIdx) => {
       if (rIdx < 5) {
-        const horse = HORSES_MASTER[String(hId)];
+        const horse = HORSES_MASTER[normalizeHorseId(hId)];
         const style = getHorseStyle(horse);
         myStrategies[rIdx].strategy = getDefaultStrategyForStyle(style);
         myStrategies[rIdx].strategy_level = 3;
@@ -498,20 +510,38 @@
         return;
       }
 
+      const isHost = (role === 'host');
+
+      // 相手のチーム編成（エントリー）状態のチェック
+      const prevMatchupReady = isOpponentMatchupReady;
+      isOpponentMatchupReady = isHost ? !!data.player2_matchup_ready : !!data.player1_matchup_ready;
+      opponentEntries = isHost ? (data.player2_entries || []) : (data.player1_entries || []);
+
+      // 相手のエントリー状態が変化、または完了した場合はカード表示を再描画
+      if (prevMatchupReady !== isOpponentMatchupReady) {
+        renderRaceCards();
+      }
+
+      // 相手の作戦決定状態のチェック
       const p1Ready = !!(data.player1_strategy_ready || data.player1_ready);
       const p2Ready = !!(data.player2_strategy_ready || data.player2_ready);
-      const opponentReady = (role === 'host') ? p2Ready : p1Ready;
+      const opponentStrategyReady = isHost ? p2Ready : p1Ready;
 
       const badge = document.getElementById('opponentStatusBadge');
       if (badge) {
-        if (opponentReady) {
-          badge.textContent = "作戦決定完了！";
+        if (!isOpponentMatchupReady) {
+          badge.textContent = "相手チーム編成中… ⏳";
+          badge.className = "opponent-badge selecting";
+        } else if (opponentStrategyReady) {
+          badge.textContent = "作戦決定完了！ ✅";
           badge.className = "opponent-badge ready";
         } else {
-          badge.textContent = "作戦思案中…";
+          badge.textContent = "作戦思案中… ⏳";
           badge.className = "opponent-badge selecting";
         }
       }
+
+      updateTotalStatus();
     });
   }
 
@@ -520,22 +550,23 @@
     container.innerHTML = '';
 
     matchRaces.forEach((race, rIdx) => {
-      const myHorseId = playerEntries[rIdx];
-      const myHorse = HORSES_MASTER[String(myHorseId)] || {};
+      const myHorseId = normalizeHorseId(playerEntries[rIdx]);
+      const myHorse = HORSES_MASTER[myHorseId] || {};
       const myPt = getHorsePt(myHorse, race.surface);
       const myStyle = getHorseStyle(myHorse);
 
-      const oppHorseId = opponentEntries[rIdx];
-      const oppHorse = HORSES_MASTER[String(oppHorseId)] || {};
-      const oppPt = getHorsePt(oppHorse, race.surface);
-      const oppStyle = getHorseStyle(oppHorse);
+      const oppHorseId = normalizeHorseId(opponentEntries[rIdx]);
+      const oppHorse = isOpponentMatchupReady ? (HORSES_MASTER[oppHorseId] || {}) : null;
+      const oppPt = oppHorse ? getHorsePt(oppHorse, race.surface) : '-';
+      const oppStyle = oppHorse ? getHorseStyle(oppHorse) : '-';
+      const oppNameStr = oppHorse ? (oppHorse.name || '相手馬') : '選定中… ⏳';
 
       const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
       const trackCond = loadedTrackConditions[rIdx] || '良';
 
       const styleCounts = { "逃げ": 0, "先行": 0, "差し": 0, "追込": 0 };
       mobIds.forEach(mId => {
-        const mob = HORSES_MASTER[String(mId)];
+        const mob = HORSES_MASTER[normalizeHorseId(mId)];
         if (!mob) return;
         const style = getHorseStyle(mob);
         if (style.includes('大逃') || style.includes('逃')) styleCounts["逃げ"]++;
@@ -586,15 +617,15 @@
         </tr>
         <tr class="row-opponent">
           <td>-</td>
-          <td style="text-align:left;">${oppHorse.name || '相手馬'} (対戦相手)</td>
-          <td>${oppHorse.sex || '牡'}</td>
+          <td style="text-align:left;">${oppNameStr} (対戦相手)</td>
+          <td>${oppHorse ? (oppHorse.sex || '牡') : '-'}</td>
           <td>${oppPt}</td>
           <td>${oppStyle}</td>
         </tr>
       `;
 
       mobIds.forEach((mId) => {
-        const mHorse = HORSES_MASTER[String(mId)] || {};
+        const mHorse = HORSES_MASTER[normalizeHorseId(mId)] || {};
         gridRowsHtml += `
           <tr>
             <td>-</td>
@@ -605,6 +636,10 @@
           </tr>
         `;
       });
+
+      const oppTitleDisplay = isOpponentMatchupReady 
+        ? `対戦馬: ${oppNameStr} (Pt:${oppPt} / 得意:${oppStyle})` 
+        : `対戦馬: 選定中… ⏳`;
 
       card.innerHTML = `
         <div class="race-info-header">
@@ -627,6 +662,7 @@
         
         <div class="my-horse-box">
           <div class="my-horse-title">出走馬: ${myHorse.name || '未設定'} (Pt:${myPt} / 得意:${myStyle})</div>
+          <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">${oppTitleDisplay}</div>
           <div class="strategy-select-group">
             <select class="select-strat" id="selectStrat${rIdx}" onchange="onStrategyChanged(${rIdx})">
               ${stratOptionsHtml}
@@ -662,11 +698,12 @@
   }
 
   window.onStrategyChanged = function(rIdx) {
-    const stratVal = document.getElementById(`selectStrat${rIdx}`).value;
-    const levelVal = parseInt(document.getElementById(`selectLevel${rIdx}`).value, 10);
+    const selectStratEl = document.getElementById(`selectStrat${rIdx}`);
+    const selectLevelEl = document.getElementById(`selectLevel${rIdx}`);
+    if (!selectStratEl || !selectLevelEl) return;
 
-    myStrategies[rIdx].strategy = stratVal;
-    myStrategies[rIdx].strategy_level = levelVal;
+    myStrategies[rIdx].strategy = selectStratEl.value;
+    myStrategies[rIdx].strategy_level = parseInt(selectLevelEl.value, 10) || 3;
 
     updateTotalStatus();
   };
@@ -677,6 +714,8 @@
       const selectLvl = document.getElementById(`selectLevel${rIdx}`);
       if (selectLvl) {
         totalLvl += parseInt(selectLvl.value, 10) || 3;
+      } else {
+        totalLvl += myStrategies[rIdx]?.strategy_level || 3;
       }
     }
 
@@ -691,15 +730,28 @@
       limitEl.textContent = '合計オーバー';
       limitEl.className = 'status-val error';
       goBtn.disabled = true;
+      goBtn.textContent = '⚠️ 作戦レベルの合計が上限（18）を超えています';
+    } else if (!isOpponentMatchupReady) {
+      lvlEl.className = 'status-val ok';
+      limitEl.textContent = 'OK';
+      limitEl.className = 'status-val ok';
+      goBtn.disabled = true;
+      goBtn.textContent = '⏳ 相手のチーム編成待ち…';
     } else {
       lvlEl.className = 'status-val ok';
       limitEl.textContent = 'OK';
       limitEl.className = 'status-val ok';
       goBtn.disabled = false;
+      goBtn.textContent = '作戦確定・対戦開始！';
     }
   }
 
   window.submitStrategies = async function() {
+    if (!isOpponentMatchupReady) {
+      alert("相手のチーム編成が完了するまでお待ちください。");
+      return;
+    }
+
     const btn = document.getElementById('btnGoRace');
     btn.disabled = true;
 
@@ -715,7 +767,6 @@
     };
 
     try {
-      // 自身の作戦設定状態を更新後、即座にレース結果画面へ遷移
       await updateDoc(roomRef, updateData);
       isNavigatingAway = true;
       if (roomUnsubscribe) roomUnsubscribe();
