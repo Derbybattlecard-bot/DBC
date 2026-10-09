@@ -462,7 +462,7 @@
     }
     document.getElementById('opponentName').textContent = oppName;
 
-    // ★重要修正: 現在の回戦(currentRoundIndex)に対応するシリーズのみを取得してレース一覧を生成
+    // 現在の回戦(currentRoundIndex)に対応するシリーズのみを取得してレース一覧を生成
     let rawRaces = [];
     const matchSeries = roomData.match_series || roomData.selected_series || roomData.series_id || ["SERIES_001"];
     const seriesIdList = Array.isArray(matchSeries) ? matchSeries : [matchSeries];
@@ -721,15 +721,18 @@
     }
   }
 
+  // 仕様6.2・6.3: 重複馬における優先出走権判定およびロック解除判定関数
   function checkDuplicateHorsePriority(horseId) {
     const targetIdStr = normalizeHorseId(horseId);
     const isHost = (role === 'host');
     const myRoleKey = isHost ? 'host' : 'guest';
 
+    // 仕様6.3: 優先権を持つ側（相手）が対象馬を出走・使用済み化した場合はロック解除して使用可能とする
     if (oppUsedHorseIdsInPast.includes(targetIdStr)) {
       return { canUse: true };
     }
 
+    // 仕様6.1: マッチ開始時に構築された initial_card_priorities を参照して判定
     if (initialCardPriorities && initialCardPriorities[targetIdStr]) {
       const priorityOwner = initialCardPriorities[targetIdStr];
       const isMyPriority = (priorityOwner === myRoleKey) || 
@@ -742,6 +745,7 @@
       }
     }
 
+    // フォールバック判定（18頭選出デック内での相対インデックス比較）
     const myIdx = playerDeckIds.findIndex(id => normalizeHorseId(id) === targetIdStr);
     const oppIdx = oppDeckIds.findIndex(id => normalizeHorseId(id) === targetIdStr);
 
@@ -937,7 +941,7 @@
     }
   }
 
-  // ★重要修正: エントリー完了時に今回選択した馬IDを Firestore の player1_used_horses / player2_used_horses に追記保存
+  // エントリー完了時に今回選択した馬IDを Firestore の player1_used_horses / player2_used_horses に追記保存
   window.submitEntries = async function() {
     if (selectedEntries.includes(null)) {
       alert("全5戦の出走馬を選択してください。");
@@ -1017,7 +1021,7 @@
     window.location.href = `onbattle.html?roomId=${roomId}&role=${role}${modeQuery}`;
   };
 
-  // ★重要修正: ギブアップ処理（該当回戦のみ相手に1勝を与えて次の回戦へ移動する）
+  // ギブアップ処理（該当回戦のみ相手に1勝を与えて次の回戦へ移動する）
   window.giveUpRound = async function() {
     if (!confirm("この回戦をギブアップしますか？\n（対戦相手にこの回戦の不戦勝が与えられます）")) {
       return;
