@@ -327,6 +327,7 @@
   const matchMode = urlParams.get('mode') || 'light';
 
   const totalRounds = (matchMode === 'standard') ? 5 : 3;
+  const requiredWins = Math.ceil(totalRounds / 2); // 3回戦なら2勝、5回戦なら3勝で早期決着
   const isSingleDeckMode = (matchMode === 'survival');
 
   let roomUnsubscribe = null;
@@ -346,7 +347,7 @@
     return str;
   }
 
-  // 仕様6.2: 全36頭（リスト位置比較 ＆ タイブレーク）をベースとした優先権事前構築関数
+  // 優先権事前構築関数
   function buildInitialCardPriorities(p1All36Horses, p2All36Horses) {
     const priorities = {};
     const p1List = (p1All36Horses || []).map(id => normalizeHorseId(id)).filter(Boolean);
@@ -358,14 +359,13 @@
       const p1Idx = p1List.indexOf(horseId);
       const p2Idx = p2List.indexOf(horseId);
 
-      // 両者が保持している場合（重複馬）
       if (p1Idx !== -1 && p2Idx !== -1) {
         if (p1Idx < p2Idx) {
-          priorities[horseId] = 'host'; // P1(Host)のインデックスが若い
+          priorities[horseId] = 'host';
         } else if (p2Idx < p1Idx) {
-          priorities[horseId] = 'guest'; // P2(Guest)のインデックスが若い
+          priorities[horseId] = 'guest';
         } else {
-          priorities[horseId] = 'host'; // 完全同位置の場合はホスト（Host）優先
+          priorities[horseId] = 'host';
         }
       }
     });
@@ -373,15 +373,12 @@
     return priorities;
   }
 
-  // ルームデータから対象プレイヤーの過去使用済み馬IDリストを確実に取得する関数
   function getUsedHorseIdsForRole(roomData, isHost) {
     if (!roomData) return [];
     const roleKey = isHost ? 'player1' : 'player2';
     const altRoleKey = isHost ? 'p1' : 'p2';
 
     const usedSet = new Set();
-
-    // 1. used_horses 配列からの取得
     const directList = roomData[`${roleKey}_used_horses`] || roomData[`${altRoleKey}_used_horses`] || [];
     if (Array.isArray(directList)) {
       directList.forEach(id => {
@@ -390,7 +387,6 @@
       });
     }
 
-    // 2. 万が一 used_horses が無くても直前・過去のエントリーから救済取得
     const entriesList = roomData[`${roleKey}_entries`] || roomData[`${altRoleKey}_entries`] || [];
     if (Array.isArray(entriesList)) {
       entriesList.forEach(id => {
@@ -682,7 +678,6 @@
     renderDeckTable();
   };
 
-  // デックテーブル描画処理（優先出走権マップと過去の使用済み馬IDを組み合わせて判定）
   function renderDeckTable() {
     const tbody = document.getElementById('deckHorseList');
     if (!tbody) return;
@@ -770,10 +765,32 @@
         return;
       }
 
+      // ★追加: マッチ決着時（または2勝早期達成時）は自動的にロビー/結果へ移動
+      const p1Wins = data.p1_wins || data.player1_wins || 0;
+      const p2Wins = data.p2_wins || data.player2_wins || 0;
+
+      if (data.status === "finished" || p1Wins >= requiredWins || p2Wins >= requiredWins) {
+        if (!isNavigatingAway) {
+          isNavigatingAway = true;
+          closeWaitingModal();
+          if (roomUnsubscribe) roomUnsubscribe();
+          
+          // ホスト側で未更新ならステータスをfinishedに更新
+          if (role === 'host' && data.status !== "finished") {
+            const winnerUid = p1Wins > p2Wins ? (data.host_uid || data.player1_uid) : (data.guest_uid || data.player2_uid);
+            await updateDoc(roomRef, { status: "finished", winner: winnerUid }).catch(e => console.error(e));
+          }
+          
+          alert("対戦の勝敗が決着しました！ロビー画面へ移動します。");
+          window.location.href = 'online.html';
+        }
+        return;
+      }
+
       const isHost = (role === 'host');
       const currentSeriesIdx = data.current_series_index || 0;
 
-      // ★仕様6.1の実装: ホスト側が全36頭リストの揃ったタイミングで initial_card_priorities を事前構築してFirestoreへ保存
+      // ホスト側が全36頭リストの揃ったタイミングで initial_card_priorities を事前構築してFirestoreへ保存
       if (isHost && !data.initial_card_priorities && data.player1_all_horses && data.player2_all_horses) {
         const priorities = buildInitialCardPriorities(data.player1_all_horses, data.player2_all_horses);
         await updateDoc(roomRef, { initial_card_priorities: priorities }).catch(e => console.error("優先権保存エラー:", e));
@@ -1291,7 +1308,6 @@
 
     document.getElementById('waitingModal').style.display = 'flex';
 
-    // 仕様6.1: 自分の保持カード全36頭（デッキ1の18頭 + デッキ2の18頭）を取得
     const userDecks = globalUserData.decks || [];
     const d0 = (userDecks[0]?.horse_ids || []).map(id => normalizeHorseId(id)).filter(Boolean);
     const d1 = (userDecks[1]?.horse_ids || []).map(id => normalizeHorseId(id)).filter(Boolean);
