@@ -667,14 +667,12 @@ async function calculateAndUploadAllRaces() {
   }
 }
 
-// 作戦決定＆準備状態の堅牢な更新判定関数（不具合修正箇所）
 async function checkAndUpdateReadyState() {
   if (!roomData) return;
 
   const data = roomData;
   const isHost = (role === 'host');
 
-  // 両プレイヤーの作戦選択・準備完了フラグ判定の揺れを統合チェック
   const p1Ready = !!(data.player1_strategy_ready || data.player1_ready || data.p1_status === "ready" || data.player1_strategies?.length >= 5);
   const p2Ready = !!(data.player2_strategy_ready || data.player2_ready || data.p2_status === "ready" || data.player2_strategies?.length >= 5);
 
@@ -732,7 +730,6 @@ async function checkAndUpdateReadyState() {
       return;
     }
 
-    // ホストの計算完了（race_results_cache作成済み）を検知した場合、ゲスト・ホスト問わずスタートボタンを即時アクティブ化
     if (data.race_results_cache && data.race_results_cache.length === 5) {
       if (startBtn && raceState === 'ready') {
         startBtn.disabled = false;
@@ -761,7 +758,6 @@ async function handleRoomDataUpdate(data) {
     return;
   }
 
-  // ★ 次の回戦（シリーズ）への移行検知：常に onbattle.html へ移動する仕様へ集約
   if (data.status === "deck_selecting" || data.status === "deck_selected" || data.status === "finished") {
     isNavigatingAway = true;
     stopRoomListening();
@@ -781,7 +777,6 @@ async function handleRoomDataUpdate(data) {
   const modalBtn = document.getElementById('modalNextBtn');
   const statusMsgEl = document.getElementById('modalHostStatusMsg');
 
-  // ★ 修正箇所：途中戦・最終戦にかかわらず host_next_ready を常に監視しゲスト側のボタンを確実にアクティブ化
   if (!isHost) {
     if (data.host_next_ready) {
       if (modalBtn && modalBtn.textContent !== "⏳ 移動中...") {
@@ -1613,7 +1608,7 @@ function showFinalSeriesResult() {
 
   document.getElementById('final-series-modal').style.display = "block";
 
-  // 回戦結果の同期保存
+  // 回戦結果の同期保存 & match_history データ格納
   if (roomId) {
     try {
       const roomRef = doc(db, "online_matches", roomId);
@@ -1646,6 +1641,50 @@ function showFinalSeriesResult() {
         updateObj.p2_2nd_count = increment(seconds);
         updateObj.p2_3rd_count = increment(thirds);
       }
+
+      // ★ match_history のデータを正確に算出して格納
+      const matchSeries = roomData?.match_series || roomData?.selected_series || [];
+      const currentSeriesIndex = roomData?.current_series_index || 0;
+      const seriesId = matchSeries[currentSeriesIndex] || matchSeries[0] || "SERIES_001";
+      const seriesObj = seriesMasterData[seriesId] || {};
+      const seriesName = seriesObj.series_name || seriesObj.name || `第${currentSeriesIndex + 1}回戦`;
+
+      let p1Wins = (role === 'host') ? myWins : oppWins;
+      let p2Wins = (role === 'host') ? oppWins : myWins;
+
+      let p1_1st = 0, p1_2nd = 0, p1_3rd = 0;
+      let p2_1st = 0, p2_2nd = 0, p2_3rd = 0;
+
+      seriesHistory.forEach(h => {
+        const p1Rank = (role === 'host') ? h.myRank : h.oppRank;
+        const p2Rank = (role === 'host') ? h.oppRank : h.myRank;
+
+        if (p1Rank === 1) p1_1st++;
+        if (p1Rank === 2) p1_2nd++;
+        if (p1Rank === 3) p1_3rd++;
+
+        if (p2Rank === 1) p2_1st++;
+        if (p2Rank === 2) p2_2nd++;
+        if (p2Rank === 3) p2_3rd++;
+      });
+
+      const historyItem = {
+        round: currentSeriesIndex + 1,
+        seriesName: seriesName,
+        winner: (p1Wins > p2Wins) ? 'p1' : ((p2Wins > p1Wins) ? 'p2' : 'draw'),
+        p1Wins: p1Wins,
+        p2Wins: p2Wins,
+        p1_1st: p1_1st,
+        p1_2nd: p1_2nd,
+        p1_3rd: p1_3rd,
+        p2_1st: p2_1st,
+        p2_2nd: p2_2nd,
+        p2_3rd: p2_3rd
+      };
+
+      const existingHistory = Array.isArray(roomData.match_history) ? [...roomData.match_history] : [];
+      existingHistory[currentSeriesIndex] = historyItem;
+      updateObj.match_history = existingHistory;
 
       updateDoc(roomRef, updateObj);
     } catch (e) {
