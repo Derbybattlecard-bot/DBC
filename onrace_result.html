@@ -563,9 +563,12 @@ function prepareHorseData(h) {
   ensureStats(h);
 
   let matchedStrat = null;
-  if (Array.isArray(strategyMasterData) && h.tactic) {
-    matchedStrat = strategyMasterData.find(s => s.name === h.tactic || s.tactic === h.tactic);
+  const currentStratName = h.strategy || h.tactic || "先行して粘り込み";
+  if (Array.isArray(strategyMasterData)) {
+    matchedStrat = strategyMasterData.find(s => s.name === currentStratName || s.tactic === currentStratName || s.strategy === currentStratName);
   }
+  h.strategy = currentStratName;
+  h.tactic = currentStratName;
 
   if (matchedStrat) {
     h.stratObj = matchedStrat;
@@ -578,7 +581,7 @@ function prepareHorseData(h) {
 
   const lvl = h.level || 1;
   h.strat_potential = lvl * 2;
-  h.strat_name = matchedStrat ? matchedStrat.name : (h.tactic || "通常");
+  h.strat_name = matchedStrat ? matchedStrat.name : currentStratName;
 
   const normId = normalizeHorseId(h.horse_id);
   const master = HORSES_MASTER[normId] || HORSES_MASTER[String(h.horse_id)] || {};
@@ -902,7 +905,6 @@ async function loadMasterData() {
   }
 }
 
-// ★ 修正点: データが未揃いの状態でのエラー停止を防ぐガード処理を追加
 function buildRaceGridsFromOnlineData() {
   const isHost = (role === 'host');
   
@@ -919,7 +921,6 @@ function buildRaceGridsFromOnlineData() {
   totalRounds = 5;
 
   if (!p1Entries || p1Entries.length < totalRounds || !p2Entries || p2Entries.length < totalRounds) {
-    // データ通信遅延・遷移時のタイミング問題のためモーダルを表示せず、準備完了を待機させる
     return false;
   }
 
@@ -932,6 +933,7 @@ function buildRaceGridsFromOnlineData() {
     const p1HorseId = normalizeHorseId(p1Entries[rIdx]);
     const p1Master = HORSES_MASTER[p1HorseId] || HORSES_MASTER[String(p1Entries[rIdx])] || { name: "P1馬", horse_id: p1HorseId };
     const p1StratObj = (p1Strats && p1Strats[rIdx]) ? p1Strats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
+    const p1StratName = p1StratObj.strategy || p1StratObj.tactic || "先行して粘り込み";
 
     rawGrid.push({
       ...p1Master,
@@ -940,13 +942,15 @@ function buildRaceGridsFromOnlineData() {
       isOpponent: !isHost,
       isCpu: false,
       ownerName: p1Name,
-      tactic: p1StratObj.strategy || "先行して粘り込み",
+      strategy: p1StratName,
+      tactic: p1StratName,
       level: p1StratObj.strategy_level || 3
     });
 
     const p2HorseId = normalizeHorseId(p2Entries[rIdx]);
     const p2Master = HORSES_MASTER[p2HorseId] || HORSES_MASTER[String(p2Entries[rIdx])] || { name: "P2馬", horse_id: p2HorseId };
     const p2StratObj = (p2Strats && p2Strats[rIdx]) ? p2Strats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
+    const p2StratName = p2StratObj.strategy || p2StratObj.tactic || "先行して粘り込み";
 
     rawGrid.push({
       ...p2Master,
@@ -955,7 +959,8 @@ function buildRaceGridsFromOnlineData() {
       isOpponent: isHost,
       isCpu: false,
       ownerName: p2Name,
-      tactic: p2StratObj.strategy || "先行して粘り込み",
+      strategy: p2StratName,
+      tactic: p2StratName,
       level: p2StratObj.strategy_level || 3
     });
 
@@ -975,6 +980,7 @@ function buildRaceGridsFromOnlineData() {
       } catch (e) {
         console.warn("モブ作戦決定スキップ:", e);
       }
+      const mobStratName = mobStrat.tactic || mobStrat.strategy || "先行して粘り込み";
 
       rawGrid.push({
         ...mobMaster,
@@ -982,7 +988,8 @@ function buildRaceGridsFromOnlineData() {
         isPlayer: false,
         isCpu: false,
         isOpponent: false,
-        tactic: mobStrat.tactic || "先行して粘り込み",
+        strategy: mobStratName,
+        tactic: mobStratName,
         level: mobStrat.level || 1
       });
     });
