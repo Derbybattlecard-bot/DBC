@@ -124,6 +124,65 @@
   .ban-card-pt { display: flex; gap: 8px; align-items: center; background: #faf5ff; border: 1px solid #e9d5ff; padding: 4px 8px; border-radius: 6px; font-size: 10.5px; color: #581c87; font-weight: bold; margin-top: 2px; }
   .pt-val { color: #c2410c; font-size: 11px; font-weight: 800; }
 
+  /* 🏁 回戦リザルト用スタイル */
+  .round-result-box {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-top: 8px;
+    font-size: 11px;
+  }
+  .round-result-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: bold;
+    color: #1e293b;
+    border-bottom: 1px dashed #cbd5e1;
+    padding-bottom: 4px;
+    margin-bottom: 6px;
+  }
+  .result-score-badge {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--accent-color);
+  }
+  .result-breakdown {
+    font-size: 10.5px;
+    color: #475569;
+    font-weight: bold;
+  }
+  .race-result-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+    margin-top: 4px;
+  }
+  .race-result-table th {
+    background: #e2e8f0;
+    color: #334155;
+    padding: 3px 4px;
+    font-weight: bold;
+    text-align: center;
+  }
+  .race-result-table td {
+    padding: 3px 4px;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: center;
+  }
+  .rank-badge {
+    display: inline-block;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 9.5px;
+  }
+  .rank-1 { background: #fef08a; color: #854d0e; border: 1px solid #fde047; }
+  .rank-2 { background: #e2e8f0; color: #334155; border: 1px solid #cbd5e1; }
+  .rank-3 { background: #ffedd5; color: #9a3412; border: 1px solid #fed7aa; }
+  .rank-other { background: #f1f5f9; color: #64748b; }
+
   .deck-select-panel { background-color: var(--panel-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: all 0.3s ease; }
   .deck-select-panel.disabled { opacity: 0.4; pointer-events: none; filter: grayscale(80%); }
   .deck-options { display: flex; gap: 10px; }
@@ -1126,6 +1185,7 @@
 
     let matchSeries = data.match_series || [];
     let matchOwners = data.match_series_owners || [];
+    let matchHistory = data.match_history || [];
 
     const subTextEl = document.getElementById('onlineSubText');
     if (subTextEl) {
@@ -1136,53 +1196,56 @@
 
     let html = '';
 
-    html += `
-      <div style="background:#fef2f2; border:2px solid #ef4444; border-radius:12px; padding:14px; margin-bottom:14px; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
-        <div class="ban-title" style="color: #dc2626; text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 2px;">
-          お互いに除外（BAN）した2つのシリーズ
-        </div>
-        <div style="font-size: 11px; text-align: center; color: #991b1b; margin-bottom: 10px;">
-          両プレイヤーがそれぞれの持ち込みから拒否指定したシリーズです。
-        </div>
+    // ★ 改修①: 1回戦目(currentSeriesIdx === 0)の時だけBAN除外ブロックを表示し、2回戦以降は非表示化
+    if (currentSeriesIdx === 0) {
+      html += `
+        <div style="background:#fef2f2; border:2px solid #ef4444; border-radius:12px; padding:14px; margin-bottom:14px; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+          <div class="ban-title" style="color: #dc2626; text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 2px;">
+            お互いに除外（BAN）した2つのシリーズ
+          </div>
+          <div style="font-size: 11px; text-align: center; color: #991b1b; margin-bottom: 10px;">
+            両プレイヤーがそれぞれの持ち込みから拒否指定したシリーズです。
+          </div>
 
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-    `;
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+      `;
 
-    const bannedItems = [
-      { sId: myBannedId, label: 'あなたが除外（相手持ち込み）' },
-      { sId: oppBannedId, label: '相手が除外（あなた持ち込み）' }
-    ];
+      const bannedItems = [
+        { sId: myBannedId, label: 'あなたが除外（相手持ち込み）' },
+        { sId: oppBannedId, label: '相手が除外（あなた持ち込み）' }
+      ];
 
-    bannedItems.forEach(item => {
-      if (!item.sId) return;
-      const sObj = getSeriesObj(item.sId);
-      const sName = sObj.series_name || sObj.name || item.sId;
-      const category = getSeriesCategory(sObj);
-      const raceBadgesHTML = buildRaceBadgesHTML(sObj);
-      const ptStats = getSeriesPotentialInfo(sObj);
+      bannedItems.forEach(item => {
+        if (!item.sId) return;
+        const sObj = getSeriesObj(item.sId);
+        const sName = sObj.series_name || sObj.name || item.sId;
+        const category = getSeriesCategory(sObj);
+        const raceBadgesHTML = buildRaceBadgesHTML(sObj);
+        const ptStats = getSeriesPotentialInfo(sObj);
+
+        html += `
+          <div class="ban-summary-card banned">
+            <div class="ban-card-row1">
+              <span class="ban-category-badge">🏷 ${category}</span>
+              <span class="ban-tag-banned">🚫 ${item.label}</span>
+            </div>
+            <div class="ban-card-title" style="text-decoration: line-through; color: #9ca3af; font-size: 12.5px; margin-top: 2px;">
+              🏆 ${sName}
+            </div>
+            <div class="ban-card-races">${raceBadgesHTML}</div>
+            <div class="ban-card-pt">
+              <div>合計上限 <span class="pt-val">${ptStats.totalPt}</span></div>
+              <div>出走可能 <span class="pt-val">${ptStats.eligiblePt}以上</span></div>
+            </div>
+          </div>
+        `;
+      });
 
       html += `
-        <div class="ban-summary-card banned">
-          <div class="ban-card-row1">
-            <span class="ban-category-badge">🏷 ${category}</span>
-            <span class="ban-tag-banned">🚫 ${item.label}</span>
-          </div>
-          <div class="ban-card-title" style="text-decoration: line-through; color: #9ca3af; font-size: 12.5px; margin-top: 2px;">
-            🏆 ${sName}
-          </div>
-          <div class="ban-card-races">${raceBadgesHTML}</div>
-          <div class="ban-card-pt">
-            <div>合計上限 <span class="pt-val">${ptStats.totalPt}</span></div>
-            <div>出走可能 <span class="pt-val">${ptStats.eligiblePt}以上</span></div>
           </div>
         </div>
       `;
-    });
-
-    html += `
-        </div>
-      </div>
-    `;
+    }
 
     html += `
       <div class="legend-bar">
@@ -1216,10 +1279,95 @@
       }
 
       const isCurrentRound = (rIdx === currentSeriesIdx);
+      const isFinishedRound = (rIdx < currentSeriesIdx);
       const currentClass = isCurrentRound ? 'is-current' : '';
-      const roundBadgeHTML = isCurrentRound
-        ? `<span class="badge-current-round">▶ 第${rIdx + 1}回戦 (開催中)</span>`
-        : `<span class="badge-other-round">第${rIdx + 1}回戦</span>`;
+
+      let roundBadgeHTML = `<span class="badge-other-round">第${rIdx + 1}回戦</span>`;
+      if (isCurrentRound) {
+        roundBadgeHTML = `<span class="badge-current-round">▶ 第${rIdx + 1}回戦 (開催中)</span>`;
+      } else if (isFinishedRound) {
+        roundBadgeHTML = `<span class="badge-other-round" style="background:#10b981; color:#fff;">✓ 第${rIdx + 1}回戦 (終了)</span>`;
+      }
+
+      // ★ 改修②: 終了済みの回戦の枠内に〇勝ー〇敗（1着-2着-3着-4着以下）と各レース出走馬・着順を表示
+      let resultHTML = '';
+      if (isFinishedRound) {
+        const roundHistory = matchHistory[rIdx] || (data.round_results ? data.round_results[rIdx] : null) || {};
+        
+        const myWins = isHost ? (roundHistory.p1Wins ?? roundHistory.p1_wins ?? roundHistory.myWins ?? 0) : (roundHistory.p2Wins ?? roundHistory.p2_wins ?? roundHistory.oppWins ?? 0);
+        const oppWins = isHost ? (roundHistory.p2Wins ?? roundHistory.p2_wins ?? roundHistory.oppWins ?? 0) : (roundHistory.p1Wins ?? roundHistory.p1_wins ?? roundHistory.myWins ?? 0);
+        
+        const my1st = isHost ? (roundHistory.p1_1st ?? 0) : (roundHistory.p2_1st ?? 0);
+        const my2nd = isHost ? (roundHistory.p1_2nd ?? 0) : (roundHistory.p2_2nd ?? 0);
+        const my3rd = isHost ? (roundHistory.p1_3rd ?? 0) : (roundHistory.p2_3rd ?? 0);
+        const my4thOrLower = isHost ? (roundHistory.p1_4th_or_lower ?? roundHistory.p1_4th ?? 0) : (roundHistory.p2_4th_or_lower ?? roundHistory.p2_4th ?? 0);
+
+        const outcomeBadge = (myWins > oppWins) 
+          ? `<span class="badge-win">○ 勝利</span>` 
+          : (myWins < oppWins) ? `<span class="badge-loss">× 敗北</span>` : `<span class="badge-draw">引き分け</span>`;
+
+        // レースごとの詳細情報（races / race_results 配列から取得）
+        const racesList = roundHistory.races || roundHistory.race_results || (sObj.races || []);
+        let raceRowsHTML = '';
+
+        if (Array.isArray(racesList) && racesList.length > 0) {
+          racesList.forEach((r, raceIdx) => {
+            const raceName = r.race_name || r.name || `第${raceIdx + 1}戦`;
+            
+            const myHorseName = isHost ? (r.p1_horse_name || r.p1_horse || r.my_horse || '-') : (r.p2_horse_name || r.p2_horse || r.opp_horse || '-');
+            const oppHorseName = isHost ? (r.p2_horse_name || r.p2_horse || r.opp_horse || '-') : (r.p1_horse_name || r.p1_horse || r.my_horse || '-');
+
+            const myRank = isHost ? (r.p1_rank ?? r.my_rank) : (r.p2_rank ?? r.opp_rank);
+            const oppRank = isHost ? (r.p2_rank ?? r.opp_rank) : (r.p1_rank ?? r.my_rank);
+
+            const formatRank = (rk) => {
+              if (rk === undefined || rk === null) return '-';
+              if (rk === 1) return `<span class="rank-badge rank-1">1着</span>`;
+              if (rk === 2) return `<span class="rank-badge rank-2">2着</span>`;
+              if (rk === 3) return `<span class="rank-badge rank-3">3着</span>`;
+              return `<span class="rank-badge rank-other">${rk}着</span>`;
+            };
+
+            raceRowsHTML += `
+              <tr>
+                <td style="font-weight:bold; text-align:left;">${raceName}</td>
+                <td>${myHorseName} (${formatRank(myRank)})</td>
+                <td style="color:#64748b;">VS</td>
+                <td>${oppHorseName} (${formatRank(oppRank)})</td>
+              </tr>
+            `;
+          });
+        }
+
+        resultHTML = `
+          <div class="round-result-box">
+            <div class="round-result-summary">
+              <div>
+                成績: <span class="result-score-badge">${myWins}勝 ー ${oppWins}敗</span>
+                <span style="margin-left:6px;">${outcomeBadge}</span>
+              </div>
+              <div class="result-breakdown">
+                （${my1st}－${my2nd}－${my3rd}－${my4thOrLower}）
+              </div>
+            </div>
+            ${raceRowsHTML ? `
+              <table class="race-result-table">
+                <thead>
+                  <tr>
+                    <th style="text-align:left; width:28%;">レース</th>
+                    <th style="width:34%;">あなたの出走馬 (着順)</th>
+                    <th style="width:4%;"></th>
+                    <th style="width:34%;">相手の出走馬 (着順)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${raceRowsHTML}
+                </tbody>
+              </table>
+            ` : ''}
+          </div>
+        `;
+      }
 
       html += `
         <div class="ban-summary-card kept ${ownerClass} ${currentClass}">
@@ -1238,6 +1386,7 @@
             <div>合計上限 <span class="pt-val">${ptStats.totalPt}</span></div>
             <div>出走可能 <span class="pt-val">${ptStats.eligiblePt}以上</span></div>
           </div>
+          ${resultHTML}
         </div>
       `;
     }
