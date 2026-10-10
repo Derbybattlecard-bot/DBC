@@ -342,7 +342,6 @@
       <tbody id="series-history-body"></tbody>
     </table>
 
-    <!-- ホスト状態表示テキストエリア -->
     <div id="modalHostStatusMsg" style="margin-top: 15px; font-size: 0.9em; font-weight: bold; color: var(--gold-color);"></div>
     <button class="btn-next" id="modalNextBtn" style="margin-top: 10px;" onclick="finishMatchAndNextOrLobby()">🏠 次の回戦へ進む / ロビーへ</button>
   </div>
@@ -631,6 +630,8 @@ async function calculateAndUploadAllRaces() {
   try {
     for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
       const raceGrid = fullRaceGrids[rIdx];
+      if (!raceGrid) continue;
+      
       raceGrid.forEach(h => prepareHorseData(h));
 
       const racesTrackConditions = roomData?.races_track_conditions || [];
@@ -656,11 +657,13 @@ async function calculateAndUploadAllRaces() {
       allRaceResults.push(cleanResult);
     }
 
-    const roomRef = doc(db, "online_matches", roomId);
-    await updateDoc(roomRef, {
-      race_results_cache: allRaceResults,
-      status: "race_running"
-    });
+    if (allRaceResults.length === 5) {
+      const roomRef = doc(db, "online_matches", roomId);
+      await updateDoc(roomRef, {
+        race_results_cache: allRaceResults,
+        status: "race_running"
+      });
+    }
   } catch (err) {
     console.error("全レース計算結果の送信失敗:", err);
     showErrorModal("レース計算データの作成・送信に失敗しました。");
@@ -755,7 +758,6 @@ async function handleRoomDataUpdate(data) {
     return;
   }
 
-  // 全対戦（全シリーズ）終了時
   if (data.status === "completed") {
     isNavigatingAway = true;
     stopRoomListening();
@@ -763,7 +765,6 @@ async function handleRoomDataUpdate(data) {
     return;
   }
 
-  // 次の回戦（シリーズ）への移行検知
   if (data.status === "deck_selecting" || data.status === "deck_selected") {
     isNavigatingAway = true;
     stopRoomListening();
@@ -901,23 +902,24 @@ async function loadMasterData() {
   }
 }
 
+// ★ 修正点: データが未揃いの状態でのエラー停止を防ぐガード処理を追加
 function buildRaceGridsFromOnlineData() {
   const isHost = (role === 'host');
   
-  const p1Entries = roomData.player1_entries || [];
-  const p2Entries = roomData.player2_entries || [];
-  const p1Strats = roomData.player1_strategies || [];
-  const p2Strats = roomData.player2_strategies || [];
+  const p1Entries = roomData?.player1_entries;
+  const p2Entries = roomData?.player2_entries;
+  const p1Strats = roomData?.player1_strategies || [];
+  const p2Strats = roomData?.player2_strategies || [];
 
   const p1Name = isHost ? myNameStr : oppNameStr;
   const p2Name = isHost ? oppNameStr : myNameStr;
 
-  const racesMobIds = roomData.races_mob_ids || {};
+  const racesMobIds = roomData?.races_mob_ids || {};
   
   totalRounds = 5;
 
   if (!p1Entries || p1Entries.length < totalRounds || !p2Entries || p2Entries.length < totalRounds) {
-    showErrorModal("出走馬エントリーデータが見つかりません。");
+    // データ通信遅延・遷移時のタイミング問題のためモーダルを表示せず、準備完了を待機させる
     return false;
   }
 
