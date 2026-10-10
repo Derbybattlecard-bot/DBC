@@ -540,9 +540,11 @@ onAuthStateChanged(auth, async (user) => {
     }
 
     const isSuccess = buildRaceGridsFromOnlineData();
-    if (!isSuccess) return;
-
-    setupRace(currentRaceIndex);
+    if (isSuccess) {
+      setupRace(currentRaceIndex);
+    } else {
+      updateLog("対戦データを待機中... 相手の入力が完了すると自動的に始まります。");
+    }
 
     try {
       const roomRef = doc(db, "online_matches", roomId);
@@ -702,7 +704,11 @@ async function checkAndUpdateReadyState() {
   } else {
     await ensureUsedHorsesUpdated();
 
-    buildRaceGridsFromOnlineData();
+    const built = buildRaceGridsFromOnlineData();
+    if (built && fullRaceGrids[currentRaceIndex]) {
+      setupRace(currentRaceIndex);
+    }
+
     const oppObj = activeHorses.find(h => h.isOpponent);
     if (oppBadgeEl) {
       if (oppObj) {
@@ -739,7 +745,7 @@ async function checkAndUpdateReadyState() {
         startBtn.innerText = "🏁 レーススタート！";
       }
       if (raceState === 'ready') {
-        updateLog(`第${currentRaceIndex + 1}戦（${currentRaceInfo.race_name}）の出走準備が完了しました。`);
+        updateLog(`第${currentRaceIndex + 1}戦（${currentRaceInfo ? currentRaceInfo.race_name : '特別競走'}）の出走準備が完了しました。`);
       }
     } else {
       if (startBtn && raceState === 'ready') {
@@ -920,7 +926,8 @@ function buildRaceGridsFromOnlineData() {
   
   totalRounds = 5;
 
-  if (!p1Entries || p1Entries.length < totalRounds || !p2Entries || p2Entries.length < totalRounds) {
+  if (!p1Entries || !Array.isArray(p1Entries) || p1Entries.length < totalRounds || 
+      !p2Entries || !Array.isArray(p2Entries) || p2Entries.length < totalRounds) {
     return false;
   }
 
@@ -931,7 +938,7 @@ function buildRaceGridsFromOnlineData() {
     const rawGrid = [];
 
     const p1HorseId = normalizeHorseId(p1Entries[rIdx]);
-    const p1Master = HORSES_MASTER[p1HorseId] || HORSES_MASTER[String(p1Entries[rIdx])] || { name: "P1馬", horse_id: p1HorseId };
+    const p1Master = HORSES_MASTER[p1HorseId] || HORSES_MASTER[String(p1Entries[rIdx])] || { name: "P1馬", horse_id: p1HorseId, speed: 50, stamina: 50, sharp: 50, jizoku: 50, guts: 50, power: 50 };
     const p1StratObj = (p1Strats && p1Strats[rIdx]) ? p1Strats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
     const p1StratName = p1StratObj.strategy || p1StratObj.tactic || "先行して粘り込み";
 
@@ -948,7 +955,7 @@ function buildRaceGridsFromOnlineData() {
     });
 
     const p2HorseId = normalizeHorseId(p2Entries[rIdx]);
-    const p2Master = HORSES_MASTER[p2HorseId] || HORSES_MASTER[String(p2Entries[rIdx])] || { name: "P2馬", horse_id: p2HorseId };
+    const p2Master = HORSES_MASTER[p2HorseId] || HORSES_MASTER[String(p2Entries[rIdx])] || { name: "P2馬", horse_id: p2HorseId, speed: 50, stamina: 50, sharp: 50, jizoku: 50, guts: 50, power: 50 };
     const p2StratObj = (p2Strats && p2Strats[rIdx]) ? p2Strats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
     const p2StratName = p2StratObj.strategy || p2StratObj.tactic || "先行して粘り込み";
 
@@ -964,11 +971,17 @@ function buildRaceGridsFromOnlineData() {
       level: p2StratObj.strategy_level || 3
     });
 
-    const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
+    let mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
+    if (!Array.isArray(mobIds) && typeof mobIds === 'object' && mobIds !== null) {
+      mobIds = Object.values(mobIds);
+    }
+    if (!Array.isArray(mobIds)) {
+      mobIds = [];
+    }
 
     mobIds.forEach((mobId) => {
       const normalizedMobId = normalizeHorseId(mobId);
-      const mobMaster = HORSES_MASTER[normalizedMobId] || HORSES_MASTER[String(mobId)] || { name: "モブ馬", horse_id: mobId };
+      const mobMaster = HORSES_MASTER[normalizedMobId] || HORSES_MASTER[String(mobId)] || { name: "モブ馬", horse_id: mobId, speed: 40, stamina: 40, sharp: 40, jizoku: 40, guts: 40, power: 40 };
       let mobStyle = mobMaster.style || mobMaster.running_style || "自在";
       if (mobStyle === "大逃げ") mobStyle = "大逃";
       
@@ -1011,16 +1024,16 @@ function ensureStats(h) {
   const normId = normalizeHorseId(h.horse_id);
   const master = HORSES_MASTER[normId] || HORSES_MASTER[String(h.horse_id)] || {};
   
-  h.turf_potential = h.turf_potential ?? master.turf_potential ?? 0;
-  h.dirt_potential = h.dirt_potential ?? master.dirt_potential ?? 0;
-  h.potential = h.potential ?? master.potential ?? 0;
+  h.turf_potential = h.turf_potential ?? master.turf_potential ?? 10;
+  h.dirt_potential = h.dirt_potential ?? master.dirt_potential ?? 10;
+  h.potential = h.potential ?? master.potential ?? 10;
   
-  h.speed = h.speed ?? master.speed ?? 0;
-  h.stamina = h.stamina ?? master.stamina ?? 0;
-  h.sharp = h.sharp ?? master.sharp ?? 0;
-  h.jizoku = h.jizoku ?? master.jizoku ?? 0;
-  h.guts = h.guts ?? master.guts ?? 0;
-  h.power = h.power ?? master.power ?? 0;
+  h.speed = h.speed ?? master.speed ?? 50;
+  h.stamina = h.stamina ?? master.stamina ?? 50;
+  h.sharp = h.sharp ?? master.sharp ?? 50;
+  h.jizoku = h.jizoku ?? master.jizoku ?? 50;
+  h.guts = h.guts ?? master.guts ?? 50;
+  h.power = h.power ?? master.power ?? 50;
   
   let styleVal = h.style || master.style || master.running_style || "自在";
   if (styleVal === "大逃げ") styleVal = "大逃";
