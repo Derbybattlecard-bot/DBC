@@ -433,16 +433,29 @@
     const roomData = roomSnap.data();
     const isHost = (role === 'host');
 
-    const resetData = isHost ? {
-      player1_strategy_ready: false,
-      player1_ready: false,
-      p1_status: "strategy_selecting"
-    } : {
-      player2_strategy_ready: false,
-      player2_ready: false,
-      p2_status: "strategy_selecting"
-    };
-    await updateDoc(roomRef, resetData).catch(e => console.error("初期化エラー:", e));
+    // ★ 修正: すでに自分が作戦を準備完了している状態（ページリロード時など）なら、無暗に false にリセットしない
+    const alreadyReady = isHost ? !!roomData.player1_strategy_ready : !!roomData.player2_strategy_ready;
+    if (!alreadyReady) {
+      const resetData = isHost ? {
+        player1_strategy_ready: false,
+        player1_ready: false,
+        p1_status: "strategy_selecting"
+      } : {
+        player2_strategy_ready: false,
+        player2_ready: false,
+        p2_status: "strategy_selecting"
+      };
+      await updateDoc(roomRef, resetData).catch(e => console.error("初期化エラー:", e));
+    } else {
+      isMyStrategySubmitted = true;
+      const btn = document.getElementById('btnGoRace');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = '相手の作戦完了を待っています…';
+      }
+      const modal = document.getElementById('waitingModal');
+      if (modal) modal.style.display = 'flex';
+    }
 
     let oppName = resolveOpponentName(roomData);
     const oppUid = isHost ? (roomData.guest_uid || roomData.player2_uid) : (roomData.host_uid || roomData.player1_uid);
@@ -510,12 +523,18 @@
       });
     }
 
+    // 既に保存されている作戦があればそれを復元、なければデフォルト
+    const savedStrategies = isHost ? (roomData.player1_strategies || []) : (roomData.player2_strategies || []);
     playerEntries.forEach((hId, rIdx) => {
       if (rIdx < 5) {
-        const horse = HORSES_MASTER[normalizeHorseId(hId)];
-        const style = getHorseStyle(horse);
-        myStrategies[rIdx].strategy = getDefaultStrategyForStyle(style);
-        myStrategies[rIdx].strategy_level = 3;
+        if (savedStrategies[rIdx] && savedStrategies[rIdx].strategy) {
+          myStrategies[rIdx] = savedStrategies[rIdx];
+        } else {
+          const horse = HORSES_MASTER[normalizeHorseId(hId)];
+          const style = getHorseStyle(horse);
+          myStrategies[rIdx].strategy = getDefaultStrategyForStyle(style);
+          myStrategies[rIdx].strategy_level = 3;
+        }
       }
     });
 
@@ -570,7 +589,7 @@
 
       updateTotalStatus();
 
-      // ★ 修正点: 自分も作戦完了かつ相手も完了したらデータ整合性を確認した上でレース結果画面へ安全に遷移
+      // 双方が作戦完了したらレース結果画面へ遷移
       if ((isMyStrategySubmitted || myReady) && opponentStrategyReady) {
         isNavigatingAway = true;
         if (roomUnsubscribe) roomUnsubscribe();
@@ -648,7 +667,8 @@
 
       let levelOptionsHtml = '';
       for (let lvl = 1; lvl <= 5; lvl++) {
-        levelOptionsHtml += `<option value="${lvl}" ${lvl === 3 ? 'selected' : ''}>Lv.${lvl}</option>`;
+        const isSelectedLvl = myStrategies[rIdx].strategy_level === lvl;
+        levelOptionsHtml += `<option value="${lvl}" ${isSelectedLvl ? 'selected' : ''}>Lv.${lvl}</option>`;
       }
 
       let gridRowsHtml = `
@@ -798,7 +818,6 @@
     }
   }
 
-  // ★ 修正点: エントリー馬IDの正規化と出走データの整合性を保証して保存
   window.submitStrategies = async function() {
     if (!isOpponentMatchupReady) {
       alert("相手のチーム編成が完了するまでお待ちください。");
