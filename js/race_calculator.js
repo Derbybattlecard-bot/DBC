@@ -3,25 +3,6 @@
 // 競馬シミュレーション・計算エンジン ＆ 実況生成統合モジュール（マスターデータ駆動完全版）
 // ============================================================================
 
-// 中央の牝馬出走可能な混合G1レース定義（全15レース）
-const JRA_MIXED_G1_RACES = [
-  "フェブラリーステークス",
-  "高松宮記念",
-  "大阪杯",
-  "皐月賞",
-  "天皇賞（春）",
-  "NHKマイルカップ",
-  "日本ダービー",
-  "安田記念",
-  "宝塚記念",
-  "スプリンターズステークス",
-  "菊花賞",
-  "天皇賞（秋）",
-  "マイルチャンピオンシップ",
-  "ジャパンカップ",
-  "有馬記念"
-];
-
 // 海外競馬場フルリスト
 const OVERSEAS_TRACKS = [
   "沙田", "香港", "クランジ", "メイダン",
@@ -343,12 +324,15 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
     case "is_local_exchange_series": 
       return !!(raceInfo?.is_local_exchange || raceInfo?.series_type?.includes("地方交流"));
 
-    case "vs_male_domestic_g1":  
-    case "is_female_in_mixed_g1": {
-      if (!isFemale || !raceInfo?.race_name) return false;
-      const isMixedG1 = JRA_MIXED_G1_RACES.some(g1Name => raceInfo.race_name.includes(g1Name));
-      if (!isMixedG1) return false;
-      return allHorses.some(other => (other.isPlayer || other.isCpu) && other.horse_id !== horse.horse_id && ["牡", "牡馬"].includes(other.sex));
+    case "vs_male_and_rival_pot_plus_1": {
+      if (!isFemale) return false;
+      const myPot = horse.calc_potential ?? horse.potential ?? 0;
+      return allHorses.some(other => {
+        if (!other || other.horse_id === horse.horse_id) return false;
+        if (!["牡", "牡馬"].includes(other.sex)) return false;
+        const otherPot = other.calc_potential ?? other.potential ?? 0;
+        return otherPot <= myPot + 1;
+      });
     }
 
     case "streak_2_or_more": 
