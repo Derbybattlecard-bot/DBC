@@ -433,7 +433,6 @@
     const roomData = roomSnap.data();
     const isHost = (role === 'host');
 
-    // ★ 修正点①: 作戦選択画面に入った時点で自身側の戦略準備完了フラグを初期化
     const resetData = isHost ? {
       player1_strategy_ready: false,
       player1_ready: false,
@@ -571,13 +570,17 @@
 
       updateTotalStatus();
 
-      // ★ 修正点②: 自分も作戦完了(isMyStrategySubmitted または myReady)かつ相手も完了したらレース結果画面へ安全に遷移
+      // ★ 修正点: 自分も作戦完了かつ相手も完了したらデータ整合性を確認した上でレース結果画面へ安全に遷移
       if ((isMyStrategySubmitted || myReady) && opponentStrategyReady) {
         isNavigatingAway = true;
         if (roomUnsubscribe) roomUnsubscribe();
 
-        if (isHost && data.status !== "racing") {
-          await updateDoc(roomRef, { status: "racing" }).catch(e => console.error(e));
+        if (isHost) {
+          await updateDoc(roomRef, {
+            status: "racing",
+            p1_status: "racing",
+            p2_status: "racing"
+          }).catch(e => console.error(e));
         }
 
         const modeQuery = matchMode ? `&mode=${matchMode}` : '';
@@ -795,7 +798,7 @@
     }
   }
 
-  // ★ 修正点③: 即時遷移せず作戦の保存と待機モーダルを表示し、相手の完了を同期待機するよう修正
+  // ★ 修正点: エントリー馬IDの正規化と出走データの整合性を保証して保存
   window.submitStrategies = async function() {
     if (!isOpponentMatchupReady) {
       alert("相手のチーム編成が完了するまでお待ちください。");
@@ -811,12 +814,17 @@
 
     const roomRef = doc(db, "online_matches", roomId);
     const isHost = (role === 'host');
+
+    const normalizedMyEntries = playerEntries.map(id => normalizeHorseId(id));
+
     const updateData = isHost ? {
+      player1_entries: normalizedMyEntries,
       player1_strategies: myStrategies,
       player1_strategy_ready: true,
       player1_ready: true,
       p1_status: "strategy_ready"
     } : {
+      player2_entries: normalizedMyEntries,
       player2_strategies: myStrategies,
       player2_strategy_ready: true,
       player2_ready: true,
