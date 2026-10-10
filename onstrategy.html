@@ -217,6 +217,12 @@
     margin-top: 10px;
   }
   .btn-submit:disabled { background: #9ca3af; box-shadow: none; cursor: not-allowed; }
+
+  /* ⏳ 待機用モーダル */
+  .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 10, 30, 0.85); backdrop-filter: blur(4px); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 15px; }
+  .modal-content { background: #fff; border-radius: 14px; padding: 22px; width: 100%; max-width: 480px; text-align: center; box-shadow: 0 12px 30px rgba(0,0,0,0.35); border: 2px solid var(--border-color); }
+  .spinner { width: 40px; height: 40px; border: 4px solid #f3e8ff; border-top: 4px solid var(--accent-color); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px auto; }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -256,6 +262,15 @@
   <button class="btn-submit" id="btnGoRace" disabled onclick="submitStrategies()">⏳ 相手のチーム編成待ち…</button>
 </div>
 
+<!-- ⏳ 両者準備待ちモーダル -->
+<div class="modal-overlay" id="waitingModal">
+  <div class="modal-content">
+    <div class="spinner"></div>
+    <div style="font-size: 16px; font-weight: bold; color: var(--accent-color); margin-bottom: 6px;">相手の作戦完了を待っています…</div>
+    <div style="font-size: 12px; color: #6b7280;">両者の作戦が確定し次第、レース画面へ進みます</div>
+  </div>
+</div>
+
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
@@ -270,7 +285,7 @@
   let matchRaces = [];
   let playerEntries = [];
   let opponentEntries = [];
-  let isOpponentMatchupReady = false; // 相手のチーム編成（エントリー）完了フラグ
+  let isOpponentMatchupReady = false;
   let racesMobIds = {};
   let loadedTrackConditions = [];
   
@@ -284,10 +299,12 @@
 
   let roomUnsubscribe = null;
   let isNavigatingAway = false;
+  let isMyStrategySubmitted = false;
 
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('roomId');
   const role = urlParams.get('role');
+  const matchMode = urlParams.get('mode') || 'light';
 
   const MAX_TOTAL_LEVEL = 18;
 
@@ -414,9 +431,22 @@
     }
 
     const roomData = roomSnap.data();
+    const isHost = (role === 'host');
+
+    // ★ 修正点①: 作戦選択画面に入った時点で自身側の戦略準備完了フラグを初期化
+    const resetData = isHost ? {
+      player1_strategy_ready: false,
+      player1_ready: false,
+      p1_status: "strategy_selecting"
+    } : {
+      player2_strategy_ready: false,
+      player2_ready: false,
+      p2_status: "strategy_selecting"
+    };
+    await updateDoc(roomRef, resetData).catch(e => console.error("初期化エラー:", e));
 
     let oppName = resolveOpponentName(roomData);
-    const oppUid = (role === 'host') ? (roomData.guest_uid || roomData.player2_uid) : (roomData.host_uid || roomData.player1_uid);
+    const oppUid = isHost ? (roomData.guest_uid || roomData.player2_uid) : (roomData.host_uid || roomData.player1_uid);
     if (oppUid) {
       try {
         const oppUserSnap = await getDoc(doc(db, "users", oppUid));
@@ -429,7 +459,7 @@
     const oppNameEl = document.getElementById('opponentName');
     if (oppNameEl) oppNameEl.textContent = oppName;
 
-    if (role === 'host') {
+    if (isHost) {
       playerEntries = roomData.player1_entries || [];
       opponentEntries = roomData.player2_entries || [];
       isOpponentMatchupReady = !!roomData.player2_matchup_ready;
@@ -512,19 +542,17 @@
 
       const isHost = (role === 'host');
 
-      // 相手のチーム編成（エントリー）状態のチェック
       const prevMatchupReady = isOpponentMatchupReady;
       isOpponentMatchupReady = isHost ? !!data.player2_matchup_ready : !!data.player1_matchup_ready;
       opponentEntries = isHost ? (data.player2_entries || []) : (data.player1_entries || []);
 
-      // 相手のエントリー状態が変化、または完了した場合はカード表示を再描画
       if (prevMatchupReady !== isOpponentMatchupReady) {
         renderRaceCards();
       }
 
-      // 相手の作戦決定状態のチェック
       const p1Ready = !!(data.player1_strategy_ready || data.player1_ready);
       const p2Ready = !!(data.player2_strategy_ready || data.player2_ready);
+      const myReady = isHost ? p1Ready : p2Ready;
       const opponentStrategyReady = isHost ? p2Ready : p1Ready;
 
       const badge = document.getElementById('opponentStatusBadge');
@@ -542,6 +570,19 @@
       }
 
       updateTotalStatus();
+
+      // ★ 修正点②: 自分も作戦完了(isMyStrategySubmitted または myReady)かつ相手も完了したらレース結果画面へ安全に遷移
+      if ((isMyStrategySubmitted || myReady) && opponentStrategyReady) {
+        isNavigatingAway = true;
+        if (roomUnsubscribe) roomUnsubscribe();
+
+        if (isHost && data.status !== "racing") {
+          await updateDoc(roomRef, { status: "racing" }).catch(e => console.error(e));
+        }
+
+        const modeQuery = matchMode ? `&mode=${matchMode}` : '';
+        window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}${modeQuery}`;
+      }
     });
   }
 
@@ -698,6 +739,8 @@
   }
 
   window.onStrategyChanged = function(rIdx) {
+    if (isMyStrategySubmitted) return;
+
     const selectStratEl = document.getElementById(`selectStrat${rIdx}`);
     const selectLevelEl = document.getElementById(`selectLevel${rIdx}`);
     if (!selectStratEl || !selectLevelEl) return;
@@ -725,6 +768,12 @@
 
     lvlEl.textContent = `${totalLvl} / ${MAX_TOTAL_LEVEL}`;
 
+    if (isMyStrategySubmitted) {
+      goBtn.disabled = true;
+      goBtn.textContent = '相手の作戦完了を待っています…';
+      return;
+    }
+
     if (totalLvl > MAX_TOTAL_LEVEL) {
       lvlEl.className = 'status-val error';
       limitEl.textContent = '合計オーバー';
@@ -746,35 +795,43 @@
     }
   }
 
+  // ★ 修正点③: 即時遷移せず作戦の保存と待機モーダルを表示し、相手の完了を同期待機するよう修正
   window.submitStrategies = async function() {
     if (!isOpponentMatchupReady) {
       alert("相手のチーム編成が完了するまでお待ちください。");
       return;
     }
 
+    isMyStrategySubmitted = true;
     const btn = document.getElementById('btnGoRace');
     btn.disabled = true;
+    btn.textContent = '相手の作戦完了を待っています…';
+
+    document.getElementById('waitingModal').style.display = 'flex';
 
     const roomRef = doc(db, "online_matches", roomId);
-    const updateData = (role === 'host') ? {
+    const isHost = (role === 'host');
+    const updateData = isHost ? {
       player1_strategies: myStrategies,
       player1_strategy_ready: true,
-      player1_ready: true
+      player1_ready: true,
+      p1_status: "strategy_ready"
     } : {
       player2_strategies: myStrategies,
       player2_strategy_ready: true,
-      player2_ready: true
+      player2_ready: true,
+      p2_status: "strategy_ready"
     };
 
     try {
       await updateDoc(roomRef, updateData);
-      isNavigatingAway = true;
-      if (roomUnsubscribe) roomUnsubscribe();
-      window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}`;
     } catch (e) {
       console.error("作戦保存エラー:", e);
       alert("通信エラーが発生しました");
+      isMyStrategySubmitted = false;
       btn.disabled = false;
+      document.getElementById('waitingModal').style.display = 'none';
+      updateTotalStatus();
     }
   };
 
