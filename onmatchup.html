@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DERBY BATTLE CARD - オンライン出走登録 (onmatchup.html)</title>
+<title>DERBY BATTLE CARD - オンライン出走登録</title>
 <style>
   :root {
     --bg-gradient: linear-gradient(135deg, #2e1065 0%, #4c1d95 50%, #5b21b6 100%);
@@ -407,12 +407,10 @@
 
     const myReadyKey = isHost ? 'player1_matchup_ready' : 'player2_matchup_ready';
     const myDraftKey = isHost ? 'player1_draft' : 'player2_draft';
-    const myEntriesKey = isHost ? 'player1_entries' : 'player2_entries';
 
     await updateDoc(roomRef, {
       [myReadyKey]: false,
-      [myDraftKey]: [null, null, null, null, null],
-      [myEntriesKey]: [null, null, null, null, null]
+      [myDraftKey]: [null, null, null, null, null]
     });
 
     playerDeckIds = (isHost ? (roomData.player1_deck || []) : (roomData.player2_deck || [])).map(id => normalizeHorseId(id)).filter(Boolean);
@@ -915,7 +913,7 @@
     }
   }
 
-  // ★ 変更箇所：エントリー完了したらポップアップ待機せず即座に onstrategy.html へ遷移
+  // ★ 修正点: 相手のデータや全体のステータスを破壊せずに自身の準備フラグとエントリーのみ更新
   window.submitEntries = async function() {
     if (selectedEntries.includes(null)) {
       alert("全5戦の出走馬を選択してください。");
@@ -935,16 +933,12 @@
       player1_entries: normalizedEntries,
       player1_used_horses: updatedUsedList,
       player1_matchup_ready: true,
-      player1_strategy_ready: false,
-      player1_ready: false,
-      status: "strategy_selecting"
+      p1_status: "matchup_ready"
     } : {
       player2_entries: normalizedEntries,
       player2_used_horses: updatedUsedList,
       player2_matchup_ready: true,
-      player2_strategy_ready: false,
-      player2_ready: false,
-      status: "strategy_selecting"
+      p2_status: "matchup_ready"
     };
 
     try {
@@ -979,13 +973,15 @@
           player1_matchup_ready: false,
           p1_status: "deck_selecting",
           player1_draft: [null, null, null, null, null],
-          player1_entries: [null, null, null, null, null]
+          player1_entries: [null, null, null, null, null],
+          player1_strategies: [null, null, null, null, null]
         } : {
           player2_ready: false,
           player2_matchup_ready: false,
           p2_status: "deck_selecting",
           player2_draft: [null, null, null, null, null],
-          player2_entries: [null, null, null, null, null]
+          player2_entries: [null, null, null, null, null],
+          player2_strategies: [null, null, null, null, null]
         };
 
         await updateDoc(roomRef, resetData);
@@ -1042,6 +1038,8 @@
             player2_draft: [null, null, null, null, null],
             player1_entries: [null, null, null, null, null],
             player2_entries: [null, null, null, null, null],
+            player1_strategies: [null, null, null, null, null],
+            player2_strategies: [null, null, null, null, null],
             p1_status: "deck_selecting",
             p2_status: "deck_selecting"
           };
