@@ -996,7 +996,7 @@
     window.location.href = `onbattle.html?roomId=${roomId}&role=${role}${modeQuery}`;
   };
 
-    window.giveUpRound = async function() {
+      window.giveUpRound = async function() {
     if (!confirm("この回戦をギブアップしますか？\n（対戦相手にこの回戦の不戦勝が与えられます）")) {
       return;
     }
@@ -1009,10 +1009,14 @@
         const roomRef = doc(db, "online_matches", roomId);
         const isHost = (role === 'host');
 
-        // 自分のギブアップ状態をFirestoreに保存
+        // 相手側や判定ロジックが詰まらないよう、ギブアップしつつ「完了ステータス」を強制的に立てる
         const updateObj = {
           [isHost ? 'player1_giveup' : 'player2_giveup']: true,
-          [isHost ? 'p1_status' : 'p2_status']: 'giveup'
+          [isHost ? 'p1_status' : 'p2_status']: 'giveup',
+          [isHost ? 'player1_entries' : 'player2_entries']: 'giveup',
+          [isHost ? 'player1_strategies' : 'player2_strategies']: 'giveup',
+          [isHost ? 'player1_matchup_ready' : 'player2_matchup_ready']: true,
+          [isHost ? 'player1_strategy_ready' : 'player2_strategy_ready']: true
         };
 
         await updateDoc(roomRef, updateObj);
@@ -1022,9 +1026,10 @@
     }
 
     const modeQuery = matchMode ? `&mode=${matchMode}` : '';
-    // レースシーン（リザルト）画面へ遷移
-    window.location.href = `race_result.html?roomId=${roomId}&role=${role}&giveup=true${modeQuery}`;
+    // レース結果（当回戦の勝敗表示）を行う画面へ遷移
+    window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}&giveup=true${modeQuery}`;
   };
+
 
 
   window.leaveMatch = async function() {
