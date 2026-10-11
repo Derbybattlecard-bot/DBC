@@ -124,7 +124,6 @@
   .ban-card-pt { display: flex; gap: 8px; align-items: center; background: #faf5ff; border: 1px solid #e9d5ff; padding: 4px 8px; border-radius: 6px; font-size: 10.5px; color: #581c87; font-weight: bold; margin-top: 2px; }
   .pt-val { color: #c2410c; font-size: 11px; font-weight: 800; }
 
-  /* 🏁 回戦リザルト用スタイル */
   .round-result-box {
     background: #f8fafc;
     border: 1px solid #cbd5e1;
@@ -212,7 +211,6 @@
   @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   .btn-cancel { background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; margin-top: 15px; }
 
-  /* 🏆 最終結果モーダル専用スタイル */
   .result-banner { padding: 14px; border-radius: 10px; font-size: 20px; font-weight: 900; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
   .result-banner.win { background: linear-gradient(135deg, #10b981, #059669); color: #ffffff; box-shadow: 0 4px 12px rgba(16,185,129,0.3); }
   .result-banner.loss { background: linear-gradient(135deg, #ef4444, #dc2626); color: #ffffff; box-shadow: 0 4px 12px rgba(239,68,68,0.3); }
@@ -303,7 +301,6 @@
   <button class="btn-start" id="btnReady" onclick="setPlayerReady()" disabled>相手のシリーズを1つ除外してください</button>
 </div>
 
-<!-- 準備待ちモーダル -->
 <div class="modal-overlay" id="waitingModal">
   <div class="modal-content">
     <div class="spinner"></div>
@@ -313,7 +310,6 @@
   </div>
 </div>
 
-<!-- 🏆 全対戦結果表示モーダル -->
 <div class="modal-overlay" id="finalResultModal">
   <div class="modal-content">
     <div id="resultBanner" class="result-banner win">🏆 MATCH VICTORY</div>
@@ -688,7 +684,6 @@
     const myName = getDisplayName(globalUserData, currentUser);
     const roomRef = doc(db, "online_matches", roomId);
     
-    // 画面に入った時点で、自身の準備完了フラグをリセット（確実にデック選択からスタート）
     const updateData = (role === 'host') ? { 
       player1_series: mySeries,
       player1_name: myName,
@@ -787,47 +782,66 @@
     }
   }
 
+  // ★ 修正点: ご要望の勝敗判定仕様（勝敗数 → 1着回数 → 2着回数 → 3着回数 → 全て同じならホストの勝ち）を実装
   function calculateMatchWinner(data) {
     const p1Wins = data.p1_wins || data.player1_wins || 0;
     const p2Wins = data.p2_wins || data.player2_wins || 0;
 
+    // 先に規定勝利数に達している場合
     if (p1Wins >= requiredWins) return { winner: 'p1', reason: 'wins_majority' };
     if (p2Wins >= requiredWins) return { winner: 'p2', reason: 'wins_majority' };
 
     const currentRound = data.current_series_index || 0;
     const isMatchEnded = data.status === "finished" || currentRound >= totalRounds;
 
+    // まだ対戦が終了していない場合
     if (!isMatchEnded && p1Wins < requiredWins && p2Wins < requiredWins) {
       return { winner: null, isOngoing: true };
     }
 
+    // 回戦勝利数（p1Wins vs p2Wins）に差がある場合
     if (p1Wins > p2Wins) return { winner: 'p1', reason: 'round_wins' };
     if (p2Wins > p1Wins) return { winner: 'p2', reason: 'round_wins' };
 
+    // 以下、回戦勝利数が同点の場合の順次タイブレーク判定
+    // ① 1着回数比較
     let p1_1st = data.p1_1st_count || data.p1_first_places || 0;
     let p2_1st = data.p2_1st_count || data.p2_first_places || 0;
-
     if (!p1_1st && !p2_1st && Array.isArray(data.match_history)) {
       data.match_history.forEach(h => {
         p1_1st += (h.p1_1st || h.p1_1st_count || 0);
         p2_1st += (h.p2_1st || h.p2_1st_count || 0);
       });
     }
-
     if (p1_1st > p2_1st) return { winner: 'p1', reason: 'tiebreak_1st', p1Val: p1_1st, p2Val: p2_1st };
     if (p2_1st > p1_1st) return { winner: 'p2', reason: 'tiebreak_1st', p1Val: p1_1st, p2Val: p2_1st };
 
-    const p1_2nd = data.p1_2nd_count || 0;
-    const p2_2nd = data.p2_2nd_count || 0;
+    // ② 2着回数比較
+    let p1_2nd = data.p1_2nd_count || 0;
+    let p2_2nd = data.p2_2nd_count || 0;
+    if (!p1_2nd && !p2_2nd && Array.isArray(data.match_history)) {
+      data.match_history.forEach(h => {
+        p1_2nd += (h.p1_2nd || 0);
+        p2_2nd += (h.p2_2nd || 0);
+      });
+    }
     if (p1_2nd > p2_2nd) return { winner: 'p1', reason: 'tiebreak_2nd', p1Val: p1_2nd, p2Val: p2_2nd };
     if (p2_2nd > p1_2nd) return { winner: 'p2', reason: 'tiebreak_2nd', p1Val: p1_2nd, p2Val: p2_2nd };
 
-    const p1_3rd = data.p1_3rd_count || 0;
-    const p2_3rd = data.p2_3rd_count || 0;
+    // ③ 3着回数比較
+    let p1_3rd = data.p1_3rd_count || 0;
+    let p2_3rd = data.p2_3rd_count || 0;
+    if (!p1_3rd && !p2_3rd && Array.isArray(data.match_history)) {
+      data.match_history.forEach(h => {
+        p1_3rd += (h.p1_3rd || 0);
+        p2_3rd += (h.p2_3rd || 0);
+      });
+    }
     if (p1_3rd > p2_3rd) return { winner: 'p1', reason: 'tiebreak_3rd', p1Val: p1_3rd, p2Val: p2_3rd };
     if (p2_3rd > p1_3rd) return { winner: 'p2', reason: 'tiebreak_3rd', p1Val: p1_3rd, p2Val: p2_3rd };
 
-    return { winner: 'draw', reason: 'complete_draw' };
+    // ④ ここまで全て同じなら「ホストの勝ち（p1）」
+    return { winner: 'p1', reason: 'host_priority_draw' };
   }
 
   async function checkAndRecordOnlineWin(data, matchResult) {
@@ -876,9 +890,6 @@
     if (matchResult.winner === myRoleKey) {
       bannerEl.textContent = "🏆 MATCH VICTORY";
       bannerEl.className = "result-banner win";
-    } else if (matchResult.winner === 'draw') {
-      bannerEl.textContent = "🤝 MATCH DRAW";
-      bannerEl.className = "result-banner draw";
     } else {
       bannerEl.textContent = "💀 MATCH DEFEAT";
       bannerEl.className = "result-banner loss";
@@ -894,9 +905,9 @@
       const label = typeMap[matchResult.reason] || '着順差';
       tiebreakBox.style.display = 'block';
       tiebreakBox.innerHTML = `<strong>⚖️ タイブレーク判定適用:</strong><br>勝利数が同数のため、${label}（${p1Name}: ${matchResult.p1Val}回 / ${p2Name}: ${matchResult.p2Val}回）により勝敗を判定しました。`;
-    } else if (matchResult.reason === 'complete_draw') {
+    } else if (matchResult.reason === 'host_priority_draw') {
       tiebreakBox.style.display = 'block';
-      tiebreakBox.innerHTML = `<strong>⚖️ 完全引き分け:</strong><br>回戦勝利数および着順獲得数がすべて同一のため引き分けとなりました。`;
+      tiebreakBox.innerHTML = `<strong>⚖️ ホスト優先判定適用:</strong><br>勝利数および1〜3着の獲得数が全て同一だったため、規定によりホスト側の勝利となりました。`;
     } else {
       tiebreakBox.style.display = 'none';
     }
@@ -992,8 +1003,6 @@
       const myReady = isHost ? data.player1_ready : data.player2_ready;
       const oppReady = isHost ? data.player2_ready : data.player1_ready;
 
-      // ★ 安全ガード: 自分がこのページで「準備完了」を押していない（isReadySent === false かつ myReady === false）場合は、
-      // 相手が先行して status が entry_selecting や matchup に変更されていても勝手に遷移させず、デック選択を待つ
       if ((data.status === "entry_selecting" || data.status === "matchup") && (isReadySent || myReady)) {
         closeWaitingModal();
         if (roomUnsubscribe) roomUnsubscribe();
@@ -1106,7 +1115,6 @@
 
       renderDeckTable();
 
-      // 自身が準備完了を押した後のUI表示と状態保持
       if (myReady && !isReadySent) {
         isReadySent = true;
         if (readyBtn) {
@@ -1116,7 +1124,6 @@
         document.getElementById('waitingModal').style.display = 'flex';
       }
 
-      // ★ 自身が画面上で「準備完了」を押したこと（isReadySent または myReady）と相手の準備完了が揃って初めて onmatchup.html へ遷移
       if (myReady && oppReady) {
         closeWaitingModal();
         if (roomUnsubscribe) roomUnsubscribe();
@@ -1196,7 +1203,6 @@
 
     let html = '';
 
-    // ★ 改修①: 1回戦目(currentSeriesIdx === 0)の時だけBAN除外ブロックを表示し、2回戦以降は非表示化
     if (currentSeriesIdx === 0) {
       html += `
         <div style="background:#fef2f2; border:2px solid #ef4444; border-radius:12px; padding:14px; margin-bottom:14px; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
@@ -1289,7 +1295,6 @@
         roundBadgeHTML = `<span class="badge-other-round" style="background:#10b981; color:#fff;">✓ 第${rIdx + 1}回戦 (終了)</span>`;
       }
 
-      // ★ 改修②: 終了済みの回戦の枠内に〇勝ー〇敗（1着-2着-3着-4着以下）と各レース出走馬・着順を表示
       let resultHTML = '';
       if (isFinishedRound) {
         const roundHistory = matchHistory[rIdx] || (data.round_results ? data.round_results[rIdx] : null) || {};
@@ -1306,7 +1311,6 @@
           ? `<span class="badge-win">○ 勝利</span>` 
           : (myWins < oppWins) ? `<span class="badge-loss">× 敗北</span>` : `<span class="badge-draw">引き分け</span>`;
 
-        // レースごとの詳細情報（races / race_results 配列から取得）
         const racesList = roundHistory.races || roundHistory.race_results || (sObj.races || []);
         let raceRowsHTML = '';
 
