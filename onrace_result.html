@@ -520,6 +520,20 @@ onAuthStateChanged(auth, async (user) => {
     }
     roomData = roomSnap.data();
 
+    // ==========================================
+    // ★ 【追加】ギブアップ発生時のバイパス処理
+    // ==========================================
+    const isGiveupMode = urlParams.get('giveup') === 'true';
+    const p1Giveup = roomData.player1_giveup || roomData.player1_entries === 'giveup';
+    const p2Giveup = roomData.player2_giveup || roomData.player2_entries === 'giveup';
+
+    if (isGiveupMode || p1Giveup || p2Giveup) {
+      await loadMasterData(); // プレイヤー名等解決のためにマスタを軽く読み込む
+      await handleGiveupResultFlow(roomData, p1Giveup, p2Giveup);
+      return; // 通常のレース出走準備をバイパス
+    }
+    // ==========================================
+
     await loadMasterData();
 
     const isHost = (role === 'host');
@@ -559,6 +573,71 @@ onAuthStateChanged(auth, async (user) => {
     showErrorModal("データの読み込みに失敗しました。対戦データが正常でない可能性があります。");
   }
 });
+
+// ★ ギブアップ時の結果フロー処理
+async function handleGiveupResultFlow(data, p1Giveup, p2Giveup) {
+  const isHost = (role === 'host');
+  const oppUid = isHost ? data.player2_uid : data.player1_uid;
+
+  myNameStr = globalUserData?.nickname || globalUserData?.displayName || globalUserData?.name || (isHost ? data.player1_name : data.player2_name) || "あなた";
+  if (oppUid) {
+    try {
+      const oppUserSnap = await getDoc(doc(db, "users", oppUid));
+      if (oppUserSnap.exists()) {
+        const u = oppUserSnap.data();
+        oppNameStr = u.nickname || u.displayName || u.name || oppNameStr;
+      }
+    } catch (e) {}
+  }
+  if (!oppNameStr || oppNameStr === "対戦相手") {
+    oppNameStr = isHost ? (data.player2_name || "対戦相手") : (data.player1_name || "対戦相手");
+  }
+
+  // 使用済馬データの同期更新
+  await ensureUsedHorsesUpdated();
+
+  seriesHistory = [];
+
+  for (let r = 1; r <= 5; r++) {
+    let myRank = 1;
+    let oppRank = 18;
+    let isWin = true;
+    let winnerText = myNameStr;
+
+    if (p1Giveup && p2Giveup) {
+      myRank = 10;
+      oppRank = 10;
+      isWin = false;
+      winnerText = "引き分け";
+    } else if (p1Giveup) {
+      if (isHost) {
+        myRank = 18; oppRank = 1; isWin = false; winnerText = oppNameStr;
+      } else {
+        myRank = 1; oppRank = 18; isWin = true; winnerText = myNameStr;
+      }
+    } else if (p2Giveup) {
+      if (isHost) {
+        myRank = 1; oppRank = 18; isWin = true; winnerText = myNameStr;
+      } else {
+        myRank = 18; oppRank = 1; isWin = false; winnerText = oppNameStr;
+      }
+    }
+
+    seriesHistory.push({
+      raceNum: r,
+      raceName: `第${r}戦 (不戦勝)`,
+      myRank: myRank,
+      oppRank: oppRank,
+      win: isWin,
+      winner: winnerText
+    });
+  }
+
+  updateLog("<strong>【回戦終了】</strong> 相手（またはあなた）のギブアップにより、この回戦の勝敗が決定しました。");
+  
+  // 既存のリザルトモーダル表示・データ同期ロジックをそのまま呼び出す
+  showFinalSeriesResult();
+}
 
 function prepareHorseData(h) {
   ensureStats(h);
