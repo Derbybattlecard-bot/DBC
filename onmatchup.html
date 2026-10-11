@@ -868,7 +868,8 @@
     }
 
     populateDropdowns();
-    updateStatus();
+    updateStatus();？
+    
   };
 
   function updateStatus() {
@@ -995,7 +996,7 @@
     window.location.href = `onbattle.html?roomId=${roomId}&role=${role}${modeQuery}`;
   };
 
-  window.giveUpRound = async function() {
+    window.giveUpRound = async function() {
     if (!confirm("この回戦をギブアップしますか？\n（対戦相手にこの回戦の不戦勝が与えられます）")) {
       return;
     }
@@ -1006,70 +1007,25 @@
     if (roomId && currentUser) {
       try {
         const roomRef = doc(db, "online_matches", roomId);
-        const roomSnap = await getDoc(roomRef);
-        
-        if (roomSnap.exists()) {
-          const roomData = roomSnap.data();
-          const isHost = (role === 'host');
+        const isHost = (role === 'host');
 
-          const currentP1Wins = roomData.p1_wins || roomData.player1_wins || 0;
-          const currentP2Wins = roomData.p2_wins || roomData.player2_wins || 0;
+        // 自分のギブアップ状態をFirestoreに保存
+        const updateObj = {
+          [isHost ? 'player1_giveup' : 'player2_giveup']: true,
+          [isHost ? 'p1_status' : 'p2_status']: 'giveup'
+        };
 
-          const newP1Wins = isHost ? currentP1Wins : currentP1Wins + 1;
-          const newP2Wins = isHost ? currentP2Wins + 1 : currentP2Wins;
-
-          const totalRounds = (matchMode === 'standard') ? 5 : 3;
-          const requiredWins = (totalRounds === 5) ? 3 : 2;
-          const nextRoundIdx = currentRoundIndex + 1;
-
-          const isMatchFinished = (newP1Wins >= requiredWins || newP2Wins >= requiredWins || nextRoundIdx >= totalRounds);
-
-          const updateObj = {
-            p1_wins: newP1Wins,
-            p2_wins: newP2Wins,
-            player1_wins: newP1Wins,
-            player2_wins: newP2Wins,
-            player1_ready: false,
-            player2_ready: false,
-            player1_matchup_ready: false,
-            player2_matchup_ready: false,
-            player1_strategy_ready: false,
-            player2_strategy_ready: false,
-            player1_draft: [null, null, null, null, null],
-            player2_draft: [null, null, null, null, null],
-            player1_entries: [null, null, null, null, null],
-            player2_entries: [null, null, null, null, null],
-            player1_strategies: [null, null, null, null, null],
-            player2_strategies: [null, null, null, null, null],
-            p1_status: "deck_selecting",
-            p2_status: "deck_selecting"
-          };
-
-          if (isMatchFinished) {
-            updateObj.status = "finished";
-            updateObj.winner = newP1Wins > newP2Wins ? (roomData.host_uid || roomData.player1_uid) : (roomData.guest_uid || roomData.player2_uid);
-            await updateDoc(roomRef, updateObj);
-            alert("この回戦をギブアップしました。全対戦結果が確定しました。");
-            window.location.href = 'online.html';
-            return;
-          } else {
-            updateObj.current_series_index = nextRoundIdx;
-            updateObj.current_round = nextRoundIdx;
-            updateObj.status = "deck_selecting";
-            await updateDoc(roomRef, updateObj);
-            alert(`この回戦をギブアップしました。\n第${nextRoundIdx + 1}回戦の準備へ進みます。`);
-            const modeQuery = matchMode ? `&mode=${matchMode}` : '';
-            window.location.href = `onbattle.html?roomId=${roomId}&role=${role}${modeQuery}`;
-            return;
-          }
-        }
+        await updateDoc(roomRef, updateObj);
       } catch (e) {
-        console.error("ギブアップ処理エラー:", e);
+        console.error("ギブアップ状態保存エラー:", e);
       }
     }
-    alert("ギブアップ処理中にエラーが発生しました。");
-    window.location.href = 'online.html';
+
+    const modeQuery = matchMode ? `&mode=${matchMode}` : '';
+    // レースシーン（リザルト）画面へ遷移
+    window.location.href = `race_result.html?roomId=${roomId}&role=${role}&giveup=true${modeQuery}`;
   };
+
 
   window.leaveMatch = async function() {
     if (confirm("対戦を辞退して退室しますか？")) {
