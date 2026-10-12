@@ -845,7 +845,13 @@ async function handleRoomDataUpdate(data) {
     return;
   }
 
+    // レースが走っている最中や、すでに終了している場合は、
+  // 古いステータス通知による誤った強制送還をブロックする
   if (data.status === "entry_selecting" || data.status === "matchup") {
+    if (raceState === 'running' || raceState === 'finished') {
+      return; // レース中・結果表示中なら勝手に画面を切り替えない
+    }
+    
     isNavigatingAway = true;
     stopRoomListening();
     window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}`;
