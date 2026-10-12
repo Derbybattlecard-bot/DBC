@@ -19,7 +19,9 @@
     --danger-color: #dc2626;
     --success-color: #16a34a;
     --player-bg: #eff6ff;
+    --player-border: #90caf9;
     --opponent-bg: #fff1f2;
+    --opponent-border: #ef9a9a;
   }
   body {
     font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -28,7 +30,7 @@
     color: var(--text-main);
     margin: 0;
     padding: 15px;
-    font-size: 13px;
+    font-size: 12px;
     display: flex;
     justify-content: center;
     min-height: 100vh;
@@ -127,50 +129,92 @@
   .cond-重 { background-color: #ea580c; }
   .cond-不良 { background-color: #dc2626; }
 
+  /* 新3カラムレイアウト */
+  .versus-container {
+    display: grid;
+    grid-template-columns: 1fr 1.3fr 1fr;
+    gap: 6px;
+    align-items: stretch;
+  }
+
+  /* 自馬・相手馬カード */
+  .side-horse-box {
+    border-radius: 6px;
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+  }
+  .side-horse-box.player {
+    background: var(--player-bg);
+    border: 1px solid var(--player-border);
+  }
+  .side-horse-box.opponent {
+    background: var(--opponent-bg);
+    border: 1px solid var(--opponent-border);
+  }
+  
+  .horse-role-tag {
+    font-size: 9px;
+    font-weight: bold;
+    padding: 1px 4px;
+    border-radius: 3px;
+    display: inline-block;
+    margin-bottom: 2px;
+  }
+  .side-horse-box.player .horse-role-tag { background: #1976d2; color: #fff; }
+  .side-horse-box.opponent .horse-role-tag { background: #d32f2f; color: #fff; }
+
+  .side-horse-name {
+    font-weight: bold;
+    font-size: 11px;
+    line-height: 1.2;
+    margin-bottom: 4px;
+    word-break: break-all;
+  }
+  .side-horse-stats {
+    font-size: 10px;
+    color: #444;
+  }
+
+  /* 中央コントロールエリア（縦配置） */
+  .center-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    justify-content: center;
+  }
+
+  .strategy-select-vertical {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .select-strat, .select-level {
+    width: 100%;
+    padding: 5px 6px;
+    border-radius: 5px;
+    border: 1px solid var(--border-color);
+    font-size: 11px;
+    font-weight: bold;
+    box-sizing: border-box;
+    background: #fff;
+  }
+
   .mob-field-preview {
     background: #f3e8ff;
     border: 1px solid #d8b4fe;
-    border-radius: 6px;
-    padding: 6px 10px;
-    font-size: 11px;
+    border-radius: 5px;
+    padding: 4px;
+    font-size: 10px;
+    text-align: center;
+  }
+  .mob-style-counts {
+    font-weight: bold;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .mob-style-counts span {
-    margin-left: 6px;
-    font-weight: bold;
-  }
-
-  .my-horse-box {
-    background: #f8fafc;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
-    padding: 8px 10px;
-  }
-  .my-horse-title { font-weight: bold; color: var(--accent-color); font-size: 12px; margin-bottom: 6px; }
-
-  .strategy-select-group {
-    display: flex;
-    gap: 8px;
-  }
-  .select-strat {
-    flex: 2;
-    padding: 6px 8px;
-    border-radius: 6px;
-    border: 1px solid var(--border-color);
-    font-size: 12px;
-    font-weight: bold;
-    background: #ffffff;
-  }
-  .select-level {
-    flex: 1;
-    padding: 6px 8px;
-    border-radius: 6px;
-    border: 1px solid var(--border-color);
-    font-size: 12px;
-    font-weight: bold;
-    background: #ffffff;
+    justify-content: space-around;
+    margin-top: 2px;
   }
 
   details.race-grid-toggle {
@@ -433,7 +477,6 @@
     const roomData = roomSnap.data();
     const isHost = (role === 'host');
 
-    // ★ 修正: すでに自分が作戦を準備完了している状態（ページリロード時など）なら、無暗に false にリセットしない
     const alreadyReady = isHost ? !!roomData.player1_strategy_ready : !!roomData.player2_strategy_ready;
     if (!alreadyReady) {
       const resetData = isHost ? {
@@ -523,7 +566,6 @@
       });
     }
 
-    // 既に保存されている作戦があればそれを復元、なければデフォルト
     const savedStrategies = isHost ? (roomData.player1_strategies || []) : (roomData.player2_strategies || []);
     playerEntries.forEach((hId, rIdx) => {
       if (rIdx < 5) {
@@ -589,7 +631,6 @@
 
       updateTotalStatus();
 
-      // 双方が作戦完了したらレース結果画面へ遷移
       if ((isMyStrategySubmitted || myReady) && opponentStrategyReady) {
         isNavigatingAway = true;
         if (roomUnsubscribe) roomUnsubscribe();
@@ -622,7 +663,7 @@
       const oppHorse = isOpponentMatchupReady ? (HORSES_MASTER[oppHorseId] || {}) : null;
       const oppPt = oppHorse ? getHorsePt(oppHorse, race.surface) : '-';
       const oppStyle = oppHorse ? getHorseStyle(oppHorse) : '-';
-      const oppNameStr = oppHorse ? (oppHorse.name || '相手馬') : '選定中… ⏳';
+      const oppNameStr = oppHorse ? (oppHorse.name || '対戦相手') : '選定中… ⏳';
 
       const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
       const trackCond = loadedTrackConditions[rIdx] || '良';
@@ -701,10 +742,6 @@
         `;
       });
 
-      const oppTitleDisplay = isOpponentMatchupReady 
-        ? `対戦馬: ${oppNameStr} (Pt:${oppPt} / 得意:${oppStyle})` 
-        : `対戦馬: 選定中… ⏳`;
-
       card.innerHTML = `
         <div class="race-info-header">
           <span class="race-title">第${race.race_num || rIdx+1}戦: ${race.race_name || 'レース'}</span>
@@ -713,27 +750,44 @@
             <span class="race-cond-badge cond-${trackCond}">馬場:${trackCond}</span>
           </div>
         </div>
-
-        <div class="mob-field-preview">
-          <span style="font-weight:bold; color:var(--accent-color);">🏇 出走モブ脚質分布:</span>
-          <div class="mob-style-counts">
-            <span>逃:${styleCounts["逃げ"]}</span>
-            <span>先:${styleCounts["先行"]}</span>
-            <span>差:${styleCounts["差し"]}</span>
-            <span>追:${styleCounts["追込"]}</span>
-          </div>
-        </div>
         
-        <div class="my-horse-box">
-          <div class="my-horse-title">出走馬: ${myHorse.name || '未設定'} (Pt:${myPt} / 得意:${myStyle})</div>
-          <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">${oppTitleDisplay}</div>
-          <div class="strategy-select-group">
-            <select class="select-strat" id="selectStrat${rIdx}" onchange="onStrategyChanged(${rIdx})">
-              ${stratOptionsHtml}
-            </select>
-            <select class="select-level" id="selectLevel${rIdx}" onchange="onStrategyChanged(${rIdx})">
-              ${levelOptionsHtml}
-            </select>
+        <div class="versus-container">
+          <!-- 左：自馬情報 -->
+          <div class="side-horse-box player">
+            <div><span class="horse-role-tag">YOUR HORSE</span></div>
+            <div class="side-horse-name">${myHorse.name || '未設定'}</div>
+            <div class="side-horse-stats">Pt: <b>${myPt}</b></div>
+            <div class="side-horse-stats">得意: <b>${myStyle}</b></div>
+          </div>
+
+          <!-- 中央：作戦設定＆モブ脚質統計 -->
+          <div class="center-controls">
+            <div class="strategy-select-vertical">
+              <select class="select-strat" id="selectStrat${rIdx}" onchange="onStrategyChanged(${rIdx})">
+                ${stratOptionsHtml}
+              </select>
+              <select class="select-level" id="selectLevel${rIdx}" onchange="onStrategyChanged(${rIdx})">
+                ${levelOptionsHtml}
+              </select>
+            </div>
+            
+            <div class="mob-field-preview">
+              <div style="font-weight:bold; color:var(--accent-color); font-size:9px;">🏇 モブ脚質分布</div>
+              <div class="mob-style-counts">
+                <span>逃:${styleCounts["逃げ"]}</span>
+                <span>先:${styleCounts["先行"]}</span>
+                <span>差:${styleCounts["差し"]}</span>
+                <span>追:${styleCounts["追込"]}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右：対戦相手馬情報 -->
+          <div class="side-horse-box opponent">
+            <div><span class="horse-role-tag">OPPONENT</span></div>
+            <div class="side-horse-name">${oppNameStr}</div>
+            <div class="side-horse-stats">Pt: <b>${oppPt}</b></div>
+            <div class="side-horse-stats">得意: <b>${oppStyle}</b></div>
           </div>
         </div>
 
