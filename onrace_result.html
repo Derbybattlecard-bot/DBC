@@ -520,8 +520,8 @@ onAuthStateChanged(auth, async (user) => {
     }
     roomData = roomSnap.data();
 
-    // ==========================================
-    // ★ 【修正案2】すでに5戦分の結果キャッシュがある場合（リロード時の自動復元）
+        // ==========================================
+    // ★ 【修正】すでに5戦分の結果キャッシュがある場合の復元判定
     // ==========================================
     if (roomData.race_results_cache && roomData.race_results_cache.length === 5) {
       await loadMasterData();
@@ -594,12 +594,27 @@ onAuthStateChanged(auth, async (user) => {
         });
       });
 
-      showFinalSeriesResult();
-      listenRoomStatus();
-      return; 
+      // ★ 判定：このルームのレース実況をすでに「最後まで見た」フラグがセッションにあるか？
+      const hasWatchedAll = sessionStorage.getItem(`watched_race_${roomId}`);
+
+      if (hasWatchedAll === "true") {
+        // すでに全レース見終わっているなら、これまで通り即座に最終結果モーダルを表示
+        showFinalSeriesResult();
+        listenRoomStatus();
+        return; 
+      } else {
+        // まだレースを見ていない（または途中でリロードした）場合：
+        // キャッシュはあるので、通常のレース出走準備（1戦目）としてスタートさせる
+        // （これにより、リロードしても最初からレース演出を楽しめるようになります）
+        const isSuccess = buildRaceGridsFromOnlineData();
+        if (!isSuccess) return;
+        setupRace(currentRaceIndex);
+        listenRoomStatus();
+        return;
+      }
     }
     // ==========================================
-
+    
     // ==========================================
     // ★ 【追加】ギブアップ発生時のバイパス処理
     // ==========================================
