@@ -598,7 +598,7 @@
     return { mobIds, trackConditions };
   }
 
-  function listenRoomStatus() {
+    function listenRoomStatus() {
     const roomRef = doc(db, "online_matches", roomId);
     roomUnsubscribe = onSnapshot(roomRef, (snapshot) => {
       if (!snapshot.exists()) return;
@@ -619,17 +619,10 @@
       }
 
       const isHost = (role === 'host');
-      const oppUsedList = isHost ? (data.player2_used_horses || []) : (data.player1_used_horses || []);
-      const myUsedList = isHost ? (data.player1_used_horses || []) : (data.player2_used_horses || []);
-      
-      const newOppPastUsedStr = JSON.stringify(oppUsedList.map(id => normalizeHorseId(id)));
-      const newMyPastUsedStr = JSON.stringify(myUsedList.map(id => normalizeHorseId(id)));
 
-      if (JSON.stringify(oppUsedHorseIdsInPast) !== newOppPastUsedStr || JSON.stringify(myUsedHorseIdsInPast) !== newMyPastUsedStr) {
-        oppUsedHorseIdsInPast = oppUsedList.map(id => normalizeHorseId(id)).filter(Boolean);
-        myUsedHorseIdsInPast = myUsedList.map(id => normalizeHorseId(id)).filter(Boolean);
-        populateDropdowns();
-      }
+      // ※ 同一回戦のチーム編成画面（onmatchup.html）では、
+      //    相手が今この回戦で使った馬によってリアルタイムに選択肢が変化しないよう、
+      //    used_horses の動的再描画（populateDropdowns）を行わないように保護します。
 
       const opponentReady = isHost ? data.player2_matchup_ready : data.player1_matchup_ready;
       const badge = document.getElementById('opponentStatusBadge');
@@ -644,6 +637,7 @@
       }
     });
   }
+
 
   function getSurfaceLabel(surface) { return (!surface || surface.includes('芝')) ? '芝' : 'ダ'; }
   
