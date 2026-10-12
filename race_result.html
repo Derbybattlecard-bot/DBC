@@ -971,6 +971,27 @@ window.goToNextSeries = async function() {
   const usedIds = currentMatchEntries.map(e => e.horse_id).filter(Boolean);
   const updatedUsedCards = Array.from(new Set([...(status.used_cards_history || []), ...usedIds]));
 
+　  // --- 今回のラウンド結果から正しい履歴データを集計 ---
+  const my1st = seriesHistory.filter(h => h.pRank === 1).length;
+  const my2nd = seriesHistory.filter(h => h.pRank === 2).length;
+  const my3rd = seriesHistory.filter(h => h.pRank === 3).length;
+  const my4th = Math.max(0, 5 - (my1st + my2nd + my3rd)); // 4着以下
+
+  const roundHistoryItem = {
+    round: status.current_round || 1,
+    seriesName: document.getElementById('display-race-title')?.textContent.split('（')[0] || `第 ${status.current_round || 1} 回戦`,
+    myWins: playerWins,
+    oppWins: cpuWins,
+    r1: my1st,
+    r2: my2nd,
+    r3: my3rd,
+    r4Plus: my4th,
+    isWin: isPlayerRoundWin
+  };
+
+  const updatedRoundHistory = [...(status.round_history || []), roundHistoryItem];
+  // --------------------------------------------------
+  
   let newWins = (status.series_wins || 0) + (isPlayerRoundWin ? 1 : 0);
   let newLosses = (status.series_losses || 0) + (isPlayerRoundWin ? 0 : 1);
 
@@ -1049,6 +1070,7 @@ window.goToNextSeries = async function() {
     current_round: newRound,
     total_1st_places: updatedTotal1st,
     used_cards_history: updatedUsedCards,
+    round_history: updatedRoundHistory, // ← ここを追加
     current_match: null
   };
 
