@@ -25,7 +25,6 @@
     margin: 0 auto; 
   }
 
-  /* 最上部：レース条件 */
   .race-title-panel {
     background: linear-gradient(135deg, #241938, #120c1f);
     border: 2px solid var(--accent-purple);
@@ -59,7 +58,6 @@
     border: 1px solid var(--accent-green); padding: 1px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold;
   }
 
-  /* レースシーン枠 */
   #track-container { 
     background: linear-gradient(90deg, #004400 0%, #006600 50%, #005500 100%); 
     border: 3px solid #fff; border-radius: 6px; padding: 6px 4px; 
@@ -70,7 +68,6 @@
     background: linear-gradient(90deg, #3d2512 0%, #633e1d 50%, #4a2d14 100%);
   }
 
-  /* アビリティ発動ポップアップ */
   #ability-popup-container {
     position: absolute;
     left: 50%; 
@@ -102,7 +99,6 @@
   .ability-pop-horse { font-size: 1.1em; font-weight: bold; color: #fff; margin: 3px 0; }
   .ability-pop-name { font-size: 1.4em; font-weight: bold; color: var(--gold-color); text-shadow: 0 0 8px #000; }
 
-  /* ワイプ演出レイヤー */
   #wipe-overlay {
     position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
     background: linear-gradient(90deg, #1e1035, #000000, #1e1035);
@@ -132,7 +128,6 @@
   .p1-name { color: var(--player-color) !important; font-weight: bold; }
   .p2-name { color: var(--opponent-color) !important; font-weight: bold; }
 
-  /* 実況枠 */
   #commentary-box { 
     background: #090611; 
     color: #ffffff; 
@@ -151,7 +146,6 @@
     font-size: 1em;
   }
 
-  /* 対戦ミニカード */
   .vs-container { display: flex; justify-content: center; align-items: center; gap: 12px; margin-bottom: 12px; }
   .mini-card { 
     flex: 1; 
@@ -200,7 +194,6 @@
   .card-strat-info { font-size: 11px; color: var(--gold-color); font-weight: bold; }
   .vs-badge { font-weight: bold; color: #aaa; font-size: 14px; }
 
-  /* ボタン */
   .btn-next {
     background: linear-gradient(135deg, #6d28d9, #8b5cf6); color: #ffffff; font-weight: bold; 
     font-size: 1.1em; cursor: pointer; border: 2px solid var(--gold-color); width: 100%; padding: 12px; 
@@ -208,7 +201,6 @@
   }
   .btn-next:disabled { background: #222; color: #666; border-color: #444; cursor: not-allowed; }
   
-  /* 履歴テーブル */
   .data-table { width: 100%; border-collapse: collapse; background: #111; font-size: 0.75em; border: 1px solid #333; margin-top: 8px; }
   .data-table th, .data-table td { border: 1px solid #222; padding: 5px 4px; text-align: center; vertical-align: middle; }
   .data-table th { background: #1a1528; color: var(--accent-green); white-space: nowrap; }
@@ -223,7 +215,6 @@
   }
   .summary-label { color: var(--gold-color); font-weight: bold; }
 
-  /* モーダル共通 */
   #final-series-modal, #error-modal {
     display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.92); z-index: 100; padding: 20px 10px; box-sizing: border-box; overflow-y: auto;
@@ -235,7 +226,6 @@
   .series-winner-title { font-size: 1.6em; font-weight: bold; color: var(--gold-color); margin-bottom: 10px; }
   .series-score-box { font-size: 1.2em; font-weight: bold; background: #000; border: 1px solid #444; padding: 10px; margin: 10px 0; border-radius: 6px; }
 
-  /* エラーモーダル用スタイル */
   .error-modal-content {
     background: var(--panel-bg); border: 2px solid var(--opponent-color); border-radius: 8px;
     padding: 20px; max-width: 450px; margin: 80px auto; text-align: center;
@@ -342,7 +332,6 @@
       <tbody id="series-history-body"></tbody>
     </table>
 
-    <!-- ホスト状態表示テキストエリア -->
     <div id="modalHostStatusMsg" style="margin-top: 15px; font-size: 0.9em; font-weight: bold; color: var(--gold-color);"></div>
     <button class="btn-next" id="modalNextBtn" style="margin-top: 10px;" onclick="finishMatchAndNextOrLobby()">回戦終了：対戦画面（onbattle.html）へ戻る</button>
   </div>
@@ -520,26 +509,28 @@ onAuthStateChanged(auth, async (user) => {
     }
     roomData = roomSnap.data();
 
+    await loadMasterData();
+
+    const isHost = (role === 'host');
+    const oppUid = isHost ? roomData.player2_uid : roomData.player1_uid;
+
+    myNameStr = globalUserData?.nickname || globalUserData?.displayName || globalUserData?.name || (isHost ? roomData.player1_name : roomData.player2_name) || "あなた";
+    
+    if (oppUid) {
+      try {
+        const oppUserSnap = await getDoc(doc(db, "users", oppUid));
+        if (oppUserSnap.exists()) {
+          const u = oppUserSnap.data();
+          oppNameStr = u.nickname || u.displayName || u.name || oppNameStr;
+        }
+      } catch (e) {}
+    }
+    if (!oppNameStr || oppNameStr === "対戦相手") {
+      oppNameStr = isHost ? (roomData.player2_name || "対戦相手") : (roomData.player1_name || "対戦相手");
+    }
+
+    // 既にレース結果キャッシュがある場合
     if (roomData.race_results_cache && roomData.race_results_cache.length === 5) {
-      await loadMasterData();
-
-      const isHost = (role === 'host');
-      const oppUid = isHost ? roomData.player2_uid : roomData.player1_uid;
-
-      myNameStr = globalUserData?.nickname || globalUserData?.displayName || globalUserData?.name || (isHost ? roomData.player1_name : roomData.player2_name) || "あなた";
-      if (oppUid) {
-        try {
-          const oppUserSnap = await getDoc(doc(db, "users", oppUid));
-          if (oppUserSnap.exists()) {
-            const u = oppUserSnap.data();
-            oppNameStr = u.nickname || u.displayName || u.name || oppNameStr;
-          }
-        } catch (e) {}
-      }
-      if (!oppNameStr || oppNameStr === "対戦相手") {
-        oppNameStr = isHost ? (roomData.player2_name || "対戦相手") : (roomData.player1_name || "対戦相手");
-      }
-
       const matchSeries = roomData?.match_series || roomData?.selected_series || ["series_01"];
       const currentSeriesIndex = roomData?.current_series_index || 0;
       const seriesId = Array.isArray(matchSeries) ? (matchSeries[currentSeriesIndex] || matchSeries[0]) : matchSeries;
@@ -592,7 +583,6 @@ onAuthStateChanged(auth, async (user) => {
       });
 
       const hasWatchedAll = sessionStorage.getItem(`watched_race_${roomId}`);
-
       if (hasWatchedAll === "true") {
         showFinalSeriesResult();
         listenRoomStatus();
@@ -605,37 +595,8 @@ onAuthStateChanged(auth, async (user) => {
         return;
       }
     }
-    
-    const isGiveupMode = urlParams.get('giveup') === 'true';
-    const p1Giveup = roomData.player1_giveup || roomData.player1_entries === 'giveup';
-    const p2Giveup = roomData.player2_giveup || roomData.player2_entries === 'giveup';
 
-    if (isGiveupMode || p1Giveup || p2Giveup) {
-      await loadMasterData(); 
-      await handleGiveupResultFlow(roomData, p1Giveup, p2Giveup);
-      return; 
-    }
-
-    await loadMasterData();
-
-    const isHost = (role === 'host');
-    const oppUid = isHost ? roomData.player2_uid : roomData.player1_uid;
-
-    myNameStr = globalUserData?.nickname || globalUserData?.displayName || globalUserData?.name || (isHost ? roomData.player1_name : roomData.player2_name) || "あなた";
-    
-    if (oppUid) {
-      try {
-        const oppUserSnap = await getDoc(doc(db, "users", oppUid));
-        if (oppUserSnap.exists()) {
-          const u = oppUserSnap.data();
-          oppNameStr = u.nickname || u.displayName || u.name || oppNameStr;
-        }
-      } catch (e) {}
-    }
-    if (!oppNameStr || oppNameStr === "対戦相手") {
-      oppNameStr = isHost ? (roomData.player2_name || "対戦相手") : (roomData.player1_name || "対戦相手");
-    }
-
+    // ギブアップ中かどうかをチェック (双方揃ったかチェックするのは checkAndUpdateReadyState / handleRoomDataUpdate に任せる)
     const isSuccess = buildRaceGridsFromOnlineData();
     if (!isSuccess) return;
 
@@ -656,46 +617,34 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
   
+// ★ 修正：双方のデータが揃った（または一方がギブアップして相手も到達した）段階で呼び出される不戦勝/不戦敗フロー
 async function handleGiveupResultFlow(data, p1Giveup, p2Giveup) {
   const isHost = (role === 'host');
-  const oppUid = isHost ? data.player2_uid : data.player1_uid;
-
-  myNameStr = globalUserData?.nickname || globalUserData?.displayName || globalUserData?.name || (isHost ? data.player1_name : data.player2_name) || "あなた";
-  if (oppUid) {
-    try {
-      const oppUserSnap = await getDoc(doc(db, "users", oppUid));
-      if (oppUserSnap.exists()) {
-        const u = oppUserSnap.data();
-        oppNameStr = u.nickname || u.displayName || u.name || oppNameStr;
-      }
-    } catch (e) {}
-  }
-  if (!oppNameStr || oppNameStr === "対戦相手") {
-    oppNameStr = isHost ? (data.player2_name || "対戦相手") : (data.player1_name || "対戦相手");
-  }
-
   await ensureUsedHorsesUpdated();
 
   seriesHistory = [];
 
   for (let r = 1; r <= 5; r++) {
-    let myRank = 1;
-    let oppRank = 18;
-    let isWin = true;
-    let winnerText = myNameStr;
+    let myRank = 18;
+    let oppRank = 1;
+    let isWin = false;
+    let winnerText = oppNameStr;
 
     if (p1Giveup && p2Giveup) {
+      // ダブルノックアウト
       myRank = 10;
       oppRank = 10;
       isWin = false;
-      winnerText = "引き分け";
+      winnerText = "引き分け(ダブルKO)";
     } else if (p1Giveup) {
+      // ホスト(p1)がギブアップした場合
       if (isHost) {
         myRank = 18; oppRank = 1; isWin = false; winnerText = oppNameStr;
       } else {
         myRank = 1; oppRank = 18; isWin = true; winnerText = myNameStr;
       }
     } else if (p2Giveup) {
+      // ゲスト(p2)がギブアップした場合
       if (isHost) {
         myRank = 1; oppRank = 18; isWin = true; winnerText = myNameStr;
       } else {
@@ -713,7 +662,7 @@ async function handleGiveupResultFlow(data, p1Giveup, p2Giveup) {
     });
   }
 
-  updateLog("<strong>【回戦終了】</strong> 相手（またはあなた）のギブアップにより、この回戦の勝敗が決定しました。");
+  updateLog("<strong>【回戦終了】</strong> ギブアップにより、この回戦の勝敗が決定しました。");
   showFinalSeriesResult();
 }
 
@@ -747,8 +696,6 @@ function prepareHorseData(h) {
 
 async function ensureUsedHorsesUpdated() {
   if (!roomData || !roomId) return;
-  
-  // ★ 【修正点】player1_entriesやplayer2_entriesが文字列（'giveup'など）の場合に備え、Array.isArrayで安全に判定
   const p1Entries = Array.isArray(roomData.player1_entries) ? roomData.player1_entries : [];
   const p2Entries = Array.isArray(roomData.player2_entries) ? roomData.player2_entries : [];
 
@@ -831,6 +778,30 @@ async function checkAndUpdateReadyState() {
 
   const data = roomData;
   const isHost = (role === 'host');
+
+  // どちらかがギブアップしている場合の判定
+  const p1Giveup = !!(data.player1_giveup || data.player1_entries === 'giveup');
+  const p2Giveup = !!(data.player2_giveup || data.player2_entries === 'giveup');
+
+  // どちらか（または両方）がギブアップしている場合、両者が onrace_result に到着しているかチェック
+  const p1Arrived = !!(data.player1_ready || data.p1_status === "racing" || p1Giveup);
+  const p2Arrived = !!(data.player2_ready || data.p2_status === "racing" || p2Giveup);
+
+  if (p1Giveup || p2Giveup) {
+    // 相手も到着・準備できているか？（あるいは両者ギブアップ）
+    if (p1Arrived && p2Arrived) {
+      await handleGiveupResultFlow(data, p1Giveup, p2Giveup);
+      return;
+    } else {
+      updateLog("<strong>【待機中】</strong> ギブアップを受け付けました。対戦相手の到着・準備を待っています...");
+      const startBtn = document.getElementById('nextBtn');
+      if (startBtn) {
+        startBtn.disabled = true;
+        startBtn.innerText = "⏳ 相手の到着を待っています...";
+      }
+      return;
+    }
+  }
 
   const p1Ready = !!(data.player1_strategy_ready || data.player1_ready || data.p1_status === "ready" || data.player1_strategies?.length >= 5);
   const p2Ready = !!(data.player2_strategy_ready || data.player2_ready || data.p2_status === "ready" || data.player2_strategies?.length >= 5);
@@ -1056,8 +1027,8 @@ async function loadMasterData() {
 function buildRaceGridsFromOnlineData() {
   const isHost = (role === 'host');
   
-  const p1Entries = roomData.player1_entries || [];
-  const p2Entries = roomData.player2_entries || [];
+  const p1Entries = Array.isArray(roomData.player1_entries) ? roomData.player1_entries : [];
+  const p2Entries = Array.isArray(roomData.player2_entries) ? roomData.player2_entries : [];
   const p1Strats = roomData.player1_strategies || [];
   const p2Strats = roomData.player2_strategies || [];
 
@@ -1069,8 +1040,18 @@ function buildRaceGridsFromOnlineData() {
   totalRounds = 5;
 
   if (!p1Entries || p1Entries.length < totalRounds || !p2Entries || p2Entries.length < totalRounds) {
-    showErrorModal("出走馬エントリーデータが見つかりません。");
-    return false;
+    // ギブアップ等で配列でない場合のフォールバック（ダミーの馬IDでグリッドを作成）
+    fullRaceGrids = [];
+    const baseSeed = getSeedFromString(roomId || "default_room");
+    for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
+      const rawGrid = [];
+      rawGrid.push({ name: "自馬(ギブアップ)", horse_id: "0001", playerRole: 'host', isPlayer: isHost, isOpponent: !isHost, tactic: "逃げ", level: 1 });
+      rawGrid.push({ name: "相手馬", horse_id: "0002", playerRole: 'guest', isPlayer: !isHost, isOpponent: isHost, tactic: "逃げ", level: 1 });
+      shuffledGrid = shuffleArrayWithSeed(rawGrid, baseSeed);
+      shuffledGrid.forEach((h, idx) => h.gate_number = idx + 1);
+      fullRaceGrids.push(shuffledGrid);
+    }
+    return true;
   }
 
   fullRaceGrids = [];
@@ -1732,11 +1713,15 @@ function showFinalSeriesResult() {
   const historyBody = document.getElementById('series-history-body');
   historyBody.innerHTML = "";
   seriesHistory.forEach(h => {
+    // ★ 修正：不戦敗などの数値（99や18など極端な数値）の場合は表示を "-" (ハイフン) にする
+    const myRankDisplay = (h.myRank > 15 || h.myRank === 99) ? "-" : `${h.myRank}着`;
+    const oppRankDisplay = (h.oppRank > 15 || h.oppRank === 99) ? "-" : `${h.oppRank}着`;
+
     historyBody.innerHTML += `
       <tr>
         <td>R${h.raceNum}</td>
-        <td>${h.myRank}着</td>
-        <td>${h.oppRank}着</td>
+        <td>${myRankDisplay}</td>
+        <td>${oppRankDisplay}</td>
         <td><strong>${h.winner}</strong></td>
       </tr>`;
   });
