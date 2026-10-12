@@ -520,9 +520,6 @@ onAuthStateChanged(auth, async (user) => {
     }
     roomData = roomSnap.data();
 
-        // ==========================================
-    // ★ 【修正】すでに5戦分の結果キャッシュがある場合の復元判定
-    // ==========================================
     if (roomData.race_results_cache && roomData.race_results_cache.length === 5) {
       await loadMasterData();
 
@@ -594,18 +591,13 @@ onAuthStateChanged(auth, async (user) => {
         });
       });
 
-      // ★ 判定：このルームのレース実況をすでに「最後まで見た」フラグがセッションにあるか？
       const hasWatchedAll = sessionStorage.getItem(`watched_race_${roomId}`);
 
       if (hasWatchedAll === "true") {
-        // すでに全レース見終わっているなら、これまで通り即座に最終結果モーダルを表示
         showFinalSeriesResult();
         listenRoomStatus();
         return; 
       } else {
-        // まだレースを見ていない（または途中でリロードした）場合：
-        // キャッシュはあるので、通常のレース出走準備（1戦目）としてスタートさせる
-        // （これにより、リロードしても最初からレース演出を楽しめるようになります）
         const isSuccess = buildRaceGridsFromOnlineData();
         if (!isSuccess) return;
         setupRace(currentRaceIndex);
@@ -613,11 +605,7 @@ onAuthStateChanged(auth, async (user) => {
         return;
       }
     }
-    // ==========================================
     
-    // ==========================================
-    // ★ 【追加】ギブアップ発生時のバイパス処理
-    // ==========================================
     const isGiveupMode = urlParams.get('giveup') === 'true';
     const p1Giveup = roomData.player1_giveup || roomData.player1_entries === 'giveup';
     const p2Giveup = roomData.player2_giveup || roomData.player2_entries === 'giveup';
@@ -627,7 +615,6 @@ onAuthStateChanged(auth, async (user) => {
       await handleGiveupResultFlow(roomData, p1Giveup, p2Giveup);
       return; 
     }
-    // ==========================================
 
     await loadMasterData();
 
@@ -669,7 +656,6 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
   
-// ★ ギブアップ時の結果フロー処理
 async function handleGiveupResultFlow(data, p1Giveup, p2Giveup) {
   const isHost = (role === 'host');
   const oppUid = isHost ? data.player2_uid : data.player1_uid;
@@ -688,7 +674,6 @@ async function handleGiveupResultFlow(data, p1Giveup, p2Giveup) {
     oppNameStr = isHost ? (data.player2_name || "対戦相手") : (data.player1_name || "対戦相手");
   }
 
-  // 使用済馬データの同期更新
   await ensureUsedHorsesUpdated();
 
   seriesHistory = [];
@@ -729,8 +714,6 @@ async function handleGiveupResultFlow(data, p1Giveup, p2Giveup) {
   }
 
   updateLog("<strong>【回戦終了】</strong> 相手（またはあなた）のギブアップにより、この回戦の勝敗が決定しました。");
-  
-  // 既存のリザルトモーダル表示・データ同期ロジックをそのまま呼び出す
   showFinalSeriesResult();
 }
 
@@ -940,11 +923,9 @@ async function handleRoomDataUpdate(data) {
     return;
   }
 
-    // レースが走っている最中や、すでに終了している場合は、
-  // 古いステータス通知による誤った強制送還をブロックする
   if (data.status === "entry_selecting" || data.status === "matchup") {
     if (raceState === 'running' || raceState === 'finished') {
-      return; // レース中・結果表示中なら勝手に画面を切り替えない
+      return; 
     }
     
     isNavigatingAway = true;
@@ -1788,92 +1769,91 @@ function showFinalSeriesResult() {
 
   document.getElementById('final-series-modal').style.display = "block";
 
-  // 回戦結果の同期保存 & match_history データ格納
-  if (roomId) {
+  // =========================================================================
+  // ★ 【修正点】回戦結果および戦績のFirestore同期は「ホスト(role === 'host')」のみが実行
+  // ゲスト側が勝数や履歴を二重加算・破壊するのを完全に防ぎます
+  // =========================================================================
+  if (roomId && role === 'host') {
     try {
       const roomRef = doc(db, "online_matches", roomId);
-      const isP1 = (role === 'host');
-      const winKey = isP1 ? 'p1_wins' : 'p2_wins';
       
-      const updateObj = isP1 ? {
-        player1_series_finished: true
-      } : {
-        player2_series_finished: true
-      };
+      // すでに現在の回戦結果が記録されているか重複チェック
+      const existingHistory = Array.isArray(roomData.match_history) ? [...roomData.match_history] : [];
+      const currentSeriesIndex = roomData?.current_series_index || 0;
 
-      if (myWins > oppWins) {
-        updateObj[winKey] = increment(1);
-      }
-      
-      // 着順集計データ（タイブレーク用）の同期
-      let firsts = 0, seconds = 0, thirds = 0;
-      seriesHistory.forEach(h => {
-        if (h.myRank === 1) firsts++;
-        if (h.myRank === 2) seconds++;
-        if (h.myRank === 3) thirds++;
-      });
-      if (isP1) {
+      // まだ今回の履歴が未登録の場合のみ加算・更新を実行
+      if (!existingHistory[currentSeriesIndex]) {
+        const winKey = 'p1_wins'; // ホスト視点での勝数キー
+        const updateObj = {
+          player1_series_finished: true
+        };
+
+        if (myWins > oppWins) {
+          updateObj[winKey] = increment(1);
+        }
+        
+        let firsts = 0, seconds = 0, thirds = 0;
+        seriesHistory.forEach(h => {
+          if (h.myRank === 1) firsts++;
+          if (h.myRank === 2) seconds++;
+          if (h.myRank === 3) thirds++;
+        });
+        
         updateObj.p1_1st_count = increment(firsts);
         updateObj.p1_2nd_count = increment(seconds);
         updateObj.p1_3rd_count = increment(thirds);
-      } else {
-        updateObj.p2_1st_count = increment(firsts);
-        updateObj.p2_2nd_count = increment(seconds);
-        updateObj.p2_3rd_count = increment(thirds);
+
+        const matchSeries = roomData?.match_series || roomData?.selected_series || [];
+        const seriesId = matchSeries[currentSeriesIndex] || matchSeries[0] || "SERIES_001";
+        const seriesObj = seriesMasterData[seriesId] || {};
+        const seriesName = seriesObj.series_name || seriesObj.name || `第${currentSeriesIndex + 1}回戦`;
+
+        let p1Wins = myWins;
+        let p2Wins = oppWins;
+
+        let p1_1st = firsts;
+        let p1_2nd = seconds;
+        let p1_3rd = thirds;
+        let p2_1st = 0, p2_2nd = 0, p2_3rd = 0;
+
+        seriesHistory.forEach(h => {
+          const p2Rank = h.oppRank;
+          if (p2Rank === 1) p2_1st++;
+          if (p2Rank === 2) p2_2nd++;
+          if (p2Rank === 3) p2_3rd++;
+        });
+
+        const historyItem = {
+          round: currentSeriesIndex + 1,
+          seriesName: seriesName,
+          winner: (p1Wins > p2Wins) ? 'p1' : ((p2Wins > p1Wins) ? 'p2' : 'draw'),
+          p1Wins: p1Wins,
+          p2Wins: p2Wins,
+          p1_1st: p1_1st,
+          p1_2nd: p1_2nd,
+          p1_3rd: p1_3rd,
+          p2_1st: p2_1st,
+          p2_2nd: p2_2nd,
+          p2_3rd: p2_3rd
+        };
+
+        existingHistory[currentSeriesIndex] = historyItem;
+        updateObj.match_history = existingHistory;
+
+        updateDoc(roomRef, updateObj);
       }
-
-      // ★ match_history のデータを正確に算出して格納
-      const matchSeries = roomData?.match_series || roomData?.selected_series || [];
-      const currentSeriesIndex = roomData?.current_series_index || 0;
-      const seriesId = matchSeries[currentSeriesIndex] || matchSeries[0] || "SERIES_001";
-      const seriesObj = seriesMasterData[seriesId] || {};
-      const seriesName = seriesObj.series_name || seriesObj.name || `第${currentSeriesIndex + 1}回戦`;
-
-      let p1Wins = (role === 'host') ? myWins : oppWins;
-      let p2Wins = (role === 'host') ? oppWins : myWins;
-
-      let p1_1st = 0, p1_2nd = 0, p1_3rd = 0;
-      let p2_1st = 0, p2_2nd = 0, p2_3rd = 0;
-
-      seriesHistory.forEach(h => {
-        const p1Rank = (role === 'host') ? h.myRank : h.oppRank;
-        const p2Rank = (role === 'host') ? h.oppRank : h.myRank;
-
-        if (p1Rank === 1) p1_1st++;
-        if (p1Rank === 2) p1_2nd++;
-        if (p1Rank === 3) p1_3rd++;
-
-        if (p2Rank === 1) p2_1st++;
-        if (p2Rank === 2) p2_2nd++;
-        if (p2Rank === 3) p2_3rd++;
-      });
-
-      const historyItem = {
-        round: currentSeriesIndex + 1,
-        seriesName: seriesName,
-        winner: (p1Wins > p2Wins) ? 'p1' : ((p2Wins > p1Wins) ? 'p2' : 'draw'),
-        p1Wins: p1Wins,
-        p2Wins: p2Wins,
-        p1_1st: p1_1st,
-        p1_2nd: p1_2nd,
-        p1_3rd: p1_3rd,
-        p2_1st: p2_1st,
-        p2_2nd: p2_2nd,
-        p2_3rd: p2_3rd
-      };
-
-      const existingHistory = Array.isArray(roomData.match_history) ? [...roomData.match_history] : [];
-      existingHistory[currentSeriesIndex] = historyItem;
-      updateObj.match_history = existingHistory;
-
-      updateDoc(roomRef, updateObj);
     } catch (e) {
       console.error("回戦結果送信エラー:", e);
     }
+  } else if (roomId && role !== 'host') {
+    // ゲスト側は自分が終了したことだけをマークする
+    try {
+      const roomRef = doc(db, "online_matches", roomId);
+      updateDoc(roomRef, { player2_series_finished: true });
+    } catch (e) {}
   }
 }
 
-// ★ 全回戦終了後は常に onbattle.html に戻る共通関数
 window.finishMatchAndNextOrLobby = async function() {
   if (isNavigatingAway) return;
 
@@ -1910,7 +1890,6 @@ window.finishMatchAndNextOrLobby = async function() {
           isNavigatingAway = true;
           stopRoomListening();
 
-          // データクリーンアップをして status を更新
           await updateDoc(roomRef, {
             current_series_index: increment(1),
             player1_ready: false,
@@ -1941,7 +1920,6 @@ window.finishMatchAndNextOrLobby = async function() {
     }
   }
 
-  // フォールバック
   window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
 };
 </script>
