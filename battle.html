@@ -150,14 +150,9 @@
     font-weight: 800;
   }
 
-  /* 回戦ごとの対戦履歴テーブル用スタイル */
-  .history-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 6px; }
-  .history-table th { background: #2d6a37; color: #ffffff; padding: 6px 4px; font-weight: bold; white-space: nowrap; }
-  .history-table td { padding: 8px 4px; border-bottom: 1px solid #ebf4ec; text-align: center; }
-  .history-table tr:nth-child(even) { background-color: #f8fafc; }
+  /* 勝敗バッジ用スタイル */
   .badge-win { background: #d1fae5; color: #047857; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; }
   .badge-loss { background: #fee2e2; color: #b91c1c; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; }
-  .badge-draw { background: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; }
 
   .deck-select-panel { background-color: var(--panel-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; }
   .deck-options { display: flex; gap: 10px; }
@@ -252,30 +247,6 @@
   <div class="status-header" id="winLossHeader" style="display: none;">
     <div>現在の成績： <span class="win-loss-text" id="winCount">0</span>勝 <span class="win-loss-text" id="lossCount">0</span>敗</div>
     <button class="btn-reset-data" onclick="manualResetBattleData()">対戦データ初期化</button>
-  </div>
-
-  <!-- 【追加】回戦ごとの対戦履歴表示パネル -->
-  <div class="series-overview-panel" id="historyPanel" style="display: none;">
-    <div class="series-overview-header">
-      <div class="series-overview-title">
-        📜 回戦ごとの対戦履歴
-      </div>
-      <div class="series-overview-sub">
-        ※これまでの回戦ごとの勝敗と着順内訳です（4着以下を含む）。
-      </div>
-    </div>
-    <table class="history-table">
-      <thead>
-        <tr>
-          <th style="width:16%;">回戦</th>
-          <th style="text-align:left; padding-left:6px;">シリーズ名</th>
-          <th style="width:22%;">勝敗成績</th>
-          <th style="width:26%;">着順 (1-2-3-4着以下)</th>
-          <th style="width:18%;">結果</th>
-        </tr>
-      </thead>
-      <tbody id="historyTableBody"></tbody>
-    </table>
   </div>
 
   <div class="series-overview-panel" id="challengePanel" style="display: none;">
@@ -580,7 +551,6 @@
     document.getElementById('deckPanel').style.display = 'none';
     document.getElementById('btnStart').style.display = 'none';
     document.getElementById('winLossHeader').style.display = 'none';
-    document.getElementById('historyPanel').style.display = 'none';
     
     document.getElementById('modeSelectPanel').style.display = 'block';
 
@@ -830,48 +800,11 @@
     document.getElementById('lossCount').textContent = status.series_losses || 0;
     document.getElementById('winLossHeader').style.display = 'flex';
 
-    // --- 【追加】回戦ごとの対戦履歴テーブルの描画処理 ---
-    const historyPanel = document.getElementById('historyPanel');
-    const historyBody = document.getElementById('historyTableBody');
-    const roundHistory = status.round_history || [];
-
-    if (roundHistory.length > 0) {
-      historyPanel.style.display = 'block';
-      historyBody.innerHTML = '';
-
-      roundHistory.forEach(h => {
-        const myWins = h.myWins || 0;
-        const oppWins = h.oppWins || 0;
-        const scoreText = `${myWins}勝 ${oppWins}敗`;
-
-        // 4着以下も含む着順内訳 (1-2-3-4着以下)
-        const c1 = h.r1 ?? h.c1 ?? 0;
-        const c2 = h.r2 ?? h.c2 ?? 0;
-        const c3 = h.r3 ?? h.c3 ?? 0;
-        const c4Plus = h.r4Plus ?? h.c4 ?? 0;
-        const detailText = `${c1}-${c2}-${c3}-${c4Plus}`;
-
-        let badgeHtml = '<span class="badge-draw">引き分け</span>';
-        if (h.isWin) {
-          badgeHtml = '<span class="badge-win">○ 勝利</span>';
-        } else {
-          badgeHtml = '<span class="badge-loss">× 敗北</span>';
-        }
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>第 ${h.round} 回戦</td>
-          <td style="font-weight:bold; text-align:left; padding-left:6px;">${h.seriesName || 'シリーズ'}</td>
-          <td style="font-weight:bold; color:var(--accent-color);">${scoreText}</td>
-          <td style="font-weight:bold; color:#d97706; font-family:monospace;">(${detailText})</td>
-          <td>${badgeHtml}</td>
-        `;
-        historyBody.appendChild(tr);
-      });
-    } else {
-      historyPanel.style.display = 'none';
-    }
-    // --------------------------------------------------
+    // 終了した回戦の履歴データをラウンド番号をキーにしてマップ化
+    const roundHistoryMap = {};
+    (status.round_history || []).forEach(h => {
+      roundHistoryMap[h.round] = h;
+    });
 
     const maxRounds = status.max_rounds || (status.series_lineup ? status.series_lineup.length : 3);
     const typeText = deckType === 1 ? '1デック制サバイバル' : '2デック制';
@@ -886,6 +819,30 @@
       const roundNum = index + 1;
       const isCurrentRound = (roundNum === status.current_round);
       const sObj = SERIES_MASTER.find(s => s.series_id === sId) || SERIES_MASTER[0] || {};
+      const roundResult = roundHistoryMap[roundNum];
+
+      let resultHtml = "";
+      if (roundResult) {
+        const myWins = roundResult.myWins || 0;
+        const oppWins = roundResult.oppWins || 0;
+        const scoreText = `${myWins}勝 ${oppWins}敗`;
+
+        const c1 = roundResult.r1 ?? roundResult.c1 ?? 0;
+        const c2 = roundResult.r2 ?? roundResult.c2 ?? 0;
+        const c3 = roundResult.r3 ?? roundResult.c3 ?? 0;
+        const c4Plus = roundResult.r4Plus ?? roundResult.c4 ?? 0;
+        const detailText = `${c1}-${c2}-${c3}-${c4Plus}`;
+
+        const badgeClass = roundResult.isWin ? 'badge-win' : 'badge-loss';
+        const badgeText = roundResult.isWin ? '○ 勝利' : '× 敗北';
+
+        resultHtml = `
+          <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d0e3d2; display: flex; justify-content: space-between; align-items: center; font-size: 11px; background: #f8fafc; padding: 4px 8px; border-radius: 4px;">
+            <div><span style="font-weight:bold; color:var(--accent-color);">成績:</span> ${scoreText} <span style="font-family:monospace; color:#d97706; margin-left:4px;">(${detailText})</span></div>
+            <div><span class="${badgeClass}" style="padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px;">${badgeText}</span></div>
+          </div>
+        `;
+      }
 
       const catName = getNormalizedCategory(sObj) || '一般';
       const sName = sObj.series_name || '名称未設定';
@@ -908,6 +865,7 @@
           <span style="color:#ccc;">|</span>
           <span>出走可能 <strong class="pt-val-bold">${limits.min_potential_per_race ?? '-'}以上</strong></span>
         </div>
+        ${resultHtml}
       `;
       cardsContainer.appendChild(cardEl);
     });
