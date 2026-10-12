@@ -497,17 +497,7 @@
   async function processBattleState(totalWins) {
     let status = globalUserData.cpu_battle_status;
 
-    if (status && status.is_active) {
-      if (status.current_match && status.current_match.full_race_grids) {
-        window.location.href = 'race_result.html';
-        return;
-      }
-
-      if (status.current_match && status.current_match.player_entries && status.current_match.player_entries.length > 0) {
-        window.location.href = 'strategy.html';
-        return;
-      }
-
+    if (status) {
       let maxRounds = status.max_rounds;
       if (!maxRounds) {
         maxRounds = (totalWins >= 30 || (Array.isArray(status.series_lineup) && status.series_lineup.length >= 5)) ? 5 : 3;
@@ -520,6 +510,7 @@
       const currentWins = status.series_wins || 0;
       const currentLosses = status.series_losses || 0;
 
+      // is_active が false になっていても勝利・敗北条件を満たしていればリザルトを表示する
       if (currentWins >= winCondition) {
         await handleGameEnd(status, true, winCondition);
         return; 
@@ -529,12 +520,24 @@
         return; 
       }
 
-      if (status.current_round > maxRounds) {
-        console.warn("異常な対戦データを検知したため、初期化します。");
-        const emptyStatus = { is_active: false };
-        await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: emptyStatus }, { merge: true });
-        globalUserData.cpu_battle_status = emptyStatus;
-        status = emptyStatus;
+      if (status.is_active) {
+        if (status.current_match && status.current_match.full_race_grids) {
+          window.location.href = 'race_result.html';
+          return;
+        }
+
+        if (status.current_match && status.current_match.player_entries && status.current_match.player_entries.length > 0) {
+          window.location.href = 'strategy.html';
+          return;
+        }
+
+        if (status.current_round > maxRounds) {
+          console.warn("異常な対戦データを検知したため、初期化します。");
+          const emptyStatus = { is_active: false };
+          await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: emptyStatus }, { merge: true });
+          globalUserData.cpu_battle_status = emptyStatus;
+          status = emptyStatus;
+        }
       }
     }
 
@@ -682,10 +685,19 @@
       rewardBox.style.display = "block";
 
       const updatedStatus = { ...status, is_active: false, current_match: null };
+      
+      // 通算勝利数（シリーズアンロック用）を加算
       globalUserData.total_wins = (globalUserData.total_wins || 0) + 1;
-      globalUserData.cpu_battle_status = updatedStatus;
-
       userUpdateObj.total_wins = increment(1);
+
+      // サバイバルモードの場合はサバイバル専用勝利数も同時に加算
+      const isSurvival = (status.battle_type === 'survival' || status.deck_type === 1);
+      if (isSurvival) {
+        globalUserData.survival_wins = (globalUserData.survival_wins || 0) + 1;
+        userUpdateObj.survival_wins = increment(1);
+      }
+
+      globalUserData.cpu_battle_status = updatedStatus;
       userUpdateObj.cpu_battle_status = updatedStatus;
       
       Promise.all([
