@@ -679,26 +679,35 @@
     });
   }
 
-  async function registerMySeries() {
+    async function registerMySeries() {
     const mySeries = globalUserData.selected_online_series || ["SERIES_001", "SERIES_002", "SERIES_003"];
     const myName = getDisplayName(globalUserData, currentUser);
     const roomRef = doc(db, "online_matches", roomId);
     
+    // ★ 修正: ルーム入室・初期化の段階で自分の全保有馬（36頭）も早期に取得・送信する
+    const userDecks = globalUserData.decks || [];
+    const d0 = (userDecks[0]?.horse_ids || []).map(id => normalizeHorseId(id)).filter(Boolean);
+    const d1 = (userDecks[1]?.horse_ids || []).map(id => normalizeHorseId(id)).filter(Boolean);
+    const my36Horses = [...d0, ...d1];
+
     const updateData = (role === 'host') ? { 
       player1_series: mySeries,
       player1_name: myName,
       player1_uid: currentUser.uid,
       player1_ready: false,
-      p1_status: "deck_selecting"
+      p1_status: "deck_selecting",
+      player1_all_horses: my36Horses // 早期共有
     } : { 
       player2_series: mySeries,
       player2_name: myName,
       player2_uid: currentUser.uid,
       player2_ready: false,
-      p2_status: "deck_selecting"
+      p2_status: "deck_selecting",
+      player2_all_horses: my36Horses // 早期共有
     };
     await setDoc(roomRef, updateData, { merge: true });
   }
+
 
   function renderDeckInfo() {
     const decks = globalUserData.decks || [];
