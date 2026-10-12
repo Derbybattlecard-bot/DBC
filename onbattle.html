@@ -1332,14 +1332,33 @@
             else if (oppRank === 3) opp3rd++;
           });
         } else {
-          my1st = isHost ? (roundHistory.p1_1st ?? 0) : (roundHistory.p2_1st ?? 0);
-          my2nd = isHost ? (roundHistory.p1_2nd ?? 0) : (roundHistory.p2_2nd ?? 0);
-          my3rd = isHost ? (roundHistory.p1_3rd ?? 0) : (roundHistory.p2_3rd ?? 0);
+                  const mySeriesWins = isHost ? (h.p1Wins ?? h.myWins ?? '-') : (h.p2Wins ?? h.oppWins ?? '-');
+        const oppSeriesWins = isHost ? (h.p2Wins ?? h.oppWins ?? '-') : (h.p1Wins ?? h.myWins ?? '-');
 
-          opp1st = isHost ? (roundHistory.p2_1st ?? 0) : (roundHistory.p1_1st ?? 0);
-          opp2nd = isHost ? (roundHistory.p2_2nd ?? 0) : (roundHistory.p1_2nd ?? 0);
-          opp3rd = isHost ? (roundHistory.p2_3rd ?? 0) : (roundHistory.p1_3rd ?? 0);
-        }
+        // 自分の1〜4着の算出
+        const my1st = isHost ? (h.p1_1st ?? h.my1st ?? h.p1_first_places ?? 0) : (h.p2_1st ?? h.opp1st ?? h.p2_first_places ?? 0);
+        const my2nd = isHost ? (h.p1_2nd ?? h.my2nd ?? 0) : (h.p2_2nd ?? h.opp2nd ?? 0);
+        const my3rd = isHost ? (h.p1_3rd ?? h.my3rd ?? 0) : (h.p2_3rd ?? h.opp3rd ?? 0);
+        const my4th = Math.max(0, 5 - (my1st + my2nd + my3rd));
+        const myDetail = `${my1st}-${my2nd}-${my3rd}-${my4th}`;
+
+        // 相手の1〜4着の算出
+        const opp1st = isHost ? (h.p2_1st ?? h.opp1st ?? h.p2_first_places ?? 0) : (h.p1_1st ?? h.my1st ?? h.p1_first_places ?? 0);
+        const opp2nd = isHost ? (h.p2_2nd ?? h.opp2nd ?? 0) : (h.p1_2nd ?? h.my2nd ?? 0);
+        const opp3rd = isHost ? (h.p2_3rd ?? h.opp3rd ?? 0) : (h.p1_3rd ?? h.my3rd ?? 0);
+        const opp4th = Math.max(0, 5 - (opp1st + opp2nd + opp3rd));
+        const oppDetail = `${opp1st}-${opp2nd}-${opp3rd}-${opp4th}`;
+
+        // ご希望のフォーマット (例: 3勝(1-0-0-4) - 2勝(0-1-1-3))
+        const combinedScoreDisplay = `${mySeriesWins}勝(${myDetail}) - ${oppSeriesWins}勝(${oppDetail})`;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>第 ${h.round} 回戦</td>
+          <td style="font-weight:bold; text-align:left; padding-left:6px;">${h.seriesName || 'シリーズ'}</td>
+          <td style="font-weight:bold; color:var(--accent-color); font-family:monospace; font-size:10px;">${combinedScoreDisplay}</td>
+          <td>${badgeHtml}</td>
+        `;
 
         const outcomeBadge = (myWins > oppWins) 
           ? `<span class="badge-win">○ 勝利</span>` 
