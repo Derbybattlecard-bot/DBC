@@ -17,7 +17,9 @@
     --dirt-color: #8D6E63;
     --danger-color: #d9534f;
     --player-bg: #e3f2fd;
+    --player-border: #90caf9;
     --cpu-bg: #ffebee;
+    --cpu-border: #ef9a9a;
   }
   body {
     font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
@@ -25,16 +27,16 @@
     background-attachment: fixed;
     color: var(--text-main);
     margin: 0;
-    padding: 15px;
-    font-size: 13px;
+    padding: 10px;
+    font-size: 12px;
     display: flex;
     justify-content: center;
   }
-  .container { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 650px; }
+  .container { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 650px; }
   
   .header-panel {
     background-color: var(--panel-bg);
-    padding: 10px 15px;
+    padding: 8px 12px;
     border-radius: 8px;
     border: 1px solid var(--border-color);
     display: flex;
@@ -46,11 +48,11 @@
     background: #ffffff;
     color: var(--accent-color);
     border: 1px solid var(--accent-color);
-    padding: 6px 12px;
+    padding: 5px 10px;
     border-radius: 6px;
     cursor: pointer;
     font-weight: bold;
-    font-size: 12px;
+    font-size: 11px;
     text-decoration: none;
   }
 
@@ -58,7 +60,7 @@
     background: var(--panel-bg);
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    padding: 10px 15px;
+    padding: 8px 12px;
     display: flex;
     justify-content: space-around;
     align-items: center;
@@ -66,25 +68,26 @@
   }
   .status-item { text-align: center; }
   .status-label { font-size: 10px; color: var(--text-sub); display: block; margin-bottom: 2px; }
-  .status-val { font-size: 14px; font-weight: bold; }
+  .status-val { font-size: 13px; font-weight: bold; }
   .status-val.error { color: var(--danger-color); }
   .status-val.ok { color: var(--accent-color); }
 
+  /* レースカード */
   .race-card {
     background: var(--panel-bg);
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    padding: 12px;
+    padding: 10px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
   }
   .race-info-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px dashed var(--border-color);
-    padding-bottom: 6px;
+    padding-bottom: 5px;
   }
   .race-title { font-weight: bold; font-size: 13px; color: var(--accent-color); }
   .race-cond-group { display: flex; gap: 4px; align-items: center; }
@@ -103,43 +106,103 @@
   .cond-重 { background-color: #e65100; }
   .cond-不良 { background-color: #c62828; }
 
-  .my-horse-box {
-    background: #f0f7f1;
-    border: 1px solid #c8e6c9;
-    border-radius: 6px;
-    padding: 8px 10px;
+  /* 新3カラムレイアウト */
+  .versus-container {
+    display: grid;
+    grid-template-columns: 1fr 1.3fr 1fr;
+    gap: 6px;
+    align-items: stretch;
   }
-  .my-horse-title { font-weight: bold; color: var(--accent-color); font-size: 12px; margin-bottom: 4px; }
 
-  .strategy-select-group {
+  /* 自馬・CPU馬カード */
+  .side-horse-box {
+    border-radius: 6px;
+    padding: 6px 8px;
     display: flex;
-    gap: 8px;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
   }
-  .select-strat {
-    flex: 2;
-    padding: 6px 8px;
-    border-radius: 6px;
-    border: 1px solid var(--border-color);
-    font-size: 12px;
-    font-weight: bold;
+  .side-horse-box.player {
+    background: var(--player-bg);
+    border: 1px solid var(--player-border);
   }
-  .select-level {
-    flex: 1;
-    padding: 6px 8px;
-    border-radius: 6px;
-    border: 1px solid var(--border-color);
-    font-size: 12px;
+  .side-horse-box.cpu {
+    background: var(--cpu-bg);
+    border: 1px solid var(--cpu-border);
+  }
+  
+  .horse-role-tag {
+    font-size: 9px;
     font-weight: bold;
+    padding: 1px 4px;
+    border-radius: 3px;
+    display: inline-block;
+    margin-bottom: 2px;
+  }
+  .side-horse-box.player .horse-role-tag { background: #1976d2; color: #fff; }
+  .side-horse-box.cpu .horse-role-tag { background: #d32f2f; color: #fff; }
+
+  .side-horse-name {
+    font-weight: bold;
+    font-size: 11px;
+    line-height: 1.2;
+    margin-bottom: 4px;
+    word-break: break-all;
+  }
+  .side-horse-stats {
+    font-size: 10px;
+    color: #444;
   }
 
+  /* 中央コントロールエリア（縦配置） */
+  .center-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    justify-content: center;
+  }
+
+  .strategy-select-vertical {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .select-strat, .select-level {
+    width: 100%;
+    padding: 4px 6px;
+    border-radius: 5px;
+    border: 1px solid var(--border-color);
+    font-size: 11px;
+    font-weight: bold;
+    box-sizing: border-box;
+    background: #fff;
+  }
+
+  .mob-field-preview {
+    background: #e8f5e9;
+    border: 1px solid #c8e6c9;
+    border-radius: 5px;
+    padding: 4px;
+    font-size: 10px;
+    text-align: center;
+  }
+  .mob-style-counts {
+    font-weight: bold;
+    display: flex;
+    justify-content: space-around;
+    margin-top: 2px;
+  }
+
+  /* テーブル表示 */
   details.race-grid-toggle {
     background: #ffffff;
     border: 1px solid var(--border-color);
     border-radius: 6px;
-    font-size: 11px;
+    font-size: 10px;
   }
   summary.race-grid-summary {
-    padding: 6px 10px;
+    padding: 5px 8px;
     font-weight: bold;
     color: var(--accent-color);
     cursor: pointer;
@@ -154,7 +217,7 @@
   }
   .race-grid-table th, .race-grid-table td {
     border: 1px solid #e0e0e0;
-    padding: 4px 6px;
+    padding: 3px 4px;
     text-align: center;
     font-size: 10px;
   }
@@ -166,14 +229,14 @@
     background: var(--accent-color);
     color: white;
     border: none;
-    padding: 15px;
+    padding: 14px;
     border-radius: 6px;
     font-weight: bold;
-    font-size: 16px;
+    font-size: 15px;
     cursor: pointer;
     text-align: center;
     box-shadow: 0 4px 0 var(--accent-hover);
-    margin-top: 10px;
+    margin-top: 8px;
   }
   .btn-submit:disabled { background: #a0a0a0; box-shadow: 0 4px 0 #7a7a7a; cursor: not-allowed; }
 </style>
@@ -183,8 +246,8 @@
 <div class="container">
   <div class="header-panel">
     <a href="matchup.html" class="btn-back">← 出走登録へ</a>
-    <h2 style="margin:0; font-size: 16px; color: var(--accent-color);">作戦指示</h2>
-    <div id="syncStatus" style="font-size: 11px; color: var(--text-sub); font-weight: bold;">☁️ 読込中...</div>
+    <h2 style="margin:0; font-size: 15px; color: var(--accent-color);">作戦指示</h2>
+    <div id="syncStatus" style="font-size: 10px; color: var(--text-sub); font-weight: bold;">☁️ 読込中...</div>
   </div>
 
   <div class="status-bar">
@@ -202,7 +265,7 @@
     </div>
   </div>
 
-  <div id="raceCardList" style="display:flex; flex-direction:column; gap:12px;"></div>
+  <div id="raceCardList" style="display:flex; flex-direction:column; gap:10px;"></div>
 
   <button class="btn-submit" id="btnGoRace" disabled onclick="finalizeAndStartRace()">レースへ進む！</button>
 </div>
@@ -426,6 +489,7 @@
       const cpuEntry = cpuEntries[rIdx] || {};
       const cpuHorse = HORSES_MASTER[String(cpuEntry.horse_id)] || {};
       const cpuPt = getHorsePt(cpuHorse, race.surface);
+      const cpuStyle = getHorseStyle(cpuHorse);
 
       const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
       const trackCond = loadedTrackConditions[rIdx] || '良';
@@ -493,7 +557,7 @@
           <td style="text-align:left;">${cpuHorse.name || 'CPU'} (ライバル)</td>
           <td>${cpuHorse.sex || '牡'}</td>
           <td>${cpuPt}</td>
-          <td>${getHorseStyle(cpuHorse)}</td>
+          <td>${cpuStyle}</td>
         </tr>
       `;
 
@@ -519,31 +583,49 @@
           </div>
         </div>
         
-        <div class="my-horse-box">
-          <div class="my-horse-title">出走馬: ${pHorse.name || '未設定'} (Pt:${pPt} / 得意:${pStyle})</div>
-          <div class="strategy-select-group">
-            <select class="select-strat" id="selectStrat${rIdx}" onchange="onStrategyChanged(${rIdx})">
-              ${stratOptionsHtml}
-            </select>
-            <select class="select-level" id="selectLevel${rIdx}" onchange="onStrategyChanged(${rIdx})">
-              ${levelOptionsHtml}
-            </select>
+        <div class="versus-container">
+          <!-- 左：自馬情報 -->
+          <div class="side-horse-box player">
+            <div><span class="horse-role-tag">YOUR HORSE</span></div>
+            <div class="side-horse-name">${pHorse.name || '未設定'}</div>
+            <div class="side-horse-stats">Pt: <b>${pPt}</b></div>
+            <div class="side-horse-stats">得意: <b>${pStyle}</b></div>
           </div>
-        </div>
 
-        <div class="mob-field-preview" style="background:#e8f5e9; border:1px solid #c8e6c9; border-radius:6px; padding:6px 10px; font-size:11px; display:flex; justify-content:space-between; align-items:center;">
-          <span style="font-weight:bold; color:var(--accent-color);">🏇 出走モブ脚質分布:</span>
-          <div class="mob-style-counts" style="font-weight:bold;">
-            <span>逃:${styleCounts["逃げ"]}</span>
-            <span style="margin-left:6px;">先:${styleCounts["先行"]}</span>
-            <span style="margin-left:6px;">差:${styleCounts["差し"]}</span>
-            <span style="margin-left:6px;">追:${styleCounts["追込"]}</span>
+          <!-- 中央：作戦設定＆モブ脚質統計 -->
+          <div class="center-controls">
+            <div class="strategy-select-vertical">
+              <select class="select-strat" id="selectStrat${rIdx}" onchange="onStrategyChanged(${rIdx})">
+                ${stratOptionsHtml}
+              </select>
+              <select class="select-level" id="selectLevel${rIdx}" onchange="onStrategyChanged(${rIdx})">
+                ${levelOptionsHtml}
+              </select>
+            </div>
+            
+            <div class="mob-field-preview">
+              <div style="font-weight:bold; color:var(--accent-color); font-size:9px;">🏇 モブ脚質分布</div>
+              <div class="mob-style-counts">
+                <span>逃:${styleCounts["逃げ"]}</span>
+                <span>先:${styleCounts["先行"]}</span>
+                <span>差:${styleCounts["差し"]}</span>
+                <span>追:${styleCounts["追込"]}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右：CPU対戦馬情報 -->
+          <div class="side-horse-box cpu">
+            <div><span class="horse-role-tag">CPU HORSE</span></div>
+            <div class="side-horse-name">${cpuHorse.name || 'CPU'}</div>
+            <div class="side-horse-stats">Pt: <b>${cpuPt}</b></div>
+            <div class="side-horse-stats">得意: <b>${cpuStyle}</b></div>
           </div>
         </div>
 
         <details class="race-grid-toggle">
           <summary class="race-grid-summary">📋 出走メンバー（全16頭）を確認する</summary>
-          <div style="padding: 4px 6px; font-size: 10px; color: #666;">※馬番（枠順）は「レースへ進む！」押下時にランダム決定されます。</div>
+          <div style="padding: 4px 6px; font-size: 9px; color: #666;">※馬番（枠順）は「レースへ進む！」押下時にランダム決定されます。</div>
           <table class="race-grid-table">
             <thead>
               <tr>
