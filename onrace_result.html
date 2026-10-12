@@ -574,6 +574,89 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
+    // ==========================================
+    // ★ 【修正案2】すでに5戦分の結果キャッシュがある場合（リロード時の自動復元）
+    // ==========================================
+    if (roomData.race_results_cache && roomData.race_results_cache.length === 5) {
+      await loadMasterData();
+
+      const isHost = (role === 'host');
+      const oppUid = isHost ? roomData.player2_uid : roomData.player1_uid;
+
+      myNameStr = globalUserData?.nickname || globalUserData?.displayName || globalUserData?.name || (isHost ? roomData.player1_name : roomData.player2_name) || "あなた";
+      if (oppUid) {
+        try {
+          const oppUserSnap = await getDoc(doc(db, "users", oppUid));
+          if (oppUserSnap.exists()) {
+            const u = oppUserSnap.data();
+            oppNameStr = u.nickname || u.displayName || u.name || oppNameStr;
+          }
+        } catch (e) {}
+      }
+      if (!oppNameStr || oppNameStr === "対戦相手") {
+        oppNameStr = isHost ? (roomData.player2_name || "対戦相手") : (roomData.player1_name || "対戦相手");
+      }
+
+      // レース名を取得するためのシリーズ情報準備
+      const matchSeries = roomData?.match_series || roomData?.selected_series || ["series_01"];
+      const currentSeriesIndex = roomData?.current_series_index || 0;
+      const seriesId = Array.isArray(matchSeries) ? (matchSeries[currentSeriesIndex] || matchSeries[0]) : matchSeries;
+      const seriesInfo = seriesMasterData[seriesId] || Object.values(seriesMasterData)[0] || {};
+      const racesInSeries = seriesInfo.races || (seriesInfo.rounds && seriesInfo.rounds[0] ? seriesInfo.rounds[0].races : null);
+
+      // キャッシュから対戦成績（seriesHistory）を完璧に再構築する
+      seriesHistory = [];
+      roomData.race_results_cache.forEach((raceRes, rIdx) => {
+        const roundRace = (Array.isArray(racesInSeries) && racesInSeries[rIdx]) ? racesInSeries[rIdx] : null;
+        const raceName = roundRace?.race_name || `第${rIdx + 1}戦`;
+
+        const results = raceRes.results || [];
+        results.forEach(h => {
+          if (h.playerRole === 'host') {
+            h.isPlayer = isHost;
+            h.isOpponent = !isHost;
+          } else if (h.playerRole === 'guest') {
+            h.isPlayer = !isHost;
+            h.isOpponent = isHost;
+          } else {
+            h.isPlayer = false;
+            h.isOpponent = false;
+          }
+        });
+
+        const myHorse = results.find(h => h.isPlayer);
+        const oppHorse = results.find(h => h.isOpponent);
+
+        const myRank = myHorse ? (results.indexOf(myHorse) + 1) : 99;
+        const oppRank = oppHorse ? (results.indexOf(oppHorse) + 1) : 99;
+
+        let isWin = false;
+        let winnerText = "引き分け";
+        if (myRank < oppRank) {
+          isWin = true;
+          winnerText = myNameStr;
+        } else if (oppRank < myRank) {
+          isWin = false;
+          winnerText = oppNameStr;
+        }
+
+        seriesHistory.push({
+          raceNum: rIdx + 1,
+          raceName: raceName,
+          myRank: myRank,
+          oppRank: oppRank,
+          win: isWin,
+          winner: winnerText
+        });
+      });
+
+      // 通常のレース初期化や実況をバイパスし、即座に最終結果モーダルを表示
+      showFinalSeriesResult();
+      listenRoomStatus();
+      return; 
+    }
+    // ==========================================
+  
 // ★ ギブアップ時の結果フロー処理
 async function handleGiveupResultFlow(data, p1Giveup, p2Giveup) {
   const isHost = (role === 'host');
