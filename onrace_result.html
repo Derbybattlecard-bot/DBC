@@ -747,8 +747,10 @@ function prepareHorseData(h) {
 
 async function ensureUsedHorsesUpdated() {
   if (!roomData || !roomId) return;
-  const p1Entries = roomData.player1_entries || [];
-  const p2Entries = roomData.player2_entries || [];
+  
+  // ★ 【修正点】player1_entriesやplayer2_entriesが文字列（'giveup'など）の場合に備え、Array.isArrayで安全に判定
+  const p1Entries = Array.isArray(roomData.player1_entries) ? roomData.player1_entries : [];
+  const p2Entries = Array.isArray(roomData.player2_entries) ? roomData.player2_entries : [];
 
   const p1Norm = p1Entries.map(normalizeHorseId).filter(id => id !== "");
   const p2Norm = p2Entries.map(normalizeHorseId).filter(id => id !== "");
@@ -1718,10 +1720,10 @@ function showFinalSeriesResult() {
     titleEl.textContent = "🏆 シリーズ勝利！";
     titleEl.style.color = "var(--gold-color)";
   } else if (oppWins > myWins) {
-    titleEl.textContent = "💀 シリーズ敗北…";
+    titleEl.textContent = "シリーズ敗北…";
     titleEl.style.color = "var(--opponent-color)";
   } else {
-    titleEl.textContent = "🤝 シリーズ引き分け！";
+    titleEl.textContent = "ダブルノックアウト！";
     titleEl.style.color = "#ffffff";
   }
 
@@ -1769,21 +1771,15 @@ function showFinalSeriesResult() {
 
   document.getElementById('final-series-modal').style.display = "block";
 
-  // =========================================================================
-  // ★ 【修正点】回戦結果および戦績のFirestore同期は「ホスト(role === 'host')」のみが実行
-  // ゲスト側が勝数や履歴を二重加算・破壊するのを完全に防ぎます
-  // =========================================================================
   if (roomId && role === 'host') {
     try {
       const roomRef = doc(db, "online_matches", roomId);
       
-      // すでに現在の回戦結果が記録されているか重複チェック
       const existingHistory = Array.isArray(roomData.match_history) ? [...roomData.match_history] : [];
       const currentSeriesIndex = roomData?.current_series_index || 0;
 
-      // まだ今回の履歴が未登録の場合のみ加算・更新を実行
       if (!existingHistory[currentSeriesIndex]) {
-        const winKey = 'p1_wins'; // ホスト視点での勝数キー
+        const winKey = 'p1_wins'; 
         const updateObj = {
           player1_series_finished: true
         };
@@ -1846,7 +1842,6 @@ function showFinalSeriesResult() {
       console.error("回戦結果送信エラー:", e);
     }
   } else if (roomId && role !== 'host') {
-    // ゲスト側は自分が終了したことだけをマークする
     try {
       const roomRef = doc(db, "online_matches", roomId);
       updateDoc(roomRef, { player2_series_finished: true });
