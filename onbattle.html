@@ -888,7 +888,9 @@
     const tiebreakBox = document.getElementById('tiebreakNoticeBox');
 
     if (matchResult.winner === myRoleKey) {
-      bannerEl.textContent = "🏆 MATCH VICTORY";
+      
+      
+    bannerEl.textContent = "🏆 MATCH VICTORY";
       bannerEl.className = "result-banner win";
     } else {
       bannerEl.textContent = "MATCH DEFEAT";
@@ -1302,15 +1304,38 @@
         const myWins = isHost ? (roundHistory.p1Wins ?? roundHistory.p1_wins ?? roundHistory.myWins ?? 0) : (roundHistory.p2Wins ?? roundHistory.p2_wins ?? roundHistory.oppWins ?? 0);
         const oppWins = isHost ? (roundHistory.p2Wins ?? roundHistory.p2_wins ?? roundHistory.oppWins ?? 0) : (roundHistory.p1Wins ?? roundHistory.p1_wins ?? roundHistory.myWins ?? 0);
         
-        const my1st = isHost ? (roundHistory.p1_1st ?? 0) : (roundHistory.p2_1st ?? 0);
-        const my2nd = isHost ? (roundHistory.p1_2nd ?? 0) : (roundHistory.p2_2nd ?? 0);
-        const my3rd = isHost ? (roundHistory.p1_3rd ?? 0) : (roundHistory.p2_3rd ?? 0);
-        
+        // 自分と相手の1着〜3着数を動的に集計
+        let my1st = 0, my2nd = 0, my3rd = 0;
+        let opp1st = 0, opp2nd = 0, opp3rd = 0;
+
+        const racesList = roundHistory.races || roundHistory.race_results || (sObj.races || []);
+        if (Array.isArray(racesList) && racesList.length > 0) {
+          racesList.forEach(r => {
+            const myRank = isHost ? Number(r.p1_rank ?? r.my_rank) : Number(r.p2_rank ?? r.opp_rank);
+            const oppRank = isHost ? Number(r.p2_rank ?? r.opp_rank) : Number(r.p1_rank ?? r.my_rank);
+
+            if (myRank === 1) my1st++;
+            else if (myRank === 2) my2nd++;
+            else if (myRank === 3) my3rd++;
+
+            if (oppRank === 1) opp1st++;
+            else if (oppRank === 2) opp2nd++;
+            else if (oppRank === 3) opp3rd++;
+          });
+        } else {
+          my1st = isHost ? (roundHistory.p1_1st ?? 0) : (roundHistory.p2_1st ?? 0);
+          my2nd = isHost ? (roundHistory.p1_2nd ?? 0) : (roundHistory.p2_2nd ?? 0);
+          my3rd = isHost ? (roundHistory.p1_3rd ?? 0) : (roundHistory.p2_3rd ?? 0);
+
+          opp1st = isHost ? (roundHistory.p2_1st ?? 0) : (roundHistory.p1_1st ?? 0);
+          opp2nd = isHost ? (roundHistory.p2_2nd ?? 0) : (roundHistory.p1_2nd ?? 0);
+          opp3rd = isHost ? (roundHistory.p2_3rd ?? 0) : (roundHistory.p1_3rd ?? 0);
+        }
+
         const outcomeBadge = (myWins > oppWins) 
           ? `<span class="badge-win">○ 勝利</span>` 
           : (myWins < oppWins) ? `<span class="badge-loss">× 敗北</span>` : `<span class="badge-draw">引き分け</span>`;
 
-        const racesList = roundHistory.races || roundHistory.race_results || (sObj.races || []);
         let raceRowsHTML = '';
 
         if (Array.isArray(racesList) && racesList.length > 0) {
@@ -1346,11 +1371,8 @@
           <div class="round-result-box">
             <div class="round-result-summary">
               <div>
-                成績: <span class="result-score-badge">${myWins}勝 ー ${oppWins}敗</span>
+                成績: <span class="result-score-badge">${myWins}勝 (${my1st}-${my2nd}-${my3rd}) ー ${oppWins}敗 (${opp1st}-${opp2nd}-${opp3rd})</span>
                 <span style="margin-left:6px;">${outcomeBadge}</span>
-              </div>
-              <div class="result-breakdown">
-                （${my1st}－${my2nd}－${my3rd}）
               </div>
             </div>
             ${raceRowsHTML ? `
