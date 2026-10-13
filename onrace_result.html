@@ -887,7 +887,22 @@ async function handleRoomDataUpdate(data) {
     window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
     return;
   }
-
+  
+if (data.status === "entry_selecting" || data.status === "matchup") {
+    // ★ どちらかがギブアップしている場合は matchup に戻さない安全ガード
+    if (data.player1_giveup || data.player2_giveup) {
+      return;
+    }
+    if (raceState === 'running' || raceState === 'finished') {
+      return; 
+    }
+    
+    isNavigatingAway = true;
+    stopRoomListening();
+    window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}`;
+    return;
+  }
+  
   if (data.status === "entry_selecting" || data.status === "matchup") {
     if (raceState === 'running' || raceState === 'finished') {
       return; 
