@@ -1,6 +1,6 @@
 // ============================================================================
 // js/race_calculator.js
-// 競馬シミュレーション・計算エンジン ＆ 実況生成統合モジュール（マスターデータ駆動完全版 v2.3）
+// 競馬シミュレーション・計算エンジン ＆ 実況生成統合モジュール（マスターデータ駆動完全版 v2.4）
 // ============================================================================
 
 // 海外競馬場フルリスト
@@ -88,7 +88,7 @@ function getTacticPaceBonus(tacticStyleInput, racePace) {
 }
 
 /**
- * 実況テキストの生成（フェーズ1〜4完全版 v2.3）
+ * 実況テキストの生成（フェーズ1〜4完全版 v2.4）
  * - 4コーナー通過後の展開発表時に、重要パラメータの解説を動的に付加
  */
 function generateRaceCommentary(raceData) {
@@ -144,7 +144,6 @@ function generateRaceCommentary(raceData) {
   const branchName = branch?.name || "勝負所";
   let branchDesc = `レースの展開は「${branchName}」！`;
 
-  // 展開のkey_stats等に基づいて必要なパラメータを実況で喋らせる
   let statComments = [];
   if (branch?.key_stats && Array.isArray(branch.key_stats)) {
     branch.key_stats.forEach(st => {
@@ -456,7 +455,7 @@ function processMarkStrategy(resultList) {
 }
 
 /**
- * フェーズ1: 登録/準備段階のアビリティ判定（ポップアップ漏れ防止強化）
+ * フェーズ1: 登録/準備段階のアビリティ判定（芝・ダート双方向のポテンシャル差分補正対応 v2.4）
  */
 function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilityMasterData) {
   horse.calc_speed = horse.speed || 0;
@@ -477,8 +476,19 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
   const turfPot = horse.turf_potential ?? master.turf_potential ?? horse.potential ?? 0;
   const dirtPot = horse.dirt_potential ?? master.dirt_potential ?? horse.potential ?? 0;
 
+  // 芝・ダート双方向のポテンシャル＆ステータス補正処理
   if (isTurf) {
-    horse.calc_potential = turfPot;
+    if (dirtPot >= 14 && turfPot > dirtPot) {
+      const potDiff = turfPot - dirtPot;
+      horse.calc_potential = turfPot;
+      horse.calc_speed += potDiff;
+      horse.calc_stamina += potDiff;
+      horse.calc_sharp += potDiff;
+      horse.calc_jizoku += potDiff;
+      horse.calc_guts += potDiff;
+    } else {
+      horse.calc_potential = turfPot;
+    }
   } else {
     if (turfPot >= 14 && dirtPot > turfPot) {
       const potDiff = dirtPot - turfPot;
@@ -550,7 +560,7 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
 }
 
 /**
- * フェーズ2: 位置取り段階のアビリティ判定（ポップアップ漏れ防止強化）
+ * フェーズ2: 位置取り段階のアビリティ判定
  */
 function applyPhase2Abilities(horse, positionPoint, abilityMasterData, raceInfo, trackCondition, allHorses) {
   if (!isEligibleForAbility(horse)) return positionPoint;
@@ -597,7 +607,7 @@ function applyPhase2Abilities(horse, positionPoint, abilityMasterData, raceInfo,
 }
 
 /**
- * フェーズ3: 中盤・隊列判定後のアビリティ判定（ポップアップ漏れ防止強化）
+ * フェーズ3: 中盤・隊列判定後のアビリティ判定
  */
 function applyPhase3Abilities(resultList, raceInfo, trackCondition, racePace, abilityMasterData) {
   if (!resultList || resultList.length === 0) return;
@@ -644,7 +654,7 @@ function applyPhase3Abilities(resultList, raceInfo, trackCondition, racePace, ab
 }
 
 /**
- * フェーズ4: 展開・最終計算アビリティ判定（ポップアップ漏れ防止強化）
+ * フェーズ4: 展開・最終計算アビリティ判定
  */
 function applyPhase4Abilities(horse, pace, branchName, abilityMasterData, raceInfo, trackCondition, allHorses) {
   if (!isEligibleForAbility(horse)) return 0;
@@ -754,7 +764,7 @@ function applyRankSwapAbilities(resultList) {
 }
 
 // ============================================================================
-// メイン処理エクスポート関数: runRaceLogic (v2.3)
+// メイン処理エクスポート関数: runRaceLogic (v2.4)
 // ============================================================================
 export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInfo = null, abilityMasterData = null) {
   const resultList = horses.map((h, i) => {
@@ -1019,4 +1029,4 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     branch: selectedBranch,
     commentary: commentaryData
   };
-}
+      }
