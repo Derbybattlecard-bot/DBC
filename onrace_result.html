@@ -395,7 +395,7 @@ let currentRaceBranch = "";
 let currentRaceFormulaStr = "";
 let currentTrackConfig = TRACK_DIRECTION_MASTER["右回り"];
 let currentRaceInfo = null;
-let raceInfo = null;
+// (※ 未使用の raceInfo変数は削除しました)
 
 let myNameStr = "あなた";
 let oppNameStr = "対戦相手";
@@ -408,7 +408,6 @@ const urlParams = new URLSearchParams(window.location.search);
 const roomId = urlParams.get('roomId');
 const role = urlParams.get('role');
 
-// 💡 2桁の進捗コード（例: 11〜15）を現在の回戦とレースインデックスから算出する関数
 function getCurrentProgressCode() {
   const seriesNum = (roomData?.current_series_index || 0) + 1;
   const raceNum = currentRaceIndex + 1;
@@ -536,7 +535,6 @@ onAuthStateChanged(auth, async (user) => {
       oppNameStr = isHost ? (roomData.player2_name || "対戦相手") : (roomData.player1_name || "対戦相手");
     }
 
-    // 💡 フラットなオブジェクト形式の cache を安全にチェック (全5レース分揃っているか)
     const cacheObj = roomData.race_results_cache;
     const isCacheComplete = cacheObj && typeof cacheObj === 'object' && Object.keys(cacheObj).length >= 5;
 
@@ -549,8 +547,8 @@ onAuthStateChanged(auth, async (user) => {
 
       seriesHistory = [];
       for (let rIdx = 0; rIdx < 5; rIdx++) {
-        const pKey = String(getCurrentProgressCode()).charAt(0) + String(rIdx + 1); // 例: "11", "12"...
-        const raceRes = cacheObj[pKey] || Object.values(cacheObj)[rIdx]; // フォールバック対応
+        const pKey = String(getCurrentProgressCode()).charAt(0) + String(rIdx + 1);
+        const raceRes = cacheObj[pKey] || Object.values(cacheObj)[rIdx];
         if (!raceRes) continue;
 
         const roundRace = (Array.isArray(racesInSeries) && racesInSeries[rIdx]) ? racesInSeries[rIdx] : null;
@@ -735,7 +733,6 @@ async function ensureUsedHorsesUpdated() {
   }
 }
 
-// 💡 5レース分の結果を「2桁の進捗コード（例: 11〜15）」をキーにしたフラットなオブジェクトとして一括計算・保存
 async function calculateAndUploadAllRaces() {
   await ensureUsedHorsesUpdated();
 
@@ -774,7 +771,6 @@ async function calculateAndUploadAllRaces() {
       const result = runRaceLogic(raceGrid, raceMasterData, tCond, rInfo, abilityMasterData);
       const cleanResult = removeUndefinedFields(JSON.parse(JSON.stringify(result)));
       
-      // キーを 2桁コード（例: "11", "12", "13", "14", "15"）にする
       const progressKey = String(`${seriesNum}${rIdx + 1}`);
       allRaceResults[progressKey] = cleanResult;
     }
@@ -926,6 +922,7 @@ async function handleRoomDataUpdate(data) {
     window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}`;
     return;
   }
+  // (※ 下にあった重複していた if (data.status === "entry_selecting"...) ブロックはここで完全に削除しました)
 
   const isHost = (role === 'host');
   const modalBtn = document.getElementById('modalNextBtn');
@@ -1238,14 +1235,6 @@ function setupRace(rIdx) {
     prepareHorseData(h);
   });
 
-  raceInfo = {
-    race_name: currentRaceInfo.race_name,
-    race_number: rIdx + 1,
-    surface: currentRaceInfo.surface,
-    distance: currentRaceInfo.distance,
-    track: currentRaceInfo.track
-  };
-
   const playerObj = activeHorses.find(h => h.isPlayer) || { name: "自馬", tactic: "先行", level: 3, gate_number: 1 };
   const oppObj = activeHorses.find(h => h.isOpponent) || { name: "相手馬", tactic: "逃げ", level: 3, gate_number: 2 };
 
@@ -1403,10 +1392,9 @@ async function startRace() {
   btn.disabled = true;
   btn.innerText = "🏃 レース進行中...";
 
-  // 💡 進捗コード（例: "11"〜"15"）をキーにして、フラットなオブジェクトから確実に結果を取得
   const progressKey = String(getCurrentProgressCode());
   const cacheObj = roomData?.race_results_cache || {};
-  const raceResultData = cacheObj[progressKey] || cacheObj[currentRaceIndex]; // フォールバック対応
+  const raceResultData = cacheObj[progressKey] || cacheObj[currentRaceIndex];
   
   if (!raceResultData) {
     showErrorModal("レース計算データが取得できませんでした。");
