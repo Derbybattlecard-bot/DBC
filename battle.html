@@ -429,7 +429,7 @@
 
   function getUnlockedLimits(totalWins) {
     const limits = { "古馬東西": 0, "地方交流": 0, "クラシック": 0, "古馬王道": 0, "ローカル": 0, "海外チャレンジ": 0, "海外単独": 0, "トリビュート": 0 };
-    UNLOCK_STAGES.forEach(item => {
+     UNLOCK_STAGES.forEach(item => {
       if (totalWins >= item.wins && item.no > limits[item.cat]) { limits[item.cat] = item.no; }
     });
     return limits;
@@ -481,13 +481,11 @@
     let updated = false;
     const nowIso = new Date().toISOString();
 
-    // 1. 着順合計が最も少ない記録 (小さい方が良い)
     if (bests.min_rank_sum === undefined || totalRankSum < bests.min_rank_sum.rank_sum) {
       bests.min_rank_sum = { rank_sum: totalRankSum, series_lineup: lineup, achieved_at: nowIso };
       updated = true;
     }
 
-    // 2. 1着回数が最も多い (タイブレーク: 2着多い方 ＞ 3着多い方)
     const currentMax1st = bests.max_1st || { c1: -1, c2: -1, c3: -1 };
     let isBetter1st = false;
     if (totalC1 > currentMax1st.c1) {
@@ -506,7 +504,6 @@
       updated = true;
     }
 
-    // 3. 充足率が高い (タイブレーク: 着順合計が小さい ＞ 1着回数が多い)
     const currentMaxFul = bests.max_fulfillment || { fulfillment: -1, rank_sum: 999, c1: -1 };
     let isBetterFul = false;
     const fulNum = parseFloat(fulfillmentRatio);
@@ -664,6 +661,7 @@
 
     const isFinished = (currentWins >= winCondition) || (currentLosses >= lossCondition);
 
+    // 【重要修正】ゲームが終了している場合（勝利時・敗北時問わず）は、他の画面遷移より優先して必ずリザルト（メイン画面）を表示する
     if (isFinished) {
       if (currentWins >= winCondition && !status.reward_claimed) {
         await handleGameEndReward(status);
@@ -1002,8 +1000,8 @@
       survivalValEl.style.display = "none";
     }
 
-    // 終了時かつ「クリア時（規定3勝達成）」のみ、サバイバルモードのランキング用ベスト記録を判定・保存
-    const winCondition = isSurvival ? 3 : 2;
+    // 終了時かつ「クリア時（規定勝利数達成時）」のみ、ランキング用ベスト記録を評価・保存
+    const winCondition = isSurvival ? 3 : Math.ceil((status.max_rounds || 3) / 2);
     if (isFinished && isSurvival && currentWins >= winCondition) {
       await evaluateAndSaveSurvivalBests(status, totalRankSum, totalC1, totalC2, totalC3, fulfillmentRatio, lineup);
     }
