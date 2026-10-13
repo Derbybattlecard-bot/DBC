@@ -1,6 +1,6 @@
 // ============================================================================
 // js/race_calculator.js
-// 競馬シミュレーション・計算エンジン ＆ 実況生成統合モジュール（マスターデータ駆動完全版 v2.1）
+// 競馬シミュレーション・計算エンジン ＆ 実況生成統合モジュール（マスターデータ駆動完全版 v2.2）
 // ============================================================================
 
 // 海外競馬場フルリスト
@@ -88,11 +88,7 @@ function getTacticPaceBonus(tacticStyleInput, racePace) {
 }
 
 /**
- * 実況テキストの生成（フェーズ1〜4完全版 v2.1）
- * - フェーズ1: スタート直後（1〜3番手を実況）
- * - フェーズ2: 向正面（4〜6番手の隊列を実況）
- * - フェーズ3: ペースと自馬/ライバルの位置取り描写
- * - フィニッシュ: 展開と、自馬の着順・際どい接戦（ハナ差など）を反映したドラマチックなゴール実況
+ * 実況テキストの生成（フェーズ1〜4完全版 v2.2）
  */
 function generateRaceCommentary(raceData) {
   const { results, pace, branch, posSorted } = raceData;
@@ -143,7 +139,7 @@ function generateRaceCommentary(raceData) {
     phase3Text += `${player.name}は現在${player.positionRank}番手の位置！手応え十分で直線を迎えます！`;
   }
 
-  // フィニッシュ（直線・ゴール）: 展開分岐 ＋ 自馬の着順・際どい接戦の有無を実況
+  // フィニッシュ（直線・ゴール）: 自然な表現とバリエーション豊な実況
   let finishText = `さあ各馬直線に向いた！レースの展開は「${branch?.name || "勝負所"}」！ `;
 
   if (results && results.length >= 3) {
@@ -154,34 +150,33 @@ function generateRaceCommentary(raceData) {
     const rank2Name = rank2.name;
     const rank3Name = rank3.name;
 
-    // プレイヤー馬の着順とポイント差（際どさ）の判定
-    const playerRank = results.findIndex(h => h.isPlayer) + 1;
+    const playerRank = player ? results.findIndex(h => h.isPlayer) + 1 : 0;
     const scoreDiff = Math.abs((rank1.finalScore || 0) - (rank2.finalScore || 0));
-    const isVeryClose = scoreDiff < 0.6; // ポイント差が僅かな場合は接戦と判定
+    const isVeryClose = scoreDiff < 0.6; // 僅差の判定
 
-    if (player && playerRank > 0) {
+    const rand = Math.random();
+
+    // 条件に応じた動的な実況分岐（毎回同じ固定フォーマットにならないように調整）
+    if (player && playerRank > 0 && playerRank <= 3 && isVeryClose && rand < 0.7) {
+      // 3着以内かつライバル等と際どい勝負のとき
       if (playerRank === 1) {
-        if (isVeryClose) {
-          finishText += `ゴール前、凄まじい叩き合いを制したのは、なんとプレイヤーの${player.name}だ！見事なハナ差勝利！2着には${rank2Name}が粘り込んだ！`;
-        } else {
-          finishText += `直線鮮やかな抜け出し！先頭でゴールを駆け抜けたのは、プレイヤーの${player.name}だ！見事な1着ゴールイン！2着には${rank2Name}、3着には${rank3Name}が入りました！`;
-        }
-      } else if (playerRank === 2 && isVeryClose) {
-        finishText += `息詰まる大接戦！わずかに制したのは${rank1Name}か！しかしプレイヤーの${player.name}も猛追し猛然と2着に飛び込んだ！3着は${rank3Name}！`;
-      } else if (playerRank <= 3) {
-        finishText += `大混戦のゴール前！制したのは${rank1Name}！そしてプレイヤーの${player.name}も${playerRank}着に入り表彰台を死守した！3着争いは${rank3Name}！`;
+        finishText += `ゴール前、凄まじい叩き合いを制したのは${player.name}！見事なハナ差で栄冠をつかみ取りました！2着は${rank2Name}！`;
       } else {
-        if (isVeryClose) {
-          finishText += `上位争いは息を飲む大接戦！ハナ差制したのは${rank1Name}！2着${rank2Name}、3着${rank3Name}！プレイヤーの${player.name}は${playerRank}着でゴールイン！`;
-        } else {
-          finishText += `大混戦のゴール前！制したのは${rank1Name}！2着には${rank2Name}、3着は${rank3Name}が入りました！プレイヤーの${player.name}は${playerRank}着でのフィニッシュとなります。`;
-        }
+        finishText += `大接戦のゴール前！わずかに前を捉えきれず${rank1Name}が制したか！${player.name}も猛追を見せ${playerRank}着に入りました！`;
       }
+    } else if (player && playerRank >= 8 && rand < 0.5) {
+      // 後方に沈んだとき
+      finishText += `大混戦のゴール前を制したのは${rank1Name}！2着${rank2Name}、3着${rank3Name}！ なお、${player.name}は馬群に沈んでしまいました…。`;
     } else {
+      // 通常のダイナミックな実況（上位馬中心、たまに自馬の着順に触れる）
       if (isVeryClose) {
-        finishText += `ゴール前はほんのわずかな差、息詰まる大接戦！制したのは${rank1Name}！2着に${rank2Name}、3着に${rank3Name}！`;
+        finishText += `ゴール前はほんのわずかな差、息詰まる大接戦！ハナ差で制したのは${rank1Name}！2着に${rank2Name}、3着に${rank3Name}が続きました！`;
       } else {
-        finishText += `大混戦のゴール前！制したのは${rank1Name}！${rank1Name}が見事に1着でゴールイン！2着には${rank2Name}、3着は${rank3Name}が入りました！`;
+        finishText += `大混戦のゴール前！先頭でゴールを駆け抜けたのは${rank1Name}！2着には${rank2Name}、3着には${rank3Name}が入りました！`;
+        // 毎回ではなく、たまに掲示板付近にいた場合にサラッと触れる
+        if (player && playerRank > 3 && playerRank <= 5 && rand < 0.3) {
+          finishText += ` ${player.name}も懸命に粘り${playerRank}着でのフィニッシュです。`;
+        }
       }
     }
   } else if (results && results.length > 0) {
@@ -439,7 +434,7 @@ function processMarkStrategy(resultList) {
 }
 
 /**
- * フェーズ1: 登録/準備段階のアビリティ判定（ポップアップ漏れ防止対応）
+ * フェーズ1: 登録/準備段階のアビリティ判定
  */
 function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilityMasterData) {
   horse.calc_speed = horse.speed || 0;
@@ -533,7 +528,7 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
 }
 
 /**
- * フェーズ2: 位置取り段階のアビリティ判定（ポップアップ漏れ防止対応）
+ * フェーズ2: 位置取り段階のアビリティ判定
  */
 function applyPhase2Abilities(horse, positionPoint, abilityMasterData, raceInfo, trackCondition, allHorses) {
   if (!isEligibleForAbility(horse)) return positionPoint;
@@ -580,7 +575,7 @@ function applyPhase2Abilities(horse, positionPoint, abilityMasterData, raceInfo,
 }
 
 /**
- * フェーズ3: 中盤・隊列判定後のアビリティ判定（ポップアップ漏れ防止対応）
+ * フェーズ3: 中盤・隊列判定後のアビリティ判定
  */
 function applyPhase3Abilities(resultList, raceInfo, trackCondition, racePace, abilityMasterData) {
   if (!resultList || resultList.length === 0) return;
@@ -627,7 +622,7 @@ function applyPhase3Abilities(resultList, raceInfo, trackCondition, racePace, ab
 }
 
 /**
- * フェーズ4: 展開・最終計算アビリティ判定（ポップアップ漏れ防止対応）
+ * フェーズ4: 展開・最終計算アビリティ判定
  */
 function applyPhase4Abilities(horse, pace, branchName, abilityMasterData, raceInfo, trackCondition, allHorses) {
   if (!isEligibleForAbility(horse)) return 0;
@@ -737,7 +732,7 @@ function applyRankSwapAbilities(resultList) {
 }
 
 // ============================================================================
-// メイン処理エクスポート関数: runRaceLogic (v2.1)
+// メイン処理エクスポート関数: runRaceLogic (v2.2)
 // ============================================================================
 export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInfo = null, abilityMasterData = null) {
   const resultList = horses.map((h, i) => {
@@ -1002,4 +997,4 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     branch: selectedBranch,
     commentary: commentaryData
   };
-  }
+      }
