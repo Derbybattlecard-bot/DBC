@@ -395,7 +395,6 @@ let currentRaceBranch = "";
 let currentRaceFormulaStr = "";
 let currentTrackConfig = TRACK_DIRECTION_MASTER["右回り"];
 let currentRaceInfo = null;
-// (※ 未使用の raceInfo変数は削除しました)
 
 let myNameStr = "あなた";
 let oppNameStr = "対戦相手";
@@ -547,8 +546,9 @@ onAuthStateChanged(auth, async (user) => {
 
       seriesHistory = [];
       for (let rIdx = 0; rIdx < 5; rIdx++) {
-        const pKey = String(getCurrentProgressCode()).charAt(0) + String(rIdx + 1);
-        const raceRes = cacheObj[pKey] || Object.values(cacheObj)[rIdx];
+        const seriesNum = currentSeriesIndex + 1;
+        const pKey = `${seriesNum}${rIdx + 1}`;
+        const raceRes = cacheObj[pKey]; // 2桁コードキーによる安全な取得（配列フォールバック削除）
         if (!raceRes) continue;
 
         const roundRace = (Array.isArray(racesInSeries) && racesInSeries[rIdx]) ? racesInSeries[rIdx] : null;
@@ -922,7 +922,6 @@ async function handleRoomDataUpdate(data) {
     window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}`;
     return;
   }
-  // (※ 下にあった重複していた if (data.status === "entry_selecting"...) ブロックはここで完全に削除しました)
 
   const isHost = (role === 'host');
   const modalBtn = document.getElementById('modalNextBtn');
@@ -1394,7 +1393,7 @@ async function startRace() {
 
   const progressKey = String(getCurrentProgressCode());
   const cacheObj = roomData?.race_results_cache || {};
-  const raceResultData = cacheObj[progressKey] || cacheObj[currentRaceIndex];
+  const raceResultData = cacheObj[progressKey]; // 2桁コードキーによる直接取得（フォールバック削除）
   
   if (!raceResultData) {
     showErrorModal("レース計算データが取得できませんでした。");
