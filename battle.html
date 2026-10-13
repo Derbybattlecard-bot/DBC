@@ -497,7 +497,7 @@
   async function processBattleState(totalWins) {
     let status = globalUserData.cpu_battle_status;
 
-    if (!status) {
+    if (!status || !status.is_active) {
       showModeSelectUI(totalWins);
       return;
     }
@@ -514,20 +514,14 @@
     const currentWins = status.series_wins || 0;
     const currentLosses = status.series_losses || 0;
 
-    // 勝利条件または敗北条件を満たしている場合は、is_activeがfalseであってもリザルト＆報酬モーダルを表示する
-    if (currentWins >= winCondition) {
+    // 勝利条件または敗北条件を満たしている場合のみ、一度だけリザルト＆報酬モーダルを表示する
+    if (status.is_active && currentWins >= winCondition) {
       await handleGameEnd(status, true, winCondition);
       return; 
     } 
-    if (currentLosses >= lossCondition) {
+    if (status.is_active && currentLosses >= lossCondition) {
       await handleGameEnd(status, false, lossCondition);
       return; 
-    }
-
-    // まだ決着がついておらず、かつアクティブでない場合はモード選択へ
-    if (!status.is_active) {
-      showModeSelectUI(totalWins);
-      return;
     }
 
     if (status.current_match && status.current_match.full_race_grids) {
@@ -687,7 +681,8 @@
 
       rewardBox.style.display = "block";
 
-      const updatedStatus = { ...status, is_active: false, current_match: null };
+      // ★修正: 報酬付与と同時に対戦データを完全に非アクティブ（リセット）にする
+      const updatedStatus = { is_active: false };
       
       // 通算勝利数（シリーズアンロック用）を加算
       globalUserData.total_wins = (globalUserData.total_wins || 0) + 1;
@@ -737,7 +732,8 @@
       rewardBox.style.display = "none";
 
       try {
-        const updatedStatus = { ...status, is_active: false, current_match: null };
+        // ★修正: ゲームオーバー時も同様に対戦データを完全に非アクティブ（リセット）にする
+        const updatedStatus = { is_active: false };
         globalUserData.cpu_battle_status = updatedStatus;
         userUpdateObj.cpu_battle_status = updatedStatus;
         await setDoc(doc(db, "users", currentUser.uid), userUpdateObj, { merge: true });
