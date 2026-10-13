@@ -408,6 +408,13 @@ const urlParams = new URLSearchParams(window.location.search);
 const roomId = urlParams.get('roomId');
 const role = urlParams.get('role');
 
+// 💡 2桁の進捗コード（例: 11〜15）を現在の回戦とレースインデックスから算出する関数
+function getCurrentProgressCode() {
+  const seriesNum = (roomData?.current_series_index || 0) + 1;
+  const raceNum = currentRaceIndex + 1;
+  return Number(`${seriesNum}${raceNum}`);
+}
+
 function normalizeHorseId(id) {
   if (id === null || id === undefined || id === "") return "";
   return String(id).padStart(4, '0');
@@ -529,7 +536,11 @@ onAuthStateChanged(auth, async (user) => {
       oppNameStr = isHost ? (roomData.player2_name || "対戦相手") : (roomData.player1_name || "対戦相手");
     }
 
-    if (roomData.race_results_cache && roomData.race_results_cache.length === 5) {
+    // 💡 フラットなオブジェクト形式の cache を安全にチェック (全5レース分揃っているか)
+    const cacheObj = roomData.race_results_cache;
+    const isCacheComplete = cacheObj && typeof cacheObj === 'object' && Object.keys(cacheObj).length >= 5;
+
+    if (isCacheComplete) {
       const matchSeries = roomData?.match_series || roomData?.selected_series || ["series_01"];
       const currentSeriesIndex = roomData?.current_series_index || 0;
       const seriesId = Array.isArray(matchSeries) ? (matchSeries[currentSeriesIndex] || matchSeries[0]) : matchSeries;
@@ -537,7 +548,11 @@ onAuthStateChanged(auth, async (user) => {
       const racesInSeries = seriesInfo.races || (seriesInfo.rounds && seriesInfo.rounds[0] ? seriesInfo.rounds[0].races : null);
 
       seriesHistory = [];
-      roomData.race_results_cache.forEach((raceRes, rIdx) => {
+      for (let rIdx = 0; rIdx < 5; rIdx++) {
+        const pKey = String(getCurrentProgressCode()).charAt(0) + String(rIdx + 1); // 例: "11", "12"...
+        const raceRes = cacheObj[pKey] || Object.values(cacheObj)[rIdx]; // フォールバック対応
+        if (!raceRes) continue;
+
         const roundRace = (Array.isArray(racesInSeries) && racesInSeries[rIdx]) ? racesInSeries[rIdx] : null;
         const raceName = roundRace?.race_name || `第${rIdx + 1}戦`;
 
@@ -579,7 +594,7 @@ onAuthStateChanged(auth, async (user) => {
           win: isWin,
           winner: winnerText
         });
-      });
+      }
 
       const hasWatchedAll = sessionStorage.getItem(`watched_race_${roomId}`);
       if (hasWatchedAll === "true") {
@@ -653,7 +668,7 @@ async function handleGiveupResultFlow(data, p1Giveup, p2Giveup) {
       oppRank: oppRank,
       win: isWin,
       winner: winnerText,
-      isGiveup: true // ★ 不戦勝・不戦敗レースはタイブレーク集計（1着回数など）から除外するフラグ
+      isGiveup: true 
     });
   }
 
@@ -720,16 +735,20 @@ async function ensureUsedHorsesUpdated() {
   }
 }
 
+// 💡 5レース分の結果を「2桁の進捗コード（例: 11〜15）」をキーにしたフラットなオブジェクトとして一括計算・保存
 async function calculateAndUploadAllRaces() {
   await ensureUsedHorsesUpdated();
 
-  if (roomData.race_results_cache && roomData.race_results_cache.length === 5) {
+  const cacheObj = roomData.race_results_cache;
+  if (cacheObj && typeof cacheObj === 'object' && Object.keys(cacheObj).length >= 5) {
     return;
   }
 
-  const allRaceResults = [];
+  const allRaceResults = {};
 
   try {
+    const seriesNum = (roomData?.current_series_index || 0) + 1;
+
     for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
       const raceGrid = fullRaceGrids[rIdx];
       raceGrid.forEach(h => prepareHorseData(h));
@@ -754,7 +773,10 @@ async function calculateAndUploadAllRaces() {
 
       const result = runRaceLogic(raceGrid, raceMasterData, tCond, rInfo, abilityMasterData);
       const cleanResult = removeUndefinedFields(JSON.parse(JSON.stringify(result)));
-      allRaceResults.push(cleanResult);
+      
+      // キーを 2桁コード（例: "11", "12", "13", "14", "15"）にする
+      const progressKey = String(`${seriesNum}${rIdx + 1}`);
+      allRaceResults[progressKey] = cleanResult;
     }
 
     const roomRef = doc(db, "online_matches", roomId);
@@ -836,7 +858,10 @@ async function checkAndUpdateReadyState() {
       oppStatusBadge.className = "status-badge ready";
     }
 
-    if (isHost && (!data.race_results_cache || data.race_results_cache.length !== 5) && !isCalculating) {
+    const cacheObj = data.race_results_cache;
+    const hasAllCache = cacheObj && typeof cacheObj === 'object' && Object.keys(cacheObj).length >= 5;
+
+    if (isHost && !hasAllCache && !isCalculating) {
       isCalculating = true;
       if (startBtn && raceState === 'ready') {
         startBtn.disabled = true;
@@ -852,7 +877,7 @@ async function checkAndUpdateReadyState() {
       return;
     }
 
-    if (data.race_results_cache && data.race_results_cache.length === 5) {
+    if (hasAllCache) {
       if (startBtn && raceState === 'ready') {
         startBtn.disabled = false;
         startBtn.innerText = "🏁 レーススタート！";
@@ -888,22 +913,10 @@ async function handleRoomDataUpdate(data) {
     return;
   }
   
-if (data.status === "entry_selecting" || data.status === "matchup") {
-    // ★ どちらかがギブアップしている場合は matchup に戻さない安全ガード
+  if (data.status === "entry_selecting" || data.status === "matchup") {
     if (data.player1_giveup || data.player2_giveup) {
       return;
     }
-    if (raceState === 'running' || raceState === 'finished') {
-      return; 
-    }
-    
-    isNavigatingAway = true;
-    stopRoomListening();
-    window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}`;
-    return;
-  }
-  
-  if (data.status === "entry_selecting" || data.status === "matchup") {
     if (raceState === 'running' || raceState === 'finished') {
       return; 
     }
@@ -1390,7 +1403,10 @@ async function startRace() {
   btn.disabled = true;
   btn.innerText = "🏃 レース進行中...";
 
-  const raceResultData = roomData?.race_results_cache?.[currentRaceIndex];
+  // 💡 進捗コード（例: "11"〜"15"）をキーにして、フラットなオブジェクトから確実に結果を取得
+  const progressKey = String(getCurrentProgressCode());
+  const cacheObj = roomData?.race_results_cache || {};
+  const raceResultData = cacheObj[progressKey] || cacheObj[currentRaceIndex]; // フォールバック対応
   
   if (!raceResultData) {
     showErrorModal("レース計算データが取得できませんでした。");
@@ -1780,7 +1796,6 @@ function showFinalSeriesResult() {
         
         let firsts = 0, seconds = 0, thirds = 0;
         seriesHistory.forEach(h => {
-          // ★ 不戦勝/不戦敗（ギブアップ）のレースは通算1〜3着のカウントに含めない
           if (!h.isGiveup) {
             if (h.myRank === 1) firsts++;
             if (h.myRank === 2) seconds++;
