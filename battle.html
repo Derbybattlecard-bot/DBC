@@ -150,7 +150,6 @@
     font-weight: 800;
   }
 
-  /* 勝敗バッジ用スタイル */
   .badge-win { background: #d1fae5; color: #047857; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; }
   .badge-loss { background: #fee2e2; color: #b91c1c; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; }
 
@@ -170,16 +169,16 @@
   .btn-start { background: var(--accent-color); color: white; border: none; padding: 15px; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; box-shadow: 0 4px 0 var(--accent-hover); width: 100%; transition: all 0.1s; }
   .btn-start:active { transform: translateY(4px); box-shadow: 0 0 0 var(--accent-hover); }
 
-  .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 15px; }
-  .modal-content { background: #fff; border-radius: 12px; padding: 25px; width: 100%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+  .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 15px; overflow-y: auto; }
+  .modal-content { background: #fff; border-radius: 12px; padding: 20px; width: 100%; max-width: 420px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
   @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
   
-  .modal-title { font-size: 22px; font-weight: 900; margin-bottom: 10px; }
+  .modal-title { font-size: 20px; font-weight: 900; margin-bottom: 8px; }
   .title-clear { color: #d4af37; }
   .title-over { color: #d9534f; }
-  .modal-desc { font-size: 14px; color: #444; margin-bottom: 15px; line-height: 1.5; }
+  .modal-desc { font-size: 13px; color: #444; margin-bottom: 12px; line-height: 1.4; }
   
-  .reward-box { padding: 5px 0; margin-bottom: 20px; }
+  .reward-box { padding: 5px 0; margin-bottom: 15px; }
   .modal-btn { background: var(--accent-color); color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-weight: bold; font-size: 14px; cursor: pointer; }
 
   .unlock-border { border: 4px solid #d4af37; }
@@ -298,6 +297,14 @@
   <div class="modal-content">
     <div class="modal-title" id="modalTitle">RESULT</div>
     <div class="modal-desc" id="modalDesc"></div>
+    
+    <!-- 追加: 回戦リザルト・充足率・デック残り表示エリア -->
+    <div id="modalSummaryContainer" style="text-align: left; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin-bottom: 15px; font-size: 11.5px;">
+      <div style="font-weight: bold; color: var(--accent-color); margin-bottom: 6px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 3px;">📊 チャレンジ結果サマリー</div>
+      <div id="summaryRoundsList" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px;"></div>
+      <div id="summaryDeckStatus" style="font-weight: bold; color: #475569; background: #f1f5f9; padding: 4px 6px; border-radius: 4px;"></div>
+    </div>
+
     <div class="reward-box" id="rewardBox" style="display: none;">
       <div style="font-size:12px; color:#c67100; font-weight:bold; margin-bottom: 8px;">🎁 報酬カード獲得！</div>
       <div id="rewardCardContainer" style="display: flex; justify-content: center; margin: 10px 0;"></div>
@@ -514,7 +521,6 @@
     const currentWins = status.series_wins || 0;
     const currentLosses = status.series_losses || 0;
 
-    // 勝利条件または敗北条件を満たしている場合のみ、一度だけリザルト＆報酬モーダルを表示する
     if (status.is_active && currentWins >= winCondition) {
       await handleGameEnd(status, true, winCondition);
       return; 
@@ -654,12 +660,15 @@
     await processBattleState(totalWins);
   };
 
+  // ★拡張: ゲーム終了時（クリア・敗北時）に回戦リザルト・充足率・デック残りをモーダル内に表示
   async function handleGameEnd(status, isClear, winCondition) {
     const modal = document.getElementById('resultModal');
     const title = document.getElementById('modalTitle');
     const desc = document.getElementById('modalDesc');
     const rewardBox = document.getElementById('rewardBox');
     const cardContainer = document.getElementById('rewardCardContainer');
+    const summaryRoundsList = document.getElementById('summaryRoundsList');
+    const summaryDeckStatus = document.getElementById('summaryDeckStatus');
     
     const current1stCount = status.total_1st_places || 0;
     let newMax1st = globalUserData.max_1st_places || 0;
@@ -671,6 +680,45 @@
       userUpdateObj.max_1st_places = newMax1st;
     }
 
+    // 1. 各回戦ごとのリザルト（最大3〜5回戦分）を構築
+    const roundHistory = status.round_history || [];
+    if (roundHistory.length > 0) {
+      summaryRoundsList.innerHTML = roundHistory.map(h => {
+        const badgeClass = h.isWin ? 'badge-win' : 'badge-loss';
+        const badgeText = h.isWin ? '勝利' : '敗北';
+        const scoreStr = `${h.myWins || 0}勝 ${h.oppWins || 0}敗`;
+        const detailStr = `(R1:${h.r1??0} R2:${h.r2??0} R3:${h.r3??0})`;
+        return `<div style="display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 4px 8px; border-radius: 4px; border: 1px solid #e2e8f0;">
+          <div><strong>第${h.round}戦:</strong> <span class="${badgeClass}" style="font-size:10px; padding:1px 4px;">${badgeText}</span> (${scoreStr})</div>
+          <div style="font-size:10px; color:#64748b; font-family:monospace;">詳細 ${detailStr}</div>
+        </div>`;
+      }).join('');
+    } else {
+      summaryRoundsList.innerHTML = `<div style="color: #64748b; text-align: center;">回戦履歴がありません</div>`;
+    }
+
+    // 2. デックの残り＆充足率の計算
+    const decks = globalUserData.decks || [];
+    const activeDeckIdx = status.selected_deck_index ?? 0;
+    const currentDeck = decks[activeDeckIdx] || { horse_ids: [] };
+    const validDeckHorses = (currentDeck.horse_ids || []).filter(id => id !== null && id !== undefined);
+    const totalDeckCount = validDeckHorses.length;
+    
+    const usedCards = status.used_cards_history || [];
+    // 連続出走アビリティ持ち等を除いた実際の残り頭数を算出
+    let usedCount = 0;
+    validDeckHorses.forEach(hId => {
+      const horse = HORSES_MASTER[hId];
+      const hasContinuousAbility = horse && Array.isArray(horse.ability) && (horse.ability.includes("鉄女") || horse.ability.includes("連闘"));
+      if ((usedCards.includes(hId) || (horse && usedCards.includes(horse.name))) && !hasContinuousAbility) {
+        usedCount++;
+      }
+    });
+    const remainingCount = Math.max(0, totalDeckCount - usedCount);
+    const deckRatio = totalDeckCount > 0 ? Math.round((remainingCount / totalDeckCount) * 100) : 0;
+
+    summaryDeckStatus.innerHTML = `📦 デッキ残存状況: <strong>残り ${remainingCount} / ${totalDeckCount} 頭</strong> (充足・残存率: <span style="color:var(--accent-color);">${deckRatio}%</span>)`;
+
     if (isClear) {
       title.textContent = "🎉 CHALLENGE CLEAR!";
       title.className = "modal-title title-clear";
@@ -681,14 +729,11 @@
 
       rewardBox.style.display = "block";
 
-      // ★修正: 報酬付与と同時に対戦データを完全に非アクティブ（リセット）にする
       const updatedStatus = { is_active: false };
       
-      // 通算勝利数（シリーズアンロック用）を加算
       globalUserData.total_wins = (globalUserData.total_wins || 0) + 1;
       userUpdateObj.total_wins = increment(1);
 
-      // サバイバルモードの場合はサバイバル専用勝利数も同時に加算
       const isSurvival = (status.battle_type === 'survival' || status.deck_type === 1);
       if (isSurvival) {
         globalUserData.survival_wins = (globalUserData.survival_wins || 0) + 1;
@@ -732,7 +777,6 @@
       rewardBox.style.display = "none";
 
       try {
-        // ★修正: ゲームオーバー時も同様に対戦データを完全に非アクティブ（リセット）にする
         const updatedStatus = { is_active: false };
         globalUserData.cpu_battle_status = updatedStatus;
         userUpdateObj.cpu_battle_status = updatedStatus;
@@ -811,7 +855,6 @@
     document.getElementById('lossCount').textContent = status.series_losses || 0;
     document.getElementById('winLossHeader').style.display = 'flex';
 
-    // 終了した回戦の履歴データをラウンド番号をキーにしてマップ化
     const roundHistoryMap = {};
     (status.round_history || []).forEach(h => {
       roundHistoryMap[h.round] = h;
