@@ -494,60 +494,6 @@
     await processBattleState(totalWins);
   }
 
-  async function processBattleState(totalWins) {
-    let status = globalUserData.cpu_battle_status;
-
-    // ① statusが存在しない、またはすでに終了(is_active: false)している場合は、古い勝敗数を無視してモード選択画面を表示する
-    if (!status || !status.is_active) {
-      showModeSelectUI(totalWins);
-      return;
-    }
-
-    let maxRounds = status.max_rounds;
-    if (!maxRounds) {
-      maxRounds = (totalWins >= 30 || (Array.isArray(status.series_lineup) && status.series_lineup.length >= 5)) ? 5 : 3;
-    }
-    
-    const isSurvival = (status.battle_type === 'survival' || status.deck_type === 1);
-    const winCondition = isSurvival ? 3 : Math.ceil(maxRounds / 2);
-    const lossCondition = isSurvival ? 1 : Math.ceil(maxRounds / 2);
-
-    const currentWins = status.series_wins || 0;
-    const currentLosses = status.series_losses || 0;
-
-    // ② アクティブな対戦中のみ、勝利・敗北条件をチェックする
-    if (currentWins >= winCondition) {
-      await handleGameEnd(status, true, winCondition);
-      return; 
-    } 
-    if (currentLosses >= lossCondition) {
-      await handleGameEnd(status, false, lossCondition);
-      return; 
-    }
-
-    if (status.current_match && status.current_match.full_race_grids) {
-      window.location.href = 'race_result.html';
-      return;
-    }
-
-    if (status.current_match && status.current_match.player_entries && status.current_match.player_entries.length > 0) {
-      window.location.href = 'strategy.html';
-      return;
-    }
-
-    if (status.current_round > maxRounds) {
-      console.warn("異常な対戦データを検知したため、初期化します。");
-      const emptyStatus = { is_active: false };
-      await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: emptyStatus }, { merge: true });
-      globalUserData.cpu_battle_status = emptyStatus;
-      status = emptyStatus;
-      showModeSelectUI(totalWins);
-      return;
-    }
-
-    await renderActiveBattle(status, totalWins);
-  }
-
   function showModeSelectUI(totalWins) {
     document.getElementById('challengePanel').style.display = 'none';
     document.getElementById('deckPanel').style.display = 'none';
