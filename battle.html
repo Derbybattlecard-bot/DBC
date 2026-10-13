@@ -170,7 +170,7 @@
   .btn-start:active { transform: translateY(4px); box-shadow: 0 0 0 var(--accent-hover); }
 
   .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 15px; overflow-y: auto; }
-  .modal-content { background: #fff; border-radius: 12px; padding: 20px; width: 100%; max-width: 420px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+  .modal-content { background: #fff; border-radius: 12px; padding: 20px; width: 100%; max-width: 480px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
   @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
   
   .modal-title { font-size: 20px; font-weight: 900; margin-bottom: 8px; }
@@ -178,6 +178,48 @@
   .title-over { color: #d9534f; }
   .modal-desc { font-size: 13px; color: #444; margin-bottom: 12px; line-height: 1.4; }
   
+  .summary-box {
+    text-align: left;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 15px;
+    font-size: 12px;
+  }
+  .summary-box-title {
+    font-weight: 800;
+    color: var(--accent-color);
+    font-size: 13px;
+    margin-bottom: 8px;
+    border-bottom: 1.5px dashed #a5d6a7;
+    padding-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .summary-total-bar {
+    background: #e2e8f0;
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin-bottom: 10px;
+    font-weight: bold;
+    color: #1e293b;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .survival-fulfillment-panel {
+    background: linear-gradient(135deg, #fff8e1, #ffecb3);
+    border: 1px solid #ffe082;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-top: 10px;
+    color: #5d4037;
+    font-weight: bold;
+    font-size: 11.5px;
+  }
+
   .reward-box { padding: 5px 0; margin-bottom: 15px; }
   .modal-btn { background: var(--accent-color); color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-weight: bold; font-size: 14px; cursor: pointer; }
 
@@ -293,16 +335,32 @@
   <button class="btn-start" id="btnStart" style="display: none;" onclick="goToMatchup()">出走登録へ進む</button>
 </div>
 
+<!-- 最終リザルトモーダル -->
 <div class="modal-overlay" id="resultModal">
   <div class="modal-content">
     <div class="modal-title" id="modalTitle">RESULT</div>
     <div class="modal-desc" id="modalDesc"></div>
     
-    <!-- 追加: 回戦リザルト・充足率・デック残り表示エリア -->
-    <div id="modalSummaryContainer" style="text-align: left; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin-bottom: 15px; font-size: 11.5px;">
-      <div style="font-weight: bold; color: var(--accent-color); margin-bottom: 6px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 3px;">📊 チャレンジ結果サマリー</div>
-      <div id="summaryRoundsList" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px;"></div>
-      <div id="summaryDeckStatus" style="font-weight: bold; color: #475569; background: #f1f5f9; padding: 4px 6px; border-radius: 4px;"></div>
+    <!-- 全回戦リザルト＆サバイバル充足率の表示エリア -->
+    <div class="summary-box" id="summaryBoxArea">
+      <div class="summary-box-title">
+        <span>📊 対戦成績サマリー</span>
+      </div>
+      
+      <!-- 総合計成績 -->
+      <div class="summary-total-bar" id="summaryTotalBar">
+        <div>総合計: <span id="sumTotalWinsLosses">0勝 0敗</span></div>
+        <div style="font-size: 11px; font-family: monospace; color: #334155;" id="sumTotalDetail">1着:0 2着:0 3着:0 4着以下:0</div>
+      </div>
+
+      <!-- 全回戦のシリーズカード（battle.htmlと同じデザイン）をそのまま展開 -->
+      <div class="series-cards-list" id="summarySeriesCardsList"></div>
+
+      <!-- サバイバルモード完走時限定：充足率パネル -->
+      <div class="survival-fulfillment-panel" id="survivalFulfillmentPanel" style="display: none;">
+        <div>⚡ サバイバル充足率（ポテンシャル充填率）</div>
+        <div style="font-size: 13px; margin-top: 3px;" id="survivalFulfillmentVal">充足率: 0.0% (チーム計 0 / 上限計 0)</div>
+      </div>
     </div>
 
     <div class="reward-box" id="rewardBox" style="display: none;">
@@ -447,6 +505,57 @@
       const badgeClass = isDirt ? "race-mini-badge dirt-badge" : "race-mini-badge";
       return `<span class="${badgeClass}">R${rIdx + 1}: ${venue} ${surface}${dist}</span>`;
     }).join('');
+  }
+
+  // 共通のシリーズカードHTML生成関数（1着, 2着, 3着, 4着以下の日本語表記）
+  function renderSeriesItemCardHTML(sObj, roundNum, isCurrentRound, roundResult) {
+    const catName = getNormalizedCategory(sObj) || '一般';
+    const sName = sObj.series_name || '名称未設定';
+    const rounds = sObj.rounds || [];
+    const races = (rounds[0] && rounds[0].races) ? rounds[0].races : [];
+    const raceBadgesHTML = buildRaceBadgesHTMLForCPU(races);
+    const limits = sObj.potential_limit || { max_total_potential: '-', min_potential_per_race: '-' };
+
+    let resultHtml = "";
+    if (roundResult) {
+      const myWins = roundResult.myWins || 0;
+      const oppWins = roundResult.oppWins || 0;
+      const scoreText = `${myWins}勝 ${oppWins}敗`;
+
+      // ご指定の着順表記: 1着, 2着, 3着, 4着以下
+      const c1 = roundResult.r1 ?? roundResult.c1 ?? 0;
+      const c2 = roundResult.r2 ?? roundResult.c2 ?? 0;
+      const c3 = roundResult.r3 ?? roundResult.c3 ?? 0;
+      const c4Plus = roundResult.r4Plus ?? roundResult.c4 ?? 0;
+      const detailText = `1着:${c1} 2着:${c2} 3着:${c3} 4着以下:${c4Plus}`;
+
+      const badgeClass = roundResult.isWin ? 'badge-win' : 'badge-loss';
+      const badgeText = roundResult.isWin ? '○ 勝利' : '× 敗北';
+
+      resultHtml = `
+        <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d0e3d2; display: flex; justify-content: space-between; align-items: center; font-size: 11px; background: #f8fafc; padding: 4px 8px; border-radius: 4px;">
+          <div><span style="font-weight:bold; color:var(--accent-color);">成績:</span> ${scoreText} <span style="font-family:monospace; color:#d97706; margin-left:4px;">(${detailText})</span></div>
+          <div><span class="${badgeClass}" style="padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px;">${badgeText}</span></div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="series-item-card ${isCurrentRound ? 'active-round' : ''}">
+        <div class="series-card-row1">
+          <span class="series-round-badge">${isCurrentRound ? '▶ 開催中 ' : ''}第 ${roundNum} 戦</span>
+          <span class="series-category-tag">${catName}シリーズ</span>
+        </div>
+        <div class="series-item-title">🏆 ${sName}</div>
+        <div class="series-item-races">${raceBadgesHTML}</div>
+        <div class="series-item-pt">
+          <span>合計上限 <strong class="pt-val-bold">${limits.max_total_potential}</strong></span>
+          <span style="color:#ccc;">|</span>
+          <span>出走可能 <strong class="pt-val-bold">${limits.min_potential_per_race ?? '-'}以上</strong></span>
+        </div>
+        ${resultHtml}
+      </div>
+    `;
   }
 
   onAuthStateChanged(auth, async (user) => {
@@ -660,16 +769,85 @@
     await processBattleState(totalWins);
   };
 
-  // ★拡張: ゲーム終了時（クリア・敗北時）に回戦リザルト・充足率・デック残りをモーダル内に表示
+  // ★拡張: モード終了時に全回戦分のカードデザインリザルト＋充足率を表示
   async function handleGameEnd(status, isClear, winCondition) {
     const modal = document.getElementById('resultModal');
     const title = document.getElementById('modalTitle');
     const desc = document.getElementById('modalDesc');
     const rewardBox = document.getElementById('rewardBox');
     const cardContainer = document.getElementById('rewardCardContainer');
-    const summaryRoundsList = document.getElementById('summaryRoundsList');
-    const summaryDeckStatus = document.getElementById('summaryDeckStatus');
     
+    const summaryCardsContainer = document.getElementById('summarySeriesCardsList');
+    const totalWinsLossesEl = document.getElementById('sumTotalWinsLosses');
+    const totalDetailEl = document.getElementById('sumTotalDetail');
+    const survivalPanel = document.getElementById('survivalFulfillmentPanel');
+    const survivalValEl = document.getElementById('survivalFulfillmentVal');
+
+    const roundHistory = status.round_history || [];
+    const lineup = status.series_lineup || [];
+    const isSurvival = (status.battle_type === 'survival' || status.deck_type === 1);
+
+    const roundHistoryMap = {};
+    let totalMyWins = 0;
+    let totalOppWins = 0;
+    let totalC1 = 0, totalC2 = 0, totalC3 = 0, totalC4Plus = 0;
+    let actualTeamPotentialSum = 0;
+    let maxLimitPotentialSum = 0;
+
+    roundHistory.forEach(h => {
+      roundHistoryMap[h.round] = h;
+      totalMyWins += (h.myWins || 0);
+      totalOppWins += (h.oppWins || 0);
+
+      const c1 = h.r1 ?? h.c1 ?? 0;
+      const c2 = h.r2 ?? h.c2 ?? 0;
+      const c3 = h.r3 ?? h.c3 ?? 0;
+      const c4Plus = h.r4Plus ?? h.c4 ?? 0;
+
+      totalC1 += c1;
+      totalC2 += c2;
+      totalC3 += c3;
+      totalC4Plus += c4Plus;
+
+      // 実際のチーム編成ポテンシャルの加算
+      if (typeof h.teamPotential === 'number') {
+        actualTeamPotentialSum += h.teamPotential;
+      }
+    });
+
+    // 1. 全回戦分のカードリザルト描画
+    let cardsHtml = "";
+    lineup.forEach((sId, idx) => {
+      const roundNum = idx + 1;
+      const sObj = SERIES_MASTER.find(s => s.series_id === sId) || SERIES_MASTER[0] || {};
+      const roundResult = roundHistoryMap[roundNum];
+      
+      // 各シリーズの上限ポテンシャルを加算
+      const maxLimit = sObj?.potential_limit?.max_total_potential;
+      if (typeof maxLimit === 'number') {
+        maxLimitPotentialSum += maxLimit;
+      }
+
+      cardsHtml += renderSeriesItemCardHTML(sObj, roundNum, false, roundResult);
+    });
+    summaryCardsContainer.innerHTML = cardsHtml;
+
+    // 2. 総合計成績の表示
+    totalWinsLossesEl.textContent = `${totalMyWins}勝 ${totalOppWins}敗`;
+    totalDetailEl.textContent = `1着:${totalC1} 2着:${totalC2} 3着:${totalC3} 4着以下:${totalC4Plus}`;
+
+    // 3. サバイバルモード完走時（3回戦勝ち抜き時のみ）の充足率計算・表示
+    if (isSurvival && isClear) {
+      let fulfillmentRatio = 0;
+      if (maxLimitPotentialSum > 0) {
+        fulfillmentRatio = ((actualTeamPotentialSum / maxLimitPotentialSum) * 100).toFixed(1);
+      }
+      survivalValEl.textContent = `充足率: ${fulfillmentRatio}% (実際の編成計 ${actualTeamPotentialSum} / 上限計 ${maxLimitPotentialSum})`;
+      survivalPanel.style.display = "block";
+    } else {
+      survivalPanel.style.display = "none";
+    }
+
     const current1stCount = status.total_1st_places || 0;
     let newMax1st = globalUserData.max_1st_places || 0;
     const userUpdateObj = {};
@@ -679,45 +857,6 @@
       globalUserData.max_1st_places = newMax1st;
       userUpdateObj.max_1st_places = newMax1st;
     }
-
-    // 1. 各回戦ごとのリザルト（最大3〜5回戦分）を構築
-    const roundHistory = status.round_history || [];
-    if (roundHistory.length > 0) {
-      summaryRoundsList.innerHTML = roundHistory.map(h => {
-        const badgeClass = h.isWin ? 'badge-win' : 'badge-loss';
-        const badgeText = h.isWin ? '勝利' : '敗北';
-        const scoreStr = `${h.myWins || 0}勝 ${h.oppWins || 0}敗`;
-        const detailStr = `(R1:${h.r1??0} R2:${h.r2??0} R3:${h.r3??0})`;
-        return `<div style="display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 4px 8px; border-radius: 4px; border: 1px solid #e2e8f0;">
-          <div><strong>第${h.round}戦:</strong> <span class="${badgeClass}" style="font-size:10px; padding:1px 4px;">${badgeText}</span> (${scoreStr})</div>
-          <div style="font-size:10px; color:#64748b; font-family:monospace;">詳細 ${detailStr}</div>
-        </div>`;
-      }).join('');
-    } else {
-      summaryRoundsList.innerHTML = `<div style="color: #64748b; text-align: center;">回戦履歴がありません</div>`;
-    }
-
-    // 2. デックの残り＆充足率の計算
-    const decks = globalUserData.decks || [];
-    const activeDeckIdx = status.selected_deck_index ?? 0;
-    const currentDeck = decks[activeDeckIdx] || { horse_ids: [] };
-    const validDeckHorses = (currentDeck.horse_ids || []).filter(id => id !== null && id !== undefined);
-    const totalDeckCount = validDeckHorses.length;
-    
-    const usedCards = status.used_cards_history || [];
-    // 連続出走アビリティ持ち等を除いた実際の残り頭数を算出
-    let usedCount = 0;
-    validDeckHorses.forEach(hId => {
-      const horse = HORSES_MASTER[hId];
-      const hasContinuousAbility = horse && Array.isArray(horse.ability) && (horse.ability.includes("鉄女") || horse.ability.includes("連闘"));
-      if ((usedCards.includes(hId) || (horse && usedCards.includes(horse.name))) && !hasContinuousAbility) {
-        usedCount++;
-      }
-    });
-    const remainingCount = Math.max(0, totalDeckCount - usedCount);
-    const deckRatio = totalDeckCount > 0 ? Math.round((remainingCount / totalDeckCount) * 100) : 0;
-
-    summaryDeckStatus.innerHTML = `📦 デッキ残存状況: <strong>残り ${remainingCount} / ${totalDeckCount} 頭</strong> (充足・残存率: <span style="color:var(--accent-color);">${deckRatio}%</span>)`;
 
     if (isClear) {
       title.textContent = "🎉 CHALLENGE CLEAR!";
@@ -734,7 +873,6 @@
       globalUserData.total_wins = (globalUserData.total_wins || 0) + 1;
       userUpdateObj.total_wins = increment(1);
 
-      const isSurvival = (status.battle_type === 'survival' || status.deck_type === 1);
       if (isSurvival) {
         globalUserData.survival_wins = (globalUserData.survival_wins || 0) + 1;
         userUpdateObj.survival_wins = increment(1);
@@ -875,53 +1013,8 @@
       const sObj = SERIES_MASTER.find(s => s.series_id === sId) || SERIES_MASTER[0] || {};
       const roundResult = roundHistoryMap[roundNum];
 
-      let resultHtml = "";
-      if (roundResult) {
-        const myWins = roundResult.myWins || 0;
-        const oppWins = roundResult.oppWins || 0;
-        const scoreText = `${myWins}勝 ${oppWins}敗`;
-
-        const c1 = roundResult.r1 ?? roundResult.c1 ?? 0;
-        const c2 = roundResult.r2 ?? roundResult.c2 ?? 0;
-        const c3 = roundResult.r3 ?? roundResult.c3 ?? 0;
-        const c4Plus = roundResult.r4Plus ?? roundResult.c4 ?? 0;
-        const detailText = `${c1}-${c2}-${c3}-${c4Plus}`;
-
-        const badgeClass = roundResult.isWin ? 'badge-win' : 'badge-loss';
-        const badgeText = roundResult.isWin ? '○ 勝利' : '× 敗北';
-
-        resultHtml = `
-          <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d0e3d2; display: flex; justify-content: space-between; align-items: center; font-size: 11px; background: #f8fafc; padding: 4px 8px; border-radius: 4px;">
-            <div><span style="font-weight:bold; color:var(--accent-color);">成績:</span> ${scoreText} <span style="font-family:monospace; color:#d97706; margin-left:4px;">(${detailText})</span></div>
-            <div><span class="${badgeClass}" style="padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px;">${badgeText}</span></div>
-          </div>
-        `;
-      }
-
-      const catName = getNormalizedCategory(sObj) || '一般';
-      const sName = sObj.series_name || '名称未設定';
-      const rounds = sObj.rounds || [];
-      const races = (rounds[0] && rounds[0].races) ? rounds[0].races : [];
-      const raceBadgesHTML = buildRaceBadgesHTMLForCPU(races);
-      const limits = sObj.potential_limit || { max_total_potential: '-', min_potential_per_race: '-' };
-
-      const cardEl = document.createElement('div');
-      cardEl.className = `series-item-card ${isCurrentRound ? 'active-round' : ''}`;
-      cardEl.innerHTML = `
-        <div class="series-card-row1">
-          <span class="series-round-badge">${isCurrentRound ? '▶ 開催中 ' : ''}第 ${roundNum} 戦</span>
-          <span class="series-category-tag">${catName}シリーズ</span>
-        </div>
-        <div class="series-item-title">🏆 ${sName}</div>
-        <div class="series-item-races">${raceBadgesHTML}</div>
-        <div class="series-item-pt">
-          <span>合計上限 <strong class="pt-val-bold">${limits.max_total_potential}</strong></span>
-          <span style="color:#ccc;">|</span>
-          <span>出走可能 <strong class="pt-val-bold">${limits.min_potential_per_race ?? '-'}以上</strong></span>
-        </div>
-        ${resultHtml}
-      `;
-      cardsContainer.appendChild(cardEl);
+      const cardHtml = renderSeriesItemCardHTML(sObj, roundNum, isCurrentRound, roundResult);
+      cardsContainer.insertAdjacentHTML('beforeend', cardHtml);
     });
 
     const currentSeriesId = lineup[status.current_round - 1];
