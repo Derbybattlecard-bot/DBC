@@ -1,6 +1,6 @@
 // ============================================================================
 // js/race_calculator.js
-// 競馬シミュレーション・計算エンジン ＆ 実況生成統合モジュール（マスターデータ駆動完全版 v2.2）
+// 競馬シミュレーション・計算エンジン ＆ 実況生成統合モジュール（マスターデータ駆動完全版 v2.3）
 // ============================================================================
 
 // 海外競馬場フルリスト
@@ -88,7 +88,8 @@ function getTacticPaceBonus(tacticStyleInput, racePace) {
 }
 
 /**
- * 実況テキストの生成（フェーズ1〜4完全版 v2.2）
+ * 実況テキストの生成（フェーズ1〜4完全版 v2.3）
+ * - 4コーナー通過後の展開発表時に、重要パラメータの解説を動的に付加
  */
 function generateRaceCommentary(raceData) {
   const { results, pace, branch, posSorted } = raceData;
@@ -139,8 +140,30 @@ function generateRaceCommentary(raceData) {
     phase3Text += `${player.name}は現在${player.positionRank}番手の位置！手応え十分で直線を迎えます！`;
   }
 
-  // フィニッシュ（直線・ゴール）: 自然な表現とバリエーション豊な実況
-  let finishText = `さあ各馬直線に向いた！レースの展開は「${branch?.name || "勝負所"}」！ `;
+  // フィニッシュ（直線・ゴール）: 展開名 ＋ 必要なパラメータの実況解説 ＋ ゴール着順・接戦描写
+  const branchName = branch?.name || "勝負所";
+  let branchDesc = `レースの展開は「${branchName}」！`;
+
+  // 展開のkey_stats等に基づいて必要なパラメータを実況で喋らせる
+  let statComments = [];
+  if (branch?.key_stats && Array.isArray(branch.key_stats)) {
+    branch.key_stats.forEach(st => {
+      if (st === 'speed') statComments.push("スピードと鋭いダッシュ力");
+      else if (st === 'stamina') statComments.push("最後までバテないスタミナ");
+      else if (st === 'sharp') statComments.push("直線一気の瞬発力");
+      else if (st === 'jizoku') statComments.push("長く脚を使う持続力");
+      else if (st === 'guts') statComments.push("泥臭く食い下がる勝負根性");
+      else if (st === 'potential' || st === 'current_potential') statComments.push("圧倒的なポテンシャル");
+    });
+  }
+
+  if (statComments.length > 0) {
+    branchDesc += `ここは${statComments.join("、そして")}が重要になってくるぞ！`;
+  } else {
+    branchDesc += `総合力が試される大一番だ！`;
+  }
+
+  let finishText = `さあ各馬直線に向いた！${branchDesc} `;
 
   if (results && results.length >= 3) {
     const rank1 = results[0];
@@ -156,24 +179,19 @@ function generateRaceCommentary(raceData) {
 
     const rand = Math.random();
 
-    // 条件に応じた動的な実況分岐（毎回同じ固定フォーマットにならないように調整）
     if (player && playerRank > 0 && playerRank <= 3 && isVeryClose && rand < 0.7) {
-      // 3着以内かつライバル等と際どい勝負のとき
       if (playerRank === 1) {
         finishText += `ゴール前、凄まじい叩き合いを制したのは${player.name}！見事なハナ差で栄冠をつかみ取りました！2着は${rank2Name}！`;
       } else {
         finishText += `大接戦のゴール前！わずかに前を捉えきれず${rank1Name}が制したか！${player.name}も猛追を見せ${playerRank}着に入りました！`;
       }
     } else if (player && playerRank >= 8 && rand < 0.5) {
-      // 後方に沈んだとき
       finishText += `大混戦のゴール前を制したのは${rank1Name}！2着${rank2Name}、3着${rank3Name}！ なお、${player.name}は馬群に沈んでしまいました…。`;
     } else {
-      // 通常のダイナミックな実況（上位馬中心、たまに自馬の着順に触れる）
       if (isVeryClose) {
         finishText += `ゴール前はほんのわずかな差、息詰まる大接戦！ハナ差で制したのは${rank1Name}！2着に${rank2Name}、3着に${rank3Name}が続きました！`;
       } else {
         finishText += `大混戦のゴール前！先頭でゴールを駆け抜けたのは${rank1Name}！2着には${rank2Name}、3着には${rank3Name}が入りました！`;
-        // 毎回ではなく、たまに掲示板付近にいた場合にサラッと触れる
         if (player && playerRank > 3 && playerRank <= 5 && rand < 0.3) {
           finishText += ` ${player.name}も懸命に粘り${playerRank}着でのフィニッシュです。`;
         }
@@ -370,7 +388,11 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
     case "vs_male_domestic_g1":  
     case "is_female_in_mixed_g1": {
       if (!isFemale || !raceInfo?.race_name) return false;
-      const isMixedG1 = JRA_MIXED_G1_RACES.some(g1Name => raceInfo.race_name.includes(g1Name));
+      const isMixedG1 = [
+        "フェブラリーステークス", "高松宮記念", "大阪杯", "皐月賞", "天皇賞（春）",
+        "NHKマイルカップ", "日本ダービー", "安田記念", "宝塚記念", "スプリンターズステークス",
+        "菊花賞", "天皇賞（秋）", "マイルチャンピオンシップ", "ジャパンカップ", "有馬記念"
+      ].some(g1Name => raceInfo.race_name.includes(g1Name));
       if (!isMixedG1) return false;
       return allHorses.some(other => (other.isPlayer || other.isCpu) && other.horse_id !== horse.horse_id && ["牡", "牡馬"].includes(other.sex));
     }
@@ -434,7 +456,7 @@ function processMarkStrategy(resultList) {
 }
 
 /**
- * フェーズ1: 登録/準備段階のアビリティ判定
+ * フェーズ1: 登録/準備段階のアビリティ判定（ポップアップ漏れ防止強化）
  */
 function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilityMasterData) {
   horse.calc_speed = horse.speed || 0;
@@ -528,7 +550,7 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
 }
 
 /**
- * フェーズ2: 位置取り段階のアビリティ判定
+ * フェーズ2: 位置取り段階のアビリティ判定（ポップアップ漏れ防止強化）
  */
 function applyPhase2Abilities(horse, positionPoint, abilityMasterData, raceInfo, trackCondition, allHorses) {
   if (!isEligibleForAbility(horse)) return positionPoint;
@@ -575,7 +597,7 @@ function applyPhase2Abilities(horse, positionPoint, abilityMasterData, raceInfo,
 }
 
 /**
- * フェーズ3: 中盤・隊列判定後のアビリティ判定
+ * フェーズ3: 中盤・隊列判定後のアビリティ判定（ポップアップ漏れ防止強化）
  */
 function applyPhase3Abilities(resultList, raceInfo, trackCondition, racePace, abilityMasterData) {
   if (!resultList || resultList.length === 0) return;
@@ -622,7 +644,7 @@ function applyPhase3Abilities(resultList, raceInfo, trackCondition, racePace, ab
 }
 
 /**
- * フェーズ4: 展開・最終計算アビリティ判定
+ * フェーズ4: 展開・最終計算アビリティ判定（ポップアップ漏れ防止強化）
  */
 function applyPhase4Abilities(horse, pace, branchName, abilityMasterData, raceInfo, trackCondition, allHorses) {
   if (!isEligibleForAbility(horse)) return 0;
@@ -732,7 +754,7 @@ function applyRankSwapAbilities(resultList) {
 }
 
 // ============================================================================
-// メイン処理エクスポート関数: runRaceLogic (v2.2)
+// メイン処理エクスポート関数: runRaceLogic (v2.3)
 // ============================================================================
 export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInfo = null, abilityMasterData = null) {
   const resultList = horses.map((h, i) => {
@@ -997,4 +1019,4 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     branch: selectedBranch,
     commentary: commentaryData
   };
-      }
+}
