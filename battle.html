@@ -429,7 +429,7 @@
 
   function getUnlockedLimits(totalWins) {
     const limits = { "古馬東西": 0, "地方交流": 0, "クラシック": 0, "古馬王道": 0, "ローカル": 0, "海外チャレンジ": 0, "海外単独": 0, "トリビュート": 0 };
-     UNLOCK_STAGES.forEach(item => {
+    UNLOCK_STAGES.forEach(item => {
       if (totalWins >= item.wins && item.no > limits[item.cat]) { limits[item.cat] = item.no; }
     });
     return limits;
@@ -465,14 +465,13 @@
     return Number(horse.potential ?? horse.cost ?? horse.pt ?? horse.ability_point ?? 15) || 15;
   }
 
-  // サバイバルモードのベスト記録判定・保存（※クリア時のみ実行）
+  // サバイバルモードのベスト記録判定・保存（※3勝クリア時のみ実行）
   async function evaluateAndSaveSurvivalBests(status, totalRankSum, totalC1, totalC2, totalC3, fulfillmentRatio, lineup) {
     const isSurvival = (status.battle_type === 'survival' || status.deck_type == 1);
-    const winCondition = isSurvival ? 3 : 2;
     const currentWins = status.series_wins || 0;
 
-    // 敗北時またはクリア未満の時は記録しない
-    if (!isSurvival || currentWins < winCondition) return;
+    // 敗北時または3勝未満の時は記録しない
+    if (!isSurvival || currentWins < 3) return;
 
     if (!globalUserData.survival_bests) {
       globalUserData.survival_bests = {};
@@ -647,23 +646,34 @@
       return;
     }
 
-    let maxRounds = status.max_rounds;
-    if (!maxRounds) {
-      maxRounds = (totalWins >= 30 || (Array.isArray(status.series_lineup) && status.series_lineup.length >= 5)) ? 5 : 3;
-    }
-    
     const isSurvival = (status.battle_type === 'survival' || status.deck_type === 1);
+    
+    // サバイバルモードは全3回戦固定。規定勝利数は3勝、敗北条件は「1敗した時点で即終了」
+    const maxRounds = isSurvival ? 3 : (status.max_rounds || (totalWins >= 30 ? 5 : 3));
     const winCondition = isSurvival ? 3 : Math.ceil(maxRounds / 2);
     const lossCondition = isSurvival ? 1 : Math.ceil(maxRounds / 2);
 
-    const currentWins = status.series_wins || 0;
-    const currentLosses = status.series_losses || 0;
+    let currentWins = status.series_wins || 0;
+    let currentLosses = status.series_losses || 0;
 
-    const isFinished = (currentWins >= winCondition) || (currentLosses >= lossCondition);
+    // 【サバイバル専用の厳密な勝敗・終了判定】
+    // サバイバルは1敗した時点で即終了（敗北）、あるいは3戦すべて終えて3勝未満の場合も敗北
+    if (isSurvival) {
+      if (currentLosses >= 1) {
+        // すでに1敗している場合は即座にゲーム終了（敗北）
+        currentLosses = 1;
+      } else if (status.current_round > 3 && currentWins < 3) {
+        // 3戦すべて消化して3勝に届かなかった場合も敗北
+        currentLosses = 1;
+        status.series_losses = 1;
+      }
+    }
 
-    // 【重要修正】ゲームが終了している場合（勝利時・敗北時問わず）は、他の画面遷移より優先して必ずリザルト（メイン画面）を表示する
+    const isFinished = (currentWins >= winCondition) || (currentLosses >= lossCondition) || (isSurvival && status.current_round > 3 && currentWins < 3);
+
+    // 終了している場合（勝利時・敗北時問わず）は、必ずリザルト画面（メイン画面）を表示する
     if (isFinished) {
-      if (currentWins >= winCondition && !status.reward_claimed) {
+      if (isSurvival && currentWins >= winCondition && !status.reward_claimed) {
         await handleGameEndReward(status);
         return;
       }
@@ -678,15 +688,6 @@
 
     if (status.current_match && status.current_match.player_entries && status.current_match.player_entries.length > 0) {
       window.location.href = 'strategy.html';
-      return;
-    }
-
-    if (status.current_round > maxRounds) {
-      console.warn("異常な対戦データを検知したため、初期化します。");
-      const emptyStatus = { is_active: false };
-      await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: emptyStatus }, { merge: true });
-      globalUserData.cpu_battle_status = emptyStatus;
-      showModeSelectUI(totalWins);
       return;
     }
 
@@ -1000,14 +1001,13 @@
       survivalValEl.style.display = "none";
     }
 
-    // 終了時かつ「クリア時（規定勝利数達成時）」のみ、ランキング用ベスト記録を評価・保存
-    const winCondition = isSurvival ? 3 : Math.ceil((status.max_rounds || 3) / 2);
-    if (isFinished && isSurvival && currentWins >= winCondition) {
+    // 終了時かつ「3勝クリア時」のみ、ランキング用ベスト記録を評価・保存
+    if (isFinished && isSurvival && currentWins >= 3) {
       await evaluateAndSaveSurvivalBests(status, totalRankSum, totalC1, totalC2, totalC3, fulfillmentRatio, lineup);
     }
 
-    const maxRounds = status.max_rounds || (lineup.length || 3);
-    const typeText = isSurvival ? '1デック制サバイバル' : '2デック制';
+    const maxRounds = isSurvival ? 3 : (status.max_rounds || (lineup.length || 3));
+    const typeText = isSurvival ? '1デック制サバイバル (3連勝でクリア)' : '2デック制';
     document.getElementById('totalRoundsText').textContent = `全${maxRounds}回戦`;
     document.getElementById('matchTypeSubText').textContent = `※${maxRounds}回戦マッチ (${typeText}) の対戦シリーズ一覧です。`;
 
