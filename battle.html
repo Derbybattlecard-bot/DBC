@@ -28,14 +28,12 @@
   .wins-badge { background: linear-gradient(135deg, #d4af37, #f3e5ab); color: #6b4c0a; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid #b8860b; }
   .streak-badge { background: linear-gradient(135deg, #ff9800, #ffe0b2); color: #e65100; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid #f57c00; }
 
-  /* 青丸エリア：成績ヘッダー */
   .status-header { background-color: var(--panel-bg); border: 2px solid #d4af37; border-radius: 8px; padding: 10px; text-align: center; font-weight: bold; font-size: 14px; color: #b8860b; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 6px; }
   .status-header-top { display: flex; justify-content: space-between; align-items: center; width: 100%; }
   .win-loss-text { color: #d32f2f; font-size: 16px; margin: 0 4px; }
   .btn-reset-data { background: #d9534f; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer; }
   .btn-reset-data:hover { background: #c9302c; }
 
-  /* トータル成績＆充足率表示エリア（青丸拡張） */
   .header-total-summary {
     background: #fdfae7;
     border: 1px dashed #f5e6a3;
@@ -257,15 +255,15 @@
     </div>
   </div>
 
-  <!-- 青丸エリア：成績ヘッダー -->
+  <!-- 成績ヘッダー -->
   <div class="status-header" id="winLossHeader" style="display: none;">
     <div class="status-header-top">
       <div>現在の成績： <span class="win-loss-text" id="winCount">0</span>勝 <span class="win-loss-text" id="lossCount">0</span>敗</div>
       <button class="btn-reset-data" id="btnResetData" onclick="manualResetBattleData()">対戦データ初期化</button>
     </div>
-    <!-- 青丸追加要素: トータル着順 ＆ サバイバル充足率 -->
+    <!-- トータル着順 ＆ サバイバル充足率 -->
     <div class="header-total-summary" id="headerTotalSummary">
-      <div>トータル: <span style="font-family:monospace; font-weight:bold;" id="totalDetailText">1着:0 2着:0 3着:0 4着以下:0</span></div>
+      <div>トータル: <span style="font-family:monospace; font-weight:bold;" id="totalDetailText">0-0-0-0 (合計0着)</span></div>
       <div id="survivalFulfillmentHeaderVal" style="display: none; color:#8d6e63; font-weight:800;">⚡ 充足率: -%</div>
     </div>
   </div>
@@ -465,7 +463,13 @@
     }).join('');
   }
 
-  // シリーズカードHTML生成関数（赤丸部分のリザルト表示対応）
+  // 馬のポテンシャル値を取得するヘルパー
+  function getHorsePotential(horse) {
+    if (!horse) return 0;
+    return Number(horse.potential ?? horse.cost ?? horse.pt ?? horse.ability_point ?? 15) || 15;
+  }
+
+  // シリーズカードHTML生成関数（ご指定の数値のみ形式 ＆ 着順合計対応）
   function renderSeriesItemCardHTML(sObj, roundNum, isCurrentRound, roundResult) {
     const catName = getNormalizedCategory(sObj) || '一般';
     const sName = sObj.series_name || '名称未設定';
@@ -480,19 +484,30 @@
       const oppWins = roundResult.oppWins || 0;
       const scoreText = `${myWins}勝 ${oppWins}敗`;
 
-      // 指定の着順表記: 1着, 2着, 3着, 4着以下
       const c1 = roundResult.r1 ?? roundResult.c1 ?? 0;
       const c2 = roundResult.r2 ?? roundResult.c2 ?? 0;
       const c3 = roundResult.r3 ?? roundResult.c3 ?? 0;
       const c4Plus = roundResult.r4Plus ?? roundResult.c4 ?? 0;
-      const detailText = `1着:${c1} 2着:${c2} 3着:${c3} 4着以下:${c4Plus}`;
+
+      // 5レースの着順合計（ranks配列がある場合はその合計、なければ内訳から算出）
+      let rankSum = roundResult.rankSum;
+      if (rankSum === undefined) {
+        if (Array.isArray(roundResult.races)) {
+          rankSum = roundResult.races.reduce((acc, r) => acc + (Number(r.rank || r.position) || 4), 0);
+        } else {
+          rankSum = (c1 * 1) + (c2 * 2) + (c3 * 3) + (c4Plus * 4);
+        }
+      }
+
+      // ご指定の表記: (1-2-0-2) 合計XX着
+      const detailText = `(${c1}-${c2}-${c3}-${c4Plus}) 合計${rankSum}着`;
 
       const badgeClass = roundResult.isWin ? 'badge-win' : 'badge-loss';
       const badgeText = roundResult.isWin ? '○ 勝利' : '× 敗北';
 
       resultHtml = `
         <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d0e3d2; display: flex; justify-content: space-between; align-items: center; font-size: 11px; background: #f8fafc; padding: 4px 8px; border-radius: 4px;">
-          <div><span style="font-weight:bold; color:var(--accent-color);">成績:</span> ${scoreText} <span style="font-family:monospace; color:#d97706; margin-left:4px;">(${detailText})</span></div>
+          <div><span style="font-weight:bold; color:var(--accent-color);">成績:</span> ${scoreText} <span style="font-family:monospace; color:#d97706; margin-left:4px;">${detailText}</span></div>
           <div><span class="${badgeClass}" style="padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px;">${badgeText}</span></div>
         </div>
       `;
@@ -588,17 +603,13 @@
     const currentWins = status.series_wins || 0;
     const currentLosses = status.series_losses || 0;
 
-    // ゲーム終了判定（クリア or 敗北）
     const isFinished = (currentWins >= winCondition) || (currentLosses >= lossCondition);
 
     if (isFinished) {
-      // まだ勝利報酬を受け取っていない場合はカットイン→報酬カードモーダルを表示
       if (currentWins >= winCondition && !status.reward_claimed) {
         await handleGameEndReward(status);
         return;
       }
-      
-      // リザルト画面をbattle.htmlのメイン画面（写メの画面）上で描画・維持
       await renderActiveBattle(status, totalWins, true);
       return;
     }
@@ -734,7 +745,6 @@
     await processBattleState(totalWins);
   };
 
-  // 勝利報酬受け取り演出（報酬がある時のみ表示される）
   async function handleGameEndReward(status) {
     const modal = document.getElementById('rewardModal');
     const cardContainer = document.getElementById('rewardCardContainer');
@@ -751,7 +761,6 @@
     let pool = HORSES_ARRAY;
     const rewardHorse = pool[Math.floor(Math.random() * pool.length)];
 
-    // 報酬獲得済みフラグを付与
     status.reward_claimed = true;
     userUpdateObj["cpu_battle_status.reward_claimed"] = true;
 
@@ -844,7 +853,6 @@
     return lineup;
   }
 
-  // リザルト画面およびアクティブバトルのメイン描画関数
   async function renderActiveBattle(status, totalWins, isFinished) {
     const deckType = status.deck_type || 2;
     const isSurvival = (status.battle_type === 'survival' || deckType === 1);
@@ -857,23 +865,65 @@
     document.getElementById('lossCount').textContent = status.series_losses || 0;
     document.getElementById('winLossHeader').style.display = 'flex';
 
-    // 履歴データマップとトータル成績の算出
     const roundHistoryMap = {};
     let totalC1 = 0, totalC2 = 0, totalC3 = 0, totalC4Plus = 0;
+    let totalRankSum = 0;
     let actualTeamPotentialSum = 0;
     let maxLimitPotentialSum = 0;
 
+    const decks = globalUserData.decks || [];
+    const activeDeck = decks[selectedDeckIndex] || { horse_ids: [] };
+
     (status.round_history || []).forEach(h => {
       roundHistoryMap[h.round] = h;
-      totalC1 += (h.r1 ?? h.c1 ?? 0);
-      totalC2 += (h.r2 ?? h.c2 ?? 0);
-      totalC3 += (h.r3 ?? h.c3 ?? 0);
-      totalC4Plus += (h.r4Plus ?? h.c4 ?? 0);
-      if (typeof h.teamPotential === 'number') actualTeamPotentialSum += h.teamPotential;
+      const c1 = h.r1 ?? h.c1 ?? 0;
+      const c2 = h.r2 ?? h.c2 ?? 0;
+      const c3 = h.r3 ?? h.c3 ?? 0;
+      const c4Plus = h.r4Plus ?? h.c4 ?? 0;
+
+      totalC1 += c1;
+      totalC2 += c2;
+      totalC3 += c3;
+      totalC4Plus += c4Plus;
+
+      let rankSum = h.rankSum;
+      if (rankSum === undefined) {
+        if (Array.isArray(h.races)) {
+          rankSum = h.races.reduce((acc, r) => acc + (Number(r.rank || r.position) || 4), 0);
+        } else {
+          rankSum = (c1 * 1) + (c2 * 2) + (c3 * 3) + (c4Plus * 4);
+        }
+      }
+      totalRankSum += rankSum;
+
+      // 各回戦で使用した馬のポテンシャルを合計してチームポテンシャルを算出
+      let roundPot = 0;
+      if (typeof h.teamPotential === 'number') {
+        roundPot = h.teamPotential;
+      } else {
+        // 回戦履歴に馬IDリスト（entries や horse_ids）がある場合、または used_cards から推定
+        const roundHorses = h.horse_ids || h.entries || h.selected_horses;
+        if (Array.isArray(roundHorses)) {
+          roundHorses.forEach(hId => {
+            const horse = HORSES_MASTER[hId];
+            roundPot += getHorsePotential(horse);
+          });
+        } else {
+          // フォールバック: デックから先頭5頭ずつ等のポテンシャルを仮算出、あるいは平均的なポテンシャル
+          const validIds = (activeDeck.horse_ids || []).filter(id => id);
+          if (validIds.length > 0) {
+            // ラウンドごとに5頭ずつスライスして合計
+            const startIdx = ((h.round - 1) * 5) % validIds.length;
+            const sliceIds = validIds.slice(startIdx, startIdx + 5);
+            sliceIds.forEach(id => roundPot += getHorsePotential(HORSES_MASTER[id]));
+          }
+        }
+      }
+      actualTeamPotentialSum += roundPot;
     });
 
-    // 青丸部分：トータル成績テキストの更新
-    document.getElementById('totalDetailText').textContent = `1着:${totalC1} 2着:${totalC2} 3着:${totalC3} 4着以下:${totalC4Plus}`;
+    // トータル成績テキストの更新（ご指定の数値のみ形式 ＆ 合計着順）
+    document.getElementById('totalDetailText').textContent = `${totalC1}-${totalC2}-${totalC3}-${totalC4Plus} (合計${totalRankSum}着)`;
 
     const lineup = status.series_lineup || [];
     lineup.forEach(sId => {
@@ -882,7 +932,7 @@
       if (typeof maxLimit === 'number') maxLimitPotentialSum += maxLimit;
     });
 
-    // サバイバルモード時の充足率表示
+    // サバイバルモード時の正確な充足率表示
     const survivalValEl = document.getElementById('survivalFulfillmentHeaderVal');
     if (isSurvival) {
       let fulfillmentRatio = 0;
@@ -900,7 +950,6 @@
     document.getElementById('totalRoundsText').textContent = `全${maxRounds}回戦`;
     document.getElementById('matchTypeSubText').textContent = `※${maxRounds}回戦マッチ (${typeText}) の対戦シリーズ一覧です。`;
 
-    // 赤丸部分：各シリーズカードの描画（最終戦も含む全回戦の成績を表示）
     const cardsContainer = document.getElementById('seriesCardsContainer');
     cardsContainer.innerHTML = '';
 
@@ -914,13 +963,12 @@
       cardsContainer.insertAdjacentHTML('beforeend', cardHtml);
     });
 
-    // 終了時のボタン表示制御
     const startBtn = document.getElementById('btnStart');
     const resetBtn = document.getElementById('btnResetData');
 
     if (isFinished) {
       document.getElementById('challengePanel').style.display = 'block';
-      document.getElementById('deckPanel').style.display = 'none'; // 終了時はデッキ選択を隠す
+      document.getElementById('deckPanel').style.display = 'none';
       
       startBtn.style.display = 'block';
       startBtn.textContent = "🏁 対戦終了（新しい挑戦を開始する）";
@@ -935,7 +983,6 @@
         deckHeaderTitle.textContent = (isSurvival && status.current_round > 1) ? "挑戦中のデッキ (1デック制: 固定中)" : "挑戦するデッキを選択 (最大18頭)";
       }
 
-      const decks = globalUserData.decks || [];
       [0, 1].forEach(idx => {
         const deck = decks[idx] || { deck_name: `メインデッキ ${idx + 1}`, horse_ids: [] };
         const validCount = (deck.horse_ids || []).filter(id => id !== null && id !== undefined).length;
