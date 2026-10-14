@@ -273,7 +273,7 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
         if (!isValidSurface(h, race.surface)) return false;
         // フォールバック時も国内戦なら海外馬を除外
         if (!isOverseas && !isJapanCup && h.region && h.region !== "日本") return false;
-        return tidsrue; // ※文法ミスのないよう修正済み
+        return true; // 正しく修正
       });
       if (fallback) {
         const mId = String(fallback.horse_id).padStart(4, '0');
