@@ -801,52 +801,66 @@
     const p1Wins = data.p1_wins || data.player1_wins || 0;
     const p2Wins = data.p2_wins || data.player2_wins || 0;
 
+    // 1. 過半数勝利に達している場合は即決着
     if (p1Wins >= requiredWins) return { winner: 'p1', reason: 'wins_majority' };
     if (p2Wins >= requiredWins) return { winner: 'p2', reason: 'wins_majority' };
 
     const currentRound = data.current_series_index || 0;
-    const isMatchEnded = data.status === "finished" || currentRound >= totalRounds;
+    const matchHistory = data.match_history || [];
+    const isMatchEnded = data.status === "finished" || currentRound >= totalRounds || matchHistory.length >= totalRounds;
 
+    // 2. まだ試合中で過半数に達していない場合は継続
     if (!isMatchEnded && p1Wins < requiredWins && p2Wins < requiredWins) {
       return { winner: null, isOngoing: true };
     }
 
+    // 3. 全回戦終了（または終了ステータス）で過半数未達の場合、勝利数で比較
     if (p1Wins > p2Wins) return { winner: 'p1', reason: 'round_wins' };
     if (p2Wins > p1Wins) return { winner: 'p2', reason: 'round_wins' };
 
-    let p1_1st = data.p1_1st_count || data.p1_first_places || 0;
-    let p2_1st = data.p2_1st_count || data.p2_first_places || 0;
-    if (!p1_1st && !p2_1st && Array.isArray(data.match_history)) {
-      data.match_history.forEach(h => {
-        p1_1st += (h.p1_1st || h.p1_1st_count || 0);
-        p2_1st += (h.p2_1st || h.p2_1st_count || 0);
+    // 4. タイブレーク1：全レースの累計1着・不戦勝（17着）獲得数
+    let p1_1st = 0, p2_1st = 0;
+    if (Array.isArray(matchHistory) && matchHistory.length > 0) {
+      matchHistory.forEach(h => {
+        p1_1st += (h.p1_1st || h.p1_first_places || 0);
+        p2_1st += (h.p2_1st || h.p2_first_places || 0);
       });
+    } else {
+      p1_1st = data.p1_1st_count || data.p1_first_places || 0;
+      p2_1st = data.p2_1st_count || data.p2_first_places || 0;
     }
     if (p1_1st > p2_1st) return { winner: 'p1', reason: 'tiebreak_1st', p1Val: p1_1st, p2Val: p2_1st };
     if (p2_1st > p1_1st) return { winner: 'p2', reason: 'tiebreak_1st', p1Val: p1_1st, p2Val: p2_1st };
 
-    let p1_2nd = data.p1_2nd_count || 0;
-    let p2_2nd = data.p2_2nd_count || 0;
-    if (!p1_2nd && !p2_2nd && Array.isArray(data.match_history)) {
-      data.match_history.forEach(h => {
+    // 5. タイブレーク2：全レースの累計2着獲得数
+    let p1_2nd = 0, p2_2nd = 0;
+    if (Array.isArray(matchHistory) && matchHistory.length > 0) {
+      matchHistory.forEach(h => {
         p1_2nd += (h.p1_2nd || 0);
         p2_2nd += (h.p2_2nd || 0);
       });
+    } else {
+      p1_2nd = data.p1_2nd_count || 0;
+      p2_2nd = data.p2_2nd_count || 0;
     }
     if (p1_2nd > p2_2nd) return { winner: 'p1', reason: 'tiebreak_2nd', p1Val: p1_2nd, p2Val: p2_2nd };
     if (p2_2nd > p1_2nd) return { winner: 'p2', reason: 'tiebreak_2nd', p1Val: p1_2nd, p2Val: p2_2nd };
 
-    let p1_3rd = data.p1_3rd_count || 0;
-    let p2_3rd = data.p2_3rd_count || 0;
-    if (!p1_3rd && !p2_3rd && Array.isArray(data.match_history)) {
-      data.match_history.forEach(h => {
+    // 6. タイブレーク3：全レースの累計3着獲得数
+    let p1_3rd = 0, p2_3rd = 0;
+    if (Array.isArray(matchHistory) && matchHistory.length > 0) {
+      matchHistory.forEach(h => {
         p1_3rd += (h.p1_3rd || 0);
         p2_3rd += (h.p2_3rd || 0);
       });
+    } else {
+      p1_3rd = data.p1_3rd_count || 0;
+      p2_3rd = data.p2_3rd_count || 0;
     }
     if (p1_3rd > p2_3rd) return { winner: 'p1', reason: 'tiebreak_3rd', p1Val: p1_3rd, p2Val: p2_3rd };
     if (p2_3rd > p1_3rd) return { winner: 'p2', reason: 'tiebreak_3rd', p1Val: p1_3rd, p2Val: p2_3rd };
 
+    // 7. 最終フォールバック（完全同点の場合はホスト側の勝ち）
     return { winner: 'p1', reason: 'host_priority_draw' };
   }
 
@@ -907,7 +921,7 @@
     document.getElementById('p2WinsVal').textContent = `${p2Wins} 勝`;
 
     if (matchResult.reason && matchResult.reason.startsWith('tiebreak')) {
-      const typeMap = { tiebreak_1st: '全レースの累計1着獲得数', tiebreak_2nd: '全レースの累計2着獲得数', tiebreak_3rd: '全レースの累計3着獲得数' };
+      const typeMap = { tiebreak_1st: '全レースの累計1着・不戦勝獲得数', tiebreak_2nd: '全レースの累計2着獲得数', tiebreak_3rd: '全レースの累計3着獲得数' };
       const label = typeMap[matchResult.reason] || '着順差';
       tiebreakBox.style.display = 'block';
       tiebreakBox.innerHTML = `<strong>⚖️ タイブレーク判定適用:</strong><br>勝利数が同数のため、${label}（${p1Name}: ${matchResult.p1Val}回 / ${p2Name}: ${matchResult.p2Val}回）により勝敗を判定しました。`;
@@ -1355,10 +1369,14 @@
             const raceName = r.race_name || r.name || `第${raceIdx + 1}戦`;
             const myHorseName = isHost ? (r.p1_horse_name || r.p1_horse || r.my_horse || '-') : (r.p2_horse_name || r.p2_horse || r.opp_horse || '-');
             const oppHorseName = isHost ? (r.p2_horse_name || r.p2_horse || r.opp_horse || '-') : (r.p1_horse_name || r.p1_horse || r.my_horse || '-');
-            const myRank = isHost ? (r.p1_rank ?? r.my_rank) : (r.p2_rank ?? r.opp_rank);
-            const oppRank = isHost ? (r.p2_rank ?? r.opp_rank) : (r.p1_rank ?? r.my_rank);
+            
+            const myRank = isHost ? Number(r.p1_rank ?? r.my_rank) : Number(r.p2_rank ?? r.opp_rank);
+            const oppRank = isHost ? Number(r.p2_rank ?? r.opp_rank) : Number(r.p1_rank ?? r.my_rank);
 
-            // 【修正箇所】17着(不戦勝)・18着(不戦敗)の条件分岐を追加
+            // 【例外措置】お互いに18着の場合はダブルノックアウト（引き分け）
+            const isDoubleKnockout = (myRank === 18 && oppRank === 18);
+
+            // 【例外措置】17着＝不戦勝、18着＝不戦敗のバッジ表示
             const formatRank = (rk) => {
               if (rk === undefined || rk === null) return '-';
               if (rk === 17) return `<span class="rank-badge rank-other" style="background:#d1fae5; color:#047857; border:1px solid #6ee7b7;">不戦勝</span>`;
@@ -1373,7 +1391,7 @@
               <tr>
                 <td style="font-weight:bold; text-align:left;">${raceName}</td>
                 <td>${myHorseName} (${formatRank(myRank)})</td>
-                <td style="color:#64748b;">VS</td>
+                <td style="color:${isDoubleKnockout ? '#d97706' : '#64748b'}; font-weight:${isDoubleKnockout ? 'bold' : 'normal'};">${isDoubleKnockout ? '⚡WKO' : 'VS'}</td>
                 <td>${oppHorseName} (${formatRank(oppRank)})</td>
               </tr>
             `;
