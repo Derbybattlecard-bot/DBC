@@ -1011,11 +1011,15 @@
         const roomRef = doc(db, "online_matches", roomId);
         const isHost = (role === 'host');
 
+        const dummyEntries = Array(5).fill("4999");
+        const dummyStrategies = Array(5).fill({ strategy: "逃", strategy_level: 3 });
+
         const updateObj = {
-          [isHost ? 'player1_giveup' : 'player2_giveup']: true,
-          [isHost ? 'p1_status' : 'p2_status']: 'giveup',
+          [isHost ? 'player1_entries' : 'player2_entries']: dummyEntries,
+          [isHost ? 'player1_strategies' : 'player2_strategies']: dummyStrategies,
           [isHost ? 'player1_matchup_ready' : 'player2_matchup_ready']: true,
-          status: "race_running"
+          [isHost ? 'player1_strategy_ready' : 'player2_strategy_ready']: true,
+          [isHost ? 'p1_status' : 'p2_status']: 'strategy_ready'
         };
 
         await updateDoc(roomRef, updateObj);
@@ -1025,7 +1029,7 @@
     }
 
     const modeQuery = matchMode ? `&mode=${matchMode}` : '';
-    window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}&giveup=true${modeQuery}`;
+    window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}${modeQuery}`;
   };
 
   window.leaveMatch = async function() {
