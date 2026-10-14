@@ -1,6 +1,6 @@
 /**
  * /js/mob.js
- * モブ馬・CPU馬に関連する外部処理モジュール（完全版）
+ * モブ馬・CPU馬に関連する外部処理モジュール
  */
 
 export function determineStrategy(horseId, style, gateNum, strategyMaster, isCpuRival = false) {
@@ -34,10 +34,6 @@ export function determineStrategy(horseId, style, gateNum, strategyMaster, isCpu
   return { tactic: selectedStrategyName, level: strategyLevel };
 }
 
-// ============================================================================
-// 馬場状態の抽選・生成ロジック
-// ============================================================================
-
 export function drawTrackCondition() {
   const rand = Math.random() * 100;
   if (rand < 75) return '良';
@@ -57,10 +53,6 @@ export function generateTrackConditions(series) {
     return Array.from({ length: 5 }, () => drawTrackCondition());
   }
 }
-
-// ============================================================================
-// 適性・条件判定補助関数
-// ============================================================================
 
 function getHorsePotential(horse, surface) {
   if (!horse) return 0;
@@ -156,18 +148,12 @@ function isFrom1992OrLater(horse) {
   return false;
 }
 
-// ============================================================================
-// モブ馬の抽選生成関数（特殊ルール・割合配分対応）
-// ============================================================================
-
 export function generateMobEntries(races, currentSeries, globalUserData, selectedEntries, HORSES_MASTER) {
   const limits = currentSeries?.potential_limit || { max_total_potential: 95 };
   const maxTotalPt = limits.max_total_potential || 95;
-  
-  // 平均値の中央値 X を算出 (四捨五入)
   const centerX = Math.round(maxTotalPt / 5);
 
-  const allHorses = Object.values(HORSES_MASTER);
+  const allHorses = Object.values(HORSES_MASTER || {});
 
   const allDeckHorseIds = new Set();
   if (globalUserData && Array.isArray(globalUserData.decks)) {
@@ -175,7 +161,7 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
       if (deck && Array.isArray(deck.horse_ids)) {
         deck.horse_ids.forEach(id => {
           if (id !== null && id !== undefined && id !== '') {
-            allDeckHorseIds.add(String(id));
+            allDeckHorseIds.add(String(id).padStart(4, '0'));
           }
         });
       }
@@ -184,7 +170,7 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
 
   const excludedHorseIds = new Set([
     ...allDeckHorseIds,
-    ...(selectedEntries || []).filter(Boolean).map(id => String(id))
+    ...(selectedEntries || []).filter(Boolean).map(id => String(id).padStart(4, '0'))
   ]);
 
   const racesMobIds = {};
@@ -202,7 +188,6 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
 
     const raceUsedIds = new Set([...excludedHorseIds]);
 
-    // ポテンシャル別の必要頭数配分マップ (合計14頭)
     const potTargetCounts = {
       [centerX]: 4,
       [centerX - 1]: 3,
@@ -220,7 +205,8 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
 
       const getCandidates = (filterFn, relaxDist = false) => {
         return allHorses.filter(h => {
-          if (raceUsedIds.has(String(h.horse_id))) return false;
+          const hId = String(h.horse_id).padStart(4, '0');
+          if (raceUsedIds.has(hId)) return false;
           if (getHorsePotential(h, race.surface) !== targetPot) return false;
           if (!isValidSex(h.sex || "牡馬", raceSexLimit)) return false;
           if (!isValidSurface(h, race.surface)) return false;
@@ -229,38 +215,35 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
         });
       };
 
-      // 1. 特殊ルール（香港・海外・ジャパンカップの高ポテンシャル枠）
       if (isHongKong && (targetPot === centerX + 2 || targetPot === centerX + 1)) {
         gathered = getCandidates(h => h.region === "香港", isShortDist);
       } else if (isOverseas && (targetPot === centerX + 2 || targetPot === centerX + 1)) {
         gathered = getCandidates(h => h.region && h.region !== "日本", isShortDist);
       } else if (isJapanCup && (targetPot === centerX + 2 || targetPot === centerX + 1)) {
-        // ジャパンカップは高ポテンシャル枠に海外馬を6〜7頭混ぜる配慮として優先抽出
         gathered = getCandidates(h => h.region && h.region !== "日本", isShortDist);
       } else if ((isOverseas || isJapanCup) && (targetPot === centerX - 1 || targetPot === centerX - 2)) {
-        // 低ポテンシャル枠は日本馬 ＋ 海外競馬場アビリティ持ち
         gathered = getCandidates(h => !h.region || h.region === "日本" || (Array.isArray(h.ability) && h.ability.includes("国境突破")), isShortDist);
       }
 
-      // 足りない分は通常プール（世代1992年以降）から補填
       if (gathered.length < neededCount) {
         const normalPool = getCandidates(h => isFrom1992OrLater(h), isShortDist);
         normalPool.sort(() => Math.random() - 0.5);
         for (const h of normalPool) {
           if (gathered.length >= neededCount) break;
-          if (!gathered.some(g => String(g.horse_id) === String(h.horse_id))) {
+          const hId = String(h.horse_id).padStart(4, '0');
+          if (!gathered.some(g => String(g.horse_id).padStart(4, '0') === hId)) {
             gathered.push(h);
           }
         }
       }
 
-      // それでも足りない場合は全制限緩和で補填
       if (gathered.length < neededCount) {
         const relaxPool = getCandidates(h => true, true);
         relaxPool.sort(() => Math.random() - 0.5);
         for (const h of relaxPool) {
           if (gathered.length >= neededCount) break;
-          if (!gathered.some(g => String(g.horse_id) === String(h.horse_id))) {
+          const hId = String(h.horse_id).padStart(4, '0');
+          if (!gathered.some(g => String(g.horse_id).padStart(4, '0') === hId)) {
             gathered.push(h);
           }
         }
@@ -270,17 +253,20 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
         const mId = String(mob.horse_id).padStart(4, '0');
         if (!selectedMobs.includes(mId)) {
           selectedMobs.push(mId);
-          raceUsedIds.add(String(mob.horse_id));
+          raceUsedIds.add(mId);
         }
       });
     });
 
     while (selectedMobs.length < 14) {
-      const fallback = allHorses.find(h => !raceUsedIds.has(String(h.horse_id)) && isValidSurface(h, race.surface));
+      const fallback = allHorses.find(h => {
+        const hId = String(h.horse_id).padStart(4, '0');
+        return !raceUsedIds.has(hId) && isValidSurface(h, race.surface);
+      });
       if (fallback) {
         const mId = String(fallback.horse_id).padStart(4, '0');
         selectedMobs.push(mId);
-        raceUsedIds.add(String(fallback.horse_id));
+        raceUsedIds.add(mId);
       } else {
         selectedMobs.push("0000");
       }
