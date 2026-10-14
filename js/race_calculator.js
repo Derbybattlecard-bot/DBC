@@ -88,8 +88,9 @@ function getTacticPaceBonus(tacticStyleInput, racePace) {
 }
 
 /**
- * 実況テキストの生成（フェーズ1〜4完全版 v2.4）
- * - 4コーナー通過後の展開発表時に、重要パラメータの解説を動的に付加
+ * 実況テキストの生成（フェーズ1〜4統合版）
+ * - 展開決定時（写メのタイミング）に展開名と重要パラメータの解説を挿入
+ * - ゴール時は着順および自馬の状態描写に特化
  */
 function generateRaceCommentary(raceData) {
   const { results, pace, branch, posSorted } = raceData;
@@ -122,7 +123,7 @@ function generateRaceCommentary(raceData) {
     phase2Text = "各馬隊列を整えながら、向正面へと向かっていきます。";
   }
 
-  // フェーズ3: 中盤・ペースとポジション関係
+  // フェーズ3: 中盤・ペースとポジション関係 ＋ 展開および必要パラメータの解説実況を統合
   let phase3Text = `ペースは${pace}で流れています。`;
 
   if (player && cpu) {
@@ -140,9 +141,8 @@ function generateRaceCommentary(raceData) {
     phase3Text += `${player.name}は現在${player.positionRank}番手の位置！手応え十分で直線を迎えます！`;
   }
 
-  // フィニッシュ（直線・ゴール）: 展開名 ＋ 必要なパラメータの実況解説 ＋ ゴール着順・接戦描写
   const branchName = branch?.name || "勝負所";
-  let branchDesc = `レースの展開は「${branchName}」！`;
+  let branchDesc = `このレースは『${branchName}』！`;
 
   let statComments = [];
   if (branch?.key_stats && Array.isArray(branch.key_stats)) {
@@ -162,7 +162,10 @@ function generateRaceCommentary(raceData) {
     branchDesc += `総合力が試される大一番だ！`;
   }
 
-  let finishText = `さあ各馬直線に向いた！${branchDesc} `;
+  phase3Text += ` ${branchDesc}`;
+
+  // フィニッシュ（直線・ゴール）: 1着〜3着の着順と自馬の状態実況のみ
+  let finishText = `さあ各馬直線に向いた！ `;
 
   if (results && results.length >= 3) {
     const rank1 = results[0];
@@ -172,7 +175,7 @@ function generateRaceCommentary(raceData) {
     const rank2Name = rank2.name;
     const rank3Name = rank3.name;
 
-    const playerRank = player ? results.findIndex(h => h.isPlayer) + 1 : 0;
+    const playerRank = player ? results.findIndex(h => h.index === player.index) + 1 : 0;
     const scoreDiff = Math.abs((rank1.finalScore || 0) - (rank2.finalScore || 0));
     const isVeryClose = scoreDiff < 0.6; // 僅差の判定
 
@@ -1029,4 +1032,4 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     branch: selectedBranch,
     commentary: commentaryData
   };
-      }
+                   }
