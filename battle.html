@@ -320,7 +320,7 @@
       <div style="font-size:12px; color:#c67100; font-weight:bold; margin-bottom: 8px;">🎁 報酬カード獲得！</div>
       <div id="rewardCardContainer" style="display: flex; justify-content: center; margin: 10px 0;"></div>
     </div>
-    <button class="modal-btn" onclick="closeRewardModal()">確認（リザルト画面へ）</button>
+    <button class="modal-btn" onclick="closeRewardModal()">確認（対戦データを初期化）</button>
   </div>
 </div>
 
@@ -465,7 +465,6 @@
     return Number(horse.potential ?? horse.cost ?? horse.pt ?? horse.ability_point ?? 15) || 15;
   }
 
-  // サバイバルモードのベスト記録判定・保存（※3勝クリア時のみ実行）
   async function evaluateAndSaveSurvivalBests(status, totalRankSum, totalC1, totalC2, totalC3, fulfillmentRatio, lineup) {
     const isSurvival = (status.battle_type === 'survival' || status.deck_type == 1);
     const currentWins = status.series_wins || 0;
@@ -527,7 +526,6 @@
     }
   }
 
-  // ギブアップ（不戦敗）時の専用カード表示を判定・生成する処理
   function renderSeriesItemCardHTML(sObj, roundNum, isCurrentRound, roundResult) {
     const catName = getNormalizedCategory(sObj) || '一般';
     const sName = sObj.series_name || '名称未設定';
@@ -677,13 +675,8 @@
 
     const isFinished = (currentWins >= winCondition) || (currentLosses >= lossCondition) || (isSurvival && status.current_round > 3 && currentWins < 3);
 
+    // ★ 修正：ここでは自動で報酬処理を行わず、isFinished の場合は必ずリザルト画面を表示する
     if (isFinished) {
-      // 修正: モードに関わらず（チャレンジ・サバイバル問わず）勝利条件を満たしていて未受取なら報酬処理を実行し、その後にリザルトを表示する
-      if (currentWins >= winCondition && !status.reward_claimed) {
-        await handleGameEndReward(status);
-        return;
-      }
-      // 報酬受取済み、または敗北等の場合は必ずリザルト画面（シリーズ終了状態）を表示する
       await renderActiveBattle(status, totalWins, true);
       return;
     }
@@ -810,7 +803,8 @@
     await processBattleState(totalWins);
   };
 
-  async function handleGameEndReward(status) {
+  // ★ 修正：報酬獲得処理。ボタン押下時に実行され、完了後にデータを初期化する
+  async function claimRewardAndReset(status) {
     const modal = document.getElementById('rewardModal');
     const cardContainer = document.getElementById('rewardCardContainer');
     const current1stCount = status.total_1st_places || 0;
@@ -828,6 +822,7 @@
 
     status.reward_claimed = true;
     userUpdateObj["cpu_battle_status.reward_claimed"] = true;
+    userUpdateObj["cpu_battle_status.is_active"] = false; // 報酬獲得と同時にバトルを終了・非アクティブ化
 
     globalUserData.total_wins = (globalUserData.total_wins || 0) + 1;
     userUpdateObj.total_wins = increment(1);
@@ -838,10 +833,14 @@
       userUpdateObj.survival_wins = increment(1);
     }
 
-    Promise.all([
-      setDoc(doc(db, "users", currentUser.uid), userUpdateObj, { merge: true }),
-      setDoc(doc(db, `users/${currentUser.uid}/inventory/${rewardHorse.horse_id}`), { count: increment(1), obtained_at: new Date().toISOString() }, { merge: true })
-    ]).catch(err => console.error("データ保存エラー:", err));
+    try {
+      await Promise.all([
+        setDoc(doc(db, "users", currentUser.uid), userUpdateObj, { merge: true }),
+        setDoc(doc(db, `users/${currentUser.uid}/inventory/${rewardHorse.horse_id}`), { count: increment(1), obtained_at: new Date().toISOString() }, { merge: true })
+      ]);
+    } catch (err) {
+      console.error("データ保存エラー:", err);
+    }
     
     updateHeaderBadges();
 
@@ -866,10 +865,15 @@
     }
   }
 
-  window.closeRewardModal = function() {
+  window.closeRewardModal = async function() {
     document.getElementById('rewardModal').style.display = 'none';
-    const totalWins = globalUserData.total_wins || 0;
-    processBattleState(totalWins);
+    // 報酬確認完了後にデータを初期化（無効化）して画面をリロード
+    try {
+      await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: { is_active: false } }, { merge: true });
+    } catch (e) {
+      console.error(e);
+    }
+    window.location.reload();
   };
 
   function generateSeriesLineup(totalWins, maxRounds) {
@@ -1037,13 +1041,28 @@
     const startBtn = document.getElementById('btnStart');
     const resetBtn = document.getElementById('btnResetData');
 
+    // ★ 修正：リザルト（終了時）のボタン表示ロジック
     if (isFinished) {
       document.getElementById('challengePanel').style.display = 'block';
       document.getElementById('deckPanel').style.display = 'none';
       
       startBtn.style.display = 'block';
-      startBtn.textContent = "🏁 対戦終了（新しい挑戦を開始する）";
-      startBtn.onclick = manualResetBattleData;
+
+      const maxRounds = isSurvival ? 3 : (status.max_rounds || 3);
+      const winCondition = isSurvival ? 3 : Math.ceil(maxRounds / 2);
+
+      // 勝利条件を満たしており、かつ報酬未受取の場合のみ「報酬を受け取る」ボタンにする
+      if (currentWins >= winCondition && !status.reward_claimed) {
+        startBtn.textContent = "🎁 報酬カードを受け取る";
+        startBtn.onclick = async () => {
+          startBtn.disabled = true;
+          await claimRewardAndReset(status);
+        };
+      } else {
+        // 敗北、または受取済みの場合
+        startBtn.textContent = "🏁 バトルを終了する（新しい挑戦を開始する）";
+        startBtn.onclick = manualResetBattleData;
+      }
       if (resetBtn) resetBtn.style.display = 'none';
     } else {
       const currentSeriesId = lineup[status.current_round - 1];
