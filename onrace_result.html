@@ -797,8 +797,16 @@ async function checkAndUpdateReadyState() {
   const data = roomData;
   const isHost = (role === 'host');
 
-  const p1Giveup = !!(data.player1_giveup || data.player1_entries === 'giveup');
-  const p2Giveup = !!(data.player2_giveup || data.player2_entries === 'giveup');
+  // --- 4999（ギブアップ）の厳密な検出処理 ---
+  const p1EntriesRaw = Array.isArray(data.player1_entries) ? data.player1_entries : [];
+  const p2EntriesRaw = Array.isArray(data.player2_entries) ? data.player2_entries : [];
+  
+  const p1Has4999 = p1EntriesRaw.some(id => String(id).trim() === "4999" || String(id).trim() === "0499");
+  const p2Has4999 = p2EntriesRaw.some(id => String(id).trim() === "4999" || String(id).trim() === "0499");
+
+  const p1Giveup = !!(data.player1_giveup || data.player1_entries === 'giveup' || p1Has4999);
+  const p2Giveup = !!(data.player2_giveup || data.player2_entries === 'giveup' || p2Has4999);
+  // ------------------------------------------
 
   const p1Arrived = !!(data.player1_ready || data.p1_status === "racing" || p1Giveup);
   const p2Arrived = !!(data.player2_ready || data.p2_status === "racing" || p2Giveup);
