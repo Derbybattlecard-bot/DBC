@@ -176,11 +176,12 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
   const racesMobIds = {};
 
   races.forEach((race, rIdx) => {
-    // レース個別の条件を優先しつつ、不足している場合は currentSeries から安全にフォールバック取得
     const raceSexLimit = race.sex || currentSeries?.sex || "制限なし";
     const raceDistance = Number(race.distance || 2000);
-    const trackName = race.track || currentSeries?.track || "";
-    const raceName = race.race_name || currentSeries?.series_name || "";
+    
+    // ★修正点：トラック名やレース名には、シリーズ大枠の名前を絶対に混入させない（個別データのみ使用）
+    const trackName = race.track || "";
+    const raceName = race.race_name || "";
 
     const isHongKong = trackName.includes("香港") || trackName.includes("沙田") || raceName.includes("香港");
     const isOverseas = isHongKong || ["ロンシャン", "パリロンシャン", "サンクルー", "アスコット", "ニューマーケット", "エプソム", "メイダン", "デルマー", "サンタアニタ", "チャーチルダウンズ", "ベルモントパーク"].some(t => trackName.includes(t));
@@ -214,7 +215,7 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
           if (!isValidSurface(h, race.surface)) return false;
           if (!isValidDistance(h, raceDistance, relaxDist)) return false;
 
-          // ★ 国内戦（海外でもジャパンカップでもない場合）は海外馬を除外
+          // ★ 国内戦（海外でもジャパンカップでもない場合）は海外馬を完全に除外
           if (!isOverseas && !isJapanCup) {
             if (h.region && h.region !== "日本") return false;
           }
@@ -271,9 +272,8 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
         const hId = String(h.horse_id).padStart(4, '0');
         if (raceUsedIds.has(hId)) return false;
         if (!isValidSurface(h, race.surface)) return false;
-        // フォールバック時も国内戦なら海外馬を除外
         if (!isOverseas && !isJapanCup && h.region && h.region !== "日本") return false;
-        return true; // 正しく修正
+        return true;
       });
       if (fallback) {
         const mId = String(fallback.horse_id).padStart(4, '0');
