@@ -514,6 +514,25 @@ onAuthStateChanged(auth, async (user) => {
     }
     roomData = roomSnap.data();
 
+    // ── 【修正】古いギブアップフラグの残留クリア処理 ──
+    if (roomData.player1_giveup || roomData.player2_giveup) {
+      const p1Entries = Array.isArray(roomData.player1_entries) ? roomData.player1_entries : [];
+      const p2Entries = Array.isArray(roomData.player2_entries) ? roomData.player2_entries : [];
+      const has4999 = p1Entries.some(id => String(id).includes("4999")) || p2Entries.some(id => String(id).includes("4999"));
+      
+      // 新しい回戦や通常の対戦開始時に、古いギブアップフラグだけが残っていた場合はクリアする
+      if (!has4999 && !roomData.race_results_cache) {
+        try {
+          await updateDoc(doc(db, "online_matches", roomId), {
+            player1_giveup: deleteField(),
+            player2_giveup: deleteField()
+          });
+          roomData.player1_giveup = false;
+          roomData.player2_giveup = false;
+        } catch (e) {}
+      }
+    }
+
     await loadMasterData();
 
     const isHost = (role === 'host');
@@ -641,25 +660,20 @@ async function handleGiveupResultFlow(data, p1Giveup, p2Giveup) {
     let winnerText = "引き分け(ダブルKO)";
 
     if (p1Giveup && p2Giveup) {
-      // ダブルノックアウト（両者ギブアップ）：どちらも18着（不戦敗扱い）
       myRank = 18;
       oppRank = 18;
       isWin = false;
       winnerText = "引き分け(ダブルKO)";
     } else if (p1Giveup) {
       if (isHost) {
-        // ホスト(自分)がギブアップ = 不戦敗(18着)、ゲスト(相手) = 不戦勝(17着)
         myRank = 18; oppRank = 17; isWin = false; winnerText = oppNameStr;
       } else {
-        // ゲスト(自分)から見て、ホスト(相手)がギブアップ = 自分は不戦勝(17着)、相手は不戦敗(18着)
         myRank = 17; oppRank = 18; isWin = true; winnerText = myNameStr;
       }
     } else if (p2Giveup) {
       if (isHost) {
-        // ホスト(自分)から見て、ゲスト(相手)がギブアップ = 自分は不戦勝(17着)、相手は不戦敗(18着)
         myRank = 17; oppRank = 18; isWin = true; winnerText = myNameStr;
       } else {
-        // ゲスト(自分)がギブアップ = 不戦敗(18着)、ホスト(相手) = 不戦勝(17着)
         myRank = 18; oppRank = 17; isWin = false; winnerText = oppNameStr;
       }
     }
@@ -797,7 +811,6 @@ async function checkAndUpdateReadyState() {
   const data = roomData;
   const isHost = (role === 'host');
 
-  // --- 4999（ギブアップ）の厳密な検出処理 ---
   const p1EntriesRaw = Array.isArray(data.player1_entries) ? data.player1_entries : [];
   const p2EntriesRaw = Array.isArray(data.player2_entries) ? data.player2_entries : [];
   
@@ -806,7 +819,6 @@ async function checkAndUpdateReadyState() {
 
   const p1Giveup = !!(data.player1_giveup || data.player1_entries === 'giveup' || p1Has4999);
   const p2Giveup = !!(data.player2_giveup || data.player2_entries === 'giveup' || p2Has4999);
-  // ------------------------------------------
 
   const p1Arrived = !!(data.player1_ready || data.p1_status === "racing" || p1Giveup);
   const p2Arrived = !!(data.player2_ready || data.p2_status === "racing" || p2Giveup);
@@ -923,16 +935,12 @@ async function handleRoomDataUpdate(data) {
   }
   
   if (data.status === "entry_selecting" || data.status === "matchup") {
-    // 👈 修正点：ギブアップデータ（4999など）やギブアップフラグが存在する場合はリダイレクトを阻止して待機する
     const p1Has4999 = (data.player1_entries || []).some(id => String(id).trim() === "4999" || String(id).trim() === "0499");
     const p2Has4999 = (data.player2_entries || []).some(id => String(id).trim() === "4999" || String(id).trim() === "0499");
     if (data.player1_giveup || data.player2_giveup || p1Has4999 || p2Has4999) {
       return;
     }
 
-    if (data.player1_giveup || data.player2_giveup) {
-      return;
-    }
     if (raceState === 'running' || raceState === 'finished') {
       return; 
     }
@@ -968,13 +976,15 @@ async function handleRoomDataUpdate(data) {
       }
     }
   } else {
-    if (data.host_next_ready && modalBtn && modalBtn.textContent !== "⏳ 移動中...") {
-      modalBtn.disabled = true;
-      modalBtn.textContent = "⏳ ゲストの操作待ち...";
-      if (statusMsgEl) {
-        statusMsgEl.textContent = "【ホスト操作完了】ゲストがボタンを押すのを待っています...";
-        statusMsgEl.style.color = "var(--accent-green)";
-      }
+    // ── 【修正】ホスト側で既に準備完了（host_next_ready）ならボタン活性が復活しないように固定 ──
+    const isHostReady = !!data?.host_next_ready;
+    if (modalBtn && modalBtn.textContent !== "⏳ 移動中...") {
+      modalBtn.disabled = isHostReady;
+      modalBtn.textContent = isHostReady ? "⏳ ゲストの操作待ち..." : "回戦終了：対戦画面（onbattle.html）へ戻る";
+    }
+    if (statusMsgEl) {
+      statusMsgEl.textContent = isHostReady ? "【ホスト操作完了】ゲストがボタンを押すのを待っています..." : "あなたがボタンを押すとゲストが次へ進行可能になります。";
+      statusMsgEl.style.color = isHostReady ? "var(--accent-green)" : "var(--gold-color)";
     }
   }
 
@@ -1742,7 +1752,6 @@ function showFinalSeriesResult() {
   const historyBody = document.getElementById('series-history-body');
   historyBody.innerHTML = "";
   seriesHistory.forEach(h => {
-    // 17着・18着をそれぞれ「不戦勝」「不戦敗」に変換するよう修正
     const myRankDisplay = (h.myRank === 17) ? "不戦勝" : (h.myRank === 18) ? "不戦敗" : (h.myRank > 15 || h.myRank === 99) ? "-" : `${h.myRank}着`;
     const oppRankDisplay = (h.oppRank === 17) ? "不戦勝" : (h.oppRank === 18) ? "不戦敗" : (h.oppRank > 15 || h.oppRank === 99) ? "-" : `${h.oppRank}着`;
 
@@ -1762,10 +1771,15 @@ function showFinalSeriesResult() {
   if (modalBtn) modalBtn.textContent = "回戦終了：対戦画面（onbattle.html）へ戻る";
 
   if (isHost) {
-    if (modalBtn) modalBtn.disabled = false;
+    // ── 【修正】ホストが一度ボタンを押した後に再レンダリングやスナップショット更新でボタンが復活しないよう判定を固定 ──
+    const isHostReady = !!roomData?.host_next_ready;
+    if (modalBtn) {
+      modalBtn.disabled = isHostReady;
+      modalBtn.textContent = isHostReady ? "⏳ ゲストの操作待ち..." : "回戦終了：対戦画面（onbattle.html）へ戻る";
+    }
     if (statusMsgEl) {
-      statusMsgEl.textContent = roomData?.host_next_ready ? "【ホスト操作完了】ゲストの選択を待っています..." : "あなたがボタンを押すとゲストが次へ進行可能になります。";
-      statusMsgEl.style.color = roomData?.host_next_ready ? "var(--accent-green)" : "var(--gold-color)";
+      statusMsgEl.textContent = isHostReady ? "【ホスト操作完了】ゲストの選択を待っています..." : "あなたがボタンを押すとゲストが次へ進行可能になります。";
+      statusMsgEl.style.color = isHostReady ? "var(--accent-green)" : "var(--gold-color)";
     }
   } else {
     if (roomData?.host_next_ready) {
