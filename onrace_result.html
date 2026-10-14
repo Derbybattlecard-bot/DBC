@@ -548,7 +548,7 @@ onAuthStateChanged(auth, async (user) => {
       for (let rIdx = 0; rIdx < 5; rIdx++) {
         const seriesNum = currentSeriesIndex + 1;
         const pKey = `${seriesNum}${rIdx + 1}`;
-        const raceRes = cacheObj[pKey]; // 2桁コードキーによる安全な取得（配列フォールバック削除）
+        const raceRes = cacheObj[pKey]; 
         if (!raceRes) continue;
 
         const roundRace = (Array.isArray(racesInSeries) && racesInSeries[rIdx]) ? racesInSeries[rIdx] : null;
@@ -636,26 +636,31 @@ async function handleGiveupResultFlow(data, p1Giveup, p2Giveup) {
 
   for (let r = 1; r <= 5; r++) {
     let myRank = 18;
-    let oppRank = 1;
+    let oppRank = 18;
     let isWin = false;
-    let winnerText = oppNameStr;
+    let winnerText = "引き分け(ダブルKO)";
 
     if (p1Giveup && p2Giveup) {
-      myRank = 10;
-      oppRank = 10;
+      // ダブルノックアウト（両者ギブアップ）：どちらも18着（不戦敗扱い）
+      myRank = 18;
+      oppRank = 18;
       isWin = false;
       winnerText = "引き分け(ダブルKO)";
     } else if (p1Giveup) {
       if (isHost) {
-        myRank = 18; oppRank = 1; isWin = false; winnerText = oppNameStr;
+        // ホスト(自分)がギブアップ = 不戦敗(18着)、ゲスト(相手) = 不戦勝(17着)
+        myRank = 18; oppRank = 17; isWin = false; winnerText = oppNameStr;
       } else {
-        myRank = 1; oppRank = 18; isWin = true; winnerText = myNameStr;
+        // ゲスト(自分)から見て、ホスト(相手)がギブアップ = 自分は不戦勝(17着)、相手は不戦敗(18着)
+        myRank = 17; oppRank = 18; isWin = true; winnerText = myNameStr;
       }
     } else if (p2Giveup) {
       if (isHost) {
-        myRank = 1; oppRank = 18; isWin = true; winnerText = myNameStr;
+        // ホスト(自分)から見て、ゲスト(相手)がギブアップ = 自分は不戦勝(17着)、相手は不戦敗(18着)
+        myRank = 17; oppRank = 18; isWin = true; winnerText = myNameStr;
       } else {
-        myRank = 18; oppRank = 1; isWin = false; winnerText = oppNameStr;
+        // ゲスト(自分)がギブアップ = 不戦敗(18着)、ホスト(相手) = 不戦勝(17着)
+        myRank = 18; oppRank = 17; isWin = false; winnerText = oppNameStr;
       }
     }
 
@@ -1393,7 +1398,7 @@ async function startRace() {
 
   const progressKey = String(getCurrentProgressCode());
   const cacheObj = roomData?.race_results_cache || {};
-  const raceResultData = cacheObj[progressKey]; // 2桁コードキーによる直接取得（フォールバック削除）
+  const raceResultData = cacheObj[progressKey]; 
   
   if (!raceResultData) {
     showErrorModal("レース計算データが取得できませんでした。");
@@ -1722,8 +1727,9 @@ function showFinalSeriesResult() {
   const historyBody = document.getElementById('series-history-body');
   historyBody.innerHTML = "";
   seriesHistory.forEach(h => {
-    const myRankDisplay = (h.myRank > 15 || h.myRank === 99) ? "-" : `${h.myRank}着`;
-    const oppRankDisplay = (h.oppRank > 15 || h.oppRank === 99) ? "-" : `${h.oppRank}着`;
+    // 17着・18着（不戦勝・不戦敗）を正しく表示するよう条件を拡張
+    const myRankDisplay = (h.myRank === 17) ? "17着" : (h.myRank === 18) ? "18着" : (h.myRank > 15 || h.myRank === 99) ? "-" : `${h.myRank}着`;
+    const oppRankDisplay = (h.oppRank === 17) ? "17着" : (h.oppRank === 18) ? "18着" : (h.oppRank > 15 || h.oppRank === 99) ? "-" : `${h.oppRank}着`;
 
     historyBody.innerHTML += `
       <tr>
