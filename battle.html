@@ -429,7 +429,7 @@
 
   function getUnlockedLimits(totalWins) {
     const limits = { "古馬東西": 0, "地方交流": 0, "クラシック": 0, "古馬王道": 0, "ローカル": 0, "海外チャレンジ": 0, "海外単独": 0, "トリビュート": 0 };
-    UNLOCK_STAGES.forEach(item => {
+     UNLOCK_STAGES.forEach(item => {
       if (totalWins >= item.wins && item.no > limits[item.cat]) { limits[item.cat] = item.no; }
     });
     return limits;
@@ -470,7 +470,6 @@
     const isSurvival = (status.battle_type === 'survival' || status.deck_type == 1);
     const currentWins = status.series_wins || 0;
 
-    // 敗北時または3勝未満の時は記録しない
     if (!isSurvival || currentWins < 3) return;
 
     if (!globalUserData.survival_bests) {
@@ -528,6 +527,7 @@
     }
   }
 
+  // ★ 修正: ギブアップ（不戦敗）時の専用カード表示を判定・生成する処理を追加 ★
   function renderSeriesItemCardHTML(sObj, roundNum, isCurrentRound, roundResult) {
     const catName = getNormalizedCategory(sObj) || '一般';
     const sName = sObj.series_name || '名称未設定';
@@ -538,34 +538,47 @@
 
     let resultHtml = "";
     if (roundResult) {
-      const myWins = roundResult.myWins || 0;
-      const oppWins = roundResult.oppWins || 0;
-      const scoreText = `${myWins}勝 ${oppWins}敗`;
+      const isGiveUp = roundResult.isGiveUp || roundResult.giveup || roundResult.is_giveup || (roundResult.myWins === undefined && roundResult.oppWins === undefined);
 
-      const c1 = roundResult.r1 ?? roundResult.c1 ?? 0;
-      const c2 = roundResult.r2 ?? roundResult.c2 ?? 0;
-      const c3 = roundResult.r3 ?? roundResult.c3 ?? 0;
-      const c4Plus = roundResult.r4Plus ?? roundResult.c4 ?? 0;
+      if (isGiveUp) {
+        // ★ ギブアップ（不戦敗）時の表示
+        resultHtml = `
+          <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d0e3d2; display: flex; justify-content: space-between; align-items: center; font-size: 11px; background: #fff5f5; padding: 4px 8px; border-radius: 4px;">
+            <div><span style="font-weight:bold; color:#d32f2f;">成績:</span> ギブアップ <span style="font-size:10px; color:#666;">(出走馬不足・不戦敗)</span></div>
+            <div><span class="badge-loss" style="padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px;">× 不戦敗</span></div>
+          </div>
+        `;
+      } else {
+        // 通常の勝敗結果表示
+        const myWins = roundResult.myWins || 0;
+        const oppWins = roundResult.oppWins || 0;
+        const scoreText = `${myWins}勝 ${oppWins}敗`;
 
-      let rankSum = roundResult.rankSum;
-      if (rankSum === undefined) {
-        if (Array.isArray(roundResult.races)) {
-          rankSum = roundResult.races.reduce((acc, r) => acc + (Number(r.rank || r.position) || 4), 0);
-        } else {
-          rankSum = (c1 * 1) + (c2 * 2) + (c3 * 3) + (c4Plus * 4);
+        const c1 = roundResult.r1 ?? roundResult.c1 ?? 0;
+        const c2 = roundResult.r2 ?? roundResult.c2 ?? 0;
+        const c3 = roundResult.r3 ?? roundResult.c3 ?? 0;
+        const c4Plus = roundResult.r4Plus ?? roundResult.c4 ?? 0;
+
+        let rankSum = roundResult.rankSum;
+        if (rankSum === undefined) {
+          if (Array.isArray(roundResult.races)) {
+            rankSum = roundResult.races.reduce((acc, r) => acc + (Number(r.rank || r.position) || 4), 0);
+          } else {
+            rankSum = (c1 * 1) + (c2 * 2) + (c3 * 3) + (c4Plus * 4);
+          }
         }
+
+        const detailText = `(${c1}-${c2}-${c3}-${c4Plus}) 合計${rankSum}着`;
+        const badgeClass = roundResult.isWin ? 'badge-win' : 'badge-loss';
+        const badgeText = roundResult.isWin ? '○ 勝利' : '× 敗北';
+
+        resultHtml = `
+          <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d0e3d2; display: flex; justify-content: space-between; align-items: center; font-size: 11px; background: #f8fafc; padding: 4px 8px; border-radius: 4px;">
+            <div><span style="font-weight:bold; color:var(--accent-color);">成績:</span> ${scoreText} <span style="font-family:monospace; color:#d97706; margin-left:4px;">${detailText}</span></div>
+            <div><span class="${badgeClass}" style="padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px;">${badgeText}</span></div>
+          </div>
+        `;
       }
-
-      const detailText = `(${c1}-${c2}-${c3}-${c4Plus}) 合計${rankSum}着`;
-      const badgeClass = roundResult.isWin ? 'badge-win' : 'badge-loss';
-      const badgeText = roundResult.isWin ? '○ 勝利' : '× 敗北';
-
-      resultHtml = `
-        <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d0e3d2; display: flex; justify-content: space-between; align-items: center; font-size: 11px; background: #f8fafc; padding: 4px 8px; border-radius: 4px;">
-          <div><span style="font-weight:bold; color:var(--accent-color);">成績:</span> ${scoreText} <span style="font-family:monospace; color:#d97706; margin-left:4px;">${detailText}</span></div>
-          <div><span class="${badgeClass}" style="padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px;">${badgeText}</span></div>
-        </div>
-      `;
     }
 
     return `
@@ -648,7 +661,6 @@
 
     const isSurvival = (status.battle_type === 'survival' || status.deck_type === 1);
     
-    // サバイバルモードは全3回戦固定。規定勝利数は3勝、敗北条件は「1敗した時点で即終了」
     const maxRounds = isSurvival ? 3 : (status.max_rounds || (totalWins >= 30 ? 5 : 3));
     const winCondition = isSurvival ? 3 : Math.ceil(maxRounds / 2);
     const lossCondition = isSurvival ? 1 : Math.ceil(maxRounds / 2);
@@ -656,14 +668,10 @@
     let currentWins = status.series_wins || 0;
     let currentLosses = status.series_losses || 0;
 
-    // 【サバイバル専用の厳密な勝敗・終了判定】
-    // サバイバルは1敗した時点で即終了（敗北）、あるいは3戦すべて終えて3勝未満の場合も敗北
     if (isSurvival) {
       if (currentLosses >= 1) {
-        // すでに1敗している場合は即座にゲーム終了（敗北）
         currentLosses = 1;
       } else if (status.current_round > 3 && currentWins < 3) {
-        // 3戦すべて消化して3勝に届かなかった場合も敗北
         currentLosses = 1;
         status.series_losses = 1;
       }
@@ -671,7 +679,6 @@
 
     const isFinished = (currentWins >= winCondition) || (currentLosses >= lossCondition) || (isSurvival && status.current_round > 3 && currentWins < 3);
 
-    // 終了している場合（勝利時・敗北時問わず）は、必ずリザルト画面（メイン画面）を表示する
     if (isFinished) {
       if (isSurvival && currentWins >= winCondition && !status.reward_claimed) {
         await handleGameEndReward(status);
@@ -1001,7 +1008,6 @@
       survivalValEl.style.display = "none";
     }
 
-    // 終了時かつ「3勝クリア時」のみ、ランキング用ベスト記録を評価・保存
     if (isFinished && isSurvival && currentWins >= 3) {
       await evaluateAndSaveSurvivalBests(status, totalRankSum, totalC1, totalC2, totalC3, fulfillmentRatio, lineup);
     }
@@ -1018,7 +1024,12 @@
       const roundNum = index + 1;
       const isCurrentRound = !isFinished && (roundNum === status.current_round);
       const sObj = SERIES_MASTER.find(s => s.series_id === sId) || SERIES_MASTER[0] || {};
-      const roundResult = roundHistoryMap[roundNum];
+      
+      // 戦績履歴を取得。もし履歴がなくてもギブアップで終了している場合はギブアップフラグを付与
+      let roundResult = roundHistoryMap[roundNum];
+      if (!roundResult && isFinished && roundNum <= status.current_round && currentLosses > 0) {
+        roundResult = { isGiveUp: true, isWin: false };
+      }
 
       const cardHtml = renderSeriesItemCardHTML(sObj, roundNum, isCurrentRound, roundResult);
       cardsContainer.insertAdjacentHTML('beforeend', cardHtml);
