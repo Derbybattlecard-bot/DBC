@@ -119,7 +119,7 @@
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, writeBatch, deleteField } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   let currentUser = null;
   let matchingUnsubscribe = null;
@@ -207,11 +207,21 @@
       const [hostSnap, guestSnap] = await Promise.all([getDocs(qHost), getDocs(qGuest)]);
 
       hostSnap.forEach(docSnap => {
-        batch.update(docSnap.ref, { status: "cancelled", cancelled_by: userId });
+        batch.update(docSnap.ref, { 
+          status: "cancelled", 
+          cancelled_by: userId,
+          player1_giveup: deleteField(),
+          player2_giveup: deleteField()
+        });
       });
 
       guestSnap.forEach(docSnap => {
-        batch.update(docSnap.ref, { status: "cancelled", cancelled_by: userId });
+        batch.update(docSnap.ref, { 
+          status: "cancelled", 
+          cancelled_by: userId,
+          player1_giveup: deleteField(),
+          player2_giveup: deleteField()
+        });
       });
       
       await batch.commit();
