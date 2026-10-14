@@ -460,9 +460,21 @@
     }).join('');
   }
 
-  function getHorsePotential(horse) {
+  // ★ 修正：レースの馬場（surface）を考慮して芝・ダートのポテンシャルを正しく取得する
+  function getHorsePotential(horse, surface) {
     if (!horse) return 0;
-    return Number(horse.potential ?? horse.cost ?? horse.pt ?? horse.ability_point ?? 15) || 15;
+    const isTurf = !surface || surface.includes('芝');
+    const isDirt = surface && (surface.includes('ダート') || surface.includes('ダ'));
+
+    if (isTurf) {
+      if (horse.turf_potential !== undefined && horse.turf_potential !== null) return Number(horse.turf_potential) || 0;
+      if (horse.aptitude && horse.aptitude.turf_potential !== undefined) return Number(horse.aptitude.turf_potential) || 0;
+    } else if (isDirt) {
+      if (horse.dirt_potential !== undefined && horse.dirt_potential !== null) return Number(horse.dirt_potential) || 0;
+      if (horse.aptitude && horse.aptitude.dirt_potential !== undefined) return Number(horse.aptitude.dirt_potential) || 0;
+    }
+    // フォールバック
+    return Number(horse.potential ?? horse.cost ?? horse.pt ?? horse.ability_point ?? 0) || 0;
   }
 
   async function evaluateAndSaveSurvivalBests(status, totalRankSum, totalC1, totalC2, totalC3, fulfillmentRatio, lineup) {
@@ -675,7 +687,6 @@
 
     const isFinished = (currentWins >= winCondition) || (currentLosses >= lossCondition) || (isSurvival && status.current_round > 3 && currentWins < 3);
 
-    // ★ 修正：ここでは自動で報酬処理を行わず、isFinished の場合は必ずリザルト画面を表示する
     if (isFinished) {
       await renderActiveBattle(status, totalWins, true);
       return;
@@ -803,7 +814,6 @@
     await processBattleState(totalWins);
   };
 
-  // ★ 修正：報酬獲得処理。ボタン押下時に実行され、完了後にデータを初期化する
   async function claimRewardAndReset(status) {
     const modal = document.getElementById('rewardModal');
     const cardContainer = document.getElementById('rewardCardContainer');
@@ -822,7 +832,7 @@
 
     status.reward_claimed = true;
     userUpdateObj["cpu_battle_status.reward_claimed"] = true;
-    userUpdateObj["cpu_battle_status.is_active"] = false; // 報酬獲得と同時にバトルを終了・非アクティブ化
+    userUpdateObj["cpu_battle_status.is_active"] = false;
 
     globalUserData.total_wins = (globalUserData.total_wins || 0) + 1;
     userUpdateObj.total_wins = increment(1);
@@ -867,7 +877,6 @@
 
   window.closeRewardModal = async function() {
     document.getElementById('rewardModal').style.display = 'none';
-    // 報酬確認完了後にデータを初期化（無効化）して画面をリロード
     try {
       await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: { is_active: false } }, { merge: true });
     } catch (e) {
@@ -945,6 +954,7 @@
 
     const decks = globalUserData.decks || [];
     const activeDeck = decks[selectedDeckIndex] || { horse_ids: [] };
+    const lineup = status.series_lineup || [];
 
     (status.round_history || []).forEach(h => {
       roundHistoryMap[h.round] = h;
@@ -972,18 +982,29 @@
       if (typeof h.teamPotential === 'number') {
         roundPot = h.teamPotential;
       } else {
+        // ★ 該当ラウンドのシリーズ・レース情報を取得して各レースの馬場（surface）に応じたポテンシャルを合算
+        const sId = lineup[h.round - 1];
+        const sObj = SERIES_MASTER.find(s => s.series_id === sId) || {};
+        const rounds = sObj.rounds || [];
+        const races = (rounds[0] && rounds[0].races) ? rounds[0].races : (sObj.races || []);
+
         const roundHorses = h.horse_ids || h.entries || h.selected_horses;
         if (Array.isArray(roundHorses)) {
-          roundHorses.forEach(hId => {
+          roundHorses.forEach((hId, rIdx) => {
             const horse = HORSES_MASTER[hId];
-            roundPot += getHorsePotential(horse);
+            const raceSurface = races[rIdx]?.surface || "芝";
+            roundPot += getHorsePotential(horse, raceSurface);
           });
         } else {
           const validIds = (activeDeck.horse_ids || []).filter(id => id);
           if (validIds.length > 0) {
             const startIdx = ((h.round - 1) * 5) % validIds.length;
             const sliceIds = validIds.slice(startIdx, startIdx + 5);
-            sliceIds.forEach(id => roundPot += getHorsePotential(HORSES_MASTER[id]));
+            sliceIds.forEach((id, rIdx) => {
+              const horse = HORSES_MASTER[id];
+              const raceSurface = races[rIdx]?.surface || "芝";
+              roundPot += getHorsePotential(horse, raceSurface);
+            });
           }
         }
       }
@@ -992,7 +1013,6 @@
 
     document.getElementById('totalDetailText').textContent = `${totalC1}-${totalC2}-${totalC3}-${totalC4Plus} (合計${totalRankSum}着)`;
 
-    const lineup = status.series_lineup || [];
     lineup.forEach(sId => {
       const sObj = SERIES_MASTER.find(s => s.series_id === sId);
       const maxLimit = sObj?.potential_limit?.max_total_potential;
@@ -1041,7 +1061,6 @@
     const startBtn = document.getElementById('btnStart');
     const resetBtn = document.getElementById('btnResetData');
 
-    // ★ 修正：リザルト（終了時）のボタン表示ロジック
     if (isFinished) {
       document.getElementById('challengePanel').style.display = 'block';
       document.getElementById('deckPanel').style.display = 'none';
@@ -1051,7 +1070,6 @@
       const maxRounds = isSurvival ? 3 : (status.max_rounds || 3);
       const winCondition = isSurvival ? 3 : Math.ceil(maxRounds / 2);
 
-      // 勝利条件を満たしており、かつ報酬未受取の場合のみ「報酬を受け取る」ボタンにする
       if (currentWins >= winCondition && !status.reward_claimed) {
         startBtn.textContent = "🎁 報酬カードを受け取る";
         startBtn.onclick = async () => {
@@ -1059,7 +1077,6 @@
           await claimRewardAndReset(status);
         };
       } else {
-        // 敗北、または受取済みの場合
         startBtn.textContent = "🏁 バトルを終了する（新しい挑戦を開始する）";
         startBtn.onclick = manualResetBattleData;
       }
