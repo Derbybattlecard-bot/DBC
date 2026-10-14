@@ -1,58 +1,293 @@
 /**
  * /js/mob.js
- * モブ馬・CPU馬に関連する外部処理モジュール
+ * モブ馬・CPU馬に関連する外部処理モジュール（完全版）
  */
 
-/**
- * 馬の作戦と作戦レベルを仕様書に従って自動決定する関数
- * @param {string|number} horseId - 馬のID
- * @param {string} style - 脚質 (大逃, 逃げ, 先行, 好位, 差し, 追込, 自在, 逃追)
- * @param {number|string} gateNum - 枠順/馬番 (1〜16)
- * @param {Array|Object} strategyMaster - 作戦のマスターデータ
- * @param {boolean} isCpuRival - CPUライバル馬かどうかのフラグ
- * @returns {Object} { tactic: string, level: number }
- */
 export function determineStrategy(horseId, style, gateNum, strategyMaster, isCpuRival = false) {
-  // 1. IDから数値を抽出して下一桁を取得（ダミーや数値なしの場合はランダム）
   const idStr = String(horseId || "");
-  const digits = idStr.replace(/\D/g, ""); // 数字部分のみ抽出
-  const key1 = digits.length > 0 
-    ? parseInt(digits.slice(-1), 10) 
-    : Math.floor(Math.random() * 10);
+  const digits = idStr.replace(/\D/g, "");
+  const key1 = digits.length > 0 ? parseInt(digits.slice(-1), 10) : Math.floor(Math.random() * 10);
 
-  // 2. 馬番（gateNum）の下一桁を取得（文字列数値にも対応）
   const parsedGate = parseInt(gateNum, 10);
   const validGateNum = (!isNaN(parsedGate) && parsedGate >= 1 && parsedGate <= 16) ? parsedGate : 1;
   const key2 = validGateNum % 10;
 
-  // 3. 計算
-  const A = (key1 + key2) % 4; // 作戦選定用インデックス (0〜3)
-  const B = (key1 * key2) % 5; // レベル選定用ベース (0〜4)
-  let strategyLevel = B + 1;   // 作戦レベル (1〜5)
+  const A = (key1 + key2) % 4;
+  const B = (key1 * key2) % 5;
+  let strategyLevel = B + 1;
 
-  // 4. CPU馬特有のレベル制限ルール (MAX 3)
   if (isCpuRival && strategyLevel > 3) {
     strategyLevel = 3;
   }
 
-  // 5. 該当する脚質の作戦リストをマスターから抽出
   const stratList = Array.isArray(strategyMaster) ? strategyMaster : Object.values(strategyMaster || {});
   let styleStrategies = stratList.filter(s => s.category === style || s.style === style);
 
-  // 万が一マスターに該当脚質がない場合はフォールバック
   if (styleStrategies.length === 0) {
     styleStrategies = stratList.length > 0 ? stratList : [{ name: "おまかせ" }];
   }
 
-  // 6. 計算値 A をインデックスとして作戦を決定
   const selectedStrategyIndex = A % styleStrategies.length;
   const targetStrategy = styleStrategies[selectedStrategyIndex] || {};
-  
-  // マスターのプロパティ名(name, strategy_name, tactic)に合わせて取得
   const selectedStrategyName = targetStrategy.name || targetStrategy.strategy_name || targetStrategy.tactic || "おまかせ";
 
-  return {
-    tactic: selectedStrategyName,
-    level: strategyLevel
-  };
+  return { tactic: selectedStrategyName, level: strategyLevel };
+}
+
+// ============================================================================
+// 馬場状態の抽選・生成ロジック
+// ============================================================================
+
+export function drawTrackCondition() {
+  const rand = Math.random() * 100;
+  if (rand < 75) return '良';
+  if (rand < 93) return '稍重';
+  if (rand < 98) return '重';
+  return '不良';
+}
+
+export function generateTrackConditions(series) {
+  const isSingleDay = series?.is_single_day || series?.is_same_day || series?.single_day || 
+                      (series?.series_name && (series.series_name.includes("ドバイ") || series.series_name.includes("香港")));
+
+  if (isSingleDay) {
+    const unifiedCondition = drawTrackCondition();
+    return Array(5).fill(unifiedCondition);
+  } else {
+    return Array.from({ length: 5 }, () => drawTrackCondition());
+  }
+}
+
+// ============================================================================
+// 適性・条件判定補助関数
+// ============================================================================
+
+function getHorsePotential(horse, surface) {
+  if (!horse) return 0;
+  const isTurf = !surface || surface.includes('芝');
+  const isDirt = surface && (surface.includes('ダート') || surface.includes('ダ'));
+
+  if (isTurf) {
+    if (horse.turf_potential !== undefined && horse.turf_potential !== null) return Number(horse.turf_potential);
+    if (horse.aptitude && horse.aptitude.turf_potential !== undefined) return Number(horse.aptitude.turf_potential);
+    return 0;
+  } else if (isDirt) {
+    if (horse.dirt_potential !== undefined && horse.dirt_potential !== null) return Number(horse.dirt_potential);
+    if (horse.aptitude && horse.aptitude.dirt_potential !== undefined) return Number(horse.aptitude.dirt_potential);
+    return 0;
+  }
+  return 0;
+}
+
+function isValidSurface(horse, surface) {
+  if (!horse) return false;
+  return getHorsePotential(horse, surface) > 0;
+}
+
+function isValidSex(horseSex, sexLimit) {
+  if (!sexLimit || sexLimit === "制限なし" || sexLimit === "なし") return true;
+  const sex = horseSex || "牡馬";
+  const isMare = sex.includes("牝");
+  const isStallion = sex.includes("牡");
+
+  if (sexLimit.includes("牝")) {
+    if (sexLimit.includes("牡")) return isMare || isStallion;
+    return isMare;
+  }
+  if (sexLimit.includes("牡")) return isStallion;
+  return true;
+}
+
+function getHorseDistanceString(horse) {
+  if (!horse) return '';
+  const minD = horse.min_distance ?? horse.aptitude?.min_distance;
+  const maxD = horse.max_distance ?? horse.aptitude?.max_distance;
+
+  if (minD !== undefined && maxD !== undefined && minD !== null && maxD !== null && minD !== '' && maxD !== '') {
+    return minD === maxD ? `${minD}` : `${minD}-${maxD}`;
+  }
+  if (horse.distance) return String(horse.distance);
+  return '';
+}
+
+function isValidDistance(horse, raceDistance, isShortDistanceRelaxed = false) {
+  if (!horse) return false;
+  const target = parseInt(raceDistance, 10);
+  if (isNaN(target)) return true;
+  
+  let minD = horse.min_distance ?? horse.aptitude?.min_distance;
+  let maxD = horse.max_distance ?? horse.aptitude?.max_distance;
+
+  if (isShortDistanceRelaxed && target <= 1200) {
+    if (minD !== undefined && minD !== null) minD = Math.min(Number(minD), 1600);
+    if (maxD !== undefined && maxD !== null) maxD = Math.max(Number(maxD), 1600);
+  }
+
+  if (minD !== undefined && maxD !== undefined && minD !== null && maxD !== null && minD !== '' && maxD !== '') {
+    return target >= Number(minD) && target <= Number(maxD);
+  }
+
+  const distStr = getHorseDistanceString(horse);
+  if (!distStr) return true;
+
+  if (distStr.includes('-')) {
+    const [minStr, maxStr] = distStr.split('-');
+    let minV = parseInt(minStr, 10);
+    let maxV = parseInt(maxStr, 10);
+    if (isShortDistanceRelaxed && target <= 1200) maxV = Math.max(maxV, 1600);
+    return target >= minV && target <= maxV;
+  } else {
+    let dVal = parseInt(distStr, 10);
+    if (isShortDistanceRelaxed && target <= 1200) return target >= Math.min(dVal, 1600) && target <= Math.max(dVal, 1600);
+    return dVal === target;
+  }
+}
+
+function isFrom1992OrLater(horse) {
+  if (!horse) return false;
+  const gen = horse.generation || horse.year || horse.birth_year || horse.era;
+  if (!gen) return true;
+
+  const genNum = parseInt(gen, 10);
+  if (isNaN(genNum)) return true;
+
+  if (genNum >= 1992) return true;
+  if (genNum >= 92 && genNum < 100) return true;
+  return false;
+}
+
+// ============================================================================
+// モブ馬の抽選生成関数（特殊ルール・割合配分対応）
+// ============================================================================
+
+export function generateMobEntries(races, currentSeries, globalUserData, selectedEntries, HORSES_MASTER) {
+  const limits = currentSeries?.potential_limit || { max_total_potential: 95 };
+  const maxTotalPt = limits.max_total_potential || 95;
+  
+  // 平均値の中央値 X を算出 (四捨五入)
+  const centerX = Math.round(maxTotalPt / 5);
+
+  const allHorses = Object.values(HORSES_MASTER);
+
+  const allDeckHorseIds = new Set();
+  if (globalUserData && Array.isArray(globalUserData.decks)) {
+    globalUserData.decks.forEach(deck => {
+      if (deck && Array.isArray(deck.horse_ids)) {
+        deck.horse_ids.forEach(id => {
+          if (id !== null && id !== undefined && id !== '') {
+            allDeckHorseIds.add(String(id));
+          }
+        });
+      }
+    });
+  }
+
+  const excludedHorseIds = new Set([
+    ...allDeckHorseIds,
+    ...(selectedEntries || []).filter(Boolean).map(id => String(id))
+  ]);
+
+  const racesMobIds = {};
+
+  races.forEach((race, rIdx) => {
+    const raceSexLimit = race.sex || currentSeries?.sex || "制限なし";
+    const raceDistance = Number(race.distance || 2000);
+    const trackName = race.track || currentSeries?.track || "";
+    const raceName = race.race_name || currentSeries?.series_name || "";
+
+    const isHongKong = trackName.includes("香港") || trackName.includes("沙田") || raceName.includes("香港");
+    const isOverseas = isHongKong || ["ロンシャン", "パリロンシャン", "サンクルー", "アスコット", "ニューマーケット", "エプソム", "メイダン", "デルマー", "サンタアニタ", "チャーチルダウンズ", "ベルモントパーク"].some(t => trackName.includes(t));
+    const isJapanCup = raceName.includes("ジャパンカップ");
+    const isShortDist = raceDistance <= 1200;
+
+    const raceUsedIds = new Set([...excludedHorseIds]);
+
+    // ポテンシャル別の必要頭数配分マップ (合計14頭)
+    const potTargetCounts = {
+      [centerX]: 4,
+      [centerX - 1]: 3,
+      [centerX + 1]: 3,
+      [centerX - 2]: 2,
+      [centerX + 2]: 2
+    };
+
+    const selectedMobs = [];
+
+    Object.keys(potTargetCounts).forEach(potStr => {
+      const targetPot = Number(potStr);
+      const neededCount = potTargetCounts[targetPot];
+      let gathered = [];
+
+      const getCandidates = (filterFn, relaxDist = false) => {
+        return allHorses.filter(h => {
+          if (raceUsedIds.has(String(h.horse_id))) return false;
+          if (getHorsePotential(h, race.surface) !== targetPot) return false;
+          if (!isValidSex(h.sex || "牡馬", raceSexLimit)) return false;
+          if (!isValidSurface(h, race.surface)) return false;
+          if (!isValidDistance(h, raceDistance, relaxDist)) return false;
+          return filterFn(h);
+        });
+      };
+
+      // 1. 特殊ルール（香港・海外・ジャパンカップの高ポテンシャル枠）
+      if (isHongKong && (targetPot === centerX + 2 || targetPot === centerX + 1)) {
+        gathered = getCandidates(h => h.region === "香港", isShortDist);
+      } else if (isOverseas && (targetPot === centerX + 2 || targetPot === centerX + 1)) {
+        gathered = getCandidates(h => h.region && h.region !== "日本", isShortDist);
+      } else if (isJapanCup && (targetPot === centerX + 2 || targetPot === centerX + 1)) {
+        // ジャパンカップは高ポテンシャル枠に海外馬を6〜7頭混ぜる配慮として優先抽出
+        gathered = getCandidates(h => h.region && h.region !== "日本", isShortDist);
+      } else if ((isOverseas || isJapanCup) && (targetPot === centerX - 1 || targetPot === centerX - 2)) {
+        // 低ポテンシャル枠は日本馬 ＋ 海外競馬場アビリティ持ち
+        gathered = getCandidates(h => !h.region || h.region === "日本" || (Array.isArray(h.ability) && h.ability.includes("国境突破")), isShortDist);
+      }
+
+      // 足りない分は通常プール（世代1992年以降）から補填
+      if (gathered.length < neededCount) {
+        const normalPool = getCandidates(h => isFrom1992OrLater(h), isShortDist);
+        normalPool.sort(() => Math.random() - 0.5);
+        for (const h of normalPool) {
+          if (gathered.length >= neededCount) break;
+          if (!gathered.some(g => String(g.horse_id) === String(h.horse_id))) {
+            gathered.push(h);
+          }
+        }
+      }
+
+      // それでも足りない場合は全制限緩和で補填
+      if (gathered.length < neededCount) {
+        const relaxPool = getCandidates(h => true, true);
+        relaxPool.sort(() => Math.random() - 0.5);
+        for (const h of relaxPool) {
+          if (gathered.length >= neededCount) break;
+          if (!gathered.some(g => String(g.horse_id) === String(h.horse_id))) {
+            gathered.push(h);
+          }
+        }
+      }
+
+      gathered.slice(0, neededCount).forEach(mob => {
+        const mId = String(mob.horse_id).padStart(4, '0');
+        if (!selectedMobs.includes(mId)) {
+          selectedMobs.push(mId);
+          raceUsedIds.add(String(mob.horse_id));
+        }
+      });
+    });
+
+    while (selectedMobs.length < 14) {
+      const fallback = allHorses.find(h => !raceUsedIds.has(String(h.horse_id)) && isValidSurface(h, race.surface));
+      if (fallback) {
+        const mId = String(fallback.horse_id).padStart(4, '0');
+        selectedMobs.push(mId);
+        raceUsedIds.add(String(fallback.horse_id));
+      } else {
+        selectedMobs.push("0000");
+      }
+    }
+
+    racesMobIds[rIdx] = selectedMobs;
+  });
+
+  return racesMobIds;
 }
