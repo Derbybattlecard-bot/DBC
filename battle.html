@@ -678,12 +678,12 @@
     const isFinished = (currentWins >= winCondition) || (currentLosses >= lossCondition) || (isSurvival && status.current_round > 3 && currentWins < 3);
 
     if (isFinished) {
-      // 報酬カードがある場合（サバイバルモード3勝クリア時など）は、まず報酬カードの獲得・表示を優先し、その後にリザルトを表示する流れを保証
-      if (isSurvival && currentWins >= winCondition && !status.reward_claimed) {
+      // 修正: モードに関わらず（チャレンジ・サバイバル問わず）勝利条件を満たしていて未受取なら報酬処理を実行し、その後にリザルトを表示する
+      if (currentWins >= winCondition && !status.reward_claimed) {
         await handleGameEndReward(status);
         return;
       }
-      // 報酬受取済み、またはチャレンジモード等の場合は必ずリザルト画面（シリーズ終了状態）を表示する
+      // 報酬受取済み、または敗北等の場合は必ずリザルト画面（シリーズ終了状態）を表示する
       await renderActiveBattle(status, totalWins, true);
       return;
     }
