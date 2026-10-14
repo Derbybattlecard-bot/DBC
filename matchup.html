@@ -307,12 +307,12 @@
       SERIES_MASTER = Array.isArray(seriesData) ? seriesData : [];
       
       const horseList = Array.isArray(horsesData) ? horsesData : Object.values(horsesData || {});
+      
+      // ★ 修正: horse_idを4桁の文字列キーとして一意に登録（二重登録による重複バグ・フリーズを解消）
       horseList.forEach(h => { 
         if (!h || h.horse_id === undefined) return;
-        const idStr = String(h.horse_id);
-        HORSES_MASTER[idStr] = h;
-        const paddedId = idStr.padStart(4, '0');
-        if (idStr !== paddedId) HORSES_MASTER[paddedId] = h;
+        const paddedId = String(h.horse_id).padStart(4, '0');
+        HORSES_MASTER[paddedId] = h;
       });
 
       usedCardsHistory = globalUserData?.cpu_battle_status?.used_cards_history || [];
@@ -344,7 +344,7 @@
     document.getElementById('sexLimitDisplay').textContent = sexLimit;
 
     const deck = (globalUserData?.decks || [])[deckIdx] || { horse_ids: [] };
-    deckHorses = (deck.horse_ids || []).map(id => HORSES_MASTER[String(id)]).filter(h => h !== undefined);
+    deckHorses = (deck.horse_ids || []).map(id => HORSES_MASTER[String(id).padStart(4, '0')]).filter(h => h !== undefined);
 
     const currentMatch = status.current_match || {};
     const races = getRaces(currentSeries);
@@ -356,11 +356,11 @@
     } else {
       currentTrackConditions = generateTrackConditions(currentSeries);
       
-      // ★ 対戦相手（CPU馬）の抽選は従来通りここで実行して残しています ★
+      // ★ 対戦相手（CPU馬）の抽選（合計がピッタリ、-1、-2、-3に収まる調整版）
       const generated = generateCpuEntries(races);
       currentCpuEntries = generated.cpuEntries;
       
-      // ★ モブ馬の抽選は mob.js の generateMobEntries を呼び出し ★
+      // ★ モブ馬の抽選は mob.js の generateMobEntries を呼び出し
       currentRacesMobIds = generateMobEntries(races, currentSeries, globalUserData, selectedEntries, HORSES_MASTER);
 
       const updatedStatus = {
@@ -482,7 +482,7 @@
   function getMobStyleCounts(mobIds) {
     const counts = { '逃': 0, '先': 0, '差': 0, '追': 0 };
     (mobIds || []).forEach(mId => {
-      const mHorse = HORSES_MASTER[String(mId)];
+      const mHorse = HORSES_MASTER[String(mId).padStart(4, '0')];
       if (!mHorse) return;
       const style = getHorseLegStyle(mHorse);
       if (style.includes('逃')) {
@@ -565,11 +565,11 @@
 
       deckHorses.forEach(horse => {
         const horseSex = horse.sex || "牡馬";
-        const isChosenElsewhere = selectedEntries.some((id, idx) => idx !== rIdx && String(id) === String(horse.horse_id));
+        const isChosenElsewhere = selectedEntries.some((id, idx) => idx !== rIdx && String(id).padStart(4, '0') === String(horse.horse_id).padStart(4, '0'));
         
         const hasContinuousAbility = Array.isArray(horse.ability) && (horse.ability.includes("鉄女") || horse.ability.includes("連闘"));
         const isUsedPrevious = !hasContinuousAbility && usedCardsHistory.some(u => 
-          String(u) === String(horse.horse_id) || u === horse.name
+          String(u).padStart(4, '0') === String(horse.horse_id).padStart(4, '0') || u === horse.name
         );
 
         const matchesSexLimit = isValidSex(horseSex, raceSexLimit);
@@ -609,7 +609,7 @@
             opt.textContent = horseInfoText;
           }
           
-          if (String(horse.horse_id) === String(currentVal)) opt.selected = true;
+          if (String(horse.horse_id).padStart(4, '0') === String(currentVal).padStart(4, '0')) opt.selected = true;
           select.appendChild(opt);
         }
       });
@@ -617,12 +617,12 @@
   }
 
   window.onHorseSelected = function(raceIdx, horseId) {
-    selectedEntries[raceIdx] = horseId || null;
+    selectedEntries[raceIdx] = horseId ? String(horseId).padStart(4, '0') : null;
     
     const preview = document.getElementById(`previewRace${raceIdx}`);
 
-    if (horseId && HORSES_MASTER[String(horseId)]) {
-      const horse = HORSES_MASTER[String(horseId)];
+    if (horseId && HORSES_MASTER[String(horseId).padStart(4, '0')]) {
+      const horse = HORSES_MASTER[String(horseId).padStart(4, '0')];
       const races = getRaces(currentSeries);
       const race = races[raceIdx] || {};
       const sex = horse.sex || "牡馬";
@@ -658,9 +658,9 @@
     let hasDistError = false;
 
     selectedEntries.forEach((id, rIdx) => {
-      if (id && HORSES_MASTER[String(id)]) {
+      if (id && HORSES_MASTER[String(id).padStart(4, '0')]) {
         count++;
-        const horse = HORSES_MASTER[String(id)];
+        const horse = HORSES_MASTER[String(id).padStart(4, '0')];
         const race = races[rIdx] || {};
         const pt = getHorsePotential(horse, race.surface);
         const raceSexLimit = race.sex || currentSeries.sex || "制限なし";
@@ -765,7 +765,7 @@
 
   function isEligibleHorse(horse, race, raceSexLimit, minPt, maxPt, usedIdsSet, checkGeneration = false) {
     if (!horse) return false;
-    const hId = String(horse.horse_id);
+    const hId = String(horse.horse_id).padStart(4, '0');
     if (usedIdsSet.has(hId)) return false;
 
     const pt = getHorsePotential(horse, race.surface);
@@ -781,14 +781,14 @@
     return true;
   }
 
-  // ★ 対戦相手（CPU馬）の抽選・選出処理は、削除せずにここにそのまま残しています ★
+  // ★ 対戦相手（CPU馬）の抽選・選出処理（合計がピッタリ、-1、-2、-3に収まる調整版）
   function generateCpuEntries(races) {
     const limits = currentSeries?.potential_limit || { max_total_potential: 95 };
     const maxTotalPt = limits.max_total_potential || 95;
-    const targetPtBase = Math.floor(maxTotalPt / 5);
     
-    const defaultMinPt = Math.max(1, targetPtBase - 2);
-    const defaultMaxPt = targetPtBase + 2;
+    // 最終的な合計のマイナス値（0, 1, 2, 3 のいずれか）をランダムに決定
+    const targetMinus = Math.floor(Math.random() * 4); 
+    let remainingBudget = maxTotalPt - targetMinus;
 
     const allHorses = Object.values(HORSES_MASTER);
 
@@ -798,7 +798,7 @@
         if (deck && Array.isArray(deck.horse_ids)) {
           deck.horse_ids.forEach(id => {
             if (id !== null && id !== undefined && id !== '') {
-              allDeckHorseIds.add(String(id));
+              allDeckHorseIds.add(String(id).padStart(4, '0'));
             }
           });
         }
@@ -807,22 +807,29 @@
 
     const excludedHorseIds = new Set([
       ...allDeckHorseIds,
-      ...selectedEntries.filter(Boolean).map(id => String(id))
+      ...selectedEntries.filter(Boolean).map(id => String(id).padStart(4, '0'))
     ]);
 
     const cpuEntries = [];
-    let remainingCpuPtBudget = maxTotalPt;
 
     races.forEach((race, rIdx) => {
       const raceSexLimit = race.sex || currentSeries?.sex || "制限なし";
-      
-      const remainingRaces = 5 - rIdx;
-      const currentMaxPt = Math.min(defaultMaxPt, remainingCpuPtBudget - (remainingRaces - 1) * defaultMinPt);
-      const currentMinPt = defaultMinPt;
+      const remainingRaces = 5 - rIdx; // 5, 4, 3, 2, 1
+
+      const idealPt = remainingBudget / remainingRaces;
+      let currentMinPt, currentMaxPt;
+
+      if (remainingRaces === 1) {
+        currentMinPt = Math.max(1, remainingBudget);
+        currentMaxPt = remainingBudget;
+      } else {
+        currentMinPt = Math.max(1, Math.floor(idealPt) - 1);
+        currentMaxPt = Math.ceil(idealPt) + 1;
+      }
 
       const cpuUsedIds = new Set([
         ...excludedHorseIds,
-        ...cpuEntries.map(c => String(c.horse_id))
+        ...cpuEntries.map(c => String(c.horse_id).padStart(4, '0'))
       ]);
 
       let eligibleCpu = allHorses.filter(h => 
@@ -831,13 +838,13 @@
 
       if (eligibleCpu.length === 0) {
         eligibleCpu = allHorses.filter(h => 
-          isEligibleHorse(h, race, raceSexLimit, currentMinPt, currentMaxPt, cpuUsedIds, false)
+          isEligibleHorse(h, race, raceSexLimit, Math.max(1, currentMinPt - 1), currentMaxPt + 1, cpuUsedIds, true)
         );
       }
 
       if (eligibleCpu.length === 0) {
         eligibleCpu = allHorses.filter(h => {
-          const hId = String(h.horse_id);
+          const hId = String(h.horse_id).padStart(4, '0');
           if (cpuUsedIds.has(hId)) return false;
           return isValidSex(h.sex || "牡馬", raceSexLimit) && 
                  isValidSurface(h, race.surface) && 
@@ -849,9 +856,9 @@
         ? eligibleCpu[Math.floor(Math.random() * eligibleCpu.length)]
         : { horse_id: "0000" };
 
-      const cpuId = String(chosenCpu.horse_id);
+      const cpuId = String(chosenCpu.horse_id).padStart(4, '0');
       const cpuPt = getHorsePotential(chosenCpu, race.surface);
-      remainingCpuPtBudget -= cpuPt;
+      remainingBudget -= cpuPt;
 
       const rawStyle = getHorseLegStyle(chosenCpu);
       const validStyle = (rawStyle && rawStyle !== '-') ? rawStyle : "先行";
@@ -882,7 +889,7 @@
       }
 
       const formattedEntries = selectedEntries.map(id => ({
-        horse_id: String(id),
+        horse_id: String(id).padStart(4, '0'),
         strategy: "先行",
         strategy_level: 3
       }));
