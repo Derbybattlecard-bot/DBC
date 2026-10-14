@@ -286,7 +286,7 @@
 
 <div id="final-series-modal">
   <div class="modal-content">
-    <div class="series-winner-title" id="series-result-title">🏆 シリーズ覇者 決定！</div>
+    <div class="series-winner-title" id="series-result-title">🏆 ラウンド終了</div>
     <div id="new-record-badge" class="new-record-badge">✨ NEW RECORD!! ✨</div>
     <div class="series-score-box" id="series-score-detail">---</div>
     <div style="text-align: left; margin-top: 15px; font-weight: bold; color: var(--accent-green);">📜 全5戦 対戦成績</div>
@@ -294,7 +294,7 @@
       <thead><tr><th>R</th><th>あなた (着順)</th><th>CPU (着順)</th><th>勝者</th></tr></thead>
       <tbody id="series-history-body"></tbody>
     </table>
-    <button class="btn-next" id="modalNextBtn" style="margin-top: 20px;" onclick="goToNextSeries()">🔄 次のシリーズへ進む</button>
+    <button class="btn-next" id="modalNextBtn" style="margin-top: 20px;" onclick="goToNextSeries()">➡️ バトル画面へ戻る</button>
   </div>
 </div>
 
@@ -960,9 +960,9 @@ function showFinalSeriesResult() {
   
   const titleEl = document.getElementById('series-result-title');
   if (playerWins > cpuWins) {
-    titleEl.innerHTML = `🎉 あなたの勝利！！<br><span style="font-size:0.7em; color:#fff;">シリーズを制覇しました！</span>`;
+    titleEl.innerHTML = `🎉 あなたの勝利！！<br><span style="font-size:0.7em; color:#fff;">5レースの勝敗が決定しました</span>`;
   } else {
-    titleEl.innerHTML = `💀 CPUの勝利...<br><span style="font-size:0.7em; color:#fff;">悔しさを胸に次回へ挑戦！</span>`;
+    titleEl.innerHTML = `💀 CPUの勝利...<br><span style="font-size:0.7em; color:#fff;">5レースの勝敗が決定しました</span>`;
   }
 
   const status = globalUserData?.cpu_battle_status || {};
@@ -991,17 +991,10 @@ function showFinalSeriesResult() {
     tbody.innerHTML += `<tr><td>第${h.raceNum}戦</td><td>${h.pRank}着</td><td>${h.cRank}着</td><td>${winnerText}</td></tr>`;
   });
 
-  const isPlayerRoundWin = playerWins >= 3;
-  const isFinished = ((status.series_wins || 0) + (isPlayerRoundWin ? 1 : 0) >= 3) || 
-                     ((status.series_losses || 0) + (isPlayerRoundWin ? 0 : 1) >= 3) || 
-                     ((status.current_round || 1) + 1 > 5);
-
-  const modalBtn = document.getElementById('modalNextBtn');
-  if (modalBtn) modalBtn.textContent = isFinished ? "🏠 ホーム画面へ戻る" : "🔄 次のシリーズへ";
   document.getElementById('final-series-modal').style.display = "block";
 }
 
-// サバイバルモード対応・ポテンシャル充足率＆ベストレコード保存処理
+// サバイバルモード対応・ポテンシャル充足率＆ベストレコード保存処理（終了判定は行わず、データの集計・リセットのみ担当）
 window.goToNextSeries = async function() {
   if (!currentUser) return;
 
@@ -1019,7 +1012,7 @@ window.goToNextSeries = async function() {
   const usedIds = currentMatchEntries.map(e => e.horse_id).filter(Boolean);
   const updatedUsedCards = Array.from(new Set([...(status.used_cards_history || []), ...usedIds]));
 
-　  // --- 今回のラウンド結果から正しい履歴データを集計 ---
+  // --- 今回のラウンド結果から正しい履歴データを集計 ---
   const my1st = seriesHistory.filter(h => h.pRank === 1).length;
   const my2nd = seriesHistory.filter(h => h.pRank === 2).length;
   const my3rd = seriesHistory.filter(h => h.pRank === 3).length;
@@ -1074,7 +1067,7 @@ window.goToNextSeries = async function() {
   const survivalRecord = {
     rate: rateValue,
     detail: `${totalPotential}/${maxPotentialLimit}`,
-    total_rank: currentTotalRank, // タイブレーク用（小さいほど良い）
+    total_rank: currentTotalRank,
     round: status.current_round,
     series_id: seriesId,
     updated_at: new Date().toISOString()
@@ -1084,12 +1077,11 @@ window.goToNextSeries = async function() {
   let updatedSurvivalRecords = [...(globalUserData?.survival_best_records || [])];
   if (isSurvival) {
     updatedSurvivalRecords.push(survivalRecord);
-    // ソート条件: 1. 充足率が高い順(降順) 2. 合計着順が小さい順(昇順)
     updatedSurvivalRecords.sort((a, b) => {
       if (b.rate !== a.rate) return b.rate - a.rate;
       return a.total_rank - b.total_rank;
     });
-    updatedSurvivalRecords = updatedSurvivalRecords.slice(0, 3); // 上位3件を保持
+    updatedSurvivalRecords = updatedSurvivalRecords.slice(0, 3);
   }
 
   // 通常シリーズベストレコード処理
@@ -1107,12 +1099,9 @@ window.goToNextSeries = async function() {
     }
   }
 
-  // 終了判定：サバイバルは3勝達成または1敗で終了
-  const isFinished = isSurvival ? (newWins >= 3 || newLosses >= 1) : (newWins >= 3 || newLosses >= 3 || newRound > 5);
-
+  // 修正：race_result側では終了判定を行わず、単にレース固有データ(current_match)をクリアして battle.html へ送る
   const updatedCpuBattleStatus = {
     ...status,
-    is_active: !isFinished,
     series_wins: newWins,
     series_losses: newLosses,
     current_round: newRound,
