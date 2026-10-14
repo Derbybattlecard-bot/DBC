@@ -243,6 +243,7 @@
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { generateTrackConditions, generateMobEntries } from "./mob.js";
 
   let currentUser = null;
   let globalUserData = null;
@@ -270,7 +271,6 @@
     throw new Error(`${filename} の読み込みに失敗しました`);
   }
 
-  // シリーズからレース配列を安全に取得するヘルパー関数
   function getRaces(series) {
     if (!series) return [];
     if (Array.isArray(series.races)) return series.races;
@@ -288,7 +288,6 @@
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) globalUserData = userDoc.data();
 
-      // ─── 進行状況に応じた段階的リダイレクト処理 ───
       const status = globalUserData?.cpu_battle_status;
       if (status && status.current_match) {
         if (status.current_match.full_race_grids) {
@@ -347,7 +346,6 @@
     const deck = (globalUserData?.decks || [])[deckIdx] || { horse_ids: [] };
     deckHorses = (deck.horse_ids || []).map(id => HORSES_MASTER[String(id)]).filter(h => h !== undefined);
 
-    // ★ モブ馬・CPU・馬場の固定・確定処理 ★
     const currentMatch = status.current_match || {};
     const races = getRaces(currentSeries);
 
@@ -357,9 +355,13 @@
       currentTrackConditions = currentMatch.races_track_conditions;
     } else {
       currentTrackConditions = generateTrackConditions(currentSeries);
-      const generated = generateCpuAndMobEntries(races);
+      
+      // ★ 対戦相手（CPU馬）の抽選は従来通りここで実行して残しています ★
+      const generated = generateCpuEntries(races);
       currentCpuEntries = generated.cpuEntries;
-      currentRacesMobIds = generated.racesMobIds;
+      
+      // ★ モブ馬の抽選は mob.js の generateMobEntries を呼び出し ★
+      currentRacesMobIds = generateMobEntries(races, currentSeries, globalUserData, selectedEntries, HORSES_MASTER);
 
       const updatedStatus = {
         ...status,
@@ -382,8 +384,6 @@
     renderEntryCards();
     updateStatus();
   }
-
-  // ─── データ取得・判定関数 ───
 
   function getSurfaceLabel(surface) {
     if (!surface) return '芝';
@@ -479,7 +479,6 @@
     }
   }
 
-  // ★ モブ馬の脚質カウント関数 ★
   function getMobStyleCounts(mobIds) {
     const counts = { '逃': 0, '先': 0, '差': 0, '追': 0 };
     (mobIds || []).forEach(mId => {
@@ -500,8 +499,6 @@
     });
     return counts;
   }
-
-  // ─── UIレンダリング ───
 
   function renderEntryCards() {
     const races = getRaces(currentSeries);
@@ -526,7 +523,6 @@
           </div>
         </div>
         
-        <!-- 出走モブ展開 -->
         <div class="mob-style-summary">
           <span>🏇 出走モブ展開:</span>
           <div class="counts-group">
@@ -754,28 +750,6 @@
     }
   };
 
-  // ─── 抽選ユーティリティ ───
-
-  function drawTrackCondition() {
-    const rand = Math.random() * 100;
-    if (rand < 75) return '良';
-    if (rand < 93) return '稍重';
-    if (rand < 98) return '重';
-    return '不良';
-  }
-
-  function generateTrackConditions(series) {
-    const isSingleDay = series?.is_single_day || series?.is_same_day || series?.single_day || 
-                        (series?.series_name && (series.series_name.includes("ドバイ") || series.series_name.includes("香港")));
-
-    if (isSingleDay) {
-      const unifiedCondition = drawTrackCondition();
-      return Array(5).fill(unifiedCondition);
-    } else {
-      return Array.from({ length: 5 }, () => drawTrackCondition());
-    }
-  }
-
   function isFrom1992OrLater(horse) {
     if (!horse) return false;
     const gen = horse.generation || horse.year || horse.birth_year || horse.era;
@@ -807,7 +781,8 @@
     return true;
   }
 
-  function generateCpuAndMobEntries(races) {
+  // ★ 対戦相手（CPU馬）の抽選・選出処理は、削除せずにここにそのまま残しています ★
+  function generateCpuEntries(races) {
     const limits = currentSeries?.potential_limit || { max_total_potential: 95 };
     const maxTotalPt = limits.max_total_potential || 95;
     const targetPtBase = Math.floor(maxTotalPt / 5);
@@ -836,8 +811,6 @@
     ]);
 
     const cpuEntries = [];
-    const racesMobIds = {};
-
     let remainingCpuPtBudget = maxTotalPt;
 
     races.forEach((race, rIdx) => {
@@ -888,56 +861,9 @@
         strategy: validStyle,
         strategy_level: Math.floor(Math.random() * 3) + 2
       });
-
-      const raceUsedIds = new Set([...excludedHorseIds, cpuId]);
-
-      let mobPool = allHorses.filter(h => 
-        isEligibleHorse(h, race, raceSexLimit, defaultMinPt, defaultMaxPt, raceUsedIds, true)
-      );
-
-      if (mobPool.length < 14) {
-        const fallbackPool = allHorses.filter(h => 
-          isEligibleHorse(h, race, raceSexLimit, defaultMinPt, defaultMaxPt, raceUsedIds, false)
-        );
-        fallbackPool.forEach(h => {
-          if (!mobPool.some(m => String(m.horse_id) === String(h.horse_id))) {
-            mobPool.push(h);
-          }
-        });
-      }
-
-      if (mobPool.length < 14) {
-        const relaxPool = allHorses.filter(h => {
-          const hId = String(h.horse_id);
-          if (raceUsedIds.has(hId)) return false;
-          return isValidSex(h.sex || "牡馬", raceSexLimit) && isValidSurface(h, race.surface);
-        });
-        relaxPool.forEach(h => {
-          if (!mobPool.some(m => String(m.horse_id) === String(h.horse_id))) {
-            mobPool.push(h);
-          }
-        });
-      }
-
-      mobPool.sort(() => Math.random() - 0.5);
-      
-      const selectedMobs = [];
-      for (const mob of mobPool) {
-        if (selectedMobs.length >= 14) break;
-        const mId = String(mob.horse_id).padStart(4, '0');
-        if (!selectedMobs.includes(mId)) {
-          selectedMobs.push(mId);
-        }
-      }
-
-      while (selectedMobs.length < 14) {
-        selectedMobs.push("0000");
-      }
-
-      racesMobIds[rIdx] = selectedMobs;
     });
 
-    return { cpuEntries, racesMobIds };
+    return { cpuEntries };
   }
 
   window.startMatch = async function() {
@@ -986,7 +912,7 @@
       sessionStorage.removeItem('player_entry_ids');
       window.location.href = 'strategy.html';
     } catch (err) {
-      console.error("出走データ保存エラー詳細:", err);
+      console.error("出走データ保存エラー:", err);
       alert(`データの保存に失敗しました。\n詳細: ${err.message || err}`);
       btn.disabled = false;
       btn.textContent = "対戦開始！";
