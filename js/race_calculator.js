@@ -79,7 +79,7 @@ function getTacticPaceBonus(tacticStyleInput, racePace) {
     if (pace === "スローペース") return 1;
   } else if (tacticStyle === "差し") {
     if (pace === "ミドルペース" || pace === "ハイペース" || pace === "超ハイペース") return 1;
-  } else if (tacticStyle === "追込") {
+  } else if (pace === "追込") {
     if (pace === "超ハイペース") return 2;
     if (pace === "ハイペース") return 1;
   }
@@ -88,9 +88,10 @@ function getTacticPaceBonus(tacticStyleInput, racePace) {
 }
 
 /**
- * 実況テキストの生成（フェーズ1〜4統合版）
- * - 展開決定時（写メのタイミング）に展開名と重要パラメータの解説を挿入
- * - ゴール時は着順および自馬の状態描写に特化
+ * 実況テキストの生成（フェーズ1〜4バランス調整版）
+ * - phase3（3枚目）：ペースとポジション情報のみにしてスッキリさせる
+ * - phase4（4枚目・写メのタイミング）：展開名と重要パラメータの解説を分かりやすく喋らせる
+ * - finish（5枚目・ゴールイン時）：1着〜3着の着順と自馬の状態描写に特化
  */
 function generateRaceCommentary(raceData) {
   const { results, pace, branch, posSorted } = raceData;
@@ -123,7 +124,7 @@ function generateRaceCommentary(raceData) {
     phase2Text = "各馬隊列を整えながら、向正面へと向かっていきます。";
   }
 
-  // フェーズ3: 中盤・ペースとポジション関係 ＋ 展開および必要パラメータの解説実況を統合
+  // フェーズ3（3枚目）：ペースとポジション関係のみにしてスッキリさせる
   let phase3Text = `ペースは${pace}で流れています。`;
 
   if (player && cpu) {
@@ -141,6 +142,7 @@ function generateRaceCommentary(raceData) {
     phase3Text += `${player.name}は現在${player.positionRank}番手の位置！手応え十分で直線を迎えます！`;
   }
 
+  // フェーズ4（4枚目・写メのタイミング）：展開名と重要パラメータの解説をしっかり行う（文法ブラッシュアップ）
   const branchName = branch?.name || "勝負所";
   let branchDesc = `このレースは『${branchName}』！`;
 
@@ -157,15 +159,22 @@ function generateRaceCommentary(raceData) {
   }
 
   if (statComments.length > 0) {
-    branchDesc += `ここは${statComments.join("、そして")}が重要になってくるぞ！`;
+    if (statComments.length === 1) {
+      branchDesc += `ここは${statComments[0]}が重要になってくるぞ！`;
+    } else if (statComments.length === 2) {
+      branchDesc += `ここは${statComments[0]}、そして${statComments[1]}が重要になってくるぞ！`;
+    } else {
+      const last = statComments.pop();
+      branchDesc += `ここは${statComments.join("、")}、そして${last}が重要になってくるぞ！`;
+    }
   } else {
     branchDesc += `総合力が試される大一番だ！`;
   }
 
-  phase3Text += ` ${branchDesc}`;
+  let phase4Text = `さあ各馬直線に向いた！ ${branchDesc}`;
 
-  // フィニッシュ（直線・ゴール）: 1着〜3着の着順と自馬の状態実況のみ
-  let finishText = `さあ各馬直線に向いた！ `;
+  // フィニッシュ（5枚目・ゴールイン時）：1着〜3着の着順と自馬の状態実況のみ
+  let finishText = `大混戦のゴール前！ `;
 
   if (results && results.length >= 3) {
     const rank1 = results[0];
@@ -183,17 +192,17 @@ function generateRaceCommentary(raceData) {
 
     if (player && playerRank > 0 && playerRank <= 3 && isVeryClose && rand < 0.7) {
       if (playerRank === 1) {
-        finishText += `ゴール前、凄まじい叩き合いを制したのは${player.name}！見事なハナ差で栄冠をつかみ取りました！2着は${rank2Name}！`;
+        finishText += `凄まじい叩き合いを制したのは${player.name}！見事なハナ差で栄冠をつかみ取りました！2着は${rank2Name}！`;
       } else {
-        finishText += `大接戦のゴール前！わずかに前を捉えきれず${rank1Name}が制したか！${player.name}も猛追を見せ${playerRank}着に入りました！`;
+        finishText += `わずかに前を捉えきれず${rank1Name}が制したか！${player.name}も猛追を見せ${playerRank}着に入りました！`;
       }
     } else if (player && playerRank >= 8 && rand < 0.5) {
-      finishText += `大混戦のゴール前を制したのは${rank1Name}！2着${rank2Name}、3着${rank3Name}！ なお、${player.name}は馬群に沈んでしまいました…。`;
+      finishText += `先頭でゴールを駆け抜けたのは${rank1Name}！2着${rank2Name}、3着${rank3Name}！ なお、${player.name}は馬群に沈んでしまいました…。`;
     } else {
       if (isVeryClose) {
-        finishText += `ゴール前はほんのわずかな差、息詰まる大接戦！ハナ差で制したのは${rank1Name}！2着に${rank2Name}、3着に${rank3Name}が続きました！`;
+        finishText += `ほんのわずかな差、息詰まる大接戦！ハナ差で制したのは${rank1Name}！2着に${rank2Name}、3着に${rank3Name}が続きました！`;
       } else {
-        finishText += `大混戦のゴール前！先頭でゴールを駆け抜けたのは${rank1Name}！2着には${rank2Name}、3着には${rank3Name}が入りました！`;
+        finishText += `先頭でゴールを駆け抜けたのは${rank1Name}！2着には${rank2Name}、3着には${rank3Name}が入りました！`;
         if (player && playerRank > 3 && playerRank <= 5 && rand < 0.3) {
           finishText += ` ${player.name}も懸命に粘り${playerRank}着でのフィニッシュです。`;
         }
@@ -207,7 +216,8 @@ function generateRaceCommentary(raceData) {
     phase1: phase1Text,
     phase2: phase2Text,
     phase3: phase3Text,
-    finish: finishText
+    phase4: phase4Text, // 4枚目の写メのタイミング用
+    finish: finishText       // 5枚目のゴール用
   };
 }
 
@@ -852,7 +862,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
   });
 
   // フェーズ3アビリティ適用
-  applyPhase3Abilities(resultList, raceInfo, trackCondition, selectedPace, abilityMasterData);
+applyPhase3Abilities(resultList, raceInfo, trackCondition, selectedPace, abilityMasterData);
 
   // STEP 2: 展開分岐選択
   let availableBranches = raceMaster?.branches_by_pace?.[selectedPace];
@@ -1032,4 +1042,4 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     branch: selectedBranch,
     commentary: commentaryData
   };
-                   }
+                     }
