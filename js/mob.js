@@ -211,6 +211,12 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
           if (!isValidSex(h.sex || "牡馬", raceSexLimit)) return false;
           if (!isValidSurface(h, race.surface)) return false;
           if (!isValidDistance(h, raceDistance, relaxDist)) return false;
+
+          // ★ 国内戦（海外でもジャパンカップでもない場合）は海外馬を除外
+          if (!isOverseas && !isJapanCup) {
+            if (h.region && h.region !== "日本") return false;
+          }
+
           return filterFn(h);
         });
       };
@@ -261,7 +267,11 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
     while (selectedMobs.length < 14) {
       const fallback = allHorses.find(h => {
         const hId = String(h.horse_id).padStart(4, '0');
-        return !raceUsedIds.has(hId) && isValidSurface(h, race.surface);
+        if (raceUsedIds.has(hId)) return false;
+        if (!isValidSurface(h, race.surface)) return false;
+        // フォールバック時も国内戦なら海外馬を除外
+        if (!isOverseas && !isJapanCup && h.region && h.region !== "日本") return false;
+        return true;
       });
       if (fallback) {
         const mId = String(fallback.horse_id).padStart(4, '0');
