@@ -147,6 +147,7 @@ function generateRaceCommentary(raceData) {
   let branchDesc = `このレースは『${branchName}』！`;
 
   let statComments = [];
+  const isHaranOrChikara = branchName.includes("波乱") || branchName.includes("力比べ");
   if (branch?.key_stats && Array.isArray(branch.key_stats)) {
     branch.key_stats.forEach(st => {
       if (st === 'speed') statComments.push("スピードと鋭いダッシュ力");
@@ -154,7 +155,9 @@ function generateRaceCommentary(raceData) {
       else if (st === 'sharp') statComments.push("直線一気の瞬発力");
       else if (st === 'jizoku') statComments.push("長く脚を使う持続力");
       else if (st === 'guts') statComments.push("泥臭く食い下がる勝負根性");
-      else if (st === 'potential' || st === 'current_potential') statComments.push("圧倒的なポテンシャル");
+      else if ((st === 'potential' || st === 'current_potential') && isHaranOrChikara) {
+        statComments.push("圧倒的なポテンシャル");
+      }
     });
   }
 
@@ -862,7 +865,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
   });
 
   // フェーズ3アビリティ適用
-applyPhase3Abilities(resultList, raceInfo, trackCondition, selectedPace, abilityMasterData);
+  applyPhase3Abilities(resultList, raceInfo, trackCondition, selectedPace, abilityMasterData);
 
   // STEP 2: 展開分岐選択
   let availableBranches = raceMaster?.branches_by_pace?.[selectedPace];
@@ -1042,4 +1045,4 @@ applyPhase3Abilities(resultList, raceInfo, trackCondition, selectedPace, ability
     branch: selectedBranch,
     commentary: commentaryData
   };
-                     }
+}
