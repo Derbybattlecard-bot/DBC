@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DERBY BATTLE CARD - オンラインレース実況</title>
+<title>DERBY BATTLE CARD - オンラインレース実況 (onrace_result.html)</title>
 <style>
   :root {
     --bg-color: #0d0914;
@@ -402,6 +402,7 @@ let roomUnsubscribe = null;
 let roomPollingInterval = null; 
 let isNavigatingAway = false;
 let isCalculating = false;
+let isGiveupMatch = false; // ギブアップ判定用フラグ
 
 const urlParams = new URLSearchParams(window.location.search);
 const roomId = urlParams.get('roomId');
@@ -532,6 +533,17 @@ onAuthStateChanged(auth, async (user) => {
     }
     if (!oppNameStr || oppNameStr === "対戦相手") {
       oppNameStr = isHost ? (roomData.player2_name || "対戦相手") : (roomData.player1_name || "対戦相手");
+    }
+
+    // 💡 ギブアップが発生しているかどうかを最初にチェック
+    const p1Giveup = !!roomData.player1_giveup;
+    const p2Giveup = !!roomData.player2_giveup;
+
+    if (p1Giveup || p2Giveup) {
+      // 双方のデータが出揃うのを待つため、ここではリスナーを開始してステータスチェックへ
+      listenRoomStatus();
+      await checkAndUpdateReadyState();
+      return;
     }
 
     const cacheObj = roomData.race_results_cache;
@@ -740,15 +752,19 @@ async function calculateAndUploadAllRaces() {
   }
 }
 
-// 🛡️ 【絶対ガード】双方が完全に準備完了するまで絶対に先へ進ませない正常系同期関数
+// 🛡️ 【絶対ガード & ギブアップ判定同期関数】
 async function checkAndUpdateReadyState() {
   if (!roomData) return;
 
   const data = roomData;
   const isHost = (role === 'host');
 
-  const p1Ready = !!(data.player1_strategy_ready || data.player1_ready || data.p1_status === "ready" || data.player1_strategies?.length >= 5);
-  const p2Ready = !!(data.player2_strategy_ready || data.player2_ready || data.p2_status === "ready" || data.player2_strategies?.length >= 5);
+  const p1Giveup = !!data.player1_giveup;
+  const p2Giveup = !!data.player2_giveup;
+
+  // どちらかがギブアップしている場合のエントリー＆状態確認
+  const p1Ready = p1Giveup || !!(data.player1_strategy_ready || data.player1_ready || data.p1_status === "ready" || data.player1_strategies?.length >= 5);
+  const p2Ready = p2Giveup || !!(data.player2_strategy_ready || data.player2_ready || data.p2_status === "ready" || data.player2_strategies?.length >= 5);
 
   const opponentReady = isHost ? p2Ready : p1Ready;
 
@@ -756,26 +772,55 @@ async function checkAndUpdateReadyState() {
   const oppStatusBadge = document.getElementById('p2-status-badge');
   const startBtn = document.getElementById('nextBtn');
 
-  // 片方でも準備が整っていなければ、ここで完全に処理を凍結して待機
+  // 双方が揃う（準備完了またはギブアップ情報送信）まで待機
   if (!p1Ready || !p2Ready) {
     if (oppBadgeEl) {
-      oppBadgeEl.textContent = opponentReady ? "作戦: 決定完了！" : "作戦: 相手思案中… ⏳";
+      oppBadgeEl.textContent = opponentReady ? "状態: 決定/退避完了！" : "状態: 相手思案中… ⏳";
       oppBadgeEl.style.color = opponentReady ? "#00ff66" : "#f97316";
     }
     if (oppStatusBadge) {
-      oppStatusBadge.textContent = opponentReady ? "準備完了 ✅" : "思案中 ⏳";
+      oppStatusBadge.textContent = opponentReady ? "完了 ✅" : "待機中 ⏳";
       oppStatusBadge.className = opponentReady ? "status-badge ready" : "status-badge waiting";
     }
-    if (startBtn && raceState === 'ready') {
+    if (startBtn) {
       startBtn.disabled = true;
-      startBtn.innerText = "⏳ 相手の作戦完了を待っています...";
+      startBtn.innerText = "⏳ 相手の到着・状態決定を待っています...";
     }
-    updateLog("相手の作戦決定を待っています... 作戦が揃うとレースを開始できます。");
-    return; // ⛔ 絶対の壁（ここでストップ）
+    updateLog("相手の準備完了またはギブアップ状態を待っています...");
+    return; 
   }
 
   // ==========================================
-  // ここに到達したということは、間違いなく「双方が揃った」状態
+  // 👥 双方のデータ（準備 or ギブアップ）が出揃った！
+  // ==========================================
+
+  // 🚨 【ギブアップ判定処理】どちらか、または両方がギブアップしている場合
+  if (p1Giveup || p2Giveup) {
+    isGiveupMatch = true;
+    if (startBtn) {
+      startBtn.disabled = false;
+      startBtn.innerText = "📋 判定結果を確認する";
+    }
+    
+    // 不戦敗側のダミー("4999")使用済み馬登録、および勝者側の使用済み馬保存をホストまたは各自で実行
+    if (isHost && !data.giveup_processed) {
+      await processGiveupResultsAndUsedHorses(data, p1Giveup, p2Giveup);
+    }
+
+    if (p1Giveup && p2Giveup) {
+      updateLog("<strong>【判定結果】</strong> 双方ともにチーム編成不能（ダブルギブアップ）のため、<strong>引き分け（ダブルノックアウト）</strong>となります。");
+    } else if (p1Giveup && !p2Giveup) {
+      const p2Name = roomData.player2_name || "対戦相手";
+      updateLog(`<strong>【判定結果】</strong> P1（${myNameStr}）がギブアップしました。P2（${p2Name}）の<strong>不戦勝</strong>となります。`);
+    } else if (!p1Giveup && p2Giveup) {
+      const p1Name = roomData.player1_name || "対戦相手";
+      updateLog(`<strong>【判定結果】</strong> P2がギブアップしました。P1（${myNameStr}）の<strong>不戦勝</strong>となります。`);
+    }
+    return;
+  }
+
+  // ==========================================
+  // 通常の対戦フロー
   // ==========================================
   await ensureUsedHorsesUpdated();
 
@@ -826,6 +871,42 @@ async function checkAndUpdateReadyState() {
       startBtn.disabled = true;
       startBtn.innerText = "⏳ レース結果を計算中...";
     }
+  }
+}
+
+// 💡 ギブアップ時の使用済み馬データ保存処理（不戦敗側には "4999" を追加、勝者側は正常な馬を追加）
+async function processGiveupResultsAndUsedHorses(data, p1Giveup, p2Giveup) {
+  const roomRef = doc(db, "online_matches", roomId);
+  const updatePayload = { giveup_processed: true };
+
+  // P1の処理
+  if (p1Giveup) {
+    // ギブアップ側はダミー "4999" を5頭分エントリおよび使用済み馬に登録
+    updatePayload.player1_entries = ["4999", "4999", "4999", "4999", "4999"];
+    updatePayload.player1_used_horses = arrayUnion("4999");
+  } else {
+    // 正常な側の使用済み馬を保存
+    const p1Entries = (data.player1_entries || []).map(normalizeHorseId).filter(id => id !== "");
+    if (p1Entries.length > 0) {
+      updatePayload.player1_used_horses = arrayUnion(...p1Entries);
+    }
+  }
+
+  // P2の処理
+  if (p2Giveup) {
+    updatePayload.player2_entries = ["4999", "4999", "4999", "4999", "4999"];
+    updatePayload.player2_used_horses = arrayUnion("4999");
+  } else {
+    const p2Entries = (data.player2_entries || []).map(normalizeHorseId).filter(id => id !== "");
+    if (p2Entries.length > 0) {
+      updatePayload.player2_used_horses = arrayUnion(...p2Entries);
+    }
+  }
+
+  try {
+    await updateDoc(roomRef, updatePayload);
+  } catch (e) {
+    console.error("ギブアップ時使用済み馬保存エラー:", e);
   }
 }
 
@@ -1270,6 +1351,11 @@ function getPosPointsMap(horses, leadPos, trailPos) {
 }
 
 window.handleButtonClick = function() {
+  if (isGiveupMatch) {
+    // ギブアップ決着時は直接シリーズ結果モーダルを表示
+    showGiveupSeriesResult();
+    return;
+  }
   if (raceState === 'ready') startRace();
   else if (raceState === 'finished') {
     currentRaceIndex++;
@@ -1277,6 +1363,37 @@ window.handleButtonClick = function() {
     else showFinalSeriesResult();
   }
 };
+
+// 💡 ギブアップ決着時のモーダル表示処理
+function showGiveupSeriesResult() {
+  const p1Giveup = !!roomData.player1_giveup;
+  const p2Giveup = !!roomData.player2_giveup;
+  const isHost = (role === 'host');
+  const myIsP1 = isHost;
+
+  const titleEl = document.getElementById('series-result-title');
+  const scoreEl = document.getElementById('series-score-detail');
+
+  let myResultText = "";
+  if (p1Giveup && p2Giveup) {
+    titleEl.textContent = "🤝 引き分け（ダブルノックアウト）";
+    titleEl.style.color = "#ffffff";
+    scoreEl.innerHTML = `双方がチーム編成不能のため、本回戦は<span style="color:var(--gold-color);">引き分け</span>となります。`;
+  } else if ((myIsP1 && p1Giveup) || (!myIsP1 && p2Giveup)) {
+    titleEl.textContent = "❌ 不戦敗";
+    titleEl.style.color = "var(--opponent-color)";
+    scoreEl.innerHTML = `チーム編成不能（ギブアップ）により、本回戦は<span style="color:var(--opponent-color);">不戦敗</span>となります。（※使用済み馬に「4999」が記録されました）`;
+  } else {
+    titleEl.textContent = "🏆 不戦勝！";
+    titleEl.style.color = "var(--gold-color)";
+    scoreEl.innerHTML = `対戦相手がチーム編成不能（ギブアップ）のため、あなたの<span style="color:var(--accent-green);">不戦勝</span>となります！`;
+  }
+
+  const historyBody = document.getElementById('series-history-body');
+  historyBody.innerHTML = `<tr><td colspan="4" style="color: var(--gold-color); font-weight: bold;">[ギブアップによる不戦決着]</td></tr>`;
+
+  document.getElementById('final-series-modal').style.display = "block";
+}
 
 let abilityQueue = [];
 let isShowingAbility = false;
@@ -1783,6 +1900,7 @@ function showFinalSeriesResult() {
   }
 }
 
+// 🔄 【完全リセット＆次回戦移行処理】ギブアップフラグも完全にクリアして平等な状態でonbattleへ
 window.finishMatchAndNextOrLobby = async function() {
   if (isNavigatingAway) return;
 
@@ -1804,7 +1922,7 @@ window.finishMatchAndNextOrLobby = async function() {
             modalBtn.textContent = "⏳ ゲストの操作待ち...";
           }
           if (statusMsgEl) {
-            statusMsgEl.textContent = "【ホスト操作完了】ゲストがボタンを押すのを待っています...";
+            statusMsgEl.textContent = "【ホスト操作完了】ゲストの選択を待っています...";
             statusMsgEl.style.color = "var(--accent-green)";
           }
           await updateDoc(roomRef, {
@@ -1819,8 +1937,11 @@ window.finishMatchAndNextOrLobby = async function() {
           isNavigatingAway = true;
           stopRoomListening();
 
+          // 💡 次回戦へ進む際、ギブアップフラグや前回のデータをすべて完全にクリア・初期化
           await updateDoc(roomRef, {
             current_series_index: increment(1),
+            player1_giveup: false,
+            player2_giveup: false,
             player1_ready: false,
             player2_ready: false,
             player1_strategy_ready: false,
@@ -1834,6 +1955,7 @@ window.finishMatchAndNextOrLobby = async function() {
             races_mob_ids: deleteField(),
             races_track_conditions: deleteField(),
             race_results_cache: deleteField(),
+            giveup_processed: deleteField(),
             host_next_ready: deleteField(),
             status: "deck_selecting" 
           });
