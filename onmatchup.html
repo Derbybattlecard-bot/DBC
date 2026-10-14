@@ -570,7 +570,6 @@
     return excludedSet;
   }
 
-  // ★ 修正点: 該当なし時の fallback に実在する先頭馬 ID を割り当て、レースシミュレータでの undefined 例外を防止
   function generateSharedMobsAndTrack(races, excludedIds) {
     const allHorses = Object.values(HORSES_MASTER);
     const validFallbackHorseId = allHorses[0] ? normalizeHorseId(allHorses[0].horse_id) : "0001";
@@ -619,10 +618,6 @@
       }
 
       const isHost = (role === 'host');
-
-      // ※ 同一回戦のチーム編成画面（onmatchup.html）では、
-      //    相手が今この回戦で使った馬によってリアルタイムに選択肢が変化しないよう、
-      //    used_horses の動的再描画（populateDropdowns）を行わないように保護します。
 
       const opponentReady = isHost ? data.player2_matchup_ready : data.player1_matchup_ready;
       const badge = document.getElementById('opponentStatusBadge');
@@ -693,6 +688,19 @@
     }
   }
 
+  function getBestDeckIndex(horsesList, horseId) {
+    let bestIdx = Infinity;
+    for (let i = 0; i < horsesList.length; i++) {
+      if (horsesList[i] === horseId) {
+        const deckIdx = i % 18;
+        if (deckIdx < bestIdx) {
+          bestIdx = deckIdx;
+        }
+      }
+    }
+    return bestIdx === Infinity ? -1 : bestIdx;
+  }
+
   function checkDuplicateHorsePriority(horseId) {
     const targetIdStr = normalizeHorseId(horseId);
     const isHost = (role === 'host');
@@ -714,8 +722,8 @@
       }
     }
 
-    const myIdx = playerDeckIds.findIndex(id => normalizeHorseId(id) === targetIdStr);
-    const oppIdx = oppDeckIds.findIndex(id => normalizeHorseId(id) === targetIdStr);
+    const myIdx = getBestDeckIndex(playerDeckIds, targetIdStr);
+    const oppIdx = getBestDeckIndex(oppDeckIds, targetIdStr);
 
     if (oppIdx === -1) return { canUse: true };
 
@@ -990,7 +998,7 @@
     window.location.href = `onbattle.html?roomId=${roomId}&role=${role}${modeQuery}`;
   };
 
-          window.giveUpRound = async function() {
+  window.giveUpRound = async function() {
     if (!confirm("この回戦をギブアップしますか？\n（対戦相手にこの回戦の不戦勝が与えられます）")) {
       return;
     }
@@ -1007,7 +1015,7 @@
           [isHost ? 'player1_giveup' : 'player2_giveup']: true,
           [isHost ? 'p1_status' : 'p2_status']: 'giveup',
           [isHost ? 'player1_matchup_ready' : 'player2_matchup_ready']: true,
-          status: "race_running" // ★ ルームステータスをレース中（リザルト向け）に変更
+          status: "race_running"
         };
 
         await updateDoc(roomRef, updateObj);
@@ -1019,8 +1027,6 @@
     const modeQuery = matchMode ? `&mode=${matchMode}` : '';
     window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}&giveup=true${modeQuery}`;
   };
-
-
 
   window.leaveMatch = async function() {
     if (confirm("対戦を辞退して退室しますか？")) {
