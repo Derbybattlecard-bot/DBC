@@ -527,7 +527,7 @@
     }
   }
 
-  // ★ 修正: ギブアップ（不戦敗）時の専用カード表示を判定・生成する処理を追加 ★
+  // ギブアップ（不戦敗）時の専用カード表示を判定・生成する処理
   function renderSeriesItemCardHTML(sObj, roundNum, isCurrentRound, roundResult) {
     const catName = getNormalizedCategory(sObj) || '一般';
     const sName = sObj.series_name || '名称未設定';
@@ -541,7 +541,6 @@
       const isGiveUp = roundResult.isGiveUp || roundResult.giveup || roundResult.is_giveup || (roundResult.myWins === undefined && roundResult.oppWins === undefined);
 
       if (isGiveUp) {
-        // ★ ギブアップ（不戦敗）時の表示
         resultHtml = `
           <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d0e3d2; display: flex; justify-content: space-between; align-items: center; font-size: 11px; background: #fff5f5; padding: 4px 8px; border-radius: 4px;">
             <div><span style="font-weight:bold; color:#d32f2f;">成績:</span> ギブアップ <span style="font-size:10px; color:#666;">(出走馬不足・不戦敗)</span></div>
@@ -549,7 +548,6 @@
           </div>
         `;
       } else {
-        // 通常の勝敗結果表示
         const myWins = roundResult.myWins || 0;
         const oppWins = roundResult.oppWins || 0;
         const scoreText = `${myWins}勝 ${oppWins}敗`;
@@ -680,10 +678,12 @@
     const isFinished = (currentWins >= winCondition) || (currentLosses >= lossCondition) || (isSurvival && status.current_round > 3 && currentWins < 3);
 
     if (isFinished) {
+      // 報酬カードがある場合（サバイバルモード3勝クリア時など）は、まず報酬カードの獲得・表示を優先し、その後にリザルトを表示する流れを保証
       if (isSurvival && currentWins >= winCondition && !status.reward_claimed) {
         await handleGameEndReward(status);
         return;
       }
+      // 報酬受取済み、またはチャレンジモード等の場合は必ずリザルト画面（シリーズ終了状態）を表示する
       await renderActiveBattle(status, totalWins, true);
       return;
     }
@@ -1025,7 +1025,6 @@
       const isCurrentRound = !isFinished && (roundNum === status.current_round);
       const sObj = SERIES_MASTER.find(s => s.series_id === sId) || SERIES_MASTER[0] || {};
       
-      // 戦績履歴を取得。もし履歴がなくてもギブアップで終了している場合はギブアップフラグを付与
       let roundResult = roundHistoryMap[roundNum];
       if (!roundResult && isFinished && roundNum <= status.current_round && currentLosses > 0) {
         roundResult = { isGiveUp: true, isWin: false };
