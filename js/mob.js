@@ -176,10 +176,11 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
   const racesMobIds = {};
 
   races.forEach((race, rIdx) => {
-    const raceSexLimit = race.sex || currentSeries?.sex || "制限なし";
+    // シリーズ大枠のフォールバックを排除し、レース個々の条件を厳密に使用
+    const raceSexLimit = race.sex || "制限なし";
     const raceDistance = Number(race.distance || 2000);
-    const trackName = race.track || currentSeries?.track || "";
-    const raceName = race.race_name || currentSeries?.series_name || "";
+    const trackName = race.track || "";
+    const raceName = race.race_name || "";
 
     const isHongKong = trackName.includes("香港") || trackName.includes("沙田") || raceName.includes("香港");
     const isOverseas = isHongKong || ["ロンシャン", "パリロンシャン", "サンクルー", "アスコット", "ニューマーケット", "エプソム", "メイダン", "デルマー", "サンタアニタ", "チャーチルダウンズ", "ベルモントパーク"].some(t => trackName.includes(t));
@@ -188,12 +189,13 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
 
     const raceUsedIds = new Set([...excludedHorseIds]);
 
+    // ご指定のポテンシャル頭数割合（上から1, 2, 3, 4, 4頭 / 合計14頭）に修正
     const potTargetCounts = {
-      [centerX]: 4,
-      [centerX - 1]: 3,
-      [centerX + 1]: 3,
-      [centerX - 2]: 2,
-      [centerX + 2]: 2
+      [centerX]: 3,
+      [centerX - 1]: 4,
+      [centerX + 1]: 2,
+      [centerX - 2]: 4,
+      [centerX + 2]: 1
     };
 
     const selectedMobs = [];
@@ -212,7 +214,7 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
           if (!isValidSurface(h, race.surface)) return false;
           if (!isValidDistance(h, raceDistance, relaxDist)) return false;
 
-          // ★ 国内戦（海外でもジャパンカップでもない場合）は海外馬を除外
+          // ★ 各レースの条件に基づき、国内戦なら海外馬を除外
           if (!isOverseas && !isJapanCup) {
             if (h.region && h.region !== "日本") return false;
           }
@@ -269,7 +271,7 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
         const hId = String(h.horse_id).padStart(4, '0');
         if (raceUsedIds.has(hId)) return false;
         if (!isValidSurface(h, race.surface)) return false;
-        // フォールバック時も国内戦なら海外馬を除外
+        // フォールバック時もレースごとの条件で国内戦なら海外馬を除外
         if (!isOverseas && !isJapanCup && h.region && h.region !== "日本") return false;
         return true;
       });
