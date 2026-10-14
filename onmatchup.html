@@ -288,6 +288,7 @@
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { doc, getDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { generateOnlineMobEntries } from "./js/mob.js"; // 外部モジュールからインポート
 
   let currentUser = null;
   let globalUserData = null;
@@ -518,9 +519,20 @@
     document.getElementById('seriesRoundLabel').textContent = `第${currentRoundIndex + 1}回戦 対象シリーズ (${categoryName})`;
     document.getElementById('displaySeriesName').textContent = currentRace.series_name || "対象シリーズ";
 
+    // ホスト側：mob.jsの関数を呼び出してモブ馬と馬場状態を生成
     if (role === 'host' && !roomData.races_mob_ids) {
       const excludedIds = await fetchAllPlayersDeckHorseIds(roomData);
-      const { mobIds, trackConditions } = generateSharedMobsAndTrack(matchRaces, excludedIds);
+      
+      // mob.jsのオンライン用抽選関数を使用
+      const mobIds = generateOnlineMobEntries(matchRaces, excludedIds, HORSES_MASTER);
+      
+      // 馬場状態の抽選（onmatchup側に維持）
+      const trackConditions = Array.from({ length: 5 }, () => {
+        const rand = Math.random() * 100;
+        if (rand < 75) return '良';
+        if (rand < 93) return '稍重';
+        return '重';
+      });
       
       await updateDoc(roomRef, {
         races_mob_ids: mobIds,
@@ -570,34 +582,7 @@
     return excludedSet;
   }
 
-  function generateSharedMobsAndTrack(races, excludedIds) {
-    const allHorses = Object.values(HORSES_MASTER);
-    const validFallbackHorseId = allHorses[0] ? normalizeHorseId(allHorses[0].horse_id) : "0001";
-    const mobIds = {};
-
-    races.forEach((race, rIdx) => {
-      const mobPool = allHorses.filter(h => {
-        const hId = normalizeHorseId(h.horse_id);
-        if (excludedIds.has(hId)) return false;
-        return getHorsePotential(h, race.surface) > 0;
-      }).sort(() => Math.random() - 0.5);
-
-      const selected = mobPool.slice(0, 14).map(m => normalizeHorseId(m.horse_id));
-      while (selected.length < 14) selected.push(validFallbackHorseId);
-      mobIds[rIdx] = selected;
-    });
-
-    const trackConditions = Array.from({ length: 5 }, () => {
-      const rand = Math.random() * 100;
-      if (rand < 75) return '良';
-      if (rand < 93) return '稍重';
-      return '重';
-    });
-
-    return { mobIds, trackConditions };
-  }
-
-    function listenRoomStatus() {
+  function listenRoomStatus() {
     const roomRef = doc(db, "online_matches", roomId);
     roomUnsubscribe = onSnapshot(roomRef, (snapshot) => {
       if (!snapshot.exists()) return;
