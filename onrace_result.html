@@ -923,6 +923,13 @@ async function handleRoomDataUpdate(data) {
   }
   
   if (data.status === "entry_selecting" || data.status === "matchup") {
+    // 👈 修正点：ギブアップデータ（4999など）やギブアップフラグが存在する場合はリダイレクトを阻止して待機する
+    const p1Has4999 = (data.player1_entries || []).some(id => String(id).trim() === "4999" || String(id).trim() === "0499");
+    const p2Has4999 = (data.player2_entries || []).some(id => String(id).trim() === "4999" || String(id).trim() === "0499");
+    if (data.player1_giveup || data.player2_giveup || p1Has4999 || p2Has4999) {
+      return;
+    }
+
     if (data.player1_giveup || data.player2_giveup) {
       return;
     }
