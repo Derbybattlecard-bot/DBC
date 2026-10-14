@@ -162,7 +162,7 @@
 
   .action-group {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     margin-top: 10px;
   }
 
@@ -171,25 +171,38 @@
     background: var(--accent-color);
     color: white;
     border: none;
-    padding: 15px;
+    padding: 15px 10px;
     border-radius: 6px;
     font-weight: bold;
-    font-size: 16px;
+    font-size: 15px;
     cursor: pointer;
     text-align: center;
     box-shadow: 0 4px 0 var(--accent-hover);
   }
   .btn-submit:disabled { background: #a0a0a0; box-shadow: 0 4px 0 #7a7a7a; cursor: not-allowed; }
 
-  .btn-giveup {
+  .btn-redeck {
     flex: 1;
+    background: #ffffff;
+    color: var(--accent-color);
+    border: 1.5px solid var(--accent-color);
+    padding: 15px 5px;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 12px;
+    cursor: pointer;
+    text-align: center;
+  }
+
+  .btn-giveup {
+    flex: 1.2;
     background: #ffffff;
     color: var(--danger-color);
     border: 2px solid var(--danger-color);
-    padding: 15px;
+    padding: 15px 5px;
     border-radius: 6px;
     font-weight: bold;
-    font-size: 13px;
+    font-size: 11px;
     cursor: pointer;
     text-align: center;
   }
@@ -235,6 +248,7 @@
 
   <div class="action-group">
     <button class="btn-giveup" onclick="giveUpSeries()">ギブアップ<br><span style="font-size:10px;">(不戦敗)</span></button>
+    <button class="btn-redeck" onclick="returnToDeckSelect()">デック変更</button>
     <button class="btn-submit" id="btnBattleStart" disabled onclick="startMatch()">対戦開始！</button>
   </div>
 </div>
@@ -308,7 +322,6 @@
       
       const horseList = Array.isArray(horsesData) ? horsesData : Object.values(horsesData || {});
       
-      // ★ 修正: horse_idを4桁の文字列キーとして一意に登録（二重登録による重複バグ・フリーズを解消）
       horseList.forEach(h => { 
         if (!h || h.horse_id === undefined) return;
         const paddedId = String(h.horse_id).padStart(4, '0');
@@ -356,11 +369,9 @@
     } else {
       currentTrackConditions = generateTrackConditions(currentSeries);
       
-      // ★ 対戦相手（CPU馬）の抽選（合計がピッタリ、-1、-2、-3に収まる調整版）
       const generated = generateCpuEntries(races);
       currentCpuEntries = generated.cpuEntries;
       
-      // ★ モブ馬の抽選は mob.js の generateMobEntries を呼び出し
       currentRacesMobIds = generateMobEntries(races, currentSeries, globalUserData, selectedEntries, HORSES_MASTER);
 
       const updatedStatus = {
@@ -750,6 +761,29 @@
     }
   };
 
+  window.returnToDeckSelect = async function() {
+    if (!confirm("現在の出走登録をリセットして、デック選択画面（battle.html）へ戻りますか？")) {
+      return;
+    }
+
+    if (currentUser && globalUserData) {
+      try {
+        const currentStatus = globalUserData.cpu_battle_status || {};
+        const updatedStatus = {
+          ...currentStatus,
+          current_match: null
+        };
+        await setDoc(doc(db, "users", currentUser.uid), {
+          cpu_battle_status: updatedStatus
+        }, { merge: true });
+      } catch (e) {
+        console.error("デック選択画面へのリセット移動エラー:", e);
+      }
+    }
+
+    window.location.href = 'battle.html';
+  };
+
   function isFrom1992OrLater(horse) {
     if (!horse) return false;
     const gen = horse.generation || horse.year || horse.birth_year || horse.era;
@@ -781,12 +815,10 @@
     return true;
   }
 
-  // ★ 対戦相手（CPU馬）の抽選・選出処理（合計がピッタリ、-1、-2、-3に収まる調整版）
   function generateCpuEntries(races) {
     const limits = currentSeries?.potential_limit || { max_total_potential: 95 };
     const maxTotalPt = limits.max_total_potential || 95;
     
-    // 最終的な合計のマイナス値（0, 1, 2, 3 のいずれか）をランダムに決定
     const targetMinus = Math.floor(Math.random() * 6); 
     let remainingBudget = maxTotalPt - targetMinus;
 
@@ -814,7 +846,7 @@
 
     races.forEach((race, rIdx) => {
       const raceSexLimit = race.sex || currentSeries?.sex || "制限なし";
-      const remainingRaces = 5 - rIdx; // 5, 4, 3, 2, 1
+      const remainingRaces = 5 - rIdx;
 
       const idealPt = remainingBudget / remainingRaces;
       let currentMinPt, currentMaxPt;
