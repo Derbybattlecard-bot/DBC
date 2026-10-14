@@ -148,6 +148,9 @@ function isFrom1992OrLater(horse) {
   return false;
 }
 
+/**
+ * CPU戦用モブ馬抽選関数（既存維持）
+ */
 export function generateMobEntries(races, currentSeries, globalUserData, selectedEntries, HORSES_MASTER) {
   const limits = currentSeries?.potential_limit || { max_total_potential: 95 };
   const maxTotalPt = limits.max_total_potential || 95;
@@ -179,7 +182,6 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
     const raceSexLimit = race.sex || currentSeries?.sex || "制限なし";
     const raceDistance = Number(race.distance || 2000);
     
-    // ★修正点：トラック名やレース名には、シリーズ大枠の名前を絶対に混入させない（個別データのみ使用）
     const trackName = race.track || "";
     const raceName = race.race_name || "";
 
@@ -190,7 +192,6 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
 
     const raceUsedIds = new Set([...excludedHorseIds]);
 
-    // ご指定のポテンシャル頭数割合（上から1, 2, 3, 4, 4頭 / 合計14頭）
     const potTargetCounts = {
       [centerX]: 3,
       [centerX - 1]: 4,
@@ -215,7 +216,6 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
           if (!isValidSurface(h, race.surface)) return false;
           if (!isValidDistance(h, raceDistance, relaxDist)) return false;
 
-          // ★ 国内戦（海外でもジャパンカップでもない場合）は海外馬を完全に除外
           if (!isOverseas && !isJapanCup) {
             if (h.region && h.region !== "日本") return false;
           }
@@ -288,4 +288,39 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
   });
 
   return racesMobIds;
+}
+
+/**
+ * オンライン対戦用モブ馬抽選関数（両プレイヤーのデック全頭数などを渡して完全に除外して抽選）
+ */
+export function generateOnlineMobEntries(races, excludedIdsSet, HORSES_MASTER) {
+  const allHorses = Object.values(HORSES_MASTER || {});
+  const validFallbackHorseId = allHorses[0] ? String(allHorses[0].horse_id).padStart(4, '0') : "0001";
+  const mobIds = {};
+
+  races.forEach((race, rIdx) => {
+    const surface = race.surface || "芝";
+    const sexLimit = race.sex || "制限なし";
+    const distance = Number(race.distance || 2000);
+
+    const raceUsedIds = new Set(excludedIdsSet);
+
+    const mobPool = allHorses.filter(h => {
+      const hId = String(h.horse_id).padStart(4, '0');
+      if (raceUsedIds.has(hId)) return false;
+      if (getHorsePotential(h, surface) <= 0) return false;
+      if (!isValidSex(h.sex, sexLimit)) return false;
+      if (!isValidDistance(h, distance)) return false;
+      return true;
+    }).sort(() => Math.random() - 0.5);
+
+    const selected = mobPool.slice(0, 14).map(m => String(m.horse_id).padStart(4, '0'));
+    
+    while (selected.length < 14) {
+      selected.push(validFallbackHorseId);
+    }
+    mobIds[rIdx] = selected;
+  });
+
+  return mobIds;
 }
