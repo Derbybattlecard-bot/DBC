@@ -514,13 +514,11 @@ onAuthStateChanged(auth, async (user) => {
     }
     roomData = roomSnap.data();
 
-    // ── 【修正】古いギブアップフラグの残留クリア処理 ──
     if (roomData.player1_giveup || roomData.player2_giveup) {
       const p1Entries = Array.isArray(roomData.player1_entries) ? roomData.player1_entries : [];
       const p2Entries = Array.isArray(roomData.player2_entries) ? roomData.player2_entries : [];
       const has4999 = p1Entries.some(id => String(id).includes("4999")) || p2Entries.some(id => String(id).includes("4999"));
       
-      // 新しい回戦や通常の対戦開始時に、古いギブアップフラグだけが残っていた場合はクリアする
       if (!has4999 && !roomData.race_results_cache) {
         try {
           await updateDoc(doc(db, "online_matches", roomId), {
@@ -820,19 +818,24 @@ async function checkAndUpdateReadyState() {
   const p1Giveup = !!(data.player1_giveup || data.player1_entries === 'giveup' || p1Has4999);
   const p2Giveup = !!(data.player2_giveup || data.player2_entries === 'giveup' || p2Has4999);
 
-  const p1Arrived = !!(data.player1_ready || data.p1_status === "racing" || p1Giveup);
-  const p2Arrived = !!(data.player2_ready || data.p2_status === "racing" || p2Giveup);
+  // ── 【修正】ギブアップデータ/ステータスがある場合の厳密な同期処理 ──
+  // どちらかがギブアップしてきた場合、もう一方が作戦完了（または到着・準備完了）になるまで一切判定せずに待つ。
+  // 双方が「作戦完了（またはギブアップの到達）」の状態になった時初めて判定（不戦敗決定 または ダブルノックアウト）を実行する。
+  const p1ReadyOrGiveup = p1Giveup || !!(data.player1_strategy_ready || data.player1_ready || data.p1_status === "ready" || data.player1_strategies?.length >= 5);
+  const p2ReadyOrGiveup = p2Giveup || !!(data.player2_strategy_ready || data.player2_ready || data.p2_status === "ready" || data.player2_strategies?.length >= 5);
 
   if (p1Giveup || p2Giveup) {
-    if (p1Arrived && p2Arrived) {
+    if (p1ReadyOrGiveup && p2ReadyOrGiveup) {
+      // 双方の作戦完了/到達ステータスが揃ったので、判定を実行する
       await handleGiveupResultFlow(data, p1Giveup, p2Giveup);
       return;
     } else {
-      updateLog("<strong>【待機中】</strong> ギブアップを受け付けました。対戦相手の到着・準備を待っています...");
+      // まだ相手が作戦完了していないため、一切の判定を行わずに待機する
+      updateLog("<strong>【待機中】</strong> ギブアップを受け付けました。対戦相手の作戦完了を待っています...");
       const startBtn = document.getElementById('nextBtn');
       if (startBtn) {
         startBtn.disabled = true;
-        startBtn.innerText = "⏳ 相手の到着を待っています...";
+        startBtn.innerText = "⏳ 相手の作戦完了を待っています...";
       }
       return;
     }
@@ -976,7 +979,6 @@ async function handleRoomDataUpdate(data) {
       }
     }
   } else {
-    // ── 【修正】ホスト側で既に準備完了（host_next_ready）ならボタン活性が復活しないように固定 ──
     const isHostReady = !!data?.host_next_ready;
     if (modalBtn && modalBtn.textContent !== "⏳ 移動中...") {
       modalBtn.disabled = isHostReady;
@@ -1771,7 +1773,6 @@ function showFinalSeriesResult() {
   if (modalBtn) modalBtn.textContent = "回戦終了：対戦画面（onbattle.html）へ戻る";
 
   if (isHost) {
-    // ── 【修正】ホストが一度ボタンを押した後に再レンダリングやスナップショット更新でボタンが復活しないよう判定を固定 ──
     const isHostReady = !!roomData?.host_next_ready;
     if (modalBtn) {
       modalBtn.disabled = isHostReady;
