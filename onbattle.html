@@ -387,6 +387,19 @@
     return str;
   }
 
+  function getBestDeckIndex(horsesList, horseId) {
+    let bestIdx = Infinity;
+    for (let i = 0; i < horsesList.length; i++) {
+      if (horsesList[i] === horseId) {
+        const deckIdx = i % 18;
+        if (deckIdx < bestIdx) {
+          bestIdx = deckIdx;
+        }
+      }
+    }
+    return bestIdx === Infinity ? -1 : bestIdx;
+  }
+
   function buildInitialCardPriorities(p1All36Horses, p2All36Horses) {
     const priorities = {};
     const p1List = (p1All36Horses || []).map(id => normalizeHorseId(id)).filter(Boolean);
@@ -395,8 +408,8 @@
     const allUniqueIds = new Set([...p1List, ...p2List]);
 
     allUniqueIds.forEach(horseId => {
-      const p1Idx = p1List.indexOf(horseId);
-      const p2Idx = p2List.indexOf(horseId);
+      const p1Idx = getBestDeckIndex(p1List, horseId);
+      const p2Idx = getBestDeckIndex(p2List, horseId);
 
       if (p1Idx !== -1 && p2Idx !== -1) {
         if (p1Idx < p2Idx) {
