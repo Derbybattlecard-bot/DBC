@@ -485,7 +485,7 @@
     return Number(horse.potential ?? horse.cost ?? horse.pt ?? horse.ability_point ?? 0) || 0;
   }
 
-  // ★ 修正: サバイバルベストの保存・評価関数（最小着順、最大充足率、最小充足率、最多1着）
+  // ★ 修正: サバイバルベストの保存・評価関数（最小着順のタイブレーク：1着 ➔ 2着 ➔ 3着 ➔ 充足率(低)）
   async function evaluateAndSaveSurvivalBests(status, totalRankSum, totalC1, totalC2, totalC3, totalC4Plus, fulfillmentRatio, lineup) {
     const isSurvival = (status.battle_type === 'survival' || status.deck_type == 1);
     const currentWins = status.series_wins || 0;
@@ -512,7 +512,33 @@
     };
 
     // 1. 最小着順合計 (min_rank_sum)
-    if (!bests.min_rank_sum || totalRankSum < bests.min_rank_sum.rank_sum || (totalRankSum === bests.min_rank_sum.rank_sum && fulNum > (bests.min_rank_sum.fulfillment || 0))) {
+    // 優先順位: 合計着順(小) ➔ 1着回数(多) ➔ 2着回数(多) ➔ 3着回数(多) ➔ 充足率(低)
+    const curMinRank = bests.min_rank_sum;
+    let isBetterMinRank = false;
+    if (!curMinRank) {
+      isBetterMinRank = true;
+    } else {
+      if (totalRankSum < curMinRank.rank_sum) {
+        isBetterMinRank = true;
+      } else if (totalRankSum === curMinRank.rank_sum) {
+        if (totalC1 > (curMinRank.c1 ?? 0)) {
+          isBetterMinRank = true;
+        } else if (totalC1 === (curMinRank.c1 ?? 0)) {
+          if (totalC2 > (curMinRank.c2 ?? 0)) {
+            isBetterMinRank = true;
+          } else if (totalC2 === (curMinRank.c2 ?? 0)) {
+            if (totalC3 > (curMinRank.c3 ?? 0)) {
+              isBetterMinRank = true;
+            } else if (totalC3 === (curMinRank.c3 ?? 0)) {
+              if (fulNum < (curMinRank.fulfillment ?? 999)) {
+                isBetterMinRank = true;
+              }
+            }
+          }
+        }
+      }
+    }
+    if (isBetterMinRank) {
       bests.min_rank_sum = recordObj;
       updated = true;
     }
@@ -786,11 +812,9 @@
       lockInfo.textContent = "🔒 通算50勝で解放";
     }
 
-    // サバイバル自己ベスト記録の描画
     renderSurvivalBestsUI(totalWins);
   }
 
-  // ★ 追加: サバイバルモードの自己ベストをモード選択画面に描画する関数
   function renderSurvivalBestsUI(totalWins) {
     const bestsPanel = document.getElementById('survivalBestsPanel');
     const bestsContent = document.getElementById('survivalBestsContent');
@@ -811,7 +835,7 @@
     let html = '';
     if (bests.min_rank_sum) {
       const r = bests.min_rank_sum;
-      html += `<div style="margin-bottom:2px;">🎯 <strong>最小着順合計:</strong> <span style="font-family:monospace; color:#d32f2f; font-weight:bold;">${r.rank_sum}着</span> (充足率: ${r.fulfillment}% / 内訳: ${r.c1}-${r.c2}-${r.c3}-${r.c4Plus})</div>`;
+      html += `<div style="margin-bottom:2px;">🎯 <strong>最小着順合計:</strong> <span style="font-family:monospace; color:#d32f2f; font-weight:bold;">${r.rank_sum}着</span> (内訳: ${r.c1}-${r.c2}-${r.c3}-${r.c4Plus} / 充足率: ${r.fulfillment}%)</div>`;
     }
     if (bests.max_fulfillment) {
       const r = bests.max_fulfillment;
