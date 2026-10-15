@@ -994,7 +994,7 @@ function showFinalSeriesResult() {
   document.getElementById('final-series-modal').style.display = "block";
 }
 
-// サバイバルモード対応・ポテンシャル充足率＆ベストレコード保存処理（終了判定は行わず、データの集計・リセットのみ担当）
+// サバイバルモード対応・ポテンシャル充足率＆ベストレコード保存処理
 window.goToNextSeries = async function() {
   if (!currentUser) return;
 
@@ -1002,7 +1002,7 @@ window.goToNextSeries = async function() {
   if (btn) { btn.disabled = true; btn.textContent = "データ更新中..."; }
 
   const status = globalUserData?.cpu_battle_status || {};
-  const isSurvival = (status.battle_type === 'survival' || status.deck_type === 1);
+  const isSurvival = (status.battle_type === 'survival' || status.deck_type == 1);
 
   const playerWins = seriesHistory.filter(h => h.win).length;
   const cpuWins = 5 - playerWins;
@@ -1018,9 +1018,19 @@ window.goToNextSeries = async function() {
   const my3rd = seriesHistory.filter(h => h.pRank === 3).length;
   const my4th = Math.max(0, 5 - (my1st + my2nd + my3rd)); // 4着以下
 
+  // --- ポテンシャル充足率およびチーム合計ポテンシャルの計算 ---
+  let totalPotential = 0;
+  currentMatchEntries.forEach(entry => {
+    const master = HORSES_MASTER[entry.horse_id] || {};
+    totalPotential += parseInt(master.potential || master.pt || 18, 10);
+  });
+
+  // ★ ここでラウンド情報(round)、出走馬ID(horse_ids)、チーム合計ポテンシャル(teamPotential)を確実に記録
   const roundHistoryItem = {
     round: status.current_round || 1,
     seriesName: document.getElementById('display-race-title')?.textContent.split('（')[0] || `第 ${status.current_round || 1} 回戦`,
+    horse_ids: usedIds,            // 回戦ごとの出走馬IDリスト
+    teamPotential: totalPotential, // 回戦ごとのチーム合計ポテンシャル
     myWins: playerWins,
     oppWins: cpuWins,
     r1: my1st,
@@ -1047,13 +1057,6 @@ window.goToNextSeries = async function() {
 
   const seriesId = status.selected_series_id || (status.series_lineup ? status.series_lineup[(status.current_round || 1) - 1] : null);
   const currentTotalRank = seriesHistory.reduce((sum, h) => sum + (h.pRank || 0), 0);
-
-  // --- ポテンシャル充足率の計算 ---
-  let totalPotential = 0;
-  currentMatchEntries.forEach(entry => {
-    const master = HORSES_MASTER[entry.horse_id] || {};
-    totalPotential += parseInt(master.potential || master.pt || 18, 10);
-  });
 
   let maxPotentialLimit = 100;
   try {
@@ -1099,7 +1102,6 @@ window.goToNextSeries = async function() {
     }
   }
 
-  // 修正：race_result側では終了判定を行わず、単にレース固有データ(current_match)をクリアして battle.html へ送る
   const updatedCpuBattleStatus = {
     ...status,
     series_wins: newWins,
