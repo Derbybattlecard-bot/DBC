@@ -536,7 +536,6 @@
     }
   }
 
-  // ★ 修正：各回戦のリザルト表示部にチーム合計ポテンシャルと充足率を表示するよう拡張
   function renderSeriesItemCardHTML(sObj, roundNum, isCurrentRound, roundResult) {
     const catName = getNormalizedCategory(sObj) || '一般';
     const sName = sObj.series_name || '名称未設定';
@@ -549,7 +548,6 @@
     if (roundResult) {
       const isGiveUp = roundResult.isGiveUp || roundResult.giveup || roundResult.is_giveup || (roundResult.myWins === undefined && roundResult.oppWins === undefined);
 
-      // 回戦ごとの充足率表示文字列の生成
       let roundFulfillmentHtml = "";
       if (typeof roundResult.teamPotential === 'number') {
         const maxLimit = limits.max_total_potential;
@@ -831,28 +829,24 @@
     await processBattleState(totalWins);
   };
 
+  // ★修正された claimRewardAndReset 関数（二重受取防止策）
   async function claimRewardAndReset(status) {
-    const modal = document.getElementById('rewardModal');
-    const cardContainer = document.getElementById('rewardCardContainer');
-    const current1stCount = status.total_1st_places || 0;
-    let newMax1st = globalUserData.max_1st_places || 0;
-    const userUpdateObj = {};
-
-    if (current1stCount > newMax1st) {
-      newMax1st = current1stCount;
-      globalUserData.max_1st_places = newMax1st;
-      userUpdateObj.max_1st_places = newMax1st;
+    const startBtn = document.getElementById('btnStart');
+    if (startBtn) {
+      startBtn.disabled = true;
+      startBtn.textContent = "処理中...";
     }
 
-    let pool = HORSES_ARRAY;
-    const rewardHorse = pool[Math.floor(Math.random() * pool.length)];
-
-    status.reward_claimed = true;
-    userUpdateObj["cpu_battle_status.reward_claimed"] = true;
-    userUpdateObj["cpu_battle_status.is_active"] = false;
+    // 演出やモーダル表示の前に、まず最優先でFirestoreへ「受取済み・非アクティブ」を保存する
+    const userUpdateObj = {
+      "cpu_battle_status.reward_claimed": true,
+      "cpu_battle_status.is_active": false,
+      "total_wins": increment(1)
+    };
 
     globalUserData.total_wins = (globalUserData.total_wins || 0) + 1;
-    userUpdateObj.total_wins = increment(1);
+    status.reward_claimed = true;
+    status.is_active = false;
 
     const isSurvival = (status.battle_type === 'survival' || status.deck_type === 1);
     if (isSurvival) {
@@ -860,17 +854,38 @@
       userUpdateObj.survival_wins = increment(1);
     }
 
+    const current1stCount = status.total_1st_places || 0;
+    let newMax1st = globalUserData.max_1st_places || 0;
+
+    if (current1stCount > newMax1st) {
+      newMax1st = current1stCount;
+      globalUserData.max_1st_places = newMax1st;
+      userUpdateObj.max_1st_places = newMax1st;
+    }
+
+    // 報酬馬の抽選
+    let pool = HORSES_ARRAY;
+    const rewardHorse = pool[Math.floor(Math.random() * pool.length)];
+
     try {
+      // データベースへの保存を最優先で完了させる
       await Promise.all([
         setDoc(doc(db, "users", currentUser.uid), userUpdateObj, { merge: true }),
         setDoc(doc(db, `users/${currentUser.uid}/inventory/${rewardHorse.horse_id}`), { count: increment(1), obtained_at: new Date().toISOString() }, { merge: true })
       ]);
-    } catch (err) {
+    } catch (err)  {
       console.error("データ保存エラー:", err);
+      alert("報酬の保存に失敗しました。通信環境をご確認ください。");
+      if (startBtn) {
+        startBtn.disabled = false;
+        startBtn.textContent = "🎁 報酬カードを受け取る";
+      }
+      return;
     }
     
     updateHeaderBadges();
 
+    // データの保存完了後に演出（カットイン・モーダル表示）を実行
     let rendererObj = null;
     try {
       const { cardRenderer } = await import('./js/card_renderer.js');
@@ -881,6 +896,8 @@
     } catch (err) {
       console.warn("カットイン演出エラー:", err);
     } finally {
+      const modal = document.getElementById('rewardModal');
+      const cardContainer = document.getElementById('rewardCardContainer');
       if (cardContainer) {
         if (rendererObj && rendererObj.isLoaded) {
           cardContainer.innerHTML = rendererObj.renderCardUI(rewardHorse, 'large');
@@ -888,7 +905,7 @@
           cardContainer.innerHTML = `<div style="padding:20px; font-weight:bold;">${rewardHorse.name} を獲得しました！</div>`;
         }
       }
-      modal.style.display = "flex";
+      if (modal) modal.style.display = "flex";
     }
   }
 
@@ -1042,7 +1059,6 @@
 
     const survivalValEl = document.getElementById('survivalFulfillmentHeaderVal');
     if (isSurvival) {
-      // サバイバルモード時のみ3戦合計の充足率・合計ポテンシャルを表示
       survivalValEl.textContent = `⚡ 3戦合計充足率: ${fulfillmentRatio}% (${actualTeamPotentialSum}/${maxLimitPotentialSum})`;
       survivalValEl.style.display = "block";
     } else {
