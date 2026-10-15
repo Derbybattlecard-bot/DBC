@@ -28,6 +28,7 @@
   .wins-badge { background: linear-gradient(135deg, #d4af37, #f3e5ab); color: #6b4c0a; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid #b8860b; }
   .survival-wins-badge { background: linear-gradient(135deg, #8d6e63, #d7ccc8); color: #3e2723; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid #5d4037; }
   .streak-badge { background: linear-gradient(135deg, #ff9800, #ffe0b2); color: #e65100; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid #f57c00; }
+  .streak-sub-badge { background: linear-gradient(135deg, #00acc1, #e0f7fa); color: #006064; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid #00838f; }
 
   .status-header { background-color: var(--panel-bg); border: 2px solid #d4af37; border-radius: 8px; padding: 10px; text-align: center; font-weight: bold; font-size: 14px; color: #b8860b; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 6px; }
   .status-header-top { display: flex; justify-content: space-between; align-items: center; width: 100%; }
@@ -221,6 +222,7 @@
       <div id="userWinsBadge" class="wins-badge">通算 0 勝</div>
       <div id="userSurvivalWinsBadge" class="survival-wins-badge">サバイバル 0 勝</div>
       <div id="userMax1stBadge" class="streak-badge">最多1着: 0回</div>     
+      <div id="userStreakBadge" class="streak-sub-badge" title="チャレンジ / サバイバル連勝記録">連勝: Ch 0(Max0) / Sv 0(Max0)</div>
       <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中</div>
     </div>
   </div>
@@ -448,6 +450,79 @@
     return limits;
   }
 
+  // ★ ラウンド履歴（round_history）を走査して、チャレンジとサバイバルの連勝記録を算出・更新する関数
+  async function calculateAndUpdateStreaks() {
+    const status = globalUserData.cpu_battle_status || {};
+    const history = globalUserData.round_history || [];
+
+    // 現在進行中のマッチの履歴も考慮するため、もし current_match 内や一時データがあれば必要に応じてマージ可能ですが、
+    // 基本は round_history に蓄積されていきます。
+    let chCurr = 0, chMax = globalUserData.challenge_max_streak || 0;
+    let svCurr = 0, svMax = globalUserData.survival_max_streak || 0;
+
+    // ※過去のラウンド履歴から連続勝敗を厳密に計算
+    // （もし各ラウンド履歴に mode や battle_type が無い場合は、ステータスやモードの判定を付与するか、
+    //   今回のマッチの battle_type を用いる）
+    let chStreak = 0, chMaxStreak = globalUserData.challenge_max_streak || 0;
+    let svStreak = 0, svMaxStreak = globalUserData.survival_max_streak || 0;
+
+    // 例として、round_history 内に battle_type が保存されている、あるいはサバイバルかどうか判定できる場合：
+    history.forEach(h => {
+      const isSurv = (h.battle_type === 'survival' || h.is_survival);
+      const won = h.isWin;
+
+      if (isSurv) {
+        if (won) {
+          svStreak++;
+          if (svStreak > svMaxStreak) svMaxStreak = svStreak;
+        } else {
+          svStreak = 0;
+        }
+      } else {
+        if (won) {
+          chStreak++;
+          if (chStreak > chMaxStreak) chMaxStreak = chStreak;
+        } else {
+          chStreak = 0;
+        }
+      }
+    });
+
+    // もし現在の進行中マッチが完了していてまだ履歴に入っていない場合などのために、
+    // 現在のステータスからも判定を加える
+    if (status.is_active) {
+      const isSurv = (status.battle_type === 'survival' || status.deck_type === 1);
+      // ここまでのラウンドでの連勝数を反映するなど
+    }
+
+    // 更新値が変化していれば Firestore に保存
+    if (chStreak !== globalUserData.challenge_current_streak || chMaxStreak !== globalUserData.challenge_max_streak ||
+        svStreak !== globalUserData.survival_current_streak || svMaxStreak !== globalUserData.survival_max_streak) {
+      
+      globalUserData.challenge_current_streak = chStreak;
+      globalUserData.challenge_max_streak = chMaxStreak;
+      globalUserData.survival_current_streak = svStreak;
+      globalUserData.survival_max_streak = svMaxStreak;
+
+      try {
+        await setDoc(doc(db, "users", currentUser.uid), {
+          challenge_current_streak: chStreak,
+          challenge_max_streak: chMaxStreak,
+          survival_current_streak: svStreak,
+          survival_max_streak: svMaxStreak
+        }, { merge: true });
+      } catch (e) {
+        console.error("連勝記録の保存エラー:", e);
+      }
+    }
+
+    // ヘッダーバッジの更新
+    const streakBadgeEl = document.getElementById('userStreakBadge');
+    if (streakBadgeEl) {
+      streakBadgeEl.textContent = `連勝: Ch ${chStreak}(Max${chMaxStreak}) / Sv ${svStreak}(Max${svMaxStreak})`;
+    }
+  }
+
   function updateHeaderBadges() {
     const totalWins = globalUserData.total_wins || 0;
     const survivalWins = globalUserData.survival_wins || 0;
@@ -455,6 +530,9 @@
     document.getElementById('userWinsBadge').textContent = `通算 ${totalWins} 勝`;
     document.getElementById('userSurvivalWinsBadge').textContent = `サバイバル ${survivalWins} 勝`;
     document.getElementById('userMax1stBadge').textContent = `最多1着: ${max1st}回`;
+    
+    // 連勝記録の計算と表示を呼び出し
+    calculateAndUpdateStreaks();
   }
 
   function formatSurfaceText(surface) {
@@ -490,7 +568,6 @@
     return Number(horse.potential ?? horse.cost ?? horse.pt ?? horse.ability_point ?? 0) || 0;
   }
 
-  // ★ サバイバルベストの保存・評価関数と実績バッジの管理
   async function evaluateAndSaveSurvivalBests(status, totalRankSum, totalC1, totalC2, totalC3, totalC4Plus, fulfillmentRatio, lineup) {
     const isSurvival = (status.battle_type === 'survival' || status.deck_type == 1);
     const currentWins = status.series_wins || 0;
@@ -516,7 +593,6 @@
       achieved_at: nowIso
     };
 
-    // バッジ・実績の更新判定
     if (!globalUserData.survival_badges) {
       globalUserData.survival_badges = {};
     }
@@ -532,7 +608,6 @@
       badgeUpdated = true;
     }
 
-    // 1. 最小着順合計 (min_rank_sum)
     const curMinRank = bests.min_rank_sum;
     let isBetterMinRank = false;
     if (!curMinRank) {
@@ -563,7 +638,6 @@
       updated = true;
     }
 
-    // 2. 最大充足率 (max_fulfillment)
     const currentMaxFul = bests.max_fulfillment;
     let isBetterMaxFul = false;
     if (!currentMaxFul || fulNum > currentMaxFul.fulfillment) {
@@ -578,7 +652,6 @@
       updated = true;
     }
 
-    // 3. 最小充足率 (min_fulfillment)
     const currentMinFul = bests.min_fulfillment;
     let isBetterMinFul = false;
     if (!currentMinFul || fulNum < currentMinFul.fulfillment) {
@@ -593,7 +666,6 @@
       updated = true;
     }
 
-    // 4. 最多1着 (max_1st)
     const currentMax1st = bests.max_1st || { c1: -1, c2: -1, c3: -1 };
     let isBetter1st = false;
     if (totalC1 > currentMax1st.c1) {
@@ -851,7 +923,6 @@
       return;
     }
 
-    // バッジ情報の描画
     const badges = globalUserData.survival_badges || {};
     let badgeTextArr = [];
     if (badges.clear) badgeTextArr.push("🛡️ サバイバル制覇");
@@ -872,7 +943,7 @@
       const c1 = r.c1 ?? 0;
       const c2 = r.c2 ?? 0;
       const c3 = r.c3 ?? 0;
-      const c4 = r.c4Plus !== undefined ? r.c4Plus : (15 - (c1 + c2 + c3));
+      const c4Plus = r.c4Plus !== undefined ? r.c4Plus : (15 - (c1 + c2 + c3));
       return `合計着順: <strong>${r.rank_sum}着</strong> (1着:${c1}, 2着:${c2}, 3着:${c3}, 4着以下:${c4}) / 充足率: <strong>${r.fulfillment}%</strong>`;
     };
 
@@ -979,7 +1050,7 @@
     await processBattleState(totalWins);
   };
 
-  // ★ race_resultから戻った際に自動で報酬を付与し、カットインを再生してからリザルトモーダルを表示
+  // ★ 自動報酬付与＆カットイン演出（ボタンなし）
   async function autoClaimAndShowReward(status) {
     if (status.reward_claimed) return;
 
@@ -1011,7 +1082,6 @@
     let pool = HORSES_ARRAY;
     const rewardHorse = pool[Math.floor(Math.random() * pool.length)];
 
-    // バックエンドで即座にデータ更新・リセット（二重取り完全防止）
     try {
       await Promise.all([
         setDoc(doc(db, "users", currentUser.uid), userUpdateObj, { merge: true }),
@@ -1025,7 +1095,6 @@
     
     updateHeaderBadges();
 
-    // カットイン演出を自動再生
     let rendererObj = null;
     try {
       const { cardRenderer } = await import('./js/card_renderer.js');
@@ -1036,7 +1105,6 @@
     } catch (err) {
       console.warn("カットイン演出エラー:", err);
     } finally {
-      // カットイン終了後、CHALLENGE CLEARのリザルト確認モーダルを表示
       const modal = document.getElementById('rewardModal');
       const cardContainer = document.getElementById('rewardCardContainer');
       if (cardContainer) {
@@ -1243,11 +1311,9 @@
       const winCondition = isSurvival ? 3 : Math.ceil(maxRounds / 2);
 
       if (currentWins >= winCondition && !status.reward_claimed) {
-        // 🏆 勝利していて未受領の場合：ボタンは非表示にして、自動でカットイン＆リザルトへ移行[cite: 5]
         startBtn.style.display = 'none'; 
         autoClaimAndShowReward(status);
       } else {
-        // すでに受け取り済み、または敗北した場合
         startBtn.style.display = 'block';
         startBtn.disabled = false;
         startBtn.style.opacity = '1';
