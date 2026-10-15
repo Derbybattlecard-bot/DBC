@@ -186,13 +186,23 @@
   .btn-start { background: var(--accent-color); color: white; border: none; padding: 15px; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; box-shadow: 0 4px 0 var(--accent-hover); width: 100%; transition: all 0.1s; }
   .btn-start:active { transform: translateY(4px); box-shadow: 0 0 0 var(--accent-hover); }
 
+  /* 埋め込み用インラインクリア報酬パネル（リザルト下部表示用） */
+  .inline-reward-panel {
+    background: #ffffff;
+    border: 2px solid #d4af37;
+    border-radius: 10px;
+    padding: 15px;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(212, 175, 55, 0.2);
+    margin-top: 15px;
+  }
+
   .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 15px; overflow-y: auto; }
   .modal-content { background: #fff; border-radius: 12px; padding: 20px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
   @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
   
   .modal-title { font-size: 20px; font-weight: 900; margin-bottom: 8px; }
   .title-clear { color: #d4af37; }
-  .reward-box { padding: 5px 0; margin-bottom: 15px; }
   .modal-btn { background: var(--accent-color); color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-weight: bold; font-size: 14px; cursor: pointer; }
 
   .unlock-border { border: 4px solid #d4af37; }
@@ -291,6 +301,14 @@
       </div>
     </div>
     <div class="series-cards-list" id="seriesCardsContainer"></div>
+
+    <!-- 🏆 クリア時の獲得カード表示用パネル（リザルトの下に配置） -->
+    <div class="inline-reward-panel" id="inlineRewardPanel" style="display: none;">
+      <div style="font-size: 16px; font-weight: 900; color: #d4af37; margin-bottom: 4px;">🎉 CHALLENGE CLEAR!</div>
+      <div style="font-size: 11px; color: #666; margin-bottom: 8px;">おめでとうございます！規定勝利数を達成しました！</div>
+      <div style="font-size: 11.5px; color: #c67100; font-weight: bold; margin-bottom: 6px;">🎁 獲得した報酬カード</div>
+      <div id="inlineRewardCardContainer" style="display: flex; justify-content: center; margin: 5px 0;"></div>
+    </div>
   </div>
 
   <div class="deck-select-panel" id="deckPanel" style="display: none;">
@@ -324,19 +342,6 @@
   </div>
   
   <button class="btn-start" id="btnStart" style="display: none;" onclick="goToMatchup()">出走登録へ進む</button>
-</div>
-
-<div class="modal-overlay" id="rewardModal">
-  <div class="modal-content">
-    <div class="modal-title title-clear">🎉 CHALLENGE CLEAR!</div>
-    <div class="modal-desc" id="rewardModalDesc">おめでとうございます！規定勝利数を達成しました！</div>
-    
-    <div class="reward-box">
-      <div style="font-size:12px; color:#c67100; font-weight:bold; margin-bottom: 8px;">🎁 報酬カード獲得！</div>
-      <div id="rewardCardContainer" style="display: flex; justify-content: center; margin: 10px 0;"></div>
-    </div>
-    <button class="modal-btn" onclick="closeRewardModal()">確認（対戦データを初期化）</button>
-  </div>
 </div>
 
 <div class="modal-overlay" id="unlockOverlay">
@@ -450,23 +455,13 @@
     return limits;
   }
 
-  // ★ ラウンド履歴（round_history）を走査して、チャレンジとサバイバルの連勝記録を算出・更新する関数
   async function calculateAndUpdateStreaks() {
     const status = globalUserData.cpu_battle_status || {};
     const history = globalUserData.round_history || [];
 
-    // 現在進行中のマッチの履歴も考慮するため、もし current_match 内や一時データがあれば必要に応じてマージ可能ですが、
-    // 基本は round_history に蓄積されていきます。
-    let chCurr = 0, chMax = globalUserData.challenge_max_streak || 0;
-    let svCurr = 0, svMax = globalUserData.survival_max_streak || 0;
-
-    // ※過去のラウンド履歴から連続勝敗を厳密に計算
-    // （もし各ラウンド履歴に mode や battle_type が無い場合は、ステータスやモードの判定を付与するか、
-    //   今回のマッチの battle_type を用いる）
     let chStreak = 0, chMaxStreak = globalUserData.challenge_max_streak || 0;
     let svStreak = 0, svMaxStreak = globalUserData.survival_max_streak || 0;
 
-    // 例として、round_history 内に battle_type が保存されている、あるいはサバイバルかどうか判定できる場合：
     history.forEach(h => {
       const isSurv = (h.battle_type === 'survival' || h.is_survival);
       const won = h.isWin;
@@ -488,14 +483,6 @@
       }
     });
 
-    // もし現在の進行中マッチが完了していてまだ履歴に入っていない場合などのために、
-    // 現在のステータスからも判定を加える
-    if (status.is_active) {
-      const isSurv = (status.battle_type === 'survival' || status.deck_type === 1);
-      // ここまでのラウンドでの連勝数を反映するなど
-    }
-
-    // 更新値が変化していれば Firestore に保存
     if (chStreak !== globalUserData.challenge_current_streak || chMaxStreak !== globalUserData.challenge_max_streak ||
         svStreak !== globalUserData.survival_current_streak || svMaxStreak !== globalUserData.survival_max_streak) {
       
@@ -516,7 +503,6 @@
       }
     }
 
-    // ヘッダーバッジの更新
     const streakBadgeEl = document.getElementById('userStreakBadge');
     if (streakBadgeEl) {
       streakBadgeEl.textContent = `連勝: Ch ${chStreak}(Max${chMaxStreak}) / Sv ${svStreak}(Max${svMaxStreak})`;
@@ -531,7 +517,6 @@
     document.getElementById('userSurvivalWinsBadge').textContent = `サバイバル ${survivalWins} 勝`;
     document.getElementById('userMax1stBadge').textContent = `最多1着: ${max1st}回`;
     
-    // 連勝記録の計算と表示を呼び出し
     calculateAndUpdateStreaks();
   }
 
@@ -888,6 +873,7 @@
     document.getElementById('deckPanel').style.display = 'none';
     document.getElementById('btnStart').style.display = 'none';
     document.getElementById('winLossHeader').style.display = 'none';
+    document.getElementById('inlineRewardPanel').style.display = 'none';
     
     document.getElementById('modeSelectPanel').style.display = 'block';
 
@@ -943,7 +929,7 @@
       const c1 = r.c1 ?? 0;
       const c2 = r.c2 ?? 0;
       const c3 = r.c3 ?? 0;
-      const c4Plus = r.c4Plus !== undefined ? r.c4Plus : (15 - (c1 + c2 + c3));
+      const c4 = r.c4Plus !== undefined ? r.c4Plus : (15 - (c1 + c2 + c3));
       return `合計着順: <strong>${r.rank_sum}着</strong> (1着:${c1}, 2着:${c2}, 3着:${c3}, 4着以下:${c4}) / 充足率: <strong>${r.fulfillment}%</strong>`;
     };
 
@@ -1017,7 +1003,7 @@
   };
 
   window.manualResetBattleData = async function() {
-    if (!confirm("現在の対戦データを初期化して、新しい対戦を開始しますか？")) return;
+    if (!confirm("現在の対戦データを初期化して、新しい挑戦を開始しますか？")) return;
     try {
       const emptyStatus = { is_active: false };
       await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: emptyStatus }, { merge: true });
@@ -1050,19 +1036,26 @@
     await processBattleState(totalWins);
   };
 
-  // ★ 自動報酬付与＆カットイン演出（ボタンなし）
+  // ★ クリア時に自動で報酬を付与し、カットイン演出後にリザルト下部にカードを表示する関数
   async function autoClaimAndShowReward(status) {
-    if (status.reward_claimed) return;
+    if (status.reward_claimed && status.reward_horse_id) {
+      // すでに受取済みの場合はそのままカードを表示
+      await renderInlineRewardCardOnly(status.reward_horse_id);
+      return;
+    }
+
+    let pool = HORSES_ARRAY;
+    const rewardHorse = pool[Math.floor(Math.random() * pool.length)];
 
     const userUpdateObj = {
       "cpu_battle_status.reward_claimed": true,
-      "cpu_battle_status.is_active": false,
+      "cpu_battle_status.reward_horse_id": rewardHorse.horse_id,
       "total_wins": increment(1)
     };
 
     globalUserData.total_wins = (globalUserData.total_wins || 0) + 1;
     status.reward_claimed = true;
-    status.is_active = false;
+    status.reward_horse_id = rewardHorse.horse_id;
 
     const isSurvival = (status.battle_type === 'survival' || status.deck_type === 1);
     if (isSurvival) {
@@ -1079,9 +1072,6 @@
       userUpdateObj.max_1st_places = newMax1st;
     }
 
-    let pool = HORSES_ARRAY;
-    const rewardHorse = pool[Math.floor(Math.random() * pool.length)];
-
     try {
       await Promise.all([
         setDoc(doc(db, "users", currentUser.uid), userUpdateObj, { merge: true }),
@@ -1095,38 +1085,35 @@
     
     updateHeaderBadges();
 
-    let rendererObj = null;
+    // カットイン演出を再生してからインラインパネルにカードを描画
     try {
       const { cardRenderer } = await import('./js/card_renderer.js');
-      rendererObj = cardRenderer;
       if (!cardRenderer.isLoaded) await cardRenderer.init();
       const { playFourthCornerCutIn } = await import('./js/login_bonus.js');
       await playFourthCornerCutIn(rewardHorse, cardRenderer);
+      
+      await renderInlineRewardCardOnly(rewardHorse.horse_id);
     } catch (err) {
       console.warn("カットイン演出エラー:", err);
-    } finally {
-      const modal = document.getElementById('rewardModal');
-      const cardContainer = document.getElementById('rewardCardContainer');
-      if (cardContainer) {
-        if (rendererObj && rendererObj.isLoaded) {
-          cardContainer.innerHTML = rendererObj.renderCardUI(rewardHorse, 'large');
-        } else {
-          cardContainer.innerHTML = `<div style="padding:20px; font-weight:bold;">${rewardHorse.name} を獲得しました！</div>`;
-        }
-      }
-      if (modal) modal.style.display = "flex";
+      await renderInlineRewardCardOnly(rewardHorse.horse_id);
     }
   }
 
-  window.closeRewardModal = async function() {
-    document.getElementById('rewardModal').style.display = 'none';
+  async function renderInlineRewardCardOnly(horseId) {
+    const rewardHorse = HORSES_MASTER[horseId];
+    if (!rewardHorse) return;
+
+    const inlinePanel = document.getElementById('inlineRewardPanel');
+    const cardContainer = document.getElementById('inlineRewardCardContainer');
     try {
-      await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: { is_active: false } }, { merge: true });
+      const { cardRenderer } = await import('./js/card_renderer.js');
+      if (!cardRenderer.isLoaded) await cardRenderer.init();
+      cardContainer.innerHTML = cardRenderer.renderCardUI(rewardHorse, 'large');
     } catch (e) {
-      console.error(e);
+      cardContainer.innerHTML = `<div style="padding:20px; font-weight:bold;">${rewardHorse.name}</div>`;
     }
-    window.location.reload();
-  };
+    if (inlinePanel) inlinePanel.style.display = "block";
+  }
 
   function generateSeriesLineup(totalWins, maxRounds) {
     if (!SERIES_MASTER || SERIES_MASTER.length === 0) return [];
@@ -1310,10 +1297,27 @@
       const maxRounds = isSurvival ? 3 : (status.max_rounds || 3);
       const winCondition = isSurvival ? 3 : Math.ceil(maxRounds / 2);
 
-      if (currentWins >= winCondition && !status.reward_claimed) {
-        startBtn.style.display = 'none'; 
-        autoClaimAndShowReward(status);
+      if (currentWins >= winCondition) {
+        // 未受取の場合は自動で報酬付与＆カットイン演出を走らせる
+        if (!status.reward_claimed) {
+          if (!window._autoRewardTriggered) {
+            window._autoRewardTriggered = true;
+            await autoClaimAndShowReward(status);
+          }
+        } else {
+          // すでに受取済みの場合はそのままカードを表示
+          await renderInlineRewardCardOnly(status.reward_horse_id);
+        }
+
+        // 下部のボタンを「バトルを終了する」に変更
+        startBtn.style.display = 'block';
+        startBtn.disabled = false;
+        startBtn.style.opacity = '1';
+        startBtn.style.cursor = 'pointer';
+        startBtn.textContent = "🏁 バトルを終了する（新しい挑戦を開始する）";
+        startBtn.onclick = manualResetBattleData;
       } else {
+        document.getElementById('inlineRewardPanel').style.display = 'none';
         startBtn.style.display = 'block';
         startBtn.disabled = false;
         startBtn.style.opacity = '1';
@@ -1323,6 +1327,8 @@
       }
       if (resetBtn) resetBtn.style.display = 'none';
     } else {
+      document.getElementById('inlineRewardPanel').style.display = 'none';
+
       const currentSeriesId = lineup[status.current_round - 1];
       selectedSeries = SERIES_MASTER.find(s => s.series_id === currentSeriesId) || SERIES_MASTER[0];
 
