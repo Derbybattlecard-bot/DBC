@@ -606,7 +606,9 @@ onAuthStateChanged(auth, async (user) => {
         });
       }
 
-      const hasWatchedAll = sessionStorage.getItem(`watched_race_${roomId}`);
+      // 💡 【修正】回戦ごとの独立したセッションキーを使用
+      const watchedKey = `watched_race_${roomId}_${currentSeriesIndex}`;
+      const hasWatchedAll = sessionStorage.getItem(watchedKey);
       if (hasWatchedAll === "true") {
         showFinalSeriesResult();
         listenRoomStatus();
@@ -1749,6 +1751,70 @@ function recordHistory(scoredList) {
 }
 
 function showFinalSeriesResult() {
+  // 💡 【修正】観戦完了フラグを回戦ごとに正しくセッションストレージへ保存
+  const currentSeriesIndex = roomData?.current_series_index || 0;
+  sessionStorage.setItem(`watched_race_${roomId}_${currentSeriesIndex}`, 'true');
+
+  // 💡 【修正】重複表示を防ぐため、seriesHistoryを一度クリアしてキャッシュから一意に再構築
+  seriesHistory = [];
+  const addedRaces = new Set();
+  const cacheObj = roomData?.race_results_cache || {};
+  const isHost = (role === 'host');
+
+  const matchSeries = roomData?.match_series || roomData?.selected_series || ["series_01"];
+  const seriesId = Array.isArray(matchSeries) ? (matchSeries[currentSeriesIndex] || matchSeries[0]) : matchSeries;
+  const seriesInfo = seriesMasterData[seriesId] || Object.values(seriesMasterData)[0] || {};
+  const racesInSeries = seriesInfo.races || (seriesInfo.rounds && seriesInfo.rounds[0] ? seriesInfo.rounds[0].races : null);
+
+  for (let rIdx = 0; rIdx < 5; rIdx++) {
+    const seriesNum = currentSeriesIndex + 1;
+    const pKey = `${seriesNum}${rIdx + 1}`;
+    const raceRes = cacheObj[pKey];
+    if (!raceRes || addedRaces.has(rIdx + 1)) continue;
+    addedRaces.add(rIdx + 1);
+
+    const roundRace = (Array.isArray(racesInSeries) && racesInSeries[rIdx]) ? racesInSeries[rIdx] : null;
+    const raceName = roundRace?.race_name || `第${rIdx + 1}戦`;
+
+    const results = raceRes.results || [];
+    results.forEach(h => {
+      if (h.playerRole === 'host') {
+        h.isPlayer = isHost;
+        h.isOpponent = !isHost;
+      } else if (h.playerRole === 'guest') {
+        h.isPlayer = !isHost;
+        h.isOpponent = isHost;
+      } else {
+        h.isPlayer = false;
+        h.isOpponent = false;
+      }
+    });
+
+    const myHorse = results.find(h => h.isPlayer);
+    const oppHorse = results.find(h => h.isOpponent);
+    const myRank = myHorse ? (results.indexOf(myHorse) + 1) : 99;
+    const oppRank = oppHorse ? (results.indexOf(oppHorse) + 1) : 99;
+
+    let isWin = false;
+    let winnerText = "引き分け";
+    if (myRank < oppRank) {
+      isWin = true;
+      winnerText = myNameStr;
+    } else if (oppRank < myRank) {
+      isWin = false;
+      winnerText = oppNameStr;
+    }
+
+    seriesHistory.push({
+      raceNum: rIdx + 1,
+      raceName: raceName,
+      myRank: myRank,
+      oppRank: oppRank,
+      win: isWin,
+      winner: winnerText
+    });
+  }
+
   let myWins = 0;
   let oppWins = 0;
 
@@ -1788,7 +1854,6 @@ function showFinalSeriesResult() {
       </tr>`;
   });
 
-  const isHost = (role === 'host');
   const modalBtn = document.getElementById('modalNextBtn');
   const statusMsgEl = document.getElementById('modalHostStatusMsg');
 
@@ -1827,7 +1892,6 @@ function showFinalSeriesResult() {
       const roomRef = doc(db, "online_matches", roomId);
       
       const existingHistory = Array.isArray(roomData.match_history) ? [...roomData.match_history] : [];
-      const currentSeriesIndex = roomData?.current_series_index || 0;
 
       if (!existingHistory[currentSeriesIndex]) {
         const winKey = 'p1_wins'; 
@@ -1850,8 +1914,6 @@ function showFinalSeriesResult() {
         updateObj.p1_2nd_count = increment(seconds);
         updateObj.p1_3rd_count = increment(thirds);
 
-        const matchSeries = roomData?.match_series || roomData?.selected_series || [];
-        const seriesId = matchSeries[currentSeriesIndex] || matchSeries[0] || "SERIES_001";
         const seriesObj = seriesMasterData[seriesId] || {};
         const seriesName = seriesObj.series_name || seriesObj.name || `第${currentSeriesIndex + 1}回戦`;
 
