@@ -979,12 +979,9 @@
     await processBattleState(totalWins);
   };
 
-  async function claimRewardAndReset(status) {
-    const startBtn = document.getElementById('btnStart');
-    if (startBtn) {
-      startBtn.disabled = true;
-      startBtn.textContent = "処理中...";
-    }
+  // ★ race_resultから戻った際に自動で報酬を付与し、カットインを再生してからリザルトモーダルを表示
+  async function autoClaimAndShowReward(status) {
+    if (status.reward_claimed) return;
 
     const userUpdateObj = {
       "cpu_battle_status.reward_claimed": true,
@@ -1014,6 +1011,7 @@
     let pool = HORSES_ARRAY;
     const rewardHorse = pool[Math.floor(Math.random() * pool.length)];
 
+    // バックエンドで即座にデータ更新・リセット（二重取り完全防止）
     try {
       await Promise.all([
         setDoc(doc(db, "users", currentUser.uid), userUpdateObj, { merge: true }),
@@ -1022,15 +1020,12 @@
     } catch (err)  {
       console.error("データ保存エラー:", err);
       alert("報酬の保存に失敗しました。通信環境をご確認ください。");
-      if (startBtn) {
-        startBtn.disabled = false;
-        startBtn.textContent = "🎁 報酬カードを受け取る";
-      }
       return;
     }
     
     updateHeaderBadges();
 
+    // カットイン演出を自動再生
     let rendererObj = null;
     try {
       const { cardRenderer } = await import('./js/card_renderer.js');
@@ -1041,6 +1036,7 @@
     } catch (err) {
       console.warn("カットイン演出エラー:", err);
     } finally {
+      // カットイン終了後、CHALLENGE CLEARのリザルト確認モーダルを表示
       const modal = document.getElementById('rewardModal');
       const cardContainer = document.getElementById('rewardCardContainer');
       if (cardContainer) {
@@ -1242,19 +1238,20 @@
     if (isFinished) {
       document.getElementById('challengePanel').style.display = 'block';
       document.getElementById('deckPanel').style.display = 'none';
-      
-      startBtn.style.display = 'block';
 
       const maxRounds = isSurvival ? 3 : (status.max_rounds || 3);
       const winCondition = isSurvival ? 3 : Math.ceil(maxRounds / 2);
 
       if (currentWins >= winCondition && !status.reward_claimed) {
-        startBtn.textContent = "🎁 報酬カードを受け取る";
-        startBtn.onclick = async () => {
-          startBtn.disabled = true;
-          await claimRewardAndReset(status);
-        };
+        // 🏆 勝利していて未受領の場合：ボタンは非表示にして、自動でカットイン＆リザルトへ移行[cite: 5]
+        startBtn.style.display = 'none'; 
+        autoClaimAndShowReward(status);
       } else {
+        // すでに受け取り済み、または敗北した場合
+        startBtn.style.display = 'block';
+        startBtn.disabled = false;
+        startBtn.style.opacity = '1';
+        startBtn.style.cursor = 'pointer';
         startBtn.textContent = "🏁 バトルを終了する（新しい挑戦を開始する）";
         startBtn.onclick = manualResetBattleData;
       }
