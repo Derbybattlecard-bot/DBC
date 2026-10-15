@@ -24,8 +24,9 @@
   
   .header-panel { background-color: var(--panel-bg); padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
   .btn-back { background: #ffffff; color: var(--accent-color); border: 1px solid var(--accent-color); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; text-decoration: none; }
-  .header-right { display: flex; align-items: center; gap: 8px; }
+  .header-right { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
   .wins-badge { background: linear-gradient(135deg, #d4af37, #f3e5ab); color: #6b4c0a; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid #b8860b; }
+  .survival-wins-badge { background: linear-gradient(135deg, #8d6e63, #d7ccc8); color: #3e2723; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid #5d4037; }
   .streak-badge { background: linear-gradient(135deg, #ff9800, #ffe0b2); color: #e65100; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid #f57c00; }
 
   .status-header { background-color: var(--panel-bg); border: 2px solid #d4af37; border-radius: 8px; padding: 10px; text-align: center; font-weight: bold; font-size: 14px; color: #b8860b; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 6px; }
@@ -218,6 +219,7 @@
     <a href="index.html" class="btn-back">← 戻る</a>
     <div class="header-right">
       <div id="userWinsBadge" class="wins-badge">通算 0 勝</div>
+      <div id="userSurvivalWinsBadge" class="survival-wins-badge">サバイバル 0 勝</div>
       <div id="userMax1stBadge" class="streak-badge">最多1着: 0回</div>     
       <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中</div>
     </div>
@@ -255,11 +257,12 @@
     </div>
 
     <!-- 🏆 サバイバルモード自己ベスト記録表示パネル -->
-    <div id="survivalBestsPanel" style="display: none; margin-top: 15px; background: #fffdf4; border: 1.5px solid #d4af37; border-radius: 8px; padding: 10px 14px; text-align: left;">
-      <div style="font-size: 12px; font-weight: bold; color: #b8860b; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
-        🏆 サバイバルモード 自己ベスト記録
+    <div id="survivalBestsPanel" style="display: none; margin-top: 15px; background: #fffdf4; border: 1.5px solid #d4af37; border-radius: 8px; padding: 12px 16px; text-align: left;">
+      <div style="font-size: 13px; font-weight: bold; color: #b8860b; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+        <span>🏆 サバイバルモード 自己ベスト & 実績</span>
+        <span id="survivalBadgeStatus" style="font-size: 11px; font-weight: normal;"></span>
       </div>
-      <div id="survivalBestsContent" style="font-size: 11px; color: #5d4037; display: flex; flex-direction: column; gap: 4px;">
+      <div id="survivalBestsContent" style="font-size: 12px; color: #5d4037; display: flex; flex-direction: column; gap: 5px; line-height: 1.4;">
         <!-- 動的表示 -->
       </div>
     </div>
@@ -447,8 +450,10 @@
 
   function updateHeaderBadges() {
     const totalWins = globalUserData.total_wins || 0;
+    const survivalWins = globalUserData.survival_wins || 0;
     const max1st = globalUserData.max_1st_places || 0;
     document.getElementById('userWinsBadge').textContent = `通算 ${totalWins} 勝`;
+    document.getElementById('userSurvivalWinsBadge').textContent = `サバイバル ${survivalWins} 勝`;
     document.getElementById('userMax1stBadge').textContent = `最多1着: ${max1st}回`;
   }
 
@@ -485,7 +490,7 @@
     return Number(horse.potential ?? horse.cost ?? horse.pt ?? horse.ability_point ?? 0) || 0;
   }
 
-  // ★ 修正: サバイバルベストの保存・評価関数（最小着順のタイブレーク：1着 ➔ 2着 ➔ 3着 ➔ 充足率(低)）
+  // ★ サバイバルベストの保存・評価関数と実績バッジの管理
   async function evaluateAndSaveSurvivalBests(status, totalRankSum, totalC1, totalC2, totalC3, totalC4Plus, fulfillmentRatio, lineup) {
     const isSurvival = (status.battle_type === 'survival' || status.deck_type == 1);
     const currentWins = status.series_wins || 0;
@@ -511,8 +516,23 @@
       achieved_at: nowIso
     };
 
+    // バッジ・実績の更新判定
+    if (!globalUserData.survival_badges) {
+      globalUserData.survival_badges = {};
+    }
+    const badges = globalUserData.survival_badges;
+    let badgeUpdated = false;
+
+    if (!badges.clear) {
+      badges.clear = true;
+      badgeUpdated = true;
+    }
+    if (fulNum >= 100 && !badges.fulfillment_100) {
+      badges.fulfillment_100 = true;
+      badgeUpdated = true;
+    }
+
     // 1. 最小着順合計 (min_rank_sum)
-    // 優先順位: 合計着順(小) ➔ 1着回数(多) ➔ 2着回数(多) ➔ 3着回数(多) ➔ 充足率(低)
     const curMinRank = bests.min_rank_sum;
     let isBetterMinRank = false;
     if (!curMinRank) {
@@ -543,7 +563,7 @@
       updated = true;
     }
 
-    // 2. 最大充足率 (max_fulfillment): 高い方、同率なら合計着順が小さい方
+    // 2. 最大充足率 (max_fulfillment)
     const currentMaxFul = bests.max_fulfillment;
     let isBetterMaxFul = false;
     if (!currentMaxFul || fulNum > currentMaxFul.fulfillment) {
@@ -558,7 +578,7 @@
       updated = true;
     }
 
-    // 3. 最小充足率 (min_fulfillment): 低い方、同率なら合計着順が小さい方
+    // 3. 最小充足率 (min_fulfillment)
     const currentMinFul = bests.min_fulfillment;
     let isBetterMinFul = false;
     if (!currentMinFul || fulNum < currentMinFul.fulfillment) {
@@ -585,7 +605,8 @@
         if (totalC3 > currentMax1st.c3) {
           isBetter1st = true;
         } else if (totalC3 === currentMax1st.c3) {
-          if (totalC4Plus < (currentMax1st.c4Plus ?? 99)) {
+          const curC4 = currentMax1st.c4Plus !== undefined ? currentMax1st.c4Plus : (15 - ((currentMax1st.c1 || 0) + (currentMax1st.c2 || 0) + (currentMax1st.c3 || 0)));
+          if (totalC4Plus < curC4) {
             isBetter1st = true;
           }
         }
@@ -596,9 +617,13 @@
       updated = true;
     }
 
-    if (updated) {
+    if (updated || badgeUpdated) {
       globalUserData.survival_bests = bests;
-      await setDoc(doc(db, "users", currentUser.uid), { survival_bests: bests }, { merge: true });
+      globalUserData.survival_badges = badges;
+      await setDoc(doc(db, "users", currentUser.uid), { 
+        survival_bests: bests,
+        survival_badges: badges
+      }, { merge: true });
     }
   }
 
@@ -643,7 +668,7 @@
         const c1 = roundResult.r1 ?? roundResult.c1 ?? 0;
         const c2 = roundResult.r2 ?? roundResult.c2 ?? 0;
         const c3 = roundResult.r3 ?? roundResult.c3 ?? 0;
-        const c4Plus = roundResult.r4Plus ?? roundResult.c4 ?? 0;
+        const c4Plus = roundResult.r4Plus ?? (15 - (c1 + c2 + c3));
 
         let rankSum = roundResult.rankSum;
         if (rankSum === undefined) {
@@ -654,7 +679,7 @@
           }
         }
 
-        const detailText = `(${c1}-${c2}-${c3}-${c4Plus}) 合計${rankSum}着`;
+        const detailText = `(1着:${c1}, 2着:${c2}, 3着:${c3}, 4着以下:${c4Plus}) 合計${rankSum}着`;
         const badgeClass = roundResult.isWin ? 'badge-win' : 'badge-loss';
         const badgeText = roundResult.isWin ? '○ 勝利' : '× 敗北';
 
@@ -818,6 +843,7 @@
   function renderSurvivalBestsUI(totalWins) {
     const bestsPanel = document.getElementById('survivalBestsPanel');
     const bestsContent = document.getElementById('survivalBestsContent');
+    const badgeStatusEl = document.getElementById('survivalBadgeStatus');
     if (!bestsPanel || !bestsContent) return;
 
     if (totalWins < 50) {
@@ -825,29 +851,42 @@
       return;
     }
 
+    // バッジ情報の描画
+    const badges = globalUserData.survival_badges || {};
+    let badgeTextArr = [];
+    if (badges.clear) badgeTextArr.push("🛡️ サバイバル制覇");
+    if (badges.fulfillment_100) badgeTextArr.push("🌟 充足率100%達成");
+    if (badgeStatusEl) {
+      badgeStatusEl.innerHTML = badgeTextArr.length > 0 ? `<span style="color:#2e7d32; font-weight:bold;">[ 獲得バッジ: ${badgeTextArr.join(' / ')} ]</span>` : `<span style="color:#888;">[ 未獲得バッジあり ]</span>`;
+    }
+
     const bests = globalUserData.survival_bests;
     if (!bests || Object.keys(bests).length === 0) {
       bestsPanel.style.display = 'block';
-      bestsContent.innerHTML = `<span style="color: #777;">まだサバイバルモードのクリア記録がありません。全3戦をクリアしてベストを残そう！</span>`;
+      bestsContent.innerHTML = `<span style="color: #777;">まだサバイバルモードのクリア記録がありません。全3戦をクリアしてベストレコードを残そう！</span>`;
       return;
     }
 
     let html = '';
+    const formatRecord = (r) => {
+      const c1 = r.c1 ?? 0;
+      const c2 = r.c2 ?? 0;
+      const c3 = r.c3 ?? 0;
+      const c4 = r.c4Plus !== undefined ? r.c4Plus : (15 - (c1 + c2 + c3));
+      return `合計着順: <strong>${r.rank_sum}着</strong> (1着:${c1}, 2着:${c2}, 3着:${c3}, 4着以下:${c4}) / 充足率: <strong>${r.fulfillment}%</strong>`;
+    };
+
     if (bests.min_rank_sum) {
-      const r = bests.min_rank_sum;
-      html += `<div style="margin-bottom:2px;">🎯 <strong>最小着順合計:</strong> <span style="font-family:monospace; color:#d32f2f; font-weight:bold;">${r.rank_sum}着</span> (内訳: ${r.c1}-${r.c2}-${r.c3}-${r.c4Plus} / 充足率: ${r.fulfillment}%)</div>`;
+      html += `<div style="margin-bottom:3px;">🎯 <strong>最小着順合計:</strong> <span style="font-family:monospace; color:#d32f2f;">${formatRecord(bests.min_rank_sum)}</span></div>`;
     }
     if (bests.max_fulfillment) {
-      const r = bests.max_fulfillment;
-      html += `<div style="margin-bottom:2px;">📈 <strong>最大充足率:</strong> <span style="font-family:monospace; color:#2d6a37; font-weight:bold;">${r.fulfillment}%</span> (合計着順: ${r.rank_sum}着 / 内訳: ${r.c1}-${r.c2}-${r.c3}-${r.c4Plus})</div>`;
+      html += `<div style="margin-bottom:3px;">📈 <strong>最大充足率:</strong> <span style="font-family:monospace; color:#2d6a37;">${formatRecord(bests.max_fulfillment)}</span></div>`;
     }
     if (bests.min_fulfillment) {
-      const r = bests.min_fulfillment;
-      html += `<div style="margin-bottom:2px;">📉 <strong>最小充足率:</strong> <span style="font-family:monospace; color:#d97706; font-weight:bold;">${r.fulfillment}%</span> (合計着順: ${r.rank_sum}着 / 内訳: ${r.c1}-${r.c2}-${r.c3}-${r.c4Plus})</div>`;
+      html += `<div style="margin-bottom:3px;">📉 <strong>最小充足率:</strong> <span style="font-family:monospace; color:#d97706;">${formatRecord(bests.min_fulfillment)}</span></div>`;
     }
     if (bests.max_1st) {
-      const r = bests.max_1st;
-      html += `<div>👑 <strong>最多1着回数:</strong> <span style="font-family:monospace; color:#b8860b; font-weight:bold;">内訳: ${r.c1}-${r.c2}-${r.c3}-${r.c4Plus}</span> (合計着順: ${r.rank_sum}着 / 充足率: ${r.fulfillment}%)</div>`;
+      html += `<div>👑 <strong>最多1着回数:</strong> <span style="font-family:monospace; color:#b8860b;">${formatRecord(bests.max_1st)}</span></div>`;
     }
 
     if (html === '') {
@@ -1101,7 +1140,7 @@
       const c1 = h.r1 ?? h.c1 ?? 0;
       const c2 = h.r2 ?? h.c2 ?? 0;
       const c3 = h.r3 ?? h.c3 ?? 0;
-      const c4Plus = h.r4Plus ?? h.c4 ?? 0;
+      const c4Plus = h.r4Plus ?? (15 - (c1 + c2 + c3));
 
       totalC1 += c1;
       totalC2 += c2;
@@ -1150,7 +1189,7 @@
       actualTeamPotentialSum += roundPot;
     });
 
-    document.getElementById('totalDetailText').textContent = `${totalC1}-${totalC2}-${totalC3}-${totalC4Plus} (合計${totalRankSum}着)`;
+    document.getElementById('totalDetailText').textContent = `(1着:${totalC1}, 2着:${totalC2}, 3着:${totalC3}, 4着以下:${totalC4Plus}) 合計${totalRankSum}着`;
 
     lineup.forEach(sId => {
       const sObj = SERIES_MASTER.find(s => s.series_id === sId);
