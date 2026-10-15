@@ -253,6 +253,16 @@
         <button id="btnStartSurvival" class="btn-mode-start btn-survival" onclick="startNewBattle('survival')">対戦スタート</button>
       </div>
     </div>
+
+    <!-- 🏆 サバイバルモード自己ベスト記録表示パネル -->
+    <div id="survivalBestsPanel" style="display: none; margin-top: 15px; background: #fffdf4; border: 1.5px solid #d4af37; border-radius: 8px; padding: 10px 14px; text-align: left;">
+      <div style="font-size: 12px; font-weight: bold; color: #b8860b; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
+        🏆 サバイバルモード 自己ベスト記録
+      </div>
+      <div id="survivalBestsContent" style="font-size: 11px; color: #5d4037; display: flex; flex-direction: column; gap: 4px;">
+        <!-- 動的表示 -->
+      </div>
+    </div>
   </div>
 
   <div class="status-header" id="winLossHeader" style="display: none;">
@@ -475,7 +485,8 @@
     return Number(horse.potential ?? horse.cost ?? horse.pt ?? horse.ability_point ?? 0) || 0;
   }
 
-  async function evaluateAndSaveSurvivalBests(status, totalRankSum, totalC1, totalC2, totalC3, fulfillmentRatio, lineup) {
+  // ★ 修正: サバイバルベストの保存・評価関数（最小着順、最大充足率、最小充足率、最多1着）
+  async function evaluateAndSaveSurvivalBests(status, totalRankSum, totalC1, totalC2, totalC3, totalC4Plus, fulfillmentRatio, lineup) {
     const isSurvival = (status.battle_type === 'survival' || status.deck_type == 1);
     const currentWins = status.series_wins || 0;
 
@@ -487,12 +498,56 @@
     const bests = globalUserData.survival_bests;
     let updated = false;
     const nowIso = new Date().toISOString();
+    const fulNum = parseFloat(fulfillmentRatio);
 
-    if (bests.min_rank_sum === undefined || totalRankSum < bests.min_rank_sum.rank_sum) {
-      bests.min_rank_sum = { rank_sum: totalRankSum, series_lineup: lineup, achieved_at: nowIso };
+    const recordObj = {
+      rank_sum: totalRankSum,
+      c1: totalC1,
+      c2: totalC2,
+      c3: totalC3,
+      c4Plus: totalC4Plus,
+      fulfillment: fulNum,
+      series_lineup: lineup,
+      achieved_at: nowIso
+    };
+
+    // 1. 最小着順合計 (min_rank_sum)
+    if (!bests.min_rank_sum || totalRankSum < bests.min_rank_sum.rank_sum || (totalRankSum === bests.min_rank_sum.rank_sum && fulNum > (bests.min_rank_sum.fulfillment || 0))) {
+      bests.min_rank_sum = recordObj;
       updated = true;
     }
 
+    // 2. 最大充足率 (max_fulfillment): 高い方、同率なら合計着順が小さい方
+    const currentMaxFul = bests.max_fulfillment;
+    let isBetterMaxFul = false;
+    if (!currentMaxFul || fulNum > currentMaxFul.fulfillment) {
+      isBetterMaxFul = true;
+    } else if (currentMaxFul && fulNum === currentMaxFul.fulfillment) {
+      if (totalRankSum < currentMaxFul.rank_sum) {
+        isBetterMaxFul = true;
+      }
+    }
+    if (isBetterMaxFul) {
+      bests.max_fulfillment = recordObj;
+      updated = true;
+    }
+
+    // 3. 最小充足率 (min_fulfillment): 低い方、同率なら合計着順が小さい方
+    const currentMinFul = bests.min_fulfillment;
+    let isBetterMinFul = false;
+    if (!currentMinFul || fulNum < currentMinFul.fulfillment) {
+      isBetterMinFul = true;
+    } else if (currentMinFul && fulNum === currentMinFul.fulfillment) {
+      if (totalRankSum < currentMinFul.rank_sum) {
+        isBetterMinFul = true;
+      }
+    }
+    if (isBetterMinFul) {
+      bests.min_fulfillment = recordObj;
+      updated = true;
+    }
+
+    // 4. 最多1着 (max_1st)
     const currentMax1st = bests.max_1st || { c1: -1, c2: -1, c3: -1 };
     let isBetter1st = false;
     if (totalC1 > currentMax1st.c1) {
@@ -503,30 +558,15 @@
       } else if (totalC2 === currentMax1st.c2) {
         if (totalC3 > currentMax1st.c3) {
           isBetter1st = true;
+        } else if (totalC3 === currentMax1st.c3) {
+          if (totalC4Plus < (currentMax1st.c4Plus ?? 99)) {
+            isBetter1st = true;
+          }
         }
       }
     }
     if (isBetter1st) {
-      bests.max_1st = { c1: totalC1, c2: totalC2, c3: totalC3, series_lineup: lineup, achieved_at: nowIso };
-      updated = true;
-    }
-
-    const currentMaxFul = bests.max_fulfillment || { fulfillment: -1, rank_sum: 999, c1: -1 };
-    let isBetterFul = false;
-    const fulNum = parseFloat(fulfillmentRatio);
-    if (fulNum > currentMaxFul.fulfillment) {
-      isBetterFul = true;
-    } else if (fulNum === currentMaxFul.fulfillment) {
-      if (totalRankSum < currentMaxFul.rank_sum) {
-        isBetterFul = true;
-      } else if (totalRankSum === currentMaxFul.rank_sum) {
-        if (totalC1 > currentMaxFul.c1) {
-          isBetterFul = true;
-        }
-      }
-    }
-    if (isBetterFul) {
-      bests.max_fulfillment = { fulfillment: fulNum, rank_sum: totalRankSum, c1: totalC1, series_lineup: lineup, achieved_at: nowIso };
+      bests.max_1st = recordObj;
       updated = true;
     }
 
@@ -745,6 +785,53 @@
       survivalBtn.style.cursor = 'not-allowed';
       lockInfo.textContent = "🔒 通算50勝で解放";
     }
+
+    // サバイバル自己ベスト記録の描画
+    renderSurvivalBestsUI(totalWins);
+  }
+
+  // ★ 追加: サバイバルモードの自己ベストをモード選択画面に描画する関数
+  function renderSurvivalBestsUI(totalWins) {
+    const bestsPanel = document.getElementById('survivalBestsPanel');
+    const bestsContent = document.getElementById('survivalBestsContent');
+    if (!bestsPanel || !bestsContent) return;
+
+    if (totalWins < 50) {
+      bestsPanel.style.display = 'none';
+      return;
+    }
+
+    const bests = globalUserData.survival_bests;
+    if (!bests || Object.keys(bests).length === 0) {
+      bestsPanel.style.display = 'block';
+      bestsContent.innerHTML = `<span style="color: #777;">まだサバイバルモードのクリア記録がありません。全3戦をクリアしてベストを残そう！</span>`;
+      return;
+    }
+
+    let html = '';
+    if (bests.min_rank_sum) {
+      const r = bests.min_rank_sum;
+      html += `<div style="margin-bottom:2px;">🎯 <strong>最小着順合計:</strong> <span style="font-family:monospace; color:#d32f2f; font-weight:bold;">${r.rank_sum}着</span> (充足率: ${r.fulfillment}% / 内訳: ${r.c1}-${r.c2}-${r.c3}-${r.c4Plus})</div>`;
+    }
+    if (bests.max_fulfillment) {
+      const r = bests.max_fulfillment;
+      html += `<div style="margin-bottom:2px;">📈 <strong>最大充足率:</strong> <span style="font-family:monospace; color:#2d6a37; font-weight:bold;">${r.fulfillment}%</span> (合計着順: ${r.rank_sum}着 / 内訳: ${r.c1}-${r.c2}-${r.c3}-${r.c4Plus})</div>`;
+    }
+    if (bests.min_fulfillment) {
+      const r = bests.min_fulfillment;
+      html += `<div style="margin-bottom:2px;">📉 <strong>最小充足率:</strong> <span style="font-family:monospace; color:#d97706; font-weight:bold;">${r.fulfillment}%</span> (合計着順: ${r.rank_sum}着 / 内訳: ${r.c1}-${r.c2}-${r.c3}-${r.c4Plus})</div>`;
+    }
+    if (bests.max_1st) {
+      const r = bests.max_1st;
+      html += `<div>👑 <strong>最多1着回数:</strong> <span style="font-family:monospace; color:#b8860b; font-weight:bold;">内訳: ${r.c1}-${r.c2}-${r.c3}-${r.c4Plus}</span> (合計着順: ${r.rank_sum}着 / 充足率: ${r.fulfillment}%)</div>`;
+    }
+
+    if (html === '') {
+      html = `<span style="color: #777;">記録がまだありません。</span>`;
+    }
+
+    bestsContent.innerHTML = html;
+    bestsPanel.style.display = 'block';
   }
 
   window.startNewBattle = async function(mode) {
@@ -829,7 +916,6 @@
     await processBattleState(totalWins);
   };
 
-  // ★修正された claimRewardAndReset 関数（二重受取防止策）
   async function claimRewardAndReset(status) {
     const startBtn = document.getElementById('btnStart');
     if (startBtn) {
@@ -837,7 +923,6 @@
       startBtn.textContent = "処理中...";
     }
 
-    // 演出やモーダル表示の前に、まず最優先でFirestoreへ「受取済み・非アクティブ」を保存する
     const userUpdateObj = {
       "cpu_battle_status.reward_claimed": true,
       "cpu_battle_status.is_active": false,
@@ -863,12 +948,10 @@
       userUpdateObj.max_1st_places = newMax1st;
     }
 
-    // 報酬馬の抽選
     let pool = HORSES_ARRAY;
     const rewardHorse = pool[Math.floor(Math.random() * pool.length)];
 
     try {
-      // データベースへの保存を最優先で完了させる
       await Promise.all([
         setDoc(doc(db, "users", currentUser.uid), userUpdateObj, { merge: true }),
         setDoc(doc(db, `users/${currentUser.uid}/inventory/${rewardHorse.horse_id}`), { count: increment(1), obtained_at: new Date().toISOString() }, { merge: true })
@@ -885,7 +968,6 @@
     
     updateHeaderBadges();
 
-    // データの保存完了後に演出（カットイン・モーダル表示）を実行
     let rendererObj = null;
     try {
       const { cardRenderer } = await import('./js/card_renderer.js');
@@ -1066,7 +1148,7 @@
     }
 
     if (isFinished && isSurvival && currentWins >= 3) {
-      await evaluateAndSaveSurvivalBests(status, totalRankSum, totalC1, totalC2, totalC3, fulfillmentRatio, lineup);
+      await evaluateAndSaveSurvivalBests(status, totalRankSum, totalC1, totalC2, totalC3, totalC4Plus, fulfillmentRatio, lineup);
     }
 
     const maxRounds = isSurvival ? 3 : (status.max_rounds || (lineup.length || 3));
