@@ -301,7 +301,7 @@
 <div id="error-modal">
   <div class="error-modal-content">
     <div class="error-title">⚠️ エラー発生 / データ異常</div>
-    <div class="error-msg" id="error-modal-msg">対戦データに問題が発生したか、正しく読み込めませんでした。</div>
+    <div class="error-msg" id="error-modal-msg">対戦データ in問題が発生したか、正しく読み込めませんでした。</div>
     <button class="btn-reset" onclick="resetBattleStatus()">🧹 対戦ステータスをクリアして最初からやり直す</button>
     <button class="btn-secondary" onclick="window.location.href='battle.html'">🔙 対戦画面（battle.html）に戻る</button>
   </div>
@@ -1019,11 +1019,8 @@ window.goToNextSeries = async function() {
   const my4th = Math.max(0, 5 - (my1st + my2nd + my3rd)); // 4着以下
 
   // --- ポテンシャル充足率およびチーム合計ポテンシャルの計算 ---
-  let totalPotential = 0;
-  currentMatchEntries.forEach(entry => {
-    const master = HORSES_MASTER[entry.horse_id] || {};
-    totalPotential += parseInt(master.potential || master.pt || 18, 10);
-  });
+  const _races = seriesMasterData?.find(s => s.series_id === (status.selected_series_id || status.series_lineup?.[status.current_round - 1]))?.rounds?.[0]?.races || [];
+  const totalPotential = currentMatchEntries.reduce((sum, e, idx) => sum + Number(HORSES_MASTER[e.horse_id]?.[_races[idx]?.surface?.includes('ダ') ? 'dirt_potential' : 'turf_potential'] ?? HORSES_MASTER[e.horse_id]?.potential ?? 18), 0);
 
   // ★ ここでラウンド情報(round)、出走馬ID(horse_ids)、チーム合計ポテンシャル(teamPotential)を確実に記録
   const roundHistoryItem = {
@@ -1130,3 +1127,4 @@ window.goToNextSeries = async function() {
 </script>
 </body>
 </html>
+```[cite: 11]
