@@ -984,7 +984,7 @@
   };
 
   window.giveUpRound = async function() {
-    if (!confirm("この回戦をギブアップしますか？\n（対戦相手にこの回戦の不戦勝が与えられます）")) {
+    if (!confirm("この回戦をギブアップしますか？\n（チームが組めないため、この回戦を見送ります）")) {
       return;
     }
 
@@ -996,16 +996,12 @@
         const roomRef = doc(db, "online_matches", roomId);
         const isHost = (role === 'host');
 
-        const dummyEntries = Array(5).fill("4999");
-        const dummyStrategies = Array(5).fill({ strategy: "逃", strategy_level: 3 });
-
+        // 💡 ギブアップフラグを立て、リザルト側の待機ガード（checkAndUpdateReadyState）に引っかかるよう準備完了状態にする
         const updateObj = {
-          [isHost ? 'player1_entries' : 'player2_entries']: dummyEntries,
-          [isHost ? 'player1_strategies' : 'player2_strategies']: dummyStrategies,
+          [isHost ? 'player1_giveup' : 'player2_giveup']: true,
+          [isHost ? 'player1_ready' : 'player2_ready']: true,
           [isHost ? 'player1_matchup_ready' : 'player2_matchup_ready']: true,
-          [isHost ? 'player1_strategy_ready' : 'player2_strategy_ready']: true,
-          [isHost ? 'p1_status' : 'p2_status']: 'strategy_ready',
-          status: "racing" // 👈 修正点：ルームステータスを "racing" に更新
+          [isHost ? 'p1_status' : 'p2_status']: 'giveup'
         };
 
         await updateDoc(roomRef, updateObj);
@@ -1014,6 +1010,7 @@
       }
     }
 
+    // 🚀 即座にリザルト画面（onrace_result.html）へ移動して相手のデータを待つ
     const modeQuery = matchMode ? `&mode=${matchMode}` : '';
     window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}${modeQuery}`;
   };
