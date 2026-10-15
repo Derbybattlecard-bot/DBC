@@ -996,12 +996,12 @@
         const roomRef = doc(db, "online_matches", roomId);
         const isHost = (role === 'host');
 
-        // 💡 ギブアップフラグを立て、リザルト側の待機ガード（checkAndUpdateReadyState）に引っかかるよう準備完了状態にする
         const updateObj = {
           [isHost ? 'player1_giveup' : 'player2_giveup']: true,
           [isHost ? 'player1_ready' : 'player2_ready']: true,
           [isHost ? 'player1_matchup_ready' : 'player2_matchup_ready']: true,
-          [isHost ? 'p1_status' : 'p2_status']: 'giveup'
+          [isHost ? 'p1_status' : 'p2_status']: 'giveup',
+          status: "racing"
         };
 
         await updateDoc(roomRef, updateObj);
@@ -1010,7 +1010,6 @@
       }
     }
 
-    // 🚀 即座にリザルト画面（onrace_result.html）へ移動して相手のデータを待つ
     const modeQuery = matchMode ? `&mode=${matchMode}` : '';
     window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}${modeQuery}`;
   };
