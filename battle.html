@@ -267,15 +267,12 @@
       </div>
     </div>
 
-    <!-- 🏆 サバイバルモード自己ベスト記録表示パネル -->
     <div id="survivalBestsPanel" style="display: none; margin-top: 15px; background: #fffdf4; border: 1.5px solid #d4af37; border-radius: 8px; padding: 12px 16px; text-align: left;">
       <div style="font-size: 13px; font-weight: bold; color: #b8860b; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
         <span>🏆 サバイバルモード 自己ベスト & 実績</span>
         <span id="survivalBadgeStatus" style="font-size: 11px; font-weight: normal;"></span>
       </div>
-      <div id="survivalBestsContent" style="font-size: 12px; color: #5d4037; display: flex; flex-direction: column; gap: 5px; line-height: 1.4;">
-        <!-- 動的表示 -->
-      </div>
+      <div id="survivalBestsContent" style="font-size: 12px; color: #5d4037; display: flex; flex-direction: column; gap: 5px; line-height: 1.4;"></div>
     </div>
   </div>
 
@@ -301,7 +298,6 @@
     </div>
     <div class="series-cards-list" id="seriesCardsContainer"></div>
 
-    <!-- 🏆 クリア時の獲得カード表示用パネル（リザルトの下に配置） -->
     <div class="inline-reward-panel" id="inlineRewardPanel" style="display: none;">
       <div style="font-size: 16px; font-weight: 900; color: #d4af37; margin-bottom: 4px;">🎉 CHALLENGE CLEAR!</div>
       <div style="font-size: 11px; color: #666; margin-bottom: 8px;">おめでとうございます！規定勝利数を達成しました！</div>
@@ -454,72 +450,76 @@
     return limits;
   }
 
-  // ★ チャレンジモードとサバイバルモードを完全に分けて連勝データを集計・管理・保存する関数
-  async function calculateAndUpdateStreaks() {
+  // ★ 毎回 battle に戻るたびに、新しく追加されたラウンド履歴を判定して連勝数を更新する関数（チャレンジ/サバイバル別管理）
+  async function checkAndApplyLatestStreak() {
     const status = globalUserData.cpu_battle_status || {};
     const history = globalUserData.round_history || [];
+    let processedLength = globalUserData.streak_processed_history_length || 0;
 
-    let chCurr = 0, chMax = globalUserData.challenge_max_streak || 0;
-    let svCurr = 0, svMax = globalUserData.survival_max_streak || 0;
+    if (history.length > processedLength) {
+      let chCurr = globalUserData.challenge_current_streak || 0;
+      let chMax = globalUserData.challenge_max_streak || 0;
+      let svCurr = globalUserData.survival_current_streak || 0;
+      let svMax = globalUserData.survival_max_streak || 0;
 
-    history.forEach(h => {
-      const isSurv = (
-        h.battle_type === 'survival' || 
-        h.is_survival === true || 
-        h.deck_type === 1 || 
-        status.battle_type === 'survival' || 
-        status.deck_type === 1
-      );
+      for (let i = processedLength; i < history.length; i++) {
+        const h = history[i];
+        const isSurv = (
+          h.battle_type === 'survival' || 
+          h.is_survival === true || 
+          h.deck_type === 1 || 
+          status.battle_type === 'survival' || 
+          status.deck_type === 1
+        );
 
-      const won = (
-        h.isWin === true || 
-        h.is_win === true || 
-        h.won === true || 
-        h.win === true ||
-        (typeof h.myWins === 'number' && typeof h.oppWins === 'number' && h.myWins > h.oppWins)
-      );
+        const won = (
+          h.isWin === true || 
+          h.is_win === true || 
+          h.won === true || 
+          h.win === true ||
+          (typeof h.myWins === 'number' && typeof h.oppWins === 'number' && h.myWins > h.oppWins)
+        );
 
-      const lost = (
-        h.isWin === false || 
-        h.is_win === false || 
-        h.won === false || 
-        h.win === false ||
-        h.isGiveUp === true ||
-        h.giveup === true ||
-        (typeof h.myWins === 'number' && typeof h.oppWins === 'number' && h.myWins <= h.oppWins)
-      );
+        const lost = (
+          h.isWin === false || 
+          h.is_win === false || 
+          h.won === false || 
+          h.win === false ||
+          h.isGiveUp === true ||
+          h.giveup === true ||
+          (typeof h.myWins === 'number' && typeof h.oppWins === 'number' && h.myWins <= h.oppWins)
+        );
 
-      if (isSurv) {
-        if (won) {
-          svCurr++;
-          if (svCurr > svMax) svMax = svCurr;
-        } else if (lost) {
-          svCurr = 0;
-        }
-      } else {
-        if (won) {
-          chCurr++;
-          if (chCurr > chMax) chMax = chCurr;
-        } else if (lost) {
-          chCurr = 0;
+        if (isSurv) {
+          if (won) {
+            svCurr++;
+            if (svCurr > svMax) svMax = svCurr;
+          } else if (lost) {
+            svCurr = 0;
+          }
+        } else {
+          if (won) {
+            chCurr++;
+            if (chCurr > chMax) chMax = chCurr;
+          } else if (lost) {
+            chCurr = 0;
+          }
         }
       }
-    });
 
-    if (chCurr !== globalUserData.challenge_current_streak || chMax !== globalUserData.challenge_max_streak ||
-        svCurr !== globalUserData.survival_current_streak || svMax !== globalUserData.survival_max_streak) {
-      
       globalUserData.challenge_current_streak = chCurr;
       globalUserData.challenge_max_streak = chMax;
       globalUserData.survival_current_streak = svCurr;
       globalUserData.survival_max_streak = svMax;
+      globalUserData.streak_processed_history_length = history.length;
 
       try {
         await setDoc(doc(db, "users", currentUser.uid), {
           challenge_current_streak: chCurr,
           challenge_max_streak: chMax,
           survival_current_streak: svCurr,
-          survival_max_streak: svMax
+          survival_max_streak: svMax,
+          streak_processed_history_length: history.length
         }, { merge: true });
       } catch (e) {
         console.error("連勝記録の保存エラー:", e);
@@ -528,7 +528,7 @@
 
     const streakBadgeEl = document.getElementById('userStreakBadge');
     if (streakBadgeEl) {
-      streakBadgeEl.textContent = `連勝: Ch ${chCurr}(Max${chMax}) / Sv ${svCurr}(Max${svMax})`;
+      streakBadgeEl.textContent = `連勝: Ch ${globalUserData.challenge_current_streak || 0}(Max${globalUserData.challenge_max_streak || 0}) / Sv ${globalUserData.survival_current_streak || 0}(Max${globalUserData.survival_max_streak || 0})`;
     }
   }
 
@@ -540,7 +540,7 @@
     document.getElementById('userSurvivalWinsBadge').textContent = `サバイバル ${survivalWins} 勝`;
     document.getElementById('userMax1stBadge').textContent = `最多1着: ${max1st}回`;
     
-    calculateAndUpdateStreaks();
+    checkAndApplyLatestStreak();
   }
 
   function formatSurfaceText(surface) {
