@@ -278,7 +278,7 @@
 
   <div class="status-header" id="winLossHeader" style="display: none;">
     <div class="status-header-top">
-      <div>現在の成績： <span class="win-loss-text" id="winCount">0</span>勝 <span class="win-loss-text" id="lossCount">0</span>敗</div>
+      <div>現在の成績： <span class="win-loss-text" id="winCount">2</span>勝 <span class="win-loss-text" id="lossCount">0</span>敗</div>
       <button class="btn-reset-data" id="btnResetData" onclick="manualResetBattleData()">対戦データ初期化</button>
     </div>
     <div class="header-total-summary" id="headerTotalSummary">
@@ -450,10 +450,10 @@
     return limits;
   }
 
-  // ★ 毎回 battle に戻るたびに、新しく追加されたラウンド履歴を判定して連勝数を更新する関数（チャレンジ/サバイバル別管理）
+  // ★ 修正：globalUserData.round_history ではなく status.round_history から履歴を正しく取得するように変更
   async function checkAndApplyLatestStreak() {
     const status = globalUserData.cpu_battle_status || {};
-    const history = globalUserData.round_history || [];
+    const history = status.round_history || []; // ←ここが原因でした！
     let processedLength = globalUserData.streak_processed_history_length || 0;
 
     if (history.length > processedLength) {
