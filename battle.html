@@ -186,7 +186,6 @@
   .btn-start { background: var(--accent-color); color: white; border: none; padding: 15px; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; box-shadow: 0 4px 0 var(--accent-hover); width: 100%; transition: all 0.1s; }
   .btn-start:active { transform: translateY(4px); box-shadow: 0 0 0 var(--accent-hover); }
 
-  /* 埋め込み用インラインクリア報酬パネル（リザルト下部表示用） */
   .inline-reward-panel {
     background: #ffffff;
     border: 2px solid #d4af37;
@@ -455,48 +454,72 @@
     return limits;
   }
 
-  // ★ 時系列連続勝敗による連勝記録の計算・更新関数
+  // ★ チャレンジモードとサバイバルモードを完全に分けて連勝データを集計・管理・保存する関数
   async function calculateAndUpdateStreaks() {
+    const status = globalUserData.cpu_battle_status || {};
     const history = globalUserData.round_history || [];
 
-    let chStreak = 0, chMaxStreak = globalUserData.challenge_max_streak || 0;
-    let svStreak = 0, svMaxStreak = globalUserData.survival_max_streak || 0;
+    let chCurr = 0, chMax = globalUserData.challenge_max_streak || 0;
+    let svCurr = 0, svMax = globalUserData.survival_max_streak || 0;
 
     history.forEach(h => {
-      const isSurv = (h.battle_type === 'survival' || h.is_survival || h.deck_type === 1);
-      const won = h.isWin;
+      const isSurv = (
+        h.battle_type === 'survival' || 
+        h.is_survival === true || 
+        h.deck_type === 1 || 
+        status.battle_type === 'survival' || 
+        status.deck_type === 1
+      );
+
+      const won = (
+        h.isWin === true || 
+        h.is_win === true || 
+        h.won === true || 
+        h.win === true ||
+        (typeof h.myWins === 'number' && typeof h.oppWins === 'number' && h.myWins > h.oppWins)
+      );
+
+      const lost = (
+        h.isWin === false || 
+        h.is_win === false || 
+        h.won === false || 
+        h.win === false ||
+        h.isGiveUp === true ||
+        h.giveup === true ||
+        (typeof h.myWins === 'number' && typeof h.oppWins === 'number' && h.myWins <= h.oppWins)
+      );
 
       if (isSurv) {
         if (won) {
-          svStreak++;
-          if (svStreak > svMaxStreak) svMaxStreak = svStreak;
-        } else {
-          svStreak = 0;
+          svCurr++;
+          if (svCurr > svMax) svMax = svCurr;
+        } else if (lost) {
+          svCurr = 0;
         }
       } else {
         if (won) {
-          chStreak++;
-          if (chStreak > chMaxStreak) chMaxStreak = chStreak;
-        } else {
-          chStreak = 0;
+          chCurr++;
+          if (chCurr > chMax) chMax = chCurr;
+        } else if (lost) {
+          chCurr = 0;
         }
       }
     });
 
-    if (chStreak !== globalUserData.challenge_current_streak || chMaxStreak !== globalUserData.challenge_max_streak ||
-        svStreak !== globalUserData.survival_current_streak || svMaxStreak !== globalUserData.survival_max_streak) {
+    if (chCurr !== globalUserData.challenge_current_streak || chMax !== globalUserData.challenge_max_streak ||
+        svCurr !== globalUserData.survival_current_streak || svMax !== globalUserData.survival_max_streak) {
       
-      globalUserData.challenge_current_streak = chStreak;
-      globalUserData.challenge_max_streak = chMaxStreak;
-      globalUserData.survival_current_streak = svStreak;
-      globalUserData.survival_max_streak = svMaxStreak;
+      globalUserData.challenge_current_streak = chCurr;
+      globalUserData.challenge_max_streak = chMax;
+      globalUserData.survival_current_streak = svCurr;
+      globalUserData.survival_max_streak = svMax;
 
       try {
         await setDoc(doc(db, "users", currentUser.uid), {
-          challenge_current_streak: chStreak,
-          challenge_max_streak: chMaxStreak,
-          survival_current_streak: svStreak,
-          survival_max_streak: svMaxStreak
+          challenge_current_streak: chCurr,
+          challenge_max_streak: chMax,
+          survival_current_streak: svCurr,
+          survival_max_streak: svMax
         }, { merge: true });
       } catch (e) {
         console.error("連勝記録の保存エラー:", e);
@@ -505,7 +528,7 @@
 
     const streakBadgeEl = document.getElementById('userStreakBadge');
     if (streakBadgeEl) {
-      streakBadgeEl.textContent = `連勝: Ch ${chStreak}(Max${chMaxStreak}) / Sv ${svStreak}(Max${svMaxStreak})`;
+      streakBadgeEl.textContent = `連勝: Ch ${chCurr}(Max${chMax}) / Sv ${svCurr}(Max${svMax})`;
     }
   }
 
