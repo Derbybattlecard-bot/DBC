@@ -455,15 +455,15 @@
     return limits;
   }
 
+  // ★ 時系列連続勝敗による連勝記録の計算・更新関数
   async function calculateAndUpdateStreaks() {
-    const status = globalUserData.cpu_battle_status || {};
     const history = globalUserData.round_history || [];
 
     let chStreak = 0, chMaxStreak = globalUserData.challenge_max_streak || 0;
     let svStreak = 0, svMaxStreak = globalUserData.survival_max_streak || 0;
 
     history.forEach(h => {
-      const isSurv = (h.battle_type === 'survival' || h.is_survival);
+      const isSurv = (h.battle_type === 'survival' || h.is_survival || h.deck_type === 1);
       const won = h.isWin;
 
       if (isSurv) {
@@ -1036,10 +1036,8 @@
     await processBattleState(totalWins);
   };
 
-  // ★ クリア時に自動で報酬を付与し、カットイン演出後にリザルト下部にカードを表示する関数
   async function autoClaimAndShowReward(status) {
     if (status.reward_claimed && status.reward_horse_id) {
-      // すでに受取済みの場合はそのままカードを表示
       await renderInlineRewardCardOnly(status.reward_horse_id);
       return;
     }
@@ -1085,7 +1083,6 @@
     
     updateHeaderBadges();
 
-    // カットイン演出を再生してからインラインパネルにカードを描画
     try {
       const { cardRenderer } = await import('./js/card_renderer.js');
       if (!cardRenderer.isLoaded) await cardRenderer.init();
@@ -1298,18 +1295,15 @@
       const winCondition = isSurvival ? 3 : Math.ceil(maxRounds / 2);
 
       if (currentWins >= winCondition) {
-        // 未受取の場合は自動で報酬付与＆カットイン演出を走らせる
         if (!status.reward_claimed) {
           if (!window._autoRewardTriggered) {
             window._autoRewardTriggered = true;
             await autoClaimAndShowReward(status);
           }
         } else {
-          // すでに受取済みの場合はそのままカードを表示
           await renderInlineRewardCardOnly(status.reward_horse_id);
         }
 
-        // 下部のボタンを「バトルを終了する」に変更
         startBtn.style.display = 'block';
         startBtn.disabled = false;
         startBtn.style.opacity = '1';
