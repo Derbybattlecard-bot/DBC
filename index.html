@@ -46,65 +46,103 @@
       letter-spacing: 2px;
       font-weight: 900;
     }
-    .user-profile {
-      background: #ffffff;
+
+    /* --- 統合型 ユーザープロフィール & 1行5列ステータスエリア --- */
+    .user-profile-panel {
+      background: rgba(255, 255, 255, 0.95);
       border: 1px solid var(--border-green);
-      border-radius: 6px;
-      padding: 8px 12px;
-      text-align: center;
-      font-size: 13px;
-      font-weight: bold;
+      border-radius: 8px;
+      padding: 8px 10px;
       display: flex;
       flex-direction: column;
       gap: 6px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
-    
-    /* --- バッジコンテナ --- */
-    .badges-container {
+    .user-top-row {
       display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-    .status-badge {
-      background: #f5f5f5;
-      border: 1px solid #ccc;
-      color: #888;
-      padding: 3px 8px;
-      border-radius: 6px;
-      font-size: 10px;
-      font-weight: bold;
-      display: flex;
+      justify-content: space-between;
       align-items: center;
-      gap: 4px;
-      opacity: 0.7;
     }
-    .status-badge.unlocked {
+    .user-name-text {
+      font-size: 13.5px;
+      font-weight: bold;
+      color: var(--header-green);
+    }
+
+    /* 1行5列のコンパクトグリッド */
+    .stats-badge-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 3px;
+      padding-top: 5px;
+      border-top: 1px dashed var(--border-green);
+    }
+    .stat-badge-box {
+      background: var(--card-inner-bg);
+      border: 1px solid #c2dfc6;
+      border-radius: 5px;
+      padding: 3px 1px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+    }
+    .stat-tag {
+      background: #e2efe3;
+      border: 1px solid #2d6a37;
+      color: #2d6a37;
+      border-radius: 8px;
+      font-size: 7.5px;
+      font-weight: bold;
+      padding: 1px 4px;
+      line-height: 1.1;
+      white-space: nowrap;
+      margin-bottom: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    .stat-num {
+      font-size: 11.5px;
+      font-weight: 900;
+      color: var(--text-color);
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .stat-num.gold { color: var(--accent-gold); }
+
+    /* サバイバル制覇バッジ専用セル（5列目のデザイン） */
+    .stat-badge-box.badge-box {
+      background: #f5f5f5;
+      border-color: #ccc;
+    }
+    .stat-badge-box.badge-box.unlocked {
       background: linear-gradient(135deg, #fffdf4, #fef3c7);
       border-color: #d4af37;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    .stat-badge-box.badge-box .stat-tag {
+      background: #eee;
+      border-color: #bbb;
+      color: #666;
+    }
+    .stat-badge-box.badge-box.unlocked .stat-tag {
+      background: linear-gradient(135deg, #fef3c7, #fde68a);
+      border-color: #d4af37;
+      color: #855b08;
+    }
+    .badge-status-text {
+      font-size: 9px;
+      font-weight: bold;
+      color: #888;
+      white-space: nowrap;
+    }
+    .stat-badge-box.badge-box.unlocked .badge-status-text {
       color: #b8860b;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      opacity: 1;
     }
 
-    /* --- 記録グリッドセクション --- */
-    .record-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 6px;
-    }
-    .record-item {
-      background: var(--card-bg);
-      border: 1px solid var(--border-green);
-      border-radius: 6px;
-      padding: 6px 4px;
-      text-align: center;
-    }
-    .record-label { font-size: 9.5px; color: var(--sub-text); display: block; margin-bottom: 2px; }
-    .record-value { font-size: 12.5px; font-weight: bold; color: var(--text-color); }
-    .record-value.highlight { color: var(--accent-gold); }
-
-    /* --- ボーナスカード部分 (deck.htmlスタイル準拠) --- */
+    /* --- ボーナスカード部分 --- */
     .bonus-section {
       background: var(--card-bg);
       border: 2px solid #82c088;
@@ -244,12 +282,10 @@
       font-weight: bold;
       cursor: pointer;
     }
-
     .btn-light-green {
       background: linear-gradient(135deg, #449e54, #2c773a);
       border: 1px solid #1e5227;
     }
-
     .btn-collection {
       background: linear-gradient(135deg, #d4af37, #aa820a);
       border: 1px solid #785a02;
@@ -315,7 +351,7 @@
     .race-table td { padding: 4px 2px; border-bottom: 1px solid #ebf4ec; }
     .race-table tr:nth-child(even) { background: #f7fbf7; }
 
-    /* --- カード拡大表示モーダル --- */
+    /* --- モーダル --- */
     .modal-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0, 0, 0, 0.7); display: none;
@@ -334,16 +370,12 @@
       position: relative;
     }
 
-    /* 獲得済みカードのタップアニメーション */
     .bonus-card.obtained {
       cursor: pointer;
       transition: transform 0.1s ease;
     }
-    .bonus-card.obtained:active {
-      transform: scale(0.96);
-    }
+    .bonus-card.obtained:active { transform: scale(0.96); }
 
-    /* --- リーチ演出（3枚目スロット） --- */
     .bonus-card.reach-slot {
       background: linear-gradient(135deg, #fff0f0 0%, #ffe6e6 100%);
       border: 2px solid #e63956;
@@ -359,41 +391,45 @@
       0% { box-shadow: 0 0 4px rgba(230, 57, 86, 0.4); border-color: #e63956; }
       100% { box-shadow: 0 0 12px rgba(230, 57, 86, 0.9); border-color: #ff0000; }
     }
-    .reach-title {
-      font-weight: 900;
-      font-size: 12px;
-      color: #e63956;
-      margin-bottom: 4px;
-    }
-    .reach-desc {
-      font-size: 8.5px;
-      font-weight: bold;
-      color: #a82339;
-      line-height: 1.3;
-    }
+    .reach-title { font-weight: 900; font-size: 12px; color: #e63956; margin-bottom: 4px; }
+    .reach-desc { font-size: 8.5px; font-weight: bold; color: #a82339; line-height: 1.3; }
   </style>
 </head>
 <body>
 <div class="container">
   <div class="header"><h1>DERBY BATTLE CARD</h1></div>
   
-  <div class="user-profile" id="userProfileDisplay">
-    <div id="userNameText">👤: 読み込み中...</div>
-    <div class="badges-container">
-      <div id="badgeSurvivalClear" class="status-badge">🛡️ サバイバル制覇</div>
-      <div id="badgeSurvival100" class="status-badge">🌟 充足率100%達成</div>
+  <!-- 統合型プロフィール & 1行5列ステータスエリア -->
+  <div class="user-profile-panel">
+    <div class="user-top-row">
+      <div class="user-name-text" id="userNameText">👤 読み込み中...</div>
+    </div>
+
+    <!-- 1行5列グリッド（通算、最高連勝、最多1着、所持カード、サバイバル制覇バッジ） -->
+    <div class="stats-badge-grid">
+      <div class="stat-badge-box">
+        <span class="stat-tag">通算</span>
+        <span class="stat-num gold" id="statTotalWins">-</span>
+      </div>
+      <div class="stat-badge-box">
+        <span class="stat-tag">最高連勝</span>
+        <span class="stat-num gold" id="statMaxStreak">-</span>
+      </div>
+      <div class="stat-badge-box">
+        <span class="stat-tag" id="statMax1stTag">最多1着</span>
+        <span class="stat-num" id="statMax1stVal">-</span>
+      </div>
+      <div class="stat-badge-box">
+        <span class="stat-tag">所持</span>
+        <span class="stat-num" id="statCardTypes">-</span>
+      </div>
+      <div class="stat-badge-box badge-box" id="badgeSurvivalClearBox">
+        <span class="stat-tag">制覇</span>
+        <span class="badge-status-text" id="badgeSurvivalClearText">未制覇</span>
+      </div>
     </div>
   </div>
 
-  <div class="record-grid" id="recordSection">
-    <div class="record-item"><span class="record-label">通算勝利</span><span class="record-value highlight" id="statTotalWins">-</span></div>
-    <div class="record-item"><span class="record-label">最高連勝数</span><span class="record-value highlight" id="statMaxStreak" style="color:#d97706;">-</span></div>
-    <div class="record-item"><span class="record-label">所持種類</span><span class="record-value" id="statCardTypes" style="color:#0d4220;">-</span></div>
-    <div class="record-item"><span class="record-label">チャレンジ1着最多数</span><span class="record-value" id="statChallengeMax1st">-</span></div>
-    <div class="record-item"><span class="record-label">サバイバル1着最多数</span><span class="record-value" id="statSurvivalMax1st">-</span></div>
-    <div class="record-item" style="background:transparent; border:none;"></div>
-  </div>
-  
   <div class="bonus-section" id="loginBonusSection">
     <div class="bonus-title">🎰 DAILY LOGIN BONUS</div>
     <div class="cards-container" id="bonusCardsContainer"></div>
@@ -431,7 +467,6 @@
   </div>
 </div>
 
-<!-- カード詳細拡大表示モーダル -->
 <div class="modal-overlay" id="cardDetailModal">
   <div class="card-modal-wrapper" id="cardDetailBox"></div>
 </div>
@@ -562,7 +597,7 @@
 
   function renderUserProfile() {
     const name = globalUserData.display_name || globalUserData.displayName || currentUser.displayName || "ゲスト";
-    document.getElementById('userNameText').innerHTML = `👤: <strong>${name}</strong>`;
+    document.getElementById('userNameText').innerHTML = `👤 <strong>${name}</strong>`;
   }
 
   async function renderRecord() {
@@ -573,37 +608,45 @@
     const svMax = globalUserData.survival_max_streak || 0;
     const highestMaxStreak = Math.max(chMax, svMax);
 
-    // 1着最多数（チャレンジとサバイバル別）
+    // 1着最多数（多い方を判定）
     const challengeMax1st = globalUserData.max_1st_places || 0;
     const survivalMax1st = globalUserData.survival_bests?.max_1st?.c1 || 0;
+    
+    let max1stVal = challengeMax1st;
+    let max1stTag = "最多1着(Ch)";
 
-    // バッジ解放状態の反映
+    if (survivalMax1st > challengeMax1st) {
+      max1stVal = survivalMax1st;
+      max1stTag = "最多1着(Sv)";
+    } else if (survivalMax1st === challengeMax1st && survivalMax1st > 0) {
+      max1stTag = "最多1着";
+    }
+
+    // サバイバル制覇バッジの状態反映
     const badges = globalUserData.survival_badges || {};
+    const badgeBox = document.getElementById('badgeSurvivalClearBox');
+    const badgeText = document.getElementById('badgeSurvivalClearText');
     if (badges.clear) {
-      document.getElementById('badgeSurvivalClear').classList.add('unlocked');
-    }
-    if (badges.fulfillment_100) {
-      document.getElementById('badgeSurvival100').classList.add('unlocked');
+      badgeBox.classList.add('unlocked');
+      badgeText.textContent = "🛡️制覇";
+    } else {
+      badgeBox.classList.remove('unlocked');
+      badgeText.textContent = "未制覇";
     }
 
-    // 初期表示（所持種類は取得中）
-    updateRecordDOM(totalWins, highestMaxStreak, challengeMax1st, survivalMax1st, "取得中...");
+    // 数値DOM反映
+    document.getElementById('statTotalWins').textContent = `${totalWins}勝`;
+    document.getElementById('statMaxStreak').textContent = `${highestMaxStreak}連勝`;
+    document.getElementById('statMax1stTag').textContent = max1stTag;
+    document.getElementById('statMax1stVal').textContent = `${max1stVal}回`;
 
     try {
       const collRef = collection(db, `users/${currentUser.uid}/inventory`);
       const snapshot = await getCountFromServer(collRef);
-      updateRecordDOM(totalWins, highestMaxStreak, challengeMax1st, survivalMax1st, `${snapshot.data().count}種`);
+      document.getElementById('statCardTypes').textContent = `${snapshot.data().count}種`;
     } catch (error) {
-      updateRecordDOM(totalWins, highestMaxStreak, challengeMax1st, survivalMax1st, "- 種");
+      document.getElementById('statCardTypes').textContent = `-種`;
     }
-  }
-
-  function updateRecordDOM(totalWins, maxStreak, challengeMax1st, survivalMax1st, cardTypesDisplay) {
-    document.getElementById('statTotalWins').textContent = `${totalWins}勝`;
-    document.getElementById('statMaxStreak').textContent = `${maxStreak}連勝`;
-    document.getElementById('statCardTypes').textContent = cardTypesDisplay;
-    document.getElementById('statChallengeMax1st').textContent = `${challengeMax1st}回`;
-    document.getElementById('statSurvivalMax1st').textContent = `${survivalMax1st}回`;
   }
 
   async function checkAndRenderLoginBonus() {
@@ -724,7 +767,7 @@
     if (cards.length < 3) {
       if (cards.length === 0 || diffMs >= ONE_HOUR_MS) {
         const isFever = (cards.length === 0 && state.is_fever_today);
-        btnContainer.innerHTML = `<button class="bonus-claim-btn" id="claimBtn">${isFever ? "🔥 確変ボーナスを受け取る！" : `🎁 ${cards.length + 1}枚目を受け取る`}</button>`;
+        btnContainer.innerHTML = `<button class="bonus-claim-btn" id="claimBtn">${isFever ? "🔥 确変ボーナスを受け取る！" : `🎁 ${cards.length + 1}枚目を受け取る`}</button>`;
         document.getElementById('claimBtn').onclick = claimLoginBonus;
         if (isFever) msgContainer.innerHTML = `<div class="bonus-msg">✨ 前日のスロット達成特典適用中！レアカード確定！ ✨</div>`;
       } else {
