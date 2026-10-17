@@ -1,19 +1,57 @@
 import { cardRenderer } from './card_renderer.js';
 
-// 仕様書 Ver3.0 準拠のレアリティ定義
-const RARITY_CONFIG = {
-  'INF': { name: 'インフィニティレア', bg: 'linear-gradient(45deg, #ff00ff, #00ffff, #ffff00)', shadow: '0 0 30px rgba(0, 255, 255, 0.9)' },
-  'SER': { name: 'シークレットレア', bg: 'linear-gradient(45deg, #2c3e50, #000000, #8a2be2)', shadow: '0 0 30px rgba(138, 43, 226, 0.9)' },
-  'ULR': { name: 'アルティメットレア', bg: 'linear-gradient(45deg, #ffd700, #ff4500, #ff0055)', shadow: '0 0 25px rgba(255, 215, 0, 0.9)' },
-  'LGR': { name: 'レジェンダリーレア', bg: 'linear-gradient(45deg, #b8860b, #ffd700, #8b0000)', shadow: '0 0 25px rgba(218, 165, 32, 0.8)' },
-  'CLR': { name: 'クラシカルレア', bg: 'linear-gradient(45deg, #d2691e, #ff8c00, #ffd700)', shadow: '0 0 25px rgba(210, 105, 30, 0.8)' },
-  'TRR': { name: 'トラディショナルレア', bg: 'linear-gradient(45deg, #4b0082, #8a2be2, #d4af37)', shadow: '0 0 25px rgba(138, 43, 226, 0.8)' },
-  'RER': { name: 'レトロレア', bg: 'linear-gradient(45deg, #708090, #c0c0c0, #4682b4)', shadow: '0 0 18px rgba(192, 192, 192, 0.7)' },
-  'ANR': { name: 'アンティークレア', bg: 'linear-gradient(45deg, #2e8b57, #3cb371, #8fbc8f)', shadow: '0 0 18px rgba(46, 139, 87, 0.7)' },
-  'VIR': { name: 'ビンテージレア', bg: 'linear-gradient(45deg, #1e90ff, #00bfff, #87cefa)', shadow: '0 0 18px rgba(30, 144, 255, 0.7)' },
-  'PRR': { name: 'プレミアレア', bg: 'linear-gradient(45deg, #9370db, #ba55d3, #ee82ee)', shadow: '0 0 18px rgba(186, 85, 211, 0.7)' },
-  'SPR': { name: 'スペシャルレア', bg: 'linear-gradient(45deg, #32cd32, #00ff7f, #98fb98)', shadow: '0 0 15px rgba(50, 205, 50, 0.6)' },
-  'NOR': { name: 'ノーマル', bg: 'linear-gradient(45deg, #555555, #888888, #aaaaaa)', shadow: '0 0 12px rgba(136, 136, 136, 0.5)' }
+// 仕様書 Ver3.0 準拠のレアリティ定義（全12種類）
+export const RARITY_CONFIG = {
+  'SER': { name: 'シークレットレア', rank: 'SSS', bg: 'linear-gradient(45deg, #2c3e50, #000000, #8a2be2)', shadow: '0 0 30px rgba(138, 43, 226, 0.9)' },
+  'MTR': { name: 'マジェスティックレア', rank: 'SSS', bg: 'linear-gradient(45deg, #8b0000, #4a0000, #ffd700)', shadow: '0 0 30px rgba(255, 215, 0, 0.9)' },
+  'INF': { name: 'インフィニティレア', rank: 'SS', bg: 'linear-gradient(45deg, #ff00ff, #00ffff, #ffff00)', shadow: '0 0 30px rgba(0, 255, 255, 0.9)' },
+  'ABR': { name: 'アブソリュートレア', rank: 'SS', bg: 'linear-gradient(45deg, #4b0082, #000080, #00ffff)', shadow: '0 0 30px rgba(0, 255, 255, 0.8)' },
+  'DGR': { name: 'ドラゴンレア', rank: 'S', bg: 'linear-gradient(45deg, #8b0000, #ff4500, #ffd700)', shadow: '0 0 25px rgba(255, 69, 0, 0.9)' },
+  'MIR': { name: 'ミリオネアレア', rank: 'S', bg: 'linear-gradient(45deg, #006400, #2e8b57, #ffd700)', shadow: '0 0 25px rgba(50, 205, 50, 0.9)' },
+  'ULR': { name: 'アルティメットレア', rank: 'S', bg: 'linear-gradient(45deg, #ffd700, #ff4500, #ff0055)', shadow: '0 0 25px rgba(255, 215, 0, 0.9)' },
+  'LGR': { name: 'レジェンダリーレア', rank: 'A', bg: 'linear-gradient(45deg, #b8860b, #ffd700, #8b0000)', shadow: '0 0 25px rgba(218, 165, 32, 0.8)' },
+  'CLR': { name: 'クラシカルレア', rank: 'A', bg: 'linear-gradient(45deg, #d2691e, #ff8c00, #ffd700)', shadow: '0 0 25px rgba(210, 105, 30, 0.8)' },
+  'TRR': { name: 'トラディショナルレア', rank: 'A', bg: 'linear-gradient(45deg, #4b0082, #8a2be2, #d4af37)', shadow: '0 0 25px rgba(138, 43, 226, 0.8)' },
+  'RER': { name: 'レトロレア', rank: 'B', bg: 'linear-gradient(45deg, #708090, #c0c0c0, #4682b4)', shadow: '0 0 18px rgba(192, 192, 192, 0.7)' },
+  'ANR': { name: 'アンティークレア', rank: 'B', bg: 'linear-gradient(45deg, #2e8b57, #3cb371, #8fbc8f)', shadow: '0 0 18px rgba(46, 139, 87, 0.7)' },
+  'VIR': { name: 'ビンテージレア', rank: 'B', bg: 'linear-gradient(45deg, #1e90ff, #00bfff, #87cefa)', shadow: '0 0 18px rgba(30, 144, 255, 0.7)' },
+  'PRR': { name: 'プレミアレア', rank: 'B', bg: 'linear-gradient(45deg, #9370db, #ba55d3, #ee82ee)', shadow: '0 0 18px rgba(186, 85, 211, 0.7)' },
+  'SPR': { name: 'スペシャルレア', rank: 'C', bg: 'linear-gradient(45deg, #32cd32, #00ff7f, #98fb98)', shadow: '0 0 15px rgba(50, 205, 50, 0.6)' },
+  'NOR': { name: 'ノーマル', rank: 'NOR', bg: 'linear-gradient(45deg, #555555, #888888, #aaaaaa)', shadow: '0 0 12px rgba(136, 136, 136, 0.5)' }
+};
+
+// 通常時の確率テーブル (合計 100%)
+const NORMAL_PROBABILITY_TABLE = [
+  { code: 'SER', prob: 0.005 },
+  { code: 'MTR', prob: 0.005 },
+  { code: 'INF', prob: 0.005 },
+  { code: 'ABR', prob: 0.005 },
+  { code: 'DGR', prob: 0.005 },
+  { code: 'MIR', prob: 0.005 },
+  { code: 'ULR', prob: 0.010 },
+  { code: 'LGR', prob: 0.010 },
+  { code: 'CLR', prob: 0.010 },
+  { code: 'TRR', prob: 0.010 },
+  { code: 'RER', prob: 0.020 },
+  { code: 'ANR', prob: 0.020 },
+  { code: 'VIR', prob: 0.020 },
+  { code: 'PRR', prob: 0.020 },
+  { code: 'SPR', prob: 0.030 },
+  { code: 'NOR', prob: 0.820 }
+];
+
+// ポイント別許可対象ランクプール
+const POINT_RANK_POOLS = {
+  2:  ['B', 'C'],
+  3:  ['A', 'B', 'C'],
+  4:  ['S', 'A', 'B', 'C'],
+  5:  ['SS', 'S', 'A', 'B', 'C'],
+  6:  ['SSS', 'SS', 'S', 'A', 'B', 'C'],
+  7:  ['SSS', 'SS', 'S', 'A', 'B'],
+  8:  ['SSS', 'SS', 'S', 'A'],
+  9:  ['SSS', 'SS', 'S'],
+  10: ['SSS', 'SS'],
+  12: ['SSS']
 };
 
 function injectCutInStyles() {
@@ -37,7 +75,6 @@ function injectCutInStyles() {
       opacity: 1; pointer-events: auto;
     }
 
-    /* バナーコンテナ: 上から下へ追加し、古いものは下に押し出される */
     .dynamic-banners {
       position: absolute;
       top: 8vh;
@@ -49,7 +86,6 @@ function injectCutInStyles() {
       overflow-x: hidden;
     }
 
-    /* 滑らかに高さが開いて一段ずれるためのラッパー */
     .banner-row {
       width: 100%;
       height: 0;
@@ -69,7 +105,6 @@ function injectCutInStyles() {
     }
     .slot-banner.in { transform: translateX(0); }
 
-    /* 背景色設定 */
     .bg-ability { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #1e5128 20%, #4e9f3d 80%, rgba(0,0,0,0) 100%); color: #d8f3dc; font-size: 1.15rem; }
     .bg-surface-turf { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #1e7e34 20%, #28a745 80%, rgba(0,0,0,0) 100%); color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
     .bg-surface-dirt { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #5c2e0b 20%, #8b4513 80%, rgba(0,0,0,0) 100%); color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
@@ -78,7 +113,6 @@ function injectCutInStyles() {
     .bg-name { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #7209b7 20%, #f72585 80%, rgba(0,0,0,0) 100%); color: #ffffff; text-shadow: 0 0 8px rgba(255,255,255,0.8); }
     .bg-rare { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, #b8860b 20%, #ffd700 80%, rgba(0,0,0,0) 100%); color: #3a2500; text-shadow: 0 0 8px rgba(255,255,255,0.6); }
 
-    /* 中央のカードボックス（3:4 縦長表示用に幅調整） */
     .cutin-card-box {
       display: flex;
       flex-direction: column;
@@ -104,7 +138,6 @@ function injectCutInStyles() {
       overflow: hidden;
     }
 
-    /* レア表示スロット：カード直下に表示 */
     .rare-banner-slot {
       position: relative;
       width: 108%;
@@ -150,6 +183,13 @@ export function getGenYearLastDigit(horseOrId) {
   return idStr.length >= 2 ? idStr.substring(1, 2) : '0';
 }
 
+// 馬の主要ポテンシャル数値（芝最優先、無ければダート）を取得
+export function getHorsePotential(horse) {
+  const turf = Number(horse.turf_potential ?? horse.turf ?? 0);
+  const dirt = Number(horse.dirt_potential ?? horse.dirt ?? 0);
+  return turf > 0 ? turf : dirt;
+}
+
 // 芝・ダート適性
 function getSurfaceAptitudes(horse) {
   const turf = Number(horse.turf_potential ?? horse.turf ?? horse.aptitude?.turf ?? 0);
@@ -168,6 +208,104 @@ function getDistanceAptitudeText(horse) {
   const minDist = horse.min_distance || horse.distance_min || horse.aptitude?.min || 1600;
   const maxDist = horse.max_distance || horse.distance_max || horse.aptitude?.max || 2400;
   return `${minDist}m-${maxDist}m`;
+}
+
+/**
+ * 獲得カードリスト（最大3枚）からスロット一致判定を行い、ポイントとリーチテキストを算出
+ * @param {Array} cards - 当日引き当てたカードの配列
+ * @returns {Object} { points, reachText, reachTypes }
+ */
+export function evaluateSlotMatch(cards) {
+  if (!Array.isArray(cards) || cards.length < 2) {
+    return { points: 0, reachText: '', reachTypes: [] };
+  }
+
+  const hasThree = cards.length >= 3;
+  let matches = { gen: false, category: false, style: false, potential: false };
+
+  if (hasThree) {
+    const genDigit0 = getGenYearLastDigit(cards[0]);
+    const cat0 = cards[0].rarity || 'NOR';
+    const style0 = cards[0].style || '';
+    const pot0 = getHorsePotential(cards[0]);
+
+    matches.gen = cards.every(c => getGenYearLastDigit(c) === genDigit0);
+    matches.category = cards.every(c => (c.rarity || 'NOR') === cat0);
+    matches.style = cards.every(c => (c.style || '') === style0);
+    matches.potential = cards.every(c => getHorsePotential(c) === pot0);
+  } else {
+    // 2枚の場合
+    matches.gen = getGenYearLastDigit(cards[0]) === getGenYearLastDigit(cards[1]);
+    matches.category = (cards[0].rarity || 'NOR') === (cards[1].rarity || 'NOR');
+    matches.style = (cards[0].style || '') === (cards[1].style || '');
+    matches.potential = getHorsePotential(cards[0]) === getHorsePotential(cards[1]);
+  }
+
+  let totalPoints = 0;
+  let reachLabels = [];
+  let reachTypes = [];
+
+  if (matches.gen) {
+    totalPoints += 5;
+    reachLabels.push('世代');
+    reachTypes.push('generation');
+  }
+  if (matches.category) {
+    totalPoints += 4;
+    reachLabels.push('レアカテゴリ');
+    reachTypes.push('category');
+  }
+  if (matches.style) {
+    totalPoints += 3;
+    reachLabels.push('脚質');
+    reachTypes.push('style');
+  }
+  if (matches.potential) {
+    totalPoints += 2;
+    reachLabels.push('ポテンシャル');
+    reachTypes.push('potential');
+  }
+
+  const reachText = reachLabels.length > 0 ? `${reachLabels.join('＆')}リーチ！` : '';
+
+  return {
+    points: totalPoints,
+    reachText,
+    reachTypes
+  };
+}
+
+/**
+ * 確変時用：ポイントに基づいた対象カテゴリ一覧と均等割り確率分布を作成
+ * @param {number} points 
+ * @returns {Array} [{ code, prob }]
+ */
+export function buildFeverProbabilityTable(points) {
+  let allowedRanks = POINT_RANK_POOLS[12]; // デフォルトSSS
+  if (points <= 2) allowedRanks = POINT_RANK_POOLS[2];
+  else if (points <= 10) allowedRanks = POINT_RANK_POOLS[points] || POINT_RANK_POOLS[2];
+
+  // 対象プールに属するレアコードを抽出
+  const eligibleCodes = Object.keys(RARITY_CONFIG).filter(code => {
+    const config = RARITY_CONFIG[code];
+    return config.rank !== 'NOR' && allowedRanks.includes(config.rank);
+  });
+
+  if (eligibleCodes.length === 0) {
+    return [{ code: 'SPR', prob: 1.0 }];
+  }
+
+  const count = eligibleCodes.length;
+  const baseProb = Math.floor((1.0 / count) * 10000) / 10000;
+  let remainder = Math.round((1.0 - (baseProb * count)) * 10000) / 10000;
+
+  return eligibleCodes.map((code, index) => {
+    let prob = baseProb;
+    if (index === count - 1) {
+      prob = Math.round((prob + remainder) * 10000) / 10000;
+    }
+    return { code, prob };
+  });
 }
 
 export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRenderer) {
@@ -235,7 +373,6 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   const rareSlot = document.getElementById('rare-slot');
   const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
-  // --- 素材を「消さずに上に追加し、古いものを一段ずつ押し下げる」関数 ---
   const playBannerDynamic = async (text, bgClass, delayBeforeNext) => {
     const row = document.createElement('div');
     row.className = 'banner-row';
@@ -291,7 +428,7 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   if (isRare) {
     await wait(600);
     
-    // 7. レアバナーの演出
+    // 7. レアバナー演出
     const rareBanner = document.createElement('div');
     rareBanner.className = `slot-banner bg-rare`;
     rareBanner.style.boxShadow = rarityConfig.shadow; 
@@ -310,7 +447,15 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   await wait(800);
 }
 
-export function drawBonusCard(renderer = cardRenderer, affiliation, isFever) {
+/**
+ * ログインボーナスカードの抽選
+ * @param {Object} renderer 
+ * @param {string} affiliation 
+ * @param {boolean} isFever 確変状態フラグ
+ * @param {number} feverPoints 獲得ポイント（確変時）
+ * @returns {Object} 抽選された馬データ
+ */
+export function drawBonusCard(renderer = cardRenderer, affiliation, isFever = false, feverPoints = 0) {
   const allHorses = (renderer && renderer.horsesMap && renderer.horsesMap.size > 0)
     ? Array.from(renderer.horsesMap.values())
     : [];
@@ -318,10 +463,32 @@ export function drawBonusCard(renderer = cardRenderer, affiliation, isFever) {
   if (allHorses.length === 0) {
     return { horse_id: "8801", name: "オグリキャップ", rarity: "CLR", ability: ["地方からの勇者", "連勝街道"] };
   }
-  
-  const selected = allHorses[Math.floor(Math.random() * allHorses.length)];
+
+  // 1. 確率テーブルの選定（通常 or 確変）
+  const table = isFever 
+    ? buildFeverProbabilityTable(feverPoints) 
+    : NORMAL_PROBABILITY_TABLE;
+
+  // 2. レアリティコードの抽選
+  const rand = Math.random();
+  let cumulative = 0;
+  let targetRarity = table[table.length - 1].code;
+
+  for (const item of table) {
+    cumulative += item.prob;
+    if (rand <= cumulative) {
+      targetRarity = item.code;
+      break;
+    }
+  }
+
+  // 3. 抽選されたレアリティに合致する馬を抽出（該当がなければ全体から）
+  const matchingHorses = allHorses.filter(h => (h.rarity || 'NOR').toUpperCase() === targetRarity);
+  const pool = matchingHorses.length > 0 ? matchingHorses : allHorses;
+  const selected = pool[Math.floor(Math.random() * pool.length)];
+
   return {
     ...selected,
-    rarity: isFever ? "ULR" : (selected.rarity || "NOR")
+    rarity: targetRarity
   };
 }
