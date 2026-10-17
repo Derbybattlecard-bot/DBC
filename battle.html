@@ -278,7 +278,7 @@
 
   <div class="status-header" id="winLossHeader" style="display: none;">
     <div class="status-header-top">
-      <div>現在の成績： <span class="win-loss-text" id="winCount">2</span>勝 <span class="win-loss-text" id="lossCount">0</span>敗</div>
+      <div>現在の成績： <span class="win-loss-text" id="winCount">0</span>勝 <span class="win-loss-text" id="lossCount">0</span>敗</div>
       <button class="btn-reset-data" id="btnResetData" onclick="manualResetBattleData()">対戦データ初期化</button>
     </div>
     <div class="header-total-summary" id="headerTotalSummary">
@@ -450,11 +450,11 @@
     return limits;
   }
 
-  // ★ 修正：globalUserData.round_history ではなく status.round_history から履歴を正しく取得するように変更
+  // ★ 修正：status.streak_processed_history_length を正しく参照・保存するように変更
   async function checkAndApplyLatestStreak() {
     const status = globalUserData.cpu_battle_status || {};
-    const history = status.round_history || []; // ←ここが原因でした！
-    let processedLength = globalUserData.streak_processed_history_length || 0;
+    const history = status.round_history || [];
+    let processedLength = status.streak_processed_history_length ?? globalUserData.streak_processed_history_length ?? 0;
 
     if (history.length > processedLength) {
       let chCurr = globalUserData.challenge_current_streak || 0;
@@ -511,7 +511,7 @@
       globalUserData.challenge_max_streak = chMax;
       globalUserData.survival_current_streak = svCurr;
       globalUserData.survival_max_streak = svMax;
-      globalUserData.streak_processed_history_length = history.length;
+      status.streak_processed_history_length = history.length;
 
       try {
         await setDoc(doc(db, "users", currentUser.uid), {
@@ -519,7 +519,7 @@
           challenge_max_streak: chMax,
           survival_current_streak: svCurr,
           survival_max_streak: svMax,
-          streak_processed_history_length: history.length
+          "cpu_battle_status.streak_processed_history_length": history.length
         }, { merge: true });
       } catch (e) {
         console.error("連勝記録の保存エラー:", e);
@@ -995,6 +995,7 @@
     }
 
     const lineup = generateSeriesLineup(totalWins, maxRounds);
+    const existingHistory = (globalUserData.cpu_battle_status && globalUserData.cpu_battle_status.round_history) ? globalUserData.cpu_battle_status.round_history : [];
 
     const newStatus = {
       is_active: true,
@@ -1009,7 +1010,8 @@
       series_losses: 0,
       total_1st_places: 0,
       used_cards_history: [],
-      round_history: [],
+      round_history: existingHistory,
+      streak_processed_history_length: existingHistory.length,
       reward_claimed: false,
       current_match: null
     };
