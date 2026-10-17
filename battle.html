@@ -450,11 +450,11 @@
     return limits;
   }
 
-  // ★ 修正：status.streak_processed_history_length を正しく参照・保存するように変更
+  // ★ シンプルな連勝数カウント処理（4つの値のみを常時更新）
   async function checkAndApplyLatestStreak() {
     const status = globalUserData.cpu_battle_status || {};
     const history = status.round_history || [];
-    let processedLength = status.streak_processed_history_length ?? globalUserData.streak_processed_history_length ?? 0;
+    let processedLength = status.streak_processed_history_length || 0;
 
     if (history.length > processedLength) {
       let chCurr = globalUserData.challenge_current_streak || 0;
@@ -495,6 +495,7 @@
             svCurr++;
             if (svCurr > svMax) svMax = svCurr;
           } else if (lost) {
+            if (svCurr > svMax) svMax = svCurr; // 0にする前に最大数と比較して更新
             svCurr = 0;
           }
         } else {
@@ -502,6 +503,7 @@
             chCurr++;
             if (chCurr > chMax) chMax = chCurr;
           } else if (lost) {
+            if (chCurr > chMax) chMax = chCurr; // 0にする前に最大数と比較して更新
             chCurr = 0;
           }
         }
