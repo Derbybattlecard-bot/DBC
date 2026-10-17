@@ -450,90 +450,7 @@
     return limits;
   }
 
-  // ★ シンプルな連勝数カウント処理（4つの値のみを常時更新）
-  async function checkAndApplyLatestStreak() {
-    const status = globalUserData.cpu_battle_status || {};
-    const history = status.round_history || [];
-    let processedLength = status.streak_processed_history_length || 0;
-
-    if (history.length > processedLength) {
-      let chCurr = globalUserData.challenge_current_streak || 0;
-      let chMax = globalUserData.challenge_max_streak || 0;
-      let svCurr = globalUserData.survival_current_streak || 0;
-      let svMax = globalUserData.survival_max_streak || 0;
-
-      for (let i = processedLength; i < history.length; i++) {
-        const h = history[i];
-        const isSurv = (
-          h.battle_type === 'survival' || 
-          h.is_survival === true || 
-          h.deck_type === 1 || 
-          status.battle_type === 'survival' || 
-          status.deck_type === 1
-        );
-
-        const won = (
-          h.isWin === true || 
-          h.is_win === true || 
-          h.won === true || 
-          h.win === true ||
-          (typeof h.myWins === 'number' && typeof h.oppWins === 'number' && h.myWins > h.oppWins)
-        );
-
-        const lost = (
-          h.isWin === false || 
-          h.is_win === false || 
-          h.won === false || 
-          h.win === false ||
-          h.isGiveUp === true ||
-          h.giveup === true ||
-          (typeof h.myWins === 'number' && typeof h.oppWins === 'number' && h.myWins <= h.oppWins)
-        );
-
-        if (isSurv) {
-          if (won) {
-            svCurr++;
-            if (svCurr > svMax) svMax = svCurr;
-          } else if (lost) {
-            if (svCurr > svMax) svMax = svCurr; // 0にする前に最大数と比較して更新
-            svCurr = 0;
-          }
-        } else {
-          if (won) {
-            chCurr++;
-            if (chCurr > chMax) chMax = chCurr;
-          } else if (lost) {
-            if (chCurr > chMax) chMax = chCurr; // 0にする前に最大数と比較して更新
-            chCurr = 0;
-          }
-        }
-      }
-
-      globalUserData.challenge_current_streak = chCurr;
-      globalUserData.challenge_max_streak = chMax;
-      globalUserData.survival_current_streak = svCurr;
-      globalUserData.survival_max_streak = svMax;
-      status.streak_processed_history_length = history.length;
-
-      try {
-        await setDoc(doc(db, "users", currentUser.uid), {
-          challenge_current_streak: chCurr,
-          challenge_max_streak: chMax,
-          survival_current_streak: svCurr,
-          survival_max_streak: svMax,
-          "cpu_battle_status.streak_processed_history_length": history.length
-        }, { merge: true });
-      } catch (e) {
-        console.error("連勝記録の保存エラー:", e);
-      }
-    }
-
-    const streakBadgeEl = document.getElementById('userStreakBadge');
-    if (streakBadgeEl) {
-      streakBadgeEl.textContent = `連勝: Ch ${globalUserData.challenge_current_streak || 0}(Max${globalUserData.challenge_max_streak || 0}) / Sv ${globalUserData.survival_current_streak || 0}(Max${globalUserData.survival_max_streak || 0})`;
-    }
-  }
-
+  // ★ 連勝記録の表示処理（ユーザーデータから直接バッジに反映）
   function updateHeaderBadges() {
     const totalWins = globalUserData.total_wins || 0;
     const survivalWins = globalUserData.survival_wins || 0;
@@ -542,7 +459,15 @@
     document.getElementById('userSurvivalWinsBadge').textContent = `サバイバル ${survivalWins} 勝`;
     document.getElementById('userMax1stBadge').textContent = `最多1着: ${max1st}回`;
     
-    checkAndApplyLatestStreak();
+    const chCurr = globalUserData.challenge_current_streak || 0;
+    const chMax = globalUserData.challenge_max_streak || 0;
+    const svCurr = globalUserData.survival_current_streak || 0;
+    const svMax = globalUserData.survival_max_streak || 0;
+
+    const streakBadgeEl = document.getElementById('userStreakBadge');
+    if (streakBadgeEl) {
+      streakBadgeEl.textContent = `連勝: Ch ${chCurr}(Max${chMax}) / Sv ${svCurr}(Max${svMax})`;
+    }
   }
 
   function formatSurfaceText(surface) {
@@ -997,8 +922,8 @@
     }
 
     const lineup = generateSeriesLineup(totalWins, maxRounds);
-    const existingHistory = (globalUserData.cpu_battle_status && globalUserData.cpu_battle_status.round_history) ? globalUserData.cpu_battle_status.round_history : [];
 
+    // ★ 過去の round_history などの蓄積を廃止し、今回のマッチ用のクリーンな状態で新規作成
     const newStatus = {
       is_active: true,
       battle_type: mode,
@@ -1012,8 +937,7 @@
       series_losses: 0,
       total_1st_places: 0,
       used_cards_history: [],
-      round_history: existingHistory,
-      streak_processed_history_length: existingHistory.length,
+      match_round_results: {}, // 今回のマッチ専用のラウンド結果オブジェクト
       reward_claimed: false,
       current_match: null
     };
@@ -1200,7 +1124,6 @@
     document.getElementById('lossCount').textContent = currentLosses;
     document.getElementById('winLossHeader').style.display = 'flex';
 
-    const roundHistoryMap = {};
     let totalC1 = 0, totalC2 = 0, totalC3 = 0, totalC4Plus = 0;
     let totalRankSum = 0;
     let actualTeamPotentialSum = 0;
@@ -1210,8 +1133,11 @@
     const activeDeck = decks[selectedDeckIndex] || { horse_ids: [] };
     const lineup = status.series_lineup || [];
 
-    (status.round_history || []).forEach(h => {
-      roundHistoryMap[h.round] = h;
+    // ★ 今回のマッチ専用のラウンド結果（match_round_results）のみを集計対象にする
+    const roundResults = status.match_round_results || {};
+
+    Object.keys(roundResults).forEach(roundKey => {
+      const h = roundResults[roundKey];
       const c1 = h.r1 ?? h.c1 ?? 0;
       const c2 = h.r2 ?? h.c2 ?? 0;
       const c3 = h.r3 ?? h.c3 ?? 0;
@@ -1236,7 +1162,8 @@
       if (typeof h.teamPotential === 'number') {
         roundPot = h.teamPotential;
       } else {
-        const sId = lineup[h.round - 1];
+        const rNum = parseInt(roundKey, 10);
+        const sId = lineup[rNum - 1];
         const sObj = SERIES_MASTER.find(s => s.series_id === sId) || {};
         const rounds = sObj.rounds || [];
         const races = (rounds[0] && rounds[0].races) ? rounds[0].races : (sObj.races || []);
@@ -1251,7 +1178,7 @@
         } else {
           const validIds = (activeDeck.horse_ids || []).filter(id => id);
           if (validIds.length > 0) {
-            const startIdx = ((h.round - 1) * 5) % validIds.length;
+            const startIdx = (((rNum - 1) * 5)) % validIds.length;
             const sliceIds = validIds.slice(startIdx, startIdx + 5);
             sliceIds.forEach((id, rIdx) => {
               const horse = HORSES_MASTER[id];
@@ -1266,11 +1193,15 @@
 
     document.getElementById('totalDetailText').textContent = `(1着:${totalC1}, 2着:${totalC2}, 3着:${totalC3}, 4着以下:${totalC4Plus}) 合計${totalRankSum}着`;
 
-    lineup.forEach(sId => {
-      const sObj = SERIES_MASTER.find(s => s.series_id === sId);
-      const maxLimit = sObj?.potential_limit?.max_total_potential;
-      if (typeof maxLimit === 'number') maxLimitPotentialSum += maxLimit;
-    });
+    // 充足率の分母（上限Pt）も現在消化済みの回戦分のみで計算
+    const playedRoundsCount = Object.keys(roundResults).length;
+    for (let i = 0; i < Math.max(playedRoundsCount, status.current_round - 1); i++) {
+      if (lineup[i]) {
+        const sObj = SERIES_MASTER.find(s => s.series_id === lineup[i]);
+        const maxLimit = sObj?.potential_limit?.max_total_potential;
+        if (typeof maxLimit === 'number') maxLimitPotentialSum += maxLimit;
+      }
+    }
 
     let fulfillmentRatio = 0.0;
     if (maxLimitPotentialSum > 0) {
@@ -1302,7 +1233,7 @@
       const isCurrentRound = !isFinished && (roundNum === status.current_round);
       const sObj = SERIES_MASTER.find(s => s.series_id === sId) || SERIES_MASTER[0] || {};
       
-      let roundResult = roundHistoryMap[roundNum];
+      let roundResult = roundResults[roundNum];
       if (!roundResult && isFinished && roundNum <= status.current_round && currentLosses > 0) {
         roundResult = { isGiveUp: true, isWin: false };
       }
