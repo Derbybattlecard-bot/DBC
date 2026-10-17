@@ -50,23 +50,58 @@
       background: #ffffff;
       border: 1px solid var(--border-green);
       border-radius: 6px;
-      padding: 6px 12px;
+      padding: 8px 12px;
       text-align: center;
       font-size: 13px;
       font-weight: bold;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
-    .record-section {
+    
+    /* --- バッジコンテナ --- */
+    .badges-container {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .status-badge {
+      background: #f5f5f5;
+      border: 1px solid #ccc;
+      color: #888;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      opacity: 0.7;
+    }
+    .status-badge.unlocked {
+      background: linear-gradient(135deg, #fffdf4, #fef3c7);
+      border-color: #d4af37;
+      color: #b8860b;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      opacity: 1;
+    }
+
+    /* --- 記録グリッドセクション --- */
+    .record-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+    .record-item {
       background: var(--card-bg);
       border: 1px solid var(--border-green);
-      border-radius: 8px;
-      padding: 8px 12px;
-      display: flex;
-      justify-content: space-around;
-      align-items: center;
+      border-radius: 6px;
+      padding: 6px 4px;
+      text-align: center;
     }
-    .record-item { text-align: center; }
-    .record-label { font-size: 10px; color: var(--sub-text); display: block; margin-bottom: 2px; }
-    .record-value { font-size: 14px; font-weight: bold; color: var(--text-color); }
+    .record-label { font-size: 9.5px; color: var(--sub-text); display: block; margin-bottom: 2px; }
+    .record-value { font-size: 12.5px; font-weight: bold; color: var(--text-color); }
     .record-value.highlight { color: var(--accent-gold); }
 
     /* --- ボーナスカード部分 (deck.htmlスタイル準拠) --- */
@@ -341,8 +376,23 @@
 <body>
 <div class="container">
   <div class="header"><h1>DERBY BATTLE CARD</h1></div>
-  <div class="user-profile" id="userProfileDisplay">読み込み中...</div>
-  <div class="record-section" id="recordSection"><div class="record-item"><span class="record-label">取得中...</span></div></div>
+  
+  <div class="user-profile" id="userProfileDisplay">
+    <div id="userNameText">👤: 読み込み中...</div>
+    <div class="badges-container">
+      <div id="badgeSurvivalClear" class="status-badge">🛡️ サバイバル制覇</div>
+      <div id="badgeSurvival100" class="status-badge">🌟 充足率100%達成</div>
+    </div>
+  </div>
+
+  <div class="record-grid" id="recordSection">
+    <div class="record-item"><span class="record-label">通算勝利</span><span class="record-value highlight" id="statTotalWins">-</span></div>
+    <div class="record-item"><span class="record-label">最高連勝数</span><span class="record-value highlight" id="statMaxStreak" style="color:#d97706;">-</span></div>
+    <div class="record-item"><span class="record-label">所持種類</span><span class="record-value" id="statCardTypes" style="color:#0d4220;">-</span></div>
+    <div class="record-item"><span class="record-label">チャレンジ1着最多数</span><span class="record-value" id="statChallengeMax1st">-</span></div>
+    <div class="record-item"><span class="record-label">サバイバル1着最多数</span><span class="record-value" id="statSurvivalMax1st">-</span></div>
+    <div class="record-item" style="background:transparent; border:none;"></div>
+  </div>
   
   <div class="bonus-section" id="loginBonusSection">
     <div class="bonus-title">🎰 DAILY LOGIN BONUS</div>
@@ -501,43 +551,59 @@
 
       renderUserProfile();
       renderSelectedDeck();
-      renderRecord(); 
+      await renderRecord(); 
       await checkAndRenderLoginBonus();
     } catch (err) {
       console.error("初期化エラー:", err);
-      document.getElementById('userProfileDisplay').textContent = "⚠️ 初期化エラーが発生しました";
+      document.getElementById('userNameText').textContent = "⚠️ 初期化エラー";
       alert("初期化に失敗しました。マスターデータおよびネットワーク環境をご確認ください。");
     }
   });
 
   function renderUserProfile() {
     const name = globalUserData.display_name || globalUserData.displayName || currentUser.displayName || "ゲスト";
-    document.getElementById('userProfileDisplay').innerHTML = `👤: <strong>${name}</strong>`;
+    document.getElementById('userNameText').innerHTML = `👤: <strong>${name}</strong>`;
   }
 
   async function renderRecord() {
     const totalWins = globalUserData.total_wins || 0;
-    const onlineWins = globalUserData.online_wins || 0;
-    const max1st = globalUserData.max_1st_places || 0;
     
-    updateRecordDOM(totalWins, onlineWins, max1st, "取得中...");
+    // 最高連続勝利数（チャレンジとサバイバルの高い方）
+    const chMax = globalUserData.challenge_max_streak || 0;
+    const svMax = globalUserData.survival_max_streak || 0;
+    const highestMaxStreak = Math.max(chMax, svMax);
+
+    // 1着最多数（チャレンジとサバイバル別）
+    const challengeMax1st = globalUserData.max_1st_places || 0;
+    const survivalMax1st = globalUserData.survival_bests?.max_1st?.c1 || 0;
+
+    // バッジ解放状態の反映
+    const badges = globalUserData.survival_badges || {};
+    if (badges.clear) {
+      document.getElementById('badgeSurvivalClear').classList.add('unlocked');
+    }
+    if (badges.fulfillment_100) {
+      document.getElementById('badgeSurvival100').classList.add('unlocked');
+    }
+
+    // 初期表示（所持種類は取得中）
+    updateRecordDOM(totalWins, highestMaxStreak, challengeMax1st, survivalMax1st, "取得中...");
 
     try {
       const collRef = collection(db, `users/${currentUser.uid}/inventory`);
       const snapshot = await getCountFromServer(collRef);
-      updateRecordDOM(totalWins, onlineWins, max1st, `${snapshot.data().count}種`);
+      updateRecordDOM(totalWins, highestMaxStreak, challengeMax1st, survivalMax1st, `${snapshot.data().count}種`);
     } catch (error) {
-      updateRecordDOM(totalWins, onlineWins, max1st, "- 種");
+      updateRecordDOM(totalWins, highestMaxStreak, challengeMax1st, survivalMax1st, "- 種");
     }
   }
 
-  function updateRecordDOM(totalWins, onlineWins, max1st, cardTypesDisplay) {
-    document.getElementById('recordSection').innerHTML = `
-      <div class="record-item"><span class="record-label">通算勝利</span><span class="record-value highlight">${totalWins}勝</span></div>
-      <div class="record-item"><span class="record-label">1着最多数</span><span class="record-value">${max1st}回</span></div>
-      <div class="record-item"><span class="record-label">オンライン勝利</span><span class="record-value highlight" style="color:#d97706;">${onlineWins}勝</span></div>
-      <div class="record-item"><span class="record-label">所持種類</span><span class="record-value" style="color:#0d4220;">${cardTypesDisplay}</span></div>
-    `;
+  function updateRecordDOM(totalWins, maxStreak, challengeMax1st, survivalMax1st, cardTypesDisplay) {
+    document.getElementById('statTotalWins').textContent = `${totalWins}勝`;
+    document.getElementById('statMaxStreak').textContent = `${maxStreak}連勝`;
+    document.getElementById('statCardTypes').textContent = cardTypesDisplay;
+    document.getElementById('statChallengeMax1st').textContent = `${challengeMax1st}回`;
+    document.getElementById('statSurvivalMax1st').textContent = `${survivalMax1st}回`;
   }
 
   async function checkAndRenderLoginBonus() {
