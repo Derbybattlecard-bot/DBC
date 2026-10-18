@@ -183,11 +183,24 @@ export function getGenYearLastDigit(horseOrId) {
   return idStr.length >= 2 ? idStr.substring(1, 2) : '0';
 }
 
-// 馬の主要ポテンシャル数値（芝最優先、無ければダート）を取得
-export function getHorsePotential(horse) {
+/**
+ * 馬のポテンシャル配列（芝とダート両方のポテンシャル数値）を取得する
+ * @param {Object} horse 
+ * @returns {Array<number>} 14〜21等のポテンシャル数値のリスト（0は除外）
+ */
+export function getHorsePotentials(horse) {
+  if (!horse) return [];
   const turf = Number(horse.turf_potential ?? horse.turf ?? 0);
   const dirt = Number(horse.dirt_potential ?? horse.dirt ?? 0);
-  return turf > 0 ? turf : dirt;
+  const pots = [];
+  if (turf >= 14) pots.includes(turf) || pots.push(turf);
+  if (dirt >= 14) pots.includes(dirt) || pots.push(dirt);
+  if (pots.length === 0) {
+    // フォールバック
+    const single = Number(horse.potential ?? 0);
+    if (single > 0) pots.push(single);
+  }
+  return pots;
 }
 
 // 芝・ダート適性
@@ -212,33 +225,47 @@ function getDistanceAptitudeText(horse) {
 
 /**
  * 獲得カードリスト（最大3枚）からスロット一致判定を行い、ポイントとリーチテキストを算出
- * @param {Array} cards - 当日引き当てたカードの配列
- * @returns {Object} { points, reachText, reachTypes }
+ * @param {Array} cards - 当日引き当てたカードの配列（2枚または3枚）
+ * @returns {Object} { points, reachText, reachTypes, isFever }
  */
 export function evaluateSlotMatch(cards) {
   if (!Array.isArray(cards) || cards.length < 2) {
-    return { points: 0, reachText: '', reachTypes: [] };
+    return { points: 0, reachText: '', reachTypes: [], isFever: false };
   }
 
   const hasThree = cards.length >= 3;
   let matches = { gen: false, category: false, style: false, potential: false };
 
   if (hasThree) {
+    // 3枚全ての一致判定
     const genDigit0 = getGenYearLastDigit(cards[0]);
-    const cat0 = cards[0].rarity || 'NOR';
+    const cat0 = (cards[0].rarity || 'NOR').toUpperCase();
     const style0 = cards[0].style || '';
-    const pot0 = getHorsePotential(cards[0]);
+    const pots0 = getHorsePotentials(cards[0]);
 
     matches.gen = cards.every(c => getGenYearLastDigit(c) === genDigit0);
-    matches.category = cards.every(c => (c.rarity || 'NOR') === cat0);
+    matches.category = cards.every(c => (c.rarity || 'NOR').toUpperCase() === cat0);
     matches.style = cards.every(c => (c.style || '') === style0);
-    matches.potential = cards.every(c => getHorsePotential(c) === pot0);
+    // 3枚の中に共通するポテンシャル数値が含まれているか
+    matches.potential = pots0.some(p => cards.every(c => getHorsePotentials(c).includes(p)));
   } else {
-    // 2枚の場合
-    matches.gen = getGenYearLastDigit(cards[0]) === getGenYearLastDigit(cards[1]);
-    matches.category = (cards[0].rarity || 'NOR') === (cards[1].rarity || 'NOR');
-    matches.style = (cards[0].style || '') === (cards[1].style || '');
-    matches.potential = getHorsePotential(cards[0]) === getHorsePotential(cards[1]);
+    // 2枚の場合のリーチ判定
+    const gen0 = getGenYearLastDigit(cards[0]);
+    const gen1 = getGenYearLastDigit(cards[1]);
+    matches.gen = (gen0 === gen1);
+
+    const cat0 = (cards[0].rarity || 'NOR').toUpperCase();
+    const cat1 = (cards[1].rarity || 'NOR').toUpperCase();
+    matches.category = (cat0 === cat1);
+
+    const style0 = cards[0].style || '';
+    const style1 = cards[1].style || '';
+    matches.style = (style0 !== '' && style0 === style1);
+
+    const pots0 = getHorsePotentials(cards[0]);
+    const pots1 = getHorsePotentials(cards[1]);
+    // 1枚目と2枚目の間でポテンシャル数値に重複（共通項）があるか
+    matches.potential = pots0.some(p => pots1.includes(p));
   }
 
   let totalPoints = 0;
@@ -266,12 +293,30 @@ export function evaluateSlotMatch(cards) {
     reachTypes.push('potential');
   }
 
-  const reachText = reachLabels.length > 0 ? `${reachLabels.join('＆')}リーチ！` : '';
+  // リーチ表示の組み立て（1〜2個はダブルまで個別表示、3個はトリプル、4個はクワドラプル）
+  let reachText = '';
+  const count = reachLabels.length;
+
+  if (hasThree && count === 4) {
+    reachText = '🔥🔥 クワドラプル確定！！ (翌日確変濃厚) 🔥🔥';
+  } else if (hasThree && count === 3) {
+    reachText = '⚡⚡ トリプルリーチ！！ ⚡⚡';
+  } else if (count >= 3) {
+    reachText = `${reachLabels.join('＆')}トリプルリーチ！`;
+  } else if (count === 2) {
+    reachText = `${reachLabels.join('＆')}ダブルリーチ！`;
+  } else if (count === 1) {
+    reachText = `${reachLabels[0]}リーチ！`;
+  }
+
+  // 3枚すべて揃った場合の確変判定（4要素のいずれかが完全一致していれば有効など定義に応じるが、ここではポイント合算や全一致判定を活用）
+  const isFever = hasThree && (matches.gen && matches.category && matches.style && matches.potential);
 
   return {
     points: totalPoints,
     reachText,
-    reachTypes
+    reachTypes,
+    isFever
   };
 }
 
