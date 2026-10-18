@@ -47,7 +47,7 @@
       font-weight: 900;
     }
 
-    /* --- 新・統合型 ユーザープロフィール & 2段バッジエリア --- */
+    /* --- 統合型 ユーザープロフィール & 4項目ステータスエリア --- */
     .user-profile-panel {
       background: rgba(255, 255, 255, 0.95);
       border: 1px solid var(--border-green);
@@ -73,27 +73,31 @@
       align-items: center;
       gap: 4px;
     }
-    .user-side-info {
-      font-size: 10px;
+    /* プレイヤー名の右側：バッジ・トロフィー用の拡張エリア */
+    .user-badge-area {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
       font-weight: bold;
-      color: var(--sub-text);
-      background: var(--card-inner-bg);
-      padding: 2px 6px;
-      border-radius: 10px;
-      border: 1px solid #c2dfc6;
+      background: #fdfae7;
+      border: 1px solid #f5e6a3;
+      padding: 2px 8px;
+      border-radius: 12px;
+      color: var(--accent-gold);
     }
 
-    /* 2段コンパクトグリッドデザイン */
+    /* 4項目を綺麗に収める1行4列のコンパクトグリッド */
     .stats-badge-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 5px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
     }
     .stat-badge-box {
       background: var(--card-inner-bg);
       border: 1px solid #c2dfc6;
       border-radius: 6px;
-      padding: 4px 2px;
+      padding: 5px 2px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -110,7 +114,7 @@
       padding: 1px 5px;
       line-height: 1.1;
       white-space: nowrap;
-      margin-bottom: 2px;
+      margin-bottom: 3px;
       overflow: hidden;
       text-overflow: ellipsis;
       max-width: 100%;
@@ -123,37 +127,6 @@
       white-space: nowrap;
     }
     .stat-num.gold { color: var(--accent-gold); }
-
-    /* サバイバル制覇バッジ専用セル（特別感のあるデザイン） */
-    .stat-badge-box.badge-box {
-      background: #f5f5f5;
-      border-color: #ccc;
-    }
-    .stat-badge-box.badge-box.unlocked {
-      background: linear-gradient(135deg, #fffdf4, #fef3c7);
-      border-color: #d4af37;
-      box-shadow: 0 1px 3px rgba(212, 175, 55, 0.3);
-    }
-    .stat-badge-box.badge-box .stat-tag {
-      background: #eee;
-      border-color: #bbb;
-      color: #666;
-    }
-    .stat-badge-box.badge-box.unlocked .stat-tag {
-      background: linear-gradient(135deg, #fef3c7, #fde68a);
-      border-color: #d4af37;
-      color: #855b08;
-    }
-    .badge-status-text {
-      font-size: 9.5px;
-      font-weight: bold;
-      color: #888;
-      white-space: nowrap;
-    }
-    .stat-badge-box.badge-box.unlocked .badge-status-text {
-      color: #b8860b;
-      font-weight: 900;
-    }
 
     /* --- ボーナスカード部分 --- */
     .bonus-section {
@@ -412,22 +385,25 @@
 <div class="container">
   <div class="header"><h1>DERBY BATTLE CARD</h1></div>
   
-  <!-- 統合型プロフィール & 2段バッジエリア -->
+  <!-- 統合型プロフィール & 4項目ステータスエリア -->
   <div class="user-profile-panel">
     <div class="user-top-row">
       <div class="user-name-text" id="userNameText">👤 読み込み中...</div>
-      <div class="user-side-info" id="userTitleBadge">✨ 挑戦者</div>
+      <!-- 右側：勝利数トロフィー & サバイバル制覇バッジ等の拡張エリア -->
+      <div class="user-badge-area" id="userBadgeArea" title="称号・実績トロフィー">
+        <span>🏆 挑戦者</span>
+      </div>
     </div>
 
-    <!-- 2段グリッド（上段:通算・最高連勝・最多1着 / 下段:所持カード・制覇バッジ・空きまたはプレースホルダー） -->
+    <!-- 1行4列グリッド（通算勝利数、連勝数/最高連勝、最多1着/1回最多1着、所持カード種） -->
     <div class="stats-badge-grid">
       <div class="stat-badge-box">
         <span class="stat-tag">通算勝利</span>
         <span class="stat-num gold" id="statTotalWins">-</span>
       </div>
       <div class="stat-badge-box">
-        <span class="stat-tag">最高連勝</span>
-        <span class="stat-num gold" id="statMaxStreak">-</span>
+        <span class="stat-tag">連勝 / 最高</span>
+        <span class="stat-num gold" id="statStreakInfo">-/-</span>
       </div>
       <div class="stat-badge-box">
         <span class="stat-tag" id="statMax1stTag">最多1着</span>
@@ -436,10 +412,6 @@
       <div class="stat-badge-box">
         <span class="stat-tag">所持カード</span>
         <span class="stat-num" id="statCardTypes">-</span>
-      </div>
-      <div class="stat-badge-box badge-box" id="badgeSurvivalClearBox" style="grid-column: span 2;">
-        <span class="stat-tag">サバイバル制覇状況</span>
-        <span class="badge-status-text" id="badgeSurvivalClearText">未制覇</span>
       </div>
     </div>
   </div>
@@ -617,37 +589,42 @@
   async function renderRecord() {
     const totalWins = globalUserData.total_wins || 0;
     
+    // 連勝数 & 最高連勝数（チャレンジ / サバイバル合算またはメイン表示）
+    const chCurr = globalUserData.challenge_current_streak || 0;
     const chMax = globalUserData.challenge_max_streak || 0;
+    const svCurr = globalUserData.survival_current_streak || 0;
     const svMax = globalUserData.survival_max_streak || 0;
-    const highestMaxStreak = Math.max(chMax, svMax);
+    const currentStreak = Math.max(chCurr, svCurr);
+    const maxStreak = Math.max(chMax, svMax);
 
+    // 最多1着（通算最多 & 1回バトル最多1着）
     const challengeMax1st = globalUserData.max_1st_places || 0;
     const survivalMax1st = globalUserData.survival_bests?.max_1st?.c1 || 0;
-    
-    let max1stVal = challengeMax1st;
-    let max1stTag = "最多1着(Ch)";
+    let max1stVal = Math.max(challengeMax1st, survivalMax1st);
 
-    if (survivalMax1st > challengeMax1st) {
-      max1stVal = survivalMax1st;
-      max1stTag = "最多1着(Sv)";
-    } else if (survivalMax1st === challengeMax1st && survivalMax1st > 0) {
-      max1stTag = "最多1着";
-    }
-
+    // プレイヤー名横のバッジエリア（トロフィー・制覇状況の動的表示）
+    const badgeArea = document.getElementById('userBadgeArea');
     const badges = globalUserData.survival_badges || {};
-    const badgeBox = document.getElementById('badgeSurvivalClearBox');
-    const badgeText = document.getElementById('badgeSurvivalClearText');
-    if (badges.clear) {
-      badgeBox.classList.add('unlocked');
-      badgeText.textContent = "🛡️ サバイバルモード完全制覇達成！";
-    } else {
-      badgeBox.classList.remove('unlocked');
-      badgeText.textContent = "🔒 サバイバルモード未制覇";
+    
+    let badgeHtml = `🏆 挑戦者`;
+    if (totalWins >= 100) {
+      badgeHtml = `👑 殿堂馬主`;
+    } else if (totalWins >= 50) {
+      badgeHtml = `🌟 サバイバー`;
+    } else if (totalWins >= 30) {
+      badgeHtml = `⚔️ 猛者`;
     }
 
+    // サバイバル制覇していれば専用アイコンを追加
+    if (badges.clear) {
+      badgeHtml += ` 🛡️`;
+    }
+    badgeArea.innerHTML = badgeHtml;
+
+    // 4項目への値反映
     document.getElementById('statTotalWins').textContent = `${totalWins}勝`;
-    document.getElementById('statMaxStreak').textContent = `${highestMaxStreak}連勝`;
-    document.getElementById('statMax1stTag').textContent = max1stTag;
+    document.getElementById('statStreakInfo').textContent = `${currentStreak} / ${maxStreak}`;
+    document.getElementById('statMax1stTag').textContent = "最多1着";
     document.getElementById('statMax1stVal').textContent = `${max1stVal}回`;
 
     try {
@@ -944,14 +921,12 @@
   document.getElementById('tabMain1').onclick = () => switchTab(0);
   document.getElementById('tabMain2').onclick = () => switchTab(1);
 
-  Object.assign(window, {
-    openCardDetail: (horseId) => {
-      if (!cardRenderer) return;
-      const cardHtml = cardRenderer.renderCardUI(horseId, 'large');
-      document.getElementById('cardDetailBox').innerHTML = cardHtml;
-      document.getElementById('cardDetailModal').classList.add('active');
-    }
-  });
+  window.openCardDetail = (horseId) => {
+    if (!cardRenderer) return;
+    const cardHtml = cardRenderer.renderCardUI(horseId, 'large');
+    document.getElementById('cardDetailBox').innerHTML = cardHtml;
+    document.getElementById('cardDetailModal').classList.add('active');
+  };
 
   document.getElementById('cardDetailModal').addEventListener('click', (e) => {
     if (e.target.id === 'cardDetailModal') {
