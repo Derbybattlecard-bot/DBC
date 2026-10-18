@@ -469,26 +469,26 @@
     }
   }
 
-  // ★ 連勝記録を判定・加算・リセットする関数（レース終了後にバトルHTMLへ戻ってきた時に実行）
+  // ★ 【新アーキテクチャ】 単一情報源に基づく連勝記録の判定・加算・リセット
   async function checkAndUpdateStreaks(status) {
-    if (!status) return;
+    if (!status || !status.round_results) return;
     const isSurvival = (status.battle_type === 'survival' || status.deck_type === 1);
     
-    const roundHistory = status.round_history || [];
-    const processedCount = status.streak_processed_count || 0;
-
+    // round_results のキー数（＝消化済みのラウンド数）
+    const roundsPlayedKeys = Object.keys(status.round_results).map(Number).sort((a, b) => a - b);
+    const processedCount = status.streak_processed_round || 0;
+    
     // まだ処理していない新しいラウンド結果がある場合のみ集計
-    if (roundHistory.length > processedCount) {
+    const unprocessedKeys = roundsPlayedKeys.filter(key => key > processedCount);
+
+    if (unprocessedKeys.length > 0) {
       let chCurr = globalUserData.challenge_current_streak || 0;
       let chMax = globalUserData.challenge_max_streak || 0;
       let svCurr = globalUserData.survival_current_streak || 0;
       let svMax = globalUserData.survival_max_streak || 0;
 
-      let updated = false;
-
-      for (let i = processedCount; i < roundHistory.length; i++) {
-        const roundRes = roundHistory[i];
-        const isWin = roundRes.isWin; // 各ラウンドの勝敗 (true / false)
+      for (const roundKey of unprocessedKeys) {
+        const isWin = status.round_results[String(roundKey)].isWin; // 単一情報源から勝敗を取得
 
         if (isSurvival) {
           if (isWin) {
@@ -505,29 +505,28 @@
             chCurr = 0; // 敗北したらチャレンジ連勝リセット
           }
         }
-        updated = true;
       }
 
-      if (updated) {
-        globalUserData.challenge_current_streak = chCurr;
-        globalUserData.challenge_max_streak = chMax;
-        globalUserData.survival_current_streak = svCurr;
-        globalUserData.survival_max_streak = svMax;
-        status.streak_processed_count = roundHistory.length;
+      const maxProcessedKey = Math.max(...unprocessedKeys);
 
-        const updateData = {
-          challenge_current_streak: chCurr,
-          challenge_max_streak: chMax,
-          survival_current_streak: svCurr,
-          survival_max_streak: svMax,
-          "cpu_battle_status.streak_processed_count": roundHistory.length
-        };
+      globalUserData.challenge_current_streak = chCurr;
+      globalUserData.challenge_max_streak = chMax;
+      globalUserData.survival_current_streak = svCurr;
+      globalUserData.survival_max_streak = svMax;
+      status.streak_processed_round = maxProcessedKey;
 
-        try {
-          await setDoc(doc(db, "users", currentUser.uid), updateData, { merge: true });
-        } catch (err) {
-          console.error("連勝記録の保存エラー:", err);
-        }
+      const updateData = {
+        challenge_current_streak: chCurr,
+        challenge_max_streak: chMax,
+        survival_current_streak: svCurr,
+        survival_max_streak: svMax,
+        "cpu_battle_status.streak_processed_round": maxProcessedKey
+      };
+
+      try {
+        await setDoc(doc(db, "users", currentUser.uid), updateData, { merge: true });
+      } catch (err) {
+        console.error("連勝記録の保存エラー:", err);
       }
     }
   }
@@ -550,152 +549,7 @@
     }).join('');
   }
 
-  function getHorsePotential(horse, surface) {
-    if (!horse) return 0;
-    const isTurf = !surface || surface.includes('芝');
-    const isDirt = surface && (surface.includes('ダート') || surface.includes('ダ'));
-
-    if (isTurf) {
-      if (horse.turf_potential !== undefined && horse.turf_potential !== null) return Number(horse.turf_potential) || 0;
-      if (horse.aptitude && horse.aptitude.turf_potential !== undefined) return Number(horse.aptitude.turf_potential) || 0;
-    } else if (isDirt) {
-      if (horse.dirt_potential !== undefined && horse.dirt_potential !== null) return Number(horse.dirt_potential) || 0;
-      if (horse.aptitude && horse.aptitude.dirt_potential !== undefined) return Number(horse.aptitude.dirt_potential) || 0;
-    }
-    return Number(horse.potential ?? horse.cost ?? horse.pt ?? horse.ability_point ?? 0) || 0;
-  }
-
-  async function evaluateAndSaveSurvivalBests(status, totalRankSum, totalC1, totalC2, totalC3, totalC4Plus, fulfillmentRatio, lineup) {
-    const isSurvival = (status.battle_type === 'survival' || status.deck_type == 1);
-    const currentWins = status.series_wins || 0;
-
-    if (!isSurvival || currentWins < 3) return;
-
-    if (!globalUserData.survival_bests) {
-      globalUserData.survival_bests = {};
-    }
-    const bests = globalUserData.survival_bests;
-    let updated = false;
-    const nowIso = new Date().toISOString();
-    const fulNum = parseFloat(fulfillmentRatio);
-
-    const recordObj = {
-      rank_sum: totalRankSum,
-      c1: totalC1,
-      c2: totalC2,
-      c3: totalC3,
-      c4Plus: totalC4Plus,
-      fulfillment: fulNum,
-      series_lineup: lineup,
-      achieved_at: nowIso
-    };
-
-    if (!globalUserData.survival_badges) {
-      globalUserData.survival_badges = {};
-    }
-    const badges = globalUserData.survival_badges;
-    let badgeUpdated = false;
-
-    if (!badges.clear) {
-      badges.clear = true;
-      badgeUpdated = true;
-    }
-    if (fulNum >= 100 && !badges.fulfillment_100) {
-      badges.fulfillment_100 = true;
-      badgeUpdated = true;
-    }
-
-    const curMinRank = bests.min_rank_sum;
-    let isBetterMinRank = false;
-    if (!curMinRank) {
-      isBetterMinRank = true;
-    } else {
-      if (totalRankSum < curMinRank.rank_sum) {
-        isBetterMinRank = true;
-      } else if (totalRankSum === curMinRank.rank_sum) {
-        if (totalC1 > (curMinRank.c1 ?? 0)) {
-          isBetterMinRank = true;
-        } else if (totalC1 === (curMinRank.c1 ?? 0)) {
-          if (totalC2 > (curMinRank.c2 ?? 0)) {
-            isBetterMinRank = true;
-          } else if (totalC2 === (curMinRank.c2 ?? 0)) {
-            if (totalC3 > (curMinRank.c3 ?? 0)) {
-              isBetterMinRank = true;
-            } else if (totalC3 === (curMinRank.c3 ?? 0)) {
-              if (fulNum < (curMinRank.fulfillment ?? 999)) {
-                isBetterMinRank = true;
-              }
-            }
-          }
-        }
-      }
-    }
-    if (isBetterMinRank) {
-      bests.min_rank_sum = recordObj;
-      updated = true;
-    }
-
-    const currentMaxFul = bests.max_fulfillment;
-    let isBetterMaxFul = false;
-    if (!currentMaxFul || fulNum > currentMaxFul.fulfillment) {
-      isBetterMaxFul = true;
-    } else if (currentMaxFul && fulNum === currentMaxFul.fulfillment) {
-      if (totalRankSum < currentMaxFul.rank_sum) {
-        isBetterMaxFul = true;
-      }
-    }
-    if (isBetterMaxFul) {
-      bests.max_fulfillment = recordObj;
-      updated = true;
-    }
-
-    const currentMinFul = bests.min_fulfillment;
-    let isBetterMinFul = false;
-    if (!currentMinFul || fulNum < currentMinFul.fulfillment) {
-      isBetterMinFul = true;
-    } else if (currentMinFul && fulNum === currentMinFul.fulfillment) {
-      if (totalRankSum < currentMinFul.rank_sum) {
-        isBetterMinFul = true;
-      }
-    }
-    if (isBetterMinFul) {
-      bests.min_fulfillment = recordObj;
-      updated = true;
-    }
-
-    const currentMax1st = bests.max_1st || { c1: -1, c2: -1, c3: -1 };
-    let isBetter1st = false;
-    if (totalC1 > currentMax1st.c1) {
-      isBetter1st = true;
-    } else if (totalC1 === currentMax1st.c1) {
-      if (totalC2 > currentMax1st.c2) {
-        isBetter1st = true;
-      } else if (totalC2 === currentMax1st.c2) {
-        if (totalC3 > currentMax1st.c3) {
-          isBetter1st = true;
-        } else if (totalC3 === currentMax1st.c3) {
-          const curC4 = currentMax1st.c4Plus !== undefined ? currentMax1st.c4Plus : (15 - ((currentMax1st.c1 || 0) + (currentMax1st.c2 || 0) + (currentMax1st.c3 || 0)));
-          if (totalC4Plus < curC4) {
-            isBetter1st = true;
-          }
-        }
-      }
-    }
-    if (isBetter1st) {
-      bests.max_1st = recordObj;
-      updated = true;
-    }
-
-    if (updated || badgeUpdated) {
-      globalUserData.survival_bests = bests;
-      globalUserData.survival_badges = badges;
-      await setDoc(doc(db, "users", currentUser.uid), { 
-        survival_bests: bests,
-        survival_badges: badges
-      }, { merge: true });
-    }
-  }
-
+  // ★ 【新アーキテクチャ】 単一情報源からカードの成績部分を描画する関数
   function renderSeriesItemCardHTML(sObj, roundNum, isCurrentRound, roundResult) {
     const catName = getNormalizedCategory(sObj) || '一般';
     const sName = sObj.series_name || '名称未設定';
@@ -706,7 +560,8 @@
 
     let resultHtml = "";
     if (roundResult) {
-      const isGiveUp = roundResult.isGiveUp || roundResult.giveup || roundResult.is_giveup || (roundResult.myWins === undefined && roundResult.oppWins === undefined);
+      // ギブアップ（不戦敗）判定
+      const isGiveUp = roundResult.isGiveUp || false;
 
       let roundFulfillmentHtml = "";
       if (typeof roundResult.teamPotential === 'number') {
@@ -734,19 +589,11 @@
         const oppWins = roundResult.oppWins || 0;
         const scoreText = `${myWins}勝 ${oppWins}敗`;
 
-        const c1 = roundResult.r1 ?? roundResult.c1 ?? 0;
-        const c2 = roundResult.r2 ?? roundResult.c2 ?? 0;
-        const c3 = roundResult.r3 ?? roundResult.c3 ?? 0;
-        const c4Plus = roundResult.r4Plus ?? (15 - (c1 + c2 + c3));
-
-        let rankSum = roundResult.rankSum;
-        if (rankSum === undefined) {
-          if (Array.isArray(roundResult.races)) {
-            rankSum = roundResult.races.reduce((acc, r) => acc + (Number(r.rank || r.position) || 4), 0);
-          } else {
-            rankSum = (c1 * 1) + (c2 * 2) + (c3 * 3) + (c4Plus * 4);
-          }
-        }
+        const c1 = roundResult.r1 || 0;
+        const c2 = roundResult.r2 || 0;
+        const c3 = roundResult.r3 || 0;
+        const c4Plus = roundResult.r4Plus || 0;
+        const rankSum = roundResult.rankSum || 0;
 
         const detailText = `(1着:${c1}, 2着:${c2}, 3着:${c3}, 4着以下:${c4Plus}) 合計${rankSum}着`;
         const badgeClass = roundResult.isWin ? 'badge-win' : 'badge-loss';
@@ -834,6 +681,7 @@
     await processBattleState(totalWins);
   }
 
+  // ★ 【新アーキテクチャ】 単一情報源（round_results）から全てを集計して判定するメイン処理
   async function processBattleState(totalWins) {
     let status = globalUserData.cpu_battle_status;
 
@@ -842,45 +690,52 @@
       return;
     }
 
-    // ★ レース終了後にバトルHTMLに戻ってきた際の連勝記録更新チェック
+    // 1. 連勝記録の更新
     await checkAndUpdateStreaks(status);
     updateHeaderBadges();
 
-    const isSurvival = (status.battle_type === 'survival' || status.deck_type == 1);
-    
+    const isSurvival = (status.battle_type === 'survival' || status.deck_type === 1);
     const maxRounds = isSurvival ? 3 : (status.max_rounds || (totalWins >= 30 ? 5 : 3));
     const winCondition = isSurvival ? 3 : Math.ceil(maxRounds / 2);
-    const lossCondition = isSurvival ? 1 : Math.ceil(maxRounds / 2);
 
-    let currentWins = status.series_wins || 0;
-    let currentLosses = status.series_losses || 0;
+    let currentWins = 0;
+    let currentLosses = 0;
+    const roundResults = status.round_results || {};
 
-    if (isSurvival) {
-      if (currentLosses >= 1) {
-        currentLosses = 1;
-      } else if (status.current_round > 3 && currentWins < 3) {
-        currentLosses = 1;
-        status.series_losses = 1;
-      }
+    // 2. round_results を元に現在の勝敗数を再集計（完全同期）
+    Object.keys(roundResults).forEach(key => {
+      const res = roundResults[key];
+      if (res.isWin) currentWins++;
+      else currentLosses++;
+    });
+
+    // 3. サバイバルモード独自の「1回でも負けたら即終了」を強制適用
+    if (isSurvival && currentLosses >= 1) {
+      currentLosses = 1;
+      status.series_losses = 1;
     }
 
-    const isFinished = (currentWins >= winCondition) || (currentLosses >= lossCondition) || (isSurvival && status.current_round > 3 && currentWins < 3);
+    // 4. マッチ終了(isFinished)の判定
+    const isFinished = isSurvival 
+      ? (currentWins >= 3 || currentLosses >= 1)
+      : (currentWins >= winCondition || currentLosses > Math.floor(maxRounds / 2) || status.current_round > maxRounds);
 
     if (isFinished) {
       await renderActiveBattle(status, totalWins, true);
       return;
     }
 
+    // 5. 進行中のレースがある場合は遷移
     if (status.current_match && status.current_match.full_race_grids) {
       window.location.href = 'race_result.html';
       return;
     }
-
     if (status.current_match && status.current_match.player_entries && status.current_match.player_entries.length > 0) {
       window.location.href = 'strategy.html';
       return;
     }
 
+    // 6. 通常のバトルトップ画面を描画
     await renderActiveBattle(status, totalWins, false);
   }
 
@@ -970,6 +825,7 @@
     bestsPanel.style.display = 'block';
   }
 
+  // ★ 【新アーキテクチャ】 対戦の新規作成。初期化処理の統一。
   window.startNewBattle = async function(mode) {
     const totalWins = globalUserData.total_wins || 0;
     let maxRounds = 3;
@@ -1002,9 +858,10 @@
       series_losses: 0,
       total_1st_places: 0,
       used_cards_history: [],
-      match_round_results: {},
-      round_history: [],
-      streak_processed_count: 0,
+      // 旧型の配列やオブジェクトを廃止し、新アーキテクチャの器を準備
+      race_results: {},
+      round_results: {},
+      streak_processed_round: 0,
       reward_claimed: false,
       current_match: null
     };
@@ -1176,6 +1033,7 @@
     return lineup;
   }
 
+  // ★ 【新アーキテクチャ】 単一情報源（round_results）からデータを取得して画面を描画する
   async function renderActiveBattle(status, totalWins, isFinished) {
     const deckType = status.deck_type || 2;
     const isSurvival = (status.battle_type === 'survival' || deckType === 1);
@@ -1184,81 +1042,45 @@
       selectedDeckIndex = status.selected_deck_index;
     }
 
-    const currentWins = status.series_wins || 0;
-    const currentLosses = status.series_losses || 0;
+    const lineup = status.series_lineup || [];
+    const maxRounds = isSurvival ? 3 : (status.max_rounds || (lineup.length || 3));
+    const winCondition = isSurvival ? 3 : Math.ceil(maxRounds / 2);
+
+    const roundResults = status.round_results || {};
+    
+    // 勝敗数の再計算 (round_results から直接拾う)
+    let currentWins = 0;
+    let currentLosses = 0;
+    Object.keys(roundResults).forEach(key => {
+      if (roundResults[key].isWin) currentWins++;
+      else currentLosses++;
+    });
+
+    if (isSurvival && currentLosses >= 1) currentLosses = 1;
 
     document.getElementById('winCount').textContent = currentWins;
     document.getElementById('lossCount').textContent = currentLosses;
     document.getElementById('winLossHeader').style.display = 'flex';
 
+    // トータル成績の集計
     let totalC1 = 0, totalC2 = 0, totalC3 = 0, totalC4Plus = 0;
     let totalRankSum = 0;
     let actualTeamPotentialSum = 0;
     let maxLimitPotentialSum = 0;
 
-    const decks = globalUserData.decks || [];
-    const activeDeck = decks[selectedDeckIndex] || { horse_ids: [] };
-    const lineup = status.series_lineup || [];
-
-    const roundResults = status.match_round_results || {};
-
-    Object.keys(roundResults).forEach(roundKey => {
-      const h = roundResults[roundKey];
-      const c1 = h.r1 ?? h.c1 ?? 0;
-      const c2 = h.r2 ?? h.c2 ?? 0;
-      const c3 = h.r3 ?? h.c3 ?? 0;
-      const c4Plus = h.r4Plus ?? (15 - (c1 + c2 + c3));
-
-      totalC1 += c1;
-      totalC2 += c2;
-      totalC3 += c3;
-      totalC4Plus += c4Plus;
-
-      let rankSum = h.rankSum;
-      if (rankSum === undefined) {
-        if (Array.isArray(h.races)) {
-          rankSum = h.races.reduce((acc, r) => acc + (Number(r.rank || r.position) || 4), 0);
-        } else {
-          rankSum = (c1 * 1) + (c2 * 2) + (c3 * 3) + (c4Plus * 4);
-        }
-      }
-      totalRankSum += rankSum;
-
-      let roundPot = 0;
-      if (typeof h.teamPotential === 'number') {
-        roundPot = h.teamPotential;
-      } else {
-        const rNum = parseInt(roundKey, 10);
-        const sId = lineup[rNum - 1];
-        const sObj = SERIES_MASTER.find(s => s.series_id === sId) || {};
-        const rounds = sObj.rounds || [];
-        const races = (rounds[0] && rounds[0].races) ? rounds[0].races : (sObj.races || []);
-
-        const roundHorses = h.horse_ids || h.entries || h.selected_horses;
-        if (Array.isArray(roundHorses)) {
-          roundHorses.forEach((hId, rIdx) => {
-            const horse = HORSES_MASTER[hId];
-            const raceSurface = races[rIdx]?.surface || "芝";
-            roundPot += getHorsePotential(horse, raceSurface);
-          });
-        } else {
-          const validIds = (activeDeck.horse_ids || []).filter(id => id);
-          if (validIds.length > 0) {
-            const startIdx = (((rNum - 1) * 5)) % validIds.length;
-            const sliceIds = validIds.slice(startIdx, startIdx + 5);
-            sliceIds.forEach((id, rIdx) => {
-              const horse = HORSES_MASTER[id];
-              const raceSurface = races[rIdx]?.surface || "芝";
-              roundPot += getHorsePotential(horse, raceSurface);
-            });
-          }
-        }
-      }
-      actualTeamPotentialSum += roundPot;
+    Object.keys(roundResults).forEach(key => {
+      const res = roundResults[key];
+      totalC1 += res.r1 || 0;
+      totalC2 += res.r2 || 0;
+      totalC3 += res.r3 || 0;
+      totalC4Plus += res.r4Plus || 0;
+      totalRankSum += res.rankSum || 0;
+      actualTeamPotentialSum += res.teamPotential || 0;
     });
 
     document.getElementById('totalDetailText').textContent = `(1着:${totalC1}, 2着:${totalC2}, 3着:${totalC3}, 4着以下:${totalC4Plus}) 合計${totalRankSum}着`;
 
+    // 充足率計算用（プレイ済みの回戦分のみ上限を加算）
     const playedRoundsCount = Object.keys(roundResults).length;
     for (let i = 0; i < Math.max(playedRoundsCount, status.current_round - 1); i++) {
       if (lineup[i]) {
@@ -1281,15 +1103,11 @@
       survivalValEl.style.display = "none";
     }
 
-    if (isFinished && isSurvival && currentWins >= 3) {
-      await evaluateAndSaveSurvivalBests(status, totalRankSum, totalC1, totalC2, totalC3, totalC4Plus, fulfillmentRatio, lineup);
-    }
-
-    const maxRounds = isSurvival ? 3 : (status.max_rounds || (lineup.length || 3));
     const typeText = isSurvival ? '1デック制サバイバル (3連勝でクリア)' : '2デック制';
     document.getElementById('totalRoundsText').textContent = `全${maxRounds}回戦`;
     document.getElementById('matchTypeSubText').textContent = `※${maxRounds}回戦マッチ (${typeText}) の対戦シリーズ一覧です。`;
 
+    // ラウンドカード一覧の描画
     const cardsContainer = document.getElementById('seriesCardsContainer');
     cardsContainer.innerHTML = '';
 
@@ -1298,7 +1116,9 @@
       const isCurrentRound = !isFinished && (roundNum === status.current_round);
       const sObj = SERIES_MASTER.find(s => s.series_id === sId) || SERIES_MASTER[0] || {};
       
-      let roundResult = roundResults[roundNum];
+      let roundResult = roundResults[String(roundNum)];
+      
+      // 未プレイだが敗北確定により「不戦敗（ギブアップ）」扱いとする場合
       if (!roundResult && isFinished && roundNum <= status.current_round && currentLosses > 0) {
         roundResult = { isGiveUp: true, isWin: false };
       }
@@ -1313,9 +1133,6 @@
     if (isFinished) {
       document.getElementById('challengePanel').style.display = 'block';
       document.getElementById('deckPanel').style.display = 'none';
-
-      const maxRounds = isSurvival ? 3 : (status.max_rounds || 3);
-      const winCondition = isSurvival ? 3 : Math.ceil(maxRounds / 2);
 
       if (currentWins >= winCondition) {
         if (!status.reward_claimed) {
@@ -1354,6 +1171,7 @@
         deckHeaderTitle.textContent = (isSurvival && status.current_round > 1) ? "挑戦中のデッキ (1デック制: 固定中)" : "挑戦するデッキを選択 (最大18頭)";
       }
 
+      const decks = globalUserData.decks || [];
       [0, 1].forEach(idx => {
         const deck = decks[idx] || { deck_name: `メインデッキ ${idx + 1}`, horse_ids: [] };
         const validCount = (deck.horse_ids || []).filter(id => id !== null && id !== undefined).length;
