@@ -799,7 +799,6 @@
 
   // ★ 【新アーキテクチャ】 単一情報源(round_results)からの完全な勝敗・終了判定
   function calculateMatchWinner(data) {
-    const isSurvival = isSingleDeckMode;
     const p1RoundResults = data.p1_round_results || {};
     const p2RoundResults = data.p2_round_results || {};
     
@@ -824,20 +823,7 @@
       p2_1st += p2Res.r1 || 0; p2_2nd += p2Res.r2 || 0; p2_3rd += p2Res.r3 || 0;
     });
 
-    const isHost = (role === 'host');
-    const myWins = isHost ? p1Wins : p2Wins;
-    const oppWins = isHost ? p2Wins : p1Wins;
-
-    // サバイバルモード判定: 1回でも負けたら即終了(敗北)
-    if (isSurvival) {
-      if (myWins >= 3) return { winner: isHost ? 'p1' : 'p2', reason: 'survival_clear' };
-      if (oppWins >= 1 || (playedRounds > 0 && !p1RoundResults[String(playedRounds)].isWin)) {
-        return { winner: isHost ? 'p2' : 'p1', reason: 'survival_fail' };
-      }
-      return { winner: null, isOngoing: true };
-    }
-
-    // 通常モード判定: 過半数勝利
+    // モード共通判定: 過半数勝利
     if (p1Wins >= requiredWins) return { winner: 'p1', reason: 'wins_majority', p1Wins, p2Wins };
     if (p2Wins >= requiredWins) return { winner: 'p2', reason: 'wins_majority', p1Wins, p2Wins };
 
