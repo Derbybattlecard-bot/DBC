@@ -76,17 +76,26 @@ function isValidSurface(horse, surface) {
   return getHorsePotential(horse, surface) > 0;
 }
 
+/**
+ * 性別条件の厳密なチェック（牝馬戦に牡馬・セン馬が混ざらないように修正）
+ */
 function isValidSex(horseSex, sexLimit) {
   if (!sexLimit || sexLimit === "制限なし" || sexLimit === "なし") return true;
-  const sex = horseSex || "牡馬";
+  const sex = String(horseSex || "牡馬").trim();
   const isMare = sex.includes("牝");
   const isStallion = sex.includes("牡");
+  const isGelding = sex.includes("セン") || sex.includes("せん");
 
-  if (sexLimit.includes("牝")) {
-    if (sexLimit.includes("牡")) return isMare || isStallion;
+  const limitStr = String(sexLimit);
+
+  if (limitStr.includes("牝")) {
+    if (limitStr.includes("牡") || limitStr.includes("制限なし")) return isMare || isStallion || isGelding;
+    // 牝馬限定戦の場合、牡馬やセン馬は絶対に除外
     return isMare;
   }
-  if (sexLimit.includes("牡")) return isStallion;
+  if (limitStr.includes("牡")) {
+    return isStallion || isGelding;
+  }
   return true;
 }
 
@@ -149,7 +158,7 @@ function isFrom1992OrLater(horse) {
 }
 
 /**
- * CPU戦用モブ馬抽選関数（既存維持）
+ * CPU戦用モブ馬抽選関数（保険として15頭抽選に拡張）
  */
 export function generateMobEntries(races, currentSeries, globalUserData, selectedEntries, HORSES_MASTER) {
   const limits = currentSeries?.potential_limit || { max_total_potential: 95 };
@@ -267,11 +276,13 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
       });
     });
 
-    while (selectedMobs.length < 14) {
+    // 💡 保険として14頭ではなく15頭（補欠+1頭）抽選するように拡張
+    while (selectedMobs.length < 15) {
       const fallback = allHorses.find(h => {
         const hId = String(h.horse_id).padStart(4, '0');
         if (raceUsedIds.has(hId)) return false;
         if (!isValidSurface(h, race.surface)) return false;
+        if (!isValidSex(h.sex || "牡馬", raceSexLimit)) return false; // 性別条件も厳守
         if (!isOverseas && !isJapanCup && h.region && h.region !== "日本") return false;
         return true;
       });
@@ -291,7 +302,7 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
 }
 
 /**
- * オンライン対戦用モブ馬抽選関数（両プレイヤーのデック全頭数などを渡して完全に除外して抽選）
+ * オンライン対戦用モブ馬抽選関数（両プレイヤーのデック全頭数や対戦馬を完全除外し、保険込みで15頭抽選）
  */
 export function generateOnlineMobEntries(races, excludedIdsSet, HORSES_MASTER) {
   const allHorses = Object.values(HORSES_MASTER || {});
@@ -309,14 +320,15 @@ export function generateOnlineMobEntries(races, excludedIdsSet, HORSES_MASTER) {
       const hId = String(h.horse_id).padStart(4, '0');
       if (raceUsedIds.has(hId)) return false;
       if (getHorsePotential(h, surface) <= 0) return false;
-      if (!isValidSex(h.sex, sexLimit)) return false;
+      if (!isValidSex(h.sex, sexLimit)) return false; // 牝馬戦などの性別チェック
       if (!isValidDistance(h, distance)) return false;
       return true;
     }).sort(() => Math.random() - 0.5);
 
-    const selected = mobPool.slice(0, 14).map(m => String(m.horse_id).padStart(4, '0'));
+    // 💡 オンライン戦でも15頭（補欠込み）を確保
+    const selected = mobPool.slice(0, 15).map(m => String(m.horse_id).padStart(4, '0'));
     
-    while (selected.length < 14) {
+    while (selected.length < 15) {
       selected.push(validFallbackHorseId);
     }
     mobIds[rIdx] = selected;
