@@ -346,7 +346,7 @@
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc, setDoc, updateDoc, onSnapshot, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { doc, getDoc, setDoc, updateDoc, onSnapshot, increment, deleteField } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   let currentUser = null;
   let globalUserData = {};
@@ -797,71 +797,75 @@
     }
   }
 
+  // ★ 【新アーキテクチャ】 単一情報源(round_results)からの完全な勝敗・終了判定
   function calculateMatchWinner(data) {
-    const p1Wins = data.p1_wins || data.player1_wins || 0;
-    const p2Wins = data.p2_wins || data.player2_wins || 0;
+    const isSurvival = isSingleDeckMode;
+    const p1RoundResults = data.p1_round_results || {};
+    const p2RoundResults = data.p2_round_results || {};
+    
+    let p1Wins = 0, p2Wins = 0;
+    let p1_1st = 0, p1_2nd = 0, p1_3rd = 0;
+    let p2_1st = 0, p2_2nd = 0, p2_3rd = 0;
+    let playedRounds = 0;
+    let isDrawOccurred = false;
 
-    // 1. 過半数勝利に達している場合は即決着
-    if (p1Wins >= requiredWins) return { winner: 'p1', reason: 'wins_majority' };
-    if (p2Wins >= requiredWins) return { winner: 'p2', reason: 'wins_majority' };
+    // 全消化済みラウンドを集計
+    const keys = Object.keys(p1RoundResults);
+    keys.forEach(k => {
+      playedRounds++;
+      const p1Res = p1RoundResults[k];
+      const p2Res = p2RoundResults[k];
+      
+      if (p1Res.isWin) p1Wins++;
+      else if (p2Res.isWin) p2Wins++;
+      else isDrawOccurred = true;
 
-    const currentRound = data.current_series_index || 0;
-    const matchHistory = data.match_history || [];
-    const isMatchEnded = data.status === "finished" || currentRound >= totalRounds || matchHistory.length >= totalRounds;
+      p1_1st += p1Res.r1 || 0; p1_2nd += p1Res.r2 || 0; p1_3rd += p1Res.r3 || 0;
+      p2_1st += p2Res.r1 || 0; p2_2nd += p2Res.r2 || 0; p2_3rd += p2Res.r3 || 0;
+    });
 
-    // 2. まだ試合中で過半数に達していない場合は継続
-    if (!isMatchEnded && p1Wins < requiredWins && p2Wins < requiredWins) {
+    const isHost = (role === 'host');
+    const myWins = isHost ? p1Wins : p2Wins;
+    const oppWins = isHost ? p2Wins : p1Wins;
+
+    // サバイバルモード判定: 1回でも負けたら即終了(敗北)
+    if (isSurvival) {
+      if (myWins >= 3) return { winner: isHost ? 'p1' : 'p2', reason: 'survival_clear' };
+      if (oppWins >= 1 || (playedRounds > 0 && !p1RoundResults[String(playedRounds)].isWin)) {
+        return { winner: isHost ? 'p2' : 'p1', reason: 'survival_fail' };
+      }
       return { winner: null, isOngoing: true };
     }
 
-    // 3. 全回戦終了（または終了ステータス）で過半数未達の場合、勝利数で比較
-    if (p1Wins > p2Wins) return { winner: 'p1', reason: 'round_wins' };
-    if (p2Wins > p1Wins) return { winner: 'p2', reason: 'round_wins' };
+    // 通常モード判定: 過半数勝利
+    if (p1Wins >= requiredWins) return { winner: 'p1', reason: 'wins_majority', p1Wins, p2Wins };
+    if (p2Wins >= requiredWins) return { winner: 'p2', reason: 'wins_majority', p1Wins, p2Wins };
 
-    // 4. タイブレーク1：全レースの累計1着・不戦勝（17着）獲得数
-    let p1_1st = 0, p2_1st = 0;
-    if (Array.isArray(matchHistory) && matchHistory.length > 0) {
-      matchHistory.forEach(h => {
-        p1_1st += (h.p1_1st || h.p1_first_places || 0);
-        p2_1st += (h.p2_1st || h.p2_first_places || 0);
-      });
-    } else {
-      p1_1st = data.p1_1st_count || data.p1_first_places || 0;
-      p2_1st = data.p2_1st_count || data.p2_first_places || 0;
+    // 引き分け発生による「残り全勝しても追いつけない」状態での即終了判定
+    const remainingRounds = totalRounds - playedRounds;
+    if (p1Wins + remainingRounds < p2Wins) return { winner: 'p2', reason: 'unbeatable_lead', p1Wins, p2Wins };
+    if (p2Wins + remainingRounds < p1Wins) return { winner: 'p1', reason: 'unbeatable_lead', p1Wins, p2Wins };
+
+    const isMatchEnded = (playedRounds >= totalRounds) || data.status === "finished";
+
+    if (!isMatchEnded) {
+      return { winner: null, isOngoing: true };
     }
-    if (p1_1st > p2_1st) return { winner: 'p1', reason: 'tiebreak_1st', p1Val: p1_1st, p2Val: p2_1st };
-    if (p2_1st > p1_1st) return { winner: 'p2', reason: 'tiebreak_1st', p1Val: p1_1st, p2Val: p2_1st };
 
-    // 5. タイブレーク2：全レースの累計2着獲得数
-    let p1_2nd = 0, p2_2nd = 0;
-    if (Array.isArray(matchHistory) && matchHistory.length > 0) {
-      matchHistory.forEach(h => {
-        p1_2nd += (h.p1_2nd || 0);
-        p2_2nd += (h.p2_2nd || 0);
-      });
-    } else {
-      p1_2nd = data.p1_2nd_count || 0;
-      p2_2nd = data.p2_2nd_count || 0;
-    }
-    if (p1_2nd > p2_2nd) return { winner: 'p1', reason: 'tiebreak_2nd', p1Val: p1_2nd, p2Val: p2_2nd };
-    if (p2_2nd > p1_2nd) return { winner: 'p2', reason: 'tiebreak_2nd', p1Val: p1_2nd, p2Val: p2_2nd };
+    // 全ラウンド終了時: 同点の場合はタイブレーク判定
+    if (p1Wins > p2Wins) return { winner: 'p1', reason: 'round_wins', p1Wins, p2Wins };
+    if (p2Wins > p1Wins) return { winner: 'p2', reason: 'round_wins', p1Wins, p2Wins };
 
-    // 6. タイブレーク3：全レースの累計3着獲得数
-    let p1_3rd = 0, p2_3rd = 0;
-    if (Array.isArray(matchHistory) && matchHistory.length > 0) {
-      matchHistory.forEach(h => {
-        p1_3rd += (h.p1_3rd || 0);
-        p2_3rd += (h.p2_3rd || 0);
-      });
-    } else {
-      p1_3rd = data.p1_3rd_count || 0;
-      p2_3rd = data.p2_3rd_count || 0;
-    }
-    if (p1_3rd > p2_3rd) return { winner: 'p1', reason: 'tiebreak_3rd', p1Val: p1_3rd, p2Val: p2_3rd };
-    if (p2_3rd > p1_3rd) return { winner: 'p2', reason: 'tiebreak_3rd', p1Val: p1_3rd, p2Val: p2_3rd };
+    if (p1_1st > p2_1st) return { winner: 'p1', reason: 'tiebreak_1st', p1Val: p1_1st, p2Val: p2_1st, p1Wins, p2Wins };
+    if (p2_1st > p1_1st) return { winner: 'p2', reason: 'tiebreak_1st', p1Val: p1_1st, p2Val: p2_1st, p1Wins, p2Wins };
 
-    // 7. 最終フォールバック（完全同点の場合はホスト側の勝ち）
-    return { winner: 'p1', reason: 'host_priority_draw' };
+    if (p1_2nd > p2_2nd) return { winner: 'p1', reason: 'tiebreak_2nd', p1Val: p1_2nd, p2Val: p2_2nd, p1Wins, p2Wins };
+    if (p2_2nd > p1_2nd) return { winner: 'p2', reason: 'tiebreak_2nd', p1Val: p1_2nd, p2Val: p2_2nd, p1Wins, p2Wins };
+
+    if (p1_3rd > p2_3rd) return { winner: 'p1', reason: 'tiebreak_3rd', p1Val: p1_3rd, p2Val: p2_3rd, p1Wins, p2Wins };
+    if (p2_3rd > p1_3rd) return { winner: 'p2', reason: 'tiebreak_3rd', p1Val: p1_3rd, p2Val: p2_3rd, p1Wins, p2Wins };
+
+    return { winner: 'p1', reason: 'host_priority_draw', p1Wins, p2Wins };
   }
 
   async function checkAndRecordOnlineWin(data, matchResult) {
@@ -894,6 +898,7 @@
     }
   }
 
+  // ★ 新アーキテクチャ対応: 結果モーダルの描画
   function showFinalMatchResultModal(data, matchResult) {
     const isHost = (role === 'host');
     const myRoleKey = isHost ? 'p1' : 'p2';
@@ -901,8 +906,8 @@
     const p1Name = isHost ? (globalUserData.nickname || "あなた") : (data.player1_name || "対戦相手");
     const p2Name = isHost ? (data.player2_name || "対戦相手") : (globalUserData.nickname || "あなた");
 
-    const p1Wins = data.p1_wins || data.player1_wins || 0;
-    const p2Wins = data.p2_wins || data.player2_wins || 0;
+    const p1Wins = matchResult.p1Wins || 0;
+    const p2Wins = matchResult.p2Wins || 0;
 
     const bannerEl = document.getElementById('resultBanner');
     const tiebreakBox = document.getElementById('tiebreakNoticeBox');
@@ -928,65 +933,49 @@
     } else if (matchResult.reason === 'host_priority_draw') {
       tiebreakBox.style.display = 'block';
       tiebreakBox.innerHTML = `<strong>⚖️ ホスト優先判定適用:</strong><br>勝利数および1〜3着の獲得数が全て同一だったため、規定によりホスト側の勝利となりました。`;
+    } else if (matchResult.reason === 'unbeatable_lead') {
+      tiebreakBox.style.display = 'block';
+      tiebreakBox.innerHTML = `<strong>🏁 コールドゲーム成立:</strong><br>引き分け発生により、残りのラウンドを全勝しても逆転不可能となったため、この時点でマッチ終了となります。`;
     } else {
       tiebreakBox.style.display = 'none';
     }
 
-    const historyList = data.match_history || [];
-    const matchSeries = data.match_series || [];
     const tbody = document.getElementById('historyTableBody');
     tbody.innerHTML = '';
 
-    if (historyList.length === 0 && matchSeries.length > 0) {
-      const totalRoundsCount = Math.max(p1Wins + p2Wins, 1);
-      for (let i = 0; i < totalRoundsCount; i++) {
-        const sObj = getSeriesObj(matchSeries[i]);
-        const isWin = (i < p1Wins);
-        historyList.push({
-          round: i + 1,
-          seriesName: sObj.series_name || sObj.name || `第${i+1}回戦`,
-          winner: isWin ? (isHost ? 'p1' : 'p2') : (isHost ? 'p2' : 'p1'),
-          p1Wins: isWin ? 3 : 2,
-          p2Wins: isWin ? 2 : 3,
-          p1_1st: isWin ? 2 : 1,
-          p2_1st: isWin ? 1 : 2,
-          p1_2nd: 1, p2_2nd: 1, p1_3rd: 1, p2_3rd: 1
-        });
-      }
-    }
+    const p1Results = data.p1_round_results || {};
+    const p2Results = data.p2_round_results || {};
+    const matchSeries = data.match_series || [];
 
-    if (historyList.length === 0) {
+    const keys = Object.keys(p1Results).sort((a,b) => Number(a) - Number(b));
+    
+    if (keys.length === 0) {
       tbody.innerHTML = `<tr><td colspan="5" style="color:#9ca3af;">対戦履歴データなし</td></tr>`;
     } else {
-      historyList.forEach(h => {
+      keys.forEach(k => {
+        const p1R = p1Results[k];
+        const p2R = p2Results[k];
+        const roundNum = Number(k);
+        const sId = matchSeries[roundNum - 1];
+        const sObj = getSeriesObj(sId);
+        const seriesName = sObj.series_name || sObj.name || `第${roundNum}回戦`;
+
         let badgeHtml = '<span class="badge-draw">引き分け</span>';
-        if (h.winner === myRoleKey) {
-          badgeHtml = '<span class="badge-win">○ 勝利</span>';
-        } else if (h.winner && h.winner !== 'draw') {
-          badgeHtml = '<span class="badge-loss">× 敗北</span>';
-        }
+        let winnerRole = 'draw';
+        if (p1R.isWin) { winnerRole = 'p1'; badgeHtml = (myRoleKey === 'p1') ? '<span class="badge-win">○ 勝利</span>' : '<span class="badge-loss">× 敗北</span>'; }
+        else if (p2R.isWin) { winnerRole = 'p2'; badgeHtml = (myRoleKey === 'p2') ? '<span class="badge-win">○ 勝利</span>' : '<span class="badge-loss">× 敗北</span>'; }
 
-        const mySeriesWins = isHost ? (h.p1Wins ?? h.myWins ?? '-') : (h.p2Wins ?? h.oppWins ?? '-');
-        const oppSeriesWins = isHost ? (h.p2Wins ?? h.oppWins ?? '-') : (h.p1Wins ?? h.myWins ?? '-');
+        const myR = isHost ? p1R : p2R;
+        const oppR = isHost ? p2R : p1R;
 
-        const my1st = isHost ? (h.p1_1st ?? h.my1st ?? h.p1_first_places ?? 0) : (h.p2_1st ?? h.opp1st ?? h.p2_first_places ?? 0);
-        const my2nd = isHost ? (h.p1_2nd ?? h.my2nd ?? 0) : (h.p2_2nd ?? h.opp2nd ?? 0);
-        const my3rd = isHost ? (h.p1_3rd ?? h.my3rd ?? 0) : (h.p2_3rd ?? h.opp3rd ?? 0);
-        const my4th = Math.max(0, 5 - (my1st + my2nd + my3rd));
-        const myDetail = `${my1st}-${my2nd}-${my3rd}-${my4th}`;
-
-        const opp1st = isHost ? (h.p2_1st ?? h.opp1st ?? h.p2_first_places ?? 0) : (h.p1_1st ?? h.my1st ?? h.p1_first_places ?? 0);
-        const opp2nd = isHost ? (h.p2_2nd ?? h.opp2nd ?? 0) : (h.p1_2nd ?? h.my2nd ?? 0);
-        const opp3rd = isHost ? (h.p2_3rd ?? h.opp3rd ?? 0) : (h.p1_3rd ?? h.my3rd ?? 0);
-        const opp4th = Math.max(0, 5 - (opp1st + opp2nd + opp3rd));
-        const oppDetail = `${opp1st}-${opp2nd}-${opp3rd}-${opp4th}`;
-
-        const combinedScoreDisplay = `${mySeriesWins}勝(${myDetail}) - ${oppSeriesWins}勝(${oppDetail})`;
+        const myDetail = `${myR.r1 || 0}-${myR.r2 || 0}-${myR.r3 || 0}-${myR.r4Plus || 0}`;
+        const oppDetail = `${oppR.r1 || 0}-${oppR.r2 || 0}-${oppR.r3 || 0}-${oppR.r4Plus || 0}`;
+        const combinedScoreDisplay = `${myR.myWins || 0}勝(${myDetail}) - ${oppR.myWins || 0}勝(${oppDetail})`;
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td>第 ${h.round} 回戦</td>
-          <td style="font-weight:bold; text-align:left; padding-left:6px;">${h.seriesName || 'シリーズ'}</td>
+          <td>第 ${roundNum} 回戦</td>
+          <td style="font-weight:bold; text-align:left; padding-left:6px;">${seriesName}</td>
           <td style="font-weight:bold; color:var(--accent-color); font-family:monospace; font-size:10px;">${combinedScoreDisplay}</td>
           <td>${badgeHtml}</td>
         `;
@@ -997,6 +986,7 @@
     document.getElementById('finalResultModal').style.display = 'flex';
   }
 
+  // ★ 進行管理の心臓部
   function initOnlineRoomWatch() {
     const roomRef = doc(db, "online_matches", roomId);
 
@@ -1026,6 +1016,36 @@
       }
 
       const isHost = (role === 'host');
+
+      // 観戦完了フラグの検知と次ラウンドへの自動進行
+      if (data.player1_watched && data.player2_watched && data.status !== "finished") {
+        if (isHost && !isNavigatingAway) {
+          isNavigatingAway = true;
+          try {
+            await updateDoc(roomRef, {
+              current_series_index: increment(1),
+              player1_giveup: false, player2_giveup: false,
+              player1_ready: false, player2_ready: false,
+              player1_strategy_ready: false, player2_strategy_ready: false,
+              player1_watched: deleteField(), player2_watched: deleteField(),
+              player1_entries: deleteField(), player2_entries: deleteField(),
+              player1_strategies: deleteField(), player2_strategies: deleteField(),
+              races_mob_ids: deleteField(), races_track_conditions: deleteField(),
+              race_results_cache: deleteField(), giveup_processed: deleteField(),
+              status: "deck_selecting" 
+            });
+            window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
+          } catch(e) {}
+          return;
+        } else if (!isHost && !isNavigatingAway) {
+          isNavigatingAway = true;
+          setTimeout(() => {
+            window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
+          }, 1000); // ゲストはホストの初期化を少し待ってリロード
+          return;
+        }
+      }
+
       const myReady = isHost ? data.player1_ready : data.player2_ready;
       const oppReady = isHost ? data.player2_ready : data.player1_ready;
 
@@ -1037,12 +1057,12 @@
         return;
       }
 
+      // 終了判定チェック
       const matchResult = calculateMatchWinner(data);
 
       if (matchResult.winner !== null) {
         if (!isNavigatingAway) {
           closeWaitingModal();
-
           await checkAndRecordOnlineWin(data, matchResult);
 
           if (role === 'host' && data.status !== "finished") {
@@ -1062,30 +1082,20 @@
         await updateDoc(roomRef, { initial_card_priorities: priorities }).catch(e => console.error("優先権保存エラー:", e));
       }
 
-      let oppUid = isHost 
-        ? (data.player2_uid || data.player2 || data.guest_uid)
-        : (data.player1_uid || data.player1 || data.host_uid);
-
-      let oppName = isHost 
-        ? (data.player2_name || data.guest_name || data.guestName)
-        : (data.player1_name || data.host_name || data.hostName);
+      let oppUid = isHost ? (data.player2_uid || data.guest_uid) : (data.player1_uid || data.host_uid);
+      let oppName = isHost ? data.player2_name : data.player1_name;
 
       if (oppUid) {
         try {
           const oppUserSnap = await getDoc(doc(db, "users", oppUid));
           if (oppUserSnap.exists()) {
             const fetchedName = getDisplayName(oppUserSnap.data(), null);
-            if (fetchedName && fetchedName !== "プレイヤー") {
-              oppName = fetchedName;
-            }
+            if (fetchedName && fetchedName !== "プレイヤー") oppName = fetchedName;
           }
         } catch (err) {}
       }
 
-      if (!oppName || oppName === "プレイヤー") {
-        oppName = isHost ? (data.player2_name || "対戦相手") : (data.player1_name || "対戦相手");
-      }
-
+      if (!oppName || oppName === "プレイヤー") oppName = "対戦相手";
       document.getElementById('opponentNameDisplay').textContent = `VS ${oppName} 選手`;
 
       const opponentStatusField = isHost ? 'p2_status' : 'p1_status';
@@ -1117,9 +1127,7 @@
         }
 
         const myBanIdx = isHost ? data.p1_banned_index : data.p2_banned_index;
-        if (isBanSet(myBanIdx)) {
-          selectedBanIndex = Number(myBanIdx);
-        }
+        if (isBanSet(myBanIdx)) selectedBanIndex = Number(myBanIdx);
 
         const hasP1Ban = isBanSet(data.p1_banned_index);
         const hasP2Ban = isBanSet(data.p2_banned_index);
@@ -1130,9 +1138,7 @@
           enableDeckSelection(opponentStatus);
         } else if (opponentSeriesList.length > 0) {
           renderBanPanel();
-          if (selectedBanIndex !== null) {
-            enableDeckSelection(opponentStatus);
-          }
+          if (selectedBanIndex !== null) enableDeckSelection(opponentStatus);
         }
       } else {
         renderCompletedMatchView(data);
@@ -1156,13 +1162,8 @@
         isNavigatingAway = true;
 
         if (isHost && data.status !== "entry_selecting") {
-          try {
-            await updateDoc(roomRef, { status: "entry_selecting" });
-          } catch (err) {
-            console.error("ステータス更新エラー:", err);
-          }
+          try { await updateDoc(roomRef, { status: "entry_selecting" }); } catch (err) {}
         }
-
         window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
       }
     });
@@ -1189,11 +1190,10 @@
     }
   }
 
+  // ★ 新アーキテクチャ対応: 単一情報源（p1_round_results等）からカードへ成績を描画する
   function renderCompletedMatchView(data) {
     const mySeriesPanel = document.getElementById('mySeriesPanel');
-    if (mySeriesPanel) {
-      mySeriesPanel.style.display = 'none';
-    }
+    if (mySeriesPanel) mySeriesPanel.style.display = 'none';
 
     const banPanel = document.getElementById('banPanel');
     banPanel.classList.add('completed');
@@ -1218,7 +1218,10 @@
 
     let matchSeries = data.match_series || [];
     let matchOwners = data.match_series_owners || [];
-    let matchHistory = data.match_history || [];
+    
+    // 新アーキテクチャのデータを取得
+    const p1Results = data.p1_round_results || {};
+    const p2Results = data.p2_round_results || {};
 
     const subTextEl = document.getElementById('onlineSubText');
     if (subTextEl) {
@@ -1238,7 +1241,6 @@
           <div style="font-size: 11px; text-align: center; color: #991b1b; margin-bottom: 10px;">
             両プレイヤーがそれぞれの持ち込みから拒否指定したシリーズです。
           </div>
-
           <div style="display: flex; flex-direction: column; gap: 8px;">
       `;
 
@@ -1272,11 +1274,7 @@
           </div>
         `;
       });
-
-      html += `
-          </div>
-        </div>
-      `;
+      html += `</div></div>`;
     }
 
     html += `
@@ -1323,106 +1321,50 @@
 
       let resultHTML = '';
       if (isFinishedRound) {
-        const roundHistory = matchHistory[rIdx] || (data.round_results ? data.round_results[rIdx] : null) || {};
+        const roundNumStr = String(rIdx + 1);
+        const myRes = isHost ? p1Results[roundNumStr] : p2Results[roundNumStr];
+        const oppRes = isHost ? p2Results[roundNumStr] : p1Results[roundNumStr];
         
-        const myWins = isHost ? (roundHistory.p1Wins ?? roundHistory.p1_wins ?? roundHistory.myWins ?? 0) : (roundHistory.p2Wins ?? roundHistory.p2_wins ?? roundHistory.oppWins ?? 0);
-        const oppWins = isHost ? (roundHistory.p2Wins ?? roundHistory.p2_wins ?? roundHistory.oppWins ?? 0) : (roundHistory.p1Wins ?? roundHistory.p1_wins ?? roundHistory.myWins ?? 0);
-        
-        let my1st = 0, my2nd = 0, my3rd = 0;
-        let opp1st = 0, opp2nd = 0, opp3rd = 0;
+        if (myRes && oppRes) {
+          const myWins = myRes.myWins || 0;
+          const oppWins = myRes.oppWins || 0;
 
-        const racesList = roundHistory.races || roundHistory.race_results || (sObj.races || []);
-        if (Array.isArray(racesList) && racesList.length > 0) {
-          racesList.forEach(r => {
-            const myRank = isHost ? Number(r.p1_rank ?? r.my_rank) : Number(r.p2_rank ?? r.opp_rank);
-            const oppRank = isHost ? Number(r.p2_rank ?? r.opp_rank) : Number(r.p1_rank ?? r.my_rank);
+          const myDetail = `${myRes.r1 || 0}-${myRes.r2 || 0}-${myRes.r3 || 0}-${myRes.r4Plus || 0}`;
+          const oppDetail = `${oppRes.r1 || 0}-${oppRes.r2 || 0}-${oppRes.r3 || 0}-${oppRes.r4Plus || 0}`;
 
-            if (myRank === 1) my1st++;
-            else if (myRank === 2) my2nd++;
-            else if (myRank === 3) my3rd++;
+          const combinedScoreDisplay = `${myWins}勝(${myDetail}) - ${oppWins}勝(${oppDetail})`;
 
-            if (oppRank === 1) opp1st++;
-            else if (oppRank === 2) opp2nd++;
-            else if (oppRank === 3) opp3rd++;
-          });
-        } else {
-          my1st = isHost ? (roundHistory.p1_1st ?? roundHistory.my1st ?? roundHistory.p1_first_places ?? 0) : (roundHistory.p2_1st ?? roundHistory.opp1st ?? roundHistory.p2_first_places ?? 0);
-          my2nd = isHost ? (roundHistory.p1_2nd ?? roundHistory.my2nd ?? 0) : (roundHistory.p2_2nd ?? roundHistory.opp2nd ?? 0);
-          my3rd = isHost ? (roundHistory.p1_3rd ?? roundHistory.my3rd ?? 0) : (roundHistory.p2_3rd ?? roundHistory.opp3rd ?? 0);
-          
-          opp1st = isHost ? (roundHistory.p2_1st ?? roundHistory.opp1st ?? roundHistory.p2_first_places ?? 0) : (roundHistory.p1_1st ?? roundHistory.my1st ?? roundHistory.p1_first_places ?? 0);
-          opp2nd = isHost ? (roundHistory.p2_2nd ?? roundHistory.opp2nd ?? 0) : (roundHistory.p1_2nd ?? roundHistory.my2nd ?? 0);
-          opp3rd = isHost ? (roundHistory.p2_3rd ?? roundHistory.opp3rd ?? 0) : (roundHistory.p1_3rd ?? roundHistory.my3rd ?? 0);
-        }
+          let outcomeBadge = `<span class="badge-draw">引き分け</span>`;
+          if (myRes.isWin) outcomeBadge = `<span class="badge-win">○ 勝利</span>`;
+          else if (oppRes.isWin) outcomeBadge = `<span class="badge-loss">× 敗北</span>`;
 
-        const my4th = Math.max(0, 5 - (my1st + my2nd + my3rd));
-        const myDetail = `${my1st}-${my2nd}-${my3rd}-${my4th}`;
-        const opp4th = Math.max(0, 5 - (opp1st + opp2nd + opp3rd));
-        const oppDetail = `${opp1st}-${opp2nd}-${opp3rd}-${opp4th}`;
+          const maxLimit = ptStats.totalPt;
+          let roundFulfillmentHtml = `<div style="font-size:11px; color:#2d6a37; font-weight:bold; margin-top:2px;">⚡ 充足率データなし</div>`;
+          if (typeof myRes.fulfillment === 'number') {
+            roundFulfillmentHtml = `<div style="font-size:11px; color:#2d6a37; font-weight:bold; margin-top:2px;">⚡ 充足率: ${myRes.fulfillment}% (${myRes.teamPotential}/${maxLimit})</div>`;
+          }
 
-        const combinedScoreDisplay = `${myWins}勝(${myDetail}) - ${oppWins}勝(${oppDetail})`;
-        const outcomeBadge = (myWins > oppWins) ? `<span class="badge-win">○ 勝利</span>` : (myWins < oppWins) ? `<span class="badge-loss">× 敗北</span>` : `<span class="badge-draw">引き分け</span>`;
-
-        let raceRowsHTML = '';
-        if (Array.isArray(racesList) && racesList.length > 0) {
-          racesList.forEach((r, raceIdx) => {
-            const raceName = r.race_name || r.name || `第${raceIdx + 1}戦`;
-            const myHorseName = isHost ? (r.p1_horse_name || r.p1_horse || r.my_horse || '-') : (r.p2_horse_name || r.p2_horse || r.opp_horse || '-');
-            const oppHorseName = isHost ? (r.p2_horse_name || r.p2_horse || r.opp_horse || '-') : (r.p1_horse_name || r.p1_horse || r.my_horse || '-');
-            
-            const myRank = isHost ? Number(r.p1_rank ?? r.my_rank) : Number(r.p2_rank ?? r.opp_rank);
-            const oppRank = isHost ? Number(r.p2_rank ?? r.opp_rank) : Number(r.p1_rank ?? r.my_rank);
-
-            // 【例外措置】お互いに18着の場合はダブルノックアウト（引き分け）
-            const isDoubleKnockout = (myRank === 18 && oppRank === 18);
-
-            // 【例外措置】17着＝不戦勝、18着＝不戦敗のバッジ表示
-            const formatRank = (rk) => {
-              if (rk === undefined || rk === null) return '-';
-              if (rk === 17) return `<span class="rank-badge rank-other" style="background:#d1fae5; color:#047857; border:1px solid #6ee7b7;">不戦勝</span>`;
-              if (rk === 18) return `<span class="rank-badge rank-other" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;">不戦敗</span>`;
-              if (rk === 1) return `<span class="rank-badge rank-1">1着</span>`;
-              if (rk === 2) return `<span class="rank-badge rank-2">2着</span>`;
-              if (rk === 3) return `<span class="rank-badge rank-3">3着</span>`;
-              return `<span class="rank-badge rank-other">${rk}着</span>`;
-            };
-
-            raceRowsHTML += `
-              <tr>
-                <td style="font-weight:bold; text-align:left;">${raceName}</td>
-                <td>${myHorseName} (${formatRank(myRank)})</td>
-                <td style="color:${isDoubleKnockout ? '#d97706' : '#64748b'}; font-weight:${isDoubleKnockout ? 'bold' : 'normal'};">${isDoubleKnockout ? '⚡WKO' : 'VS'}</td>
-                <td>${oppHorseName} (${formatRank(oppRank)})</td>
-              </tr>
-            `;
-          });
-        }
-
-        resultHTML = `
-          <div class="round-result-box">
-            <div class="round-result-summary">
-              <div>
-                成績: <span class="result-score-badge">${combinedScoreDisplay}</span>
-                <span style="margin-left:6px;">${outcomeBadge}</span>
+          if (myRes.isGiveUp) {
+            resultHTML = `
+              <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d0e3d2; display: flex; flex-direction: column; gap: 4px; background: #fff5f5; padding: 6px 8px; border-radius: 4px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+                  <div><span style="font-weight:bold; color:#d32f2f;">成績:</span> ギブアップ <span style="font-size:10px; color:#666;">(不戦決着)</span></div>
+                  <div>${outcomeBadge}</div>
+                </div>
+                ${roundFulfillmentHtml}
               </div>
-            </div>
-            ${raceRowsHTML ? `
-              <table class="race-result-table">
-                <thead>
-                  <tr>
-                    <th style="text-align:left; width:28%;">レース</th>
-                    <th style="width:34%;">あなたの出走馬 (着順)</th>
-                    <th style="width:4%;"></th>
-                    <th style="width:34%;">相手の出走馬 (着順)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${raceRowsHTML}
-                </tbody>
-              </table>
-            ` : ''}
-          </div>
-        `;
+            `;
+          } else {
+            resultHTML = `
+              <div class="round-result-box">
+                <div class="round-result-summary" style="border-bottom:none; margin-bottom:0; padding-bottom:0;">
+                  <div>成績: <span class="result-score-badge">${combinedScoreDisplay}</span> <span style="margin-left:6px;">${outcomeBadge}</span></div>
+                </div>
+                ${roundFulfillmentHtml}
+              </div>
+            `;
+          }
+        }
       }
 
       html += `
