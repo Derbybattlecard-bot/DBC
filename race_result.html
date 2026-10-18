@@ -951,7 +951,18 @@ function renderResults(scoredList) {
 function recordHistory(scoredList) {
   const pRank = scoredList.findIndex(item => item.isPlayer) + 1;
   const cRank = scoredList.findIndex(item => item.isCpu) + 1;
-  seriesHistory.push({ raceNum: currentRaceIndex + 1, pRank: pRank, cRank: cRank, win: pRank < cRank });
+  
+  const pHorse = scoredList.find(item => item.isPlayer);
+  const cHorse = scoredList.find(item => item.isCpu);
+  
+  seriesHistory.push({ 
+    raceNum: currentRaceIndex + 1, 
+    pRank: pRank, 
+    cRank: cRank, 
+    win: pRank < cRank,
+    myHorseId: pHorse ? pHorse.horse_id : "0000",
+    oppHorseId: cHorse ? cHorse.horse_id : "0000"
+  });
 }
 
 function showFinalSeriesResult() {
@@ -994,7 +1005,9 @@ function showFinalSeriesResult() {
   document.getElementById('final-series-modal').style.display = "block";
 }
 
-// サバイバルモード対応・ポテンシャル充足率＆ベストレコード保存処理
+// ----------------------------------------------------------------------
+// ★ 【新アーキテクチャ】 単一情報源に基づくデータ統合保存処理
+// ----------------------------------------------------------------------
 window.goToNextSeries = async function() {
   if (!currentUser) return;
 
@@ -1003,59 +1016,41 @@ window.goToNextSeries = async function() {
 
   const status = globalUserData?.cpu_battle_status || {};
   const isSurvival = (status.battle_type === 'survival' || status.deck_type == 1);
+  const currentRoundNum = status.current_round || 1;
 
+  // 1. レース詳細の絶対番地キーへの書き込み (race_results)
+  let updatedRaceResults = { ...(status.race_results || {}) };
+  seriesHistory.forEach(h => {
+    const absKey = `${currentRoundNum}${h.raceNum}`; // 例: "11", "15"
+    updatedRaceResults[absKey] = {
+      myRank: h.pRank,
+      cpuRank: h.cRank,
+      isWin: h.win,
+      myHorseId: h.myHorseId,
+      oppHorseId: h.oppHorseId
+    };
+  });
+
+  // 2. ラウンド単位の集計データ作成 (round_results)
   const playerWins = seriesHistory.filter(h => h.win).length;
   const cpuWins = 5 - playerWins;
-  const isPlayerRoundWin = playerWins > cpuWins; // 5レース中過半数勝てばラウンド勝利
+  const isPlayerRoundWin = playerWins > cpuWins; 
+
+  const my1st = seriesHistory.filter(h => h.pRank === 1).length;
+  const my2nd = seriesHistory.filter(h => h.pRank === 2).length;
+  const my3rd = seriesHistory.filter(h => h.pRank === 3).length;
+  const my4th = Math.max(0, 5 - (my1st + my2nd + my3rd)); 
+  const totalRankSum = seriesHistory.reduce((sum, h) => sum + (h.pRank || 0), 0);
 
   const currentMatchEntries = status.current_match?.player_entries || [];
   const usedIds = currentMatchEntries.map(e => e.horse_id).filter(Boolean);
   const updatedUsedCards = Array.from(new Set([...(status.used_cards_history || []), ...usedIds]));
 
-  // --- 今回のラウンド結果から正しい履歴データを集計 ---
-  const my1st = seriesHistory.filter(h => h.pRank === 1).length;
-  const my2nd = seriesHistory.filter(h => h.pRank === 2).length;
-  const my3rd = seriesHistory.filter(h => h.pRank === 3).length;
-  const my4th = Math.max(0, 5 - (my1st + my2nd + my3rd)); // 4着以下
-
-  // --- ポテンシャル充足率およびチーム合計ポテンシャルの計算 ---
-  const _races = seriesMasterData?.find(s => s.series_id === (status.selected_series_id || status.series_lineup?.[status.current_round - 1]))?.rounds?.[0]?.races || [];
+  const _races = seriesMasterData?.find(s => s.series_id === (status.selected_series_id || status.series_lineup?.[currentRoundNum - 1]))?.rounds?.[0]?.races || [];
   const totalPotential = currentMatchEntries.reduce((sum, e, idx) => sum + Number(HORSES_MASTER[e.horse_id]?.[_races[idx]?.surface?.includes('ダ') ? 'dirt_potential' : 'turf_potential'] ?? HORSES_MASTER[e.horse_id]?.potential ?? 18), 0);
 
-  // ★ ここでラウンド情報(round)、出走馬ID(horse_ids)、チーム合計ポテンシャル(teamPotential)を確実に記録
-  const roundHistoryItem = {
-    round: status.current_round || 1,
-    seriesName: document.getElementById('display-race-title')?.textContent.split('（')[0] || `第 ${status.current_round || 1} 回戦`,
-    horse_ids: usedIds,            // 回戦ごとの出走馬IDリスト
-    teamPotential: totalPotential, // 回戦ごとのチーム合計ポテンシャル
-    myWins: playerWins,
-    oppWins: cpuWins,
-    r1: my1st,
-    r2: my2nd,
-    r3: my3rd,
-    r4Plus: my4th,
-    isWin: isPlayerRoundWin
-  };
-
-  const updatedRoundHistory = [...(status.round_history || []), roundHistoryItem];
-  // --------------------------------------------------
-  
-  let newWins = (status.series_wins || 0) + (isPlayerRoundWin ? 1 : 0);
-  let newLosses = (status.series_losses || 0) + (isPlayerRoundWin ? 0 : 1);
-
-  // サバイバルモードでラウンド敗北した場合は1敗で即ゲームオーバー扱い
-  if (isSurvival && !isPlayerRoundWin) {
-    newLosses = 1; 
-  }
-
-  const newRound = (status.current_round || 1) + 1;
-  const p1stCount = seriesHistory.filter(h => h.pRank === 1).length;
-  const updatedTotal1st = (status.total_1st_places || 0) + p1stCount;
-
-  const seriesId = status.selected_series_id || (status.series_lineup ? status.series_lineup[(status.current_round || 1) - 1] : null);
-  const currentTotalRank = seriesHistory.reduce((sum, h) => sum + (h.pRank || 0), 0);
-
   let maxPotentialLimit = 100;
+  const seriesId = status.selected_series_id || (status.series_lineup ? status.series_lineup[currentRoundNum - 1] : null);
   try {
     const seriesObj = seriesMasterData?.find(s => s.series_id === seriesId);
     if (seriesObj?.potential_limit?.max_total_potential) {
@@ -1064,19 +1059,44 @@ window.goToNextSeries = async function() {
   } catch (e) {}
 
   const rateValue = parseFloat(((totalPotential / maxPotentialLimit) * 100).toFixed(1));
-  const survivalRecord = {
-    rate: rateValue,
-    detail: `${totalPotential}/${maxPotentialLimit}`,
-    total_rank: currentTotalRank,
-    round: status.current_round,
-    series_id: seriesId,
-    updated_at: new Date().toISOString()
+
+  let updatedRoundResults = { ...(status.round_results || {}) };
+  updatedRoundResults[String(currentRoundNum)] = {
+    isWin: isPlayerRoundWin,
+    myWins: playerWins,
+    oppWins: cpuWins,
+    r1: my1st,
+    r2: my2nd,
+    r3: my3rd,
+    r4Plus: my4th,
+    rankSum: totalRankSum,
+    teamPotential: totalPotential,
+    fulfillment: rateValue,
+    horse_ids: usedIds
   };
 
-  // サバイバルベストレコード（上位3件）の更新
+  // 3. マッチ全体（シリーズ）の勝敗進行と終了判定
+  let newWins = (status.series_wins || 0) + (isPlayerRoundWin ? 1 : 0);
+  let newLosses = (status.series_losses || 0) + (isPlayerRoundWin ? 0 : 1);
+
+  if (isSurvival && !isPlayerRoundWin) {
+    newLosses = 1; 
+  }
+
+  const newRound = currentRoundNum + 1;
+  const updatedTotal1st = (status.total_1st_places || 0) + my1st;
+
+  // 4. ベストレコードの保存処理
   let updatedSurvivalRecords = [...(globalUserData?.survival_best_records || [])];
-  if (isSurvival) {
-    updatedSurvivalRecords.push(survivalRecord);
+  if (isSurvival && isPlayerRoundWin) {
+    updatedSurvivalRecords.push({
+      rate: rateValue,
+      detail: `${totalPotential}/${maxPotentialLimit}`,
+      total_rank: totalRankSum,
+      round: currentRoundNum,
+      series_id: seriesId,
+      updated_at: new Date().toISOString()
+    });
     updatedSurvivalRecords.sort((a, b) => {
       if (b.rate !== a.rate) return b.rate - a.rate;
       return a.total_rank - b.total_rank;
@@ -1084,21 +1104,20 @@ window.goToNextSeries = async function() {
     updatedSurvivalRecords = updatedSurvivalRecords.slice(0, 3);
   }
 
-  // 通常シリーズベストレコード処理
   const existingBestRecords = globalUserData?.series_best_records || {};
-  const currentBest = seriesId ? existingBestRecords[seriesId] : null;
   let updatedBestRecords = { ...existingBestRecords };
-
   if (!isSurvival && seriesId && usedIds.length === 5) {
-    if (!currentBest || currentTotalRank < currentBest.best_score) {
+    const currentBest = existingBestRecords[seriesId];
+    if (!currentBest || totalRankSum < currentBest.best_score) {
       updatedBestRecords[seriesId] = {
-        best_score: currentTotalRank,
+        best_score: totalRankSum,
         team: usedIds,
         updated_at: new Date().toISOString()
       };
     }
   }
 
+  // 5. Firestoreへ統合ステータスを保存
   const updatedCpuBattleStatus = {
     ...status,
     series_wins: newWins,
@@ -1106,9 +1125,14 @@ window.goToNextSeries = async function() {
     current_round: newRound,
     total_1st_places: updatedTotal1st,
     used_cards_history: updatedUsedCards,
-    round_history: updatedRoundHistory,
+    race_results: updatedRaceResults,   // [NEW] 絶対番地の履歴
+    round_results: updatedRoundResults, // [NEW] ラウンド集計
     current_match: null
   };
+
+  // （古い不要なプロパティの削除・無効化）
+  delete updatedCpuBattleStatus.round_history;
+  delete updatedCpuBattleStatus.match_round_results;
 
   try {
     await setDoc(doc(db, "users", currentUser.uid), {
