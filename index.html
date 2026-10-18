@@ -249,7 +249,83 @@
       font-weight: bold;
       font-size: 11px;
       cursor: pointer;
+      transition: all 0.2s;
     }
+    .bonus-claim-btn:disabled {
+      background: #cccccc;
+      color: #888888;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+
+    /* --- マルチリーチ演出 --- */
+    .bonus-card.reach-slot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 4px;
+      border-radius: 6px;
+    }
+    /* 1要素一致：通常のリーチ */
+    .reach-level-1 {
+      background: linear-gradient(135deg, #fff0f0 0%, #ffe6e6 100%);
+      border: 2px solid #e63956;
+      animation: reachPulse1 1.2s infinite alternate;
+    }
+    @keyframes reachPulse1 {
+      0% { box-shadow: 0 0 4px rgba(230, 57, 86, 0.4); border-color: #e63956; }
+      100% { box-shadow: 0 0 12px rgba(230, 57, 86, 0.9); border-color: #ff0000; }
+    }
+    .reach-level-1 .reach-title { color: #e63956; }
+    
+    /* 2要素一致：ダブルリーチ */
+    .reach-level-2 {
+      background: linear-gradient(135deg, #ffe0e0 0%, #ffcaca 100%);
+      border: 2px solid #ff0000;
+      animation: reachPulse2 0.8s infinite alternate;
+    }
+    @keyframes reachPulse2 {
+      0% { box-shadow: 0 0 8px rgba(255, 0, 0, 0.6); transform: scale(1); }
+      100% { box-shadow: 0 0 18px rgba(255, 0, 0, 1); transform: scale(1.02); }
+    }
+    .reach-level-2 .reach-title { color: #ff0000; text-shadow: 0 0 2px #fff; }
+
+    /* 3要素一致：トリプルリーチ */
+    .reach-level-3 {
+      background: linear-gradient(135deg, #f3e5f5 0%, #ce93d8 100%);
+      border: 3px solid #8e24aa;
+      animation: reachPulse3 0.6s infinite alternate;
+    }
+    @keyframes reachPulse3 {
+      0% { box-shadow: 0 0 12px rgba(142, 36, 170, 0.7); transform: scale(1); }
+      100% { box-shadow: 0 0 25px rgba(142, 36, 170, 1); transform: scale(1.05); }
+    }
+    .reach-level-3 .reach-title { color: #4a148c; text-shadow: 0 0 4px #fff; font-size: 13px !important; }
+
+    /* 4要素一致：クワドラプルリーチ（虹色） */
+    .reach-level-4 {
+      background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 20%, #a1c4fd 50%, #c2e9fb 80%, #ffecd2 100%);
+      background-size: 200% 200%;
+      border: 3px solid #ffd700;
+      animation: reachPulse4 0.5s infinite alternate, rainbowBg 3s linear infinite;
+    }
+    @keyframes reachPulse4 {
+      0% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.8); transform: scale(1.02); }
+      100% { box-shadow: 0 0 35px rgba(255, 215, 0, 1), 0 0 15px rgba(255, 0, 0, 0.8); transform: scale(1.08); }
+    }
+    @keyframes rainbowBg {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    .reach-level-4 .reach-title { color: #ff0000; text-shadow: 0 0 5px #fff, 0 0 10px #ff0; font-size: 15px !important; letter-spacing: 1px; }
+
+    .reach-title { font-weight: 900; font-size: 12px; margin-bottom: 4px; transition: all 0.3s; }
+    .reach-desc { font-size: 8.5px; font-weight: bold; color: #333; line-height: 1.3; background: rgba(255,255,255,0.7); padding: 2px; border-radius: 4px; }
+    .reach-matches { font-size: 9.5px; font-weight: bold; color: #d32f2f; margin-top: 4px; border-top: 1px dashed #ccc; padding-top: 2px;}
 
     /* --- ナビゲーションボタン --- */
     .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -355,30 +431,6 @@
       box-shadow: 0 10px 25px rgba(0,0,0,0.5);
       position: relative;
     }
-
-    .bonus-card.obtained {
-      cursor: pointer;
-      transition: transform 0.1s ease;
-    }
-    .bonus-card.obtained:active { transform: scale(0.96); }
-
-    .bonus-card.reach-slot {
-      background: linear-gradient(135deg, #fff0f0 0%, #ffe6e6 100%);
-      border: 2px solid #e63956;
-      animation: reachPulse 1.2s infinite alternate;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 4px;
-    }
-    @keyframes reachPulse {
-      0% { box-shadow: 0 0 4px rgba(230, 57, 86, 0.4); border-color: #e63956; }
-      100% { box-shadow: 0 0 12px rgba(230, 57, 86, 0.9); border-color: #ff0000; }
-    }
-    .reach-title { font-weight: 900; font-size: 12px; color: #e63956; margin-bottom: 4px; }
-    .reach-desc { font-size: 8.5px; font-weight: bold; color: #a82339; line-height: 1.3; }
   </style>
 </head>
 <body>
@@ -460,7 +512,7 @@
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc, setDoc, collection, getCountFromServer, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { doc, getDoc, setDoc, collection, getCountFromServer, increment, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
   
   import { cardRenderer } from './js/card_renderer.js';
   import { drawBonusCard, getGenYearLastDigit, playFourthCornerCutIn, getGenerationYear } from './js/login_bonus.js';
@@ -468,6 +520,7 @@
   let globalUserData = null;
   let currentUser = null;
   let activeDeckIndex = 0;
+  let isClaimingBonus = false; // ボタン連打防止用フラグ
 
   function getTurfVal(horse) {
     return Number(horse.turf_potential ?? horse.turf) || 0;
@@ -487,7 +540,6 @@
   function formatAptitudeSimple(horse) {
     const turf = Number(horse.turf_potential ?? horse.turf ?? 0);
     const dirt = Number(horse.dirt_potential ?? horse.dirt ?? 0);
-
     if (turf > 0 && dirt > 0) return `芝${turf} ダ${dirt}`;
     if (turf > 0) return `芝${turf}`;
     if (dirt > 0) return `ダ${dirt}`;
@@ -550,6 +602,16 @@
     return cardRenderer.generateRadarSVG ? cardRenderer.generateRadarSVG(paramsObj, styleName) : '';
   }
 
+  // 馬の総合スコア（ポテンシャル代わり）を計算するヘルパー
+  function getHorseScore(horse) {
+    if (!horse) return 0;
+    const getVal = (val) => {
+      if (typeof val === 'number') return val;
+      return cardRenderer.rankToValue ? cardRenderer.rankToValue(val) : 0;
+    };
+    return getVal(horse.speed) + getVal(horse.stamina) + getVal(horse.sharp ?? horse.sharpness) + getVal(horse.jizoku) + getVal(horse.guts);
+  }
+
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
       window.location.href = 'auth.html';
@@ -589,7 +651,7 @@
   async function renderRecord() {
     const totalWins = globalUserData.total_wins || 0;
     
-    // 連勝数 & 最高連勝数（チャレンジ / サバイバル合算またはメイン表示）
+    // 連勝数 & 最高連勝数
     const chCurr = globalUserData.challenge_current_streak || 0;
     const chMax = globalUserData.challenge_max_streak || 0;
     const svCurr = globalUserData.survival_current_streak || 0;
@@ -597,31 +659,23 @@
     const currentStreak = Math.max(chCurr, svCurr);
     const maxStreak = Math.max(chMax, svMax);
 
-    // 最多1着（通算最多 & 1回バトル最多1着）
+    // 最多1着
     const challengeMax1st = globalUserData.max_1st_places || 0;
     const survivalMax1st = globalUserData.survival_bests?.max_1st?.c1 || 0;
     let max1stVal = Math.max(challengeMax1st, survivalMax1st);
 
-    // プレイヤー名横のバッジエリア（トロフィー・制覇状況の動的表示）
+    // バッジエリア
     const badgeArea = document.getElementById('userBadgeArea');
     const badges = globalUserData.survival_badges || {};
     
     let badgeHtml = `🏆 挑戦者`;
-    if (totalWins >= 100) {
-      badgeHtml = `👑 殿堂馬主`;
-    } else if (totalWins >= 50) {
-      badgeHtml = `🌟 サバイバー`;
-    } else if (totalWins >= 30) {
-      badgeHtml = `⚔️ 猛者`;
-    }
+    if (totalWins >= 100) badgeHtml = `👑 殿堂馬主`;
+    else if (totalWins >= 50) badgeHtml = `🌟 サバイバー`;
+    else if (totalWins >= 30) badgeHtml = `⚔️ 猛者`;
 
-    // サバイバル制覇していれば専用アイコンを追加
-    if (badges.clear) {
-      badgeHtml += ` 🛡️`;
-    }
+    if (badges.clear) badgeHtml += ` 🛡️`;
     badgeArea.innerHTML = badgeHtml;
 
-    // 4項目への値反映
     document.getElementById('statTotalWins').textContent = `${totalWins}勝`;
     document.getElementById('statStreakInfo').textContent = `${currentStreak} / ${maxStreak}`;
     document.getElementById('statMax1stTag').textContent = "最多1着";
@@ -673,14 +727,31 @@
 
     const cards = state.today_cards || [];
 
-    let isReach = false;
-    let reachDigit = null;
+    // ★ 4要素マルチリーチ判定
+    let reachLevel = 0;
+    let matchTexts = [];
     if (cards.length === 2) {
-      const d1 = getGenYearLastDigit(cards[0].horse_id);
-      const d2 = getGenYearLastDigit(cards[1].horse_id);
-      if (d1 === d2) {
-        isReach = true;
-        reachDigit = d1;
+      const h1 = cardRenderer.getHorse ? cardRenderer.getHorse(cards[0].horse_id) : null;
+      const h2 = cardRenderer.getHorse ? cardRenderer.getHorse(cards[1].horse_id) : null;
+
+      if (h1 && h2) {
+        // 1. 世代の下1桁
+        const d1 = getGenYearLastDigit(cards[0].horse_id);
+        const d2 = getGenYearLastDigit(cards[1].horse_id);
+        if (d1 === d2 && d1 !== null) { reachLevel++; matchTexts.push(`世代[${d1}]`); }
+        
+        // 2. レアリティ
+        if (cards[0].rarity === cards[1].rarity) { reachLevel++; matchTexts.push(`レアリティ[${cards[0].rarity}]`); }
+        
+        // 3. 脚質
+        const s1 = h1.style || h1.running_style || "不明";
+        const s2 = h2.style || h2.running_style || "不明";
+        if (s1 === s2 && s1 !== "不明") { reachLevel++; matchTexts.push(`脚質[${s1}]`); }
+        
+        // 4. ポテンシャル（スコア合計）
+        const p1 = getHorseScore(h1);
+        const p2 = getHorseScore(h2);
+        if (p1 === p2 && p1 > 0) { reachLevel++; matchTexts.push(`ポテンシャル`); }
       }
     }
 
@@ -736,11 +807,31 @@
             </div>`;
         }
       } else {
-        if (i === 2 && isReach) {
+        if (i === 2 && reachLevel > 0) {
+          // リーチレベルに応じたクラスとテキストを設定
+          let rClass = `reach-level-${reachLevel}`;
+          let rTitle = "";
+          let rDesc = "";
+          
+          if (reachLevel === 1) {
+            rTitle = "🔥 リーチ!! 🔥";
+            rDesc = "3枚目も揃えば<br>明日確変発生！";
+          } else if (reachLevel === 2) {
+            rTitle = "🔥🔥 ダブルリーチ!! 🔥🔥";
+            rDesc = "激アツ！3枚目も揃えば<br>明日確変発生！";
+          } else if (reachLevel === 3) {
+            rTitle = "💥 トリプルリーチ!!! 💥";
+            rDesc = "超激アツ！3枚目も揃えば<br>明日確変発生！";
+          } else if (reachLevel === 4) {
+            rTitle = "🌈 クワドラプルリーチ!!!! 🌈";
+            rDesc = "奇跡の4要素一致！<br>次も揃えば確変確定！";
+          }
+
           container.innerHTML += `
-            <div class="bonus-card reach-slot">
-              <div class="reach-title">🔥 リーチ!! 🔥</div>
-              <div class="reach-desc">3枚目で【<strong>${reachDigit}</strong>】が出れば<br>明日確変発生！</div>
+            <div class="bonus-card reach-slot ${rClass}">
+              <div class="reach-title">${rTitle}</div>
+              <div class="reach-desc">${rDesc}</div>
+              <div class="reach-matches">${matchTexts.join(' / ')}</div>
             </div>`;
         } else {
           container.innerHTML += `<div class="bonus-card empty">${i + 1}枚目 未獲得</div>`;
@@ -763,54 +854,149 @@
       }
     } else {
       if (state.fever_qualified_next_day) {
-        msgContainer.innerHTML = `<div class="bonus-msg">✨ 7-7-7 誕生年下1桁ゾロ目達成！明日の1枚目は確変確定！ ✨</div>`;
+        msgContainer.innerHTML = `<div class="bonus-msg">✨ マルチスロット達成！明日の1枚目は確変確定！ ✨</div>`;
       } else {
         msgContainer.innerHTML = `<div class="bonus-msg" style="background:#eaf5eb; color:#0d4220; border-color:#b2d4b6;">本日のログインボーナスはすべて獲得済みです</div>`;
       }
     }
   }
 
+  // ★ 連打・二重取り防止（トランザクション処理対応版）
   async function claimLoginBonus() {
-    let state = globalUserData.login_bonus_state || {};
-    const cards = state.today_cards || [];
-    if (cards.length >= 3) return;
+    if (isClaimingBonus) return; // UI側の連打ガード
+    isClaimingBonus = true;
 
-    const isFeverClaim = (cards.length === 0 && Boolean(state.is_fever_today));
-    const chosenHorse = drawBonusCard(cardRenderer, globalUserData.affiliation, isFeverClaim);
-
-    if (!chosenHorse || !chosenHorse.horse_id) {
-      alert("カードデータの取得に失敗しました。");
-      return;
+    const btn = document.getElementById('claimBtn');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerText = "⏳ 処理中...";
     }
 
-    if (typeof playFourthCornerCutIn === 'function') {
-      await playFourthCornerCutIn(chosenHorse, cardRenderer);
-    }
-
-    const nowMs = Date.now();
-    state.today_cards = [...cards, { horse_id: chosenHorse.horse_id, rarity: chosenHorse.rarity, timestamp: nowMs }];
-    state.last_claim_time = nowMs;
-
-    if (state.today_cards.length === 3) {
-      const [d1, d2, d3] = state.today_cards.map(c => getGenYearLastDigit(c.horse_id));
-      if (d1 === d2 && d2 === d3) state.fever_qualified_next_day = true;
-    }
+    const userRef = doc(db, "users", currentUser.uid);
+    let chosenHorse = null;
+    let isFeverClaim = false;
+    let isMultiReachSuccess = false;
+    let newStateForUI = null;
 
     try {
-      await Promise.all([
-        setDoc(doc(db, "users", currentUser.uid), { login_bonus_state: state }, { merge: true }),
-        setDoc(doc(db, `users/${currentUser.uid}/inventory/${chosenHorse.horse_id}`), {
-          count: increment(1),
-          obtained_at: new Date().toISOString()
-        }, { merge: true })
-      ]);
+      // ▼ トランザクション処理でサーバーの最新データを読み込みながら更新
+      await runTransaction(db, async (transaction) => {
+        const userDoc = await transaction.get(userRef);
+        if (!userDoc.exists()) throw new Error("ユーザーデータが存在しません");
 
-      globalUserData.login_bonus_state = state;
-      renderBonusUI(state);
+        const data = userDoc.data();
+        let state = data.login_bonus_state || {};
+        
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const nowMs = now.getTime();
+
+        // 日付が変わっていればリセット
+        if (state.last_date !== todayStr) {
+          state = {
+            last_date: todayStr,
+            today_cards: [],
+            fever_qualified_next_day: false,
+            is_fever_today: Boolean(state.fever_qualified_next_day),
+            last_claim_time: 0
+          };
+        }
+
+        const cards = state.today_cards || [];
+
+        // サーバー側のガードチェック1：既に3枚引いているか
+        if (cards.length >= 3) {
+          throw new Error("本日のログインボーナスはすべて獲得済みです。");
+        }
+
+        // サーバー側のガードチェック2：1時間経過しているか（1枚目以外）
+        if (cards.length > 0) {
+          const diffMs = nowMs - parseTimestamp(state.last_claim_time);
+          if (diffMs < 3600000) { // 3600000ms = 1時間
+            throw new Error("次のボーナス獲得まで1時間経過していません。");
+          }
+        }
+
+        isFeverClaim = (cards.length === 0 && Boolean(state.is_fever_today));
+        chosenHorse = drawBonusCard(cardRenderer, globalUserData.affiliation, isFeverClaim);
+
+        if (!chosenHorse || !chosenHorse.horse_id) {
+          throw new Error("カードデータの取得に失敗しました。");
+        }
+
+        // 状態を更新
+        const newCardData = { horse_id: chosenHorse.horse_id, rarity: chosenHorse.rarity, timestamp: nowMs };
+        const newCardsArray = [...cards, newCardData];
+        state.today_cards = newCardsArray;
+        state.last_claim_time = nowMs;
+
+        // 3枚目でマルチリーチ判定（どれか1要素でも3枚揃えばOK）
+        if (newCardsArray.length === 3) {
+          const h1 = cardRenderer.getHorse ? cardRenderer.getHorse(newCardsArray[0].horse_id) : null;
+          const h2 = cardRenderer.getHorse ? cardRenderer.getHorse(newCardsArray[1].horse_id) : null;
+          const h3 = cardRenderer.getHorse ? cardRenderer.getHorse(newCardsArray[2].horse_id) : null;
+
+          if (h1 && h2 && h3) {
+            const d1 = getGenYearLastDigit(newCardsArray[0].horse_id);
+            const d2 = getGenYearLastDigit(newCardsArray[1].horse_id);
+            const d3 = getGenYearLastDigit(newCardsArray[2].horse_id);
+            
+            const r1 = newCardsArray[0].rarity;
+            const r2 = newCardsArray[1].rarity;
+            const r3 = newCardsArray[2].rarity;
+
+            const s1 = h1.style || h1.running_style || "不明";
+            const s2 = h2.style || h2.running_style || "不明";
+            const s3 = h3.style || h3.running_style || "不明";
+
+            const p1 = getHorseScore(h1);
+            const p2 = getHorseScore(h2);
+            const p3 = getHorseScore(h3);
+
+            if (
+              (d1 === d2 && d2 === d3 && d1 !== null) ||
+              (r1 === r2 && r2 === r3) ||
+              (s1 === s2 && s2 === s3 && s1 !== "不明") ||
+              (p1 === p2 && p2 === p3 && p1 > 0)
+            ) {
+              state.fever_qualified_next_day = true;
+              isMultiReachSuccess = true;
+            }
+          }
+        }
+
+        newStateForUI = { ...state };
+
+        // Firestoreの更新予約（ログインボーナス状態）
+        transaction.set(userRef, { login_bonus_state: state }, { merge: true });
+
+        // インベントリの枚数増加もトランザクション内で行う
+        const inventoryRef = doc(db, `users/${currentUser.uid}/inventory/${chosenHorse.horse_id}`);
+        const invDoc = await transaction.get(inventoryRef);
+        const newCount = invDoc.exists() ? (invDoc.data().count || 0) + 1 : 1;
+        transaction.set(inventoryRef, { count: newCount, obtained_at: new Date().toISOString() }, { merge: true });
+      });
+
+      // トランザクション成功後、UIに反映
+      globalUserData.login_bonus_state = newStateForUI;
+
+      if (typeof playFourthCornerCutIn === 'function') {
+        await playFourthCornerCutIn(chosenHorse, cardRenderer);
+      }
+      
+      if (isMultiReachSuccess) {
+        alert("🎉 おめでとうございます！3枚の要素が揃い、明日の確変が確定しました！ 🎉");
+      }
+
+      renderBonusUI(newStateForUI);
       renderRecord();
+
     } catch (err) {
       console.error("ログインボーナス処理失敗:", err);
-      alert("保存時にエラーが発生しました。");
+      alert(err.message || "通信エラーが発生しました。時間を置いて再度お試しください。");
+      renderBonusUI(globalUserData.login_bonus_state); // 元の状態で再描画してボタン戻す
+    } finally {
+      isClaimingBonus = false; // ロック解除
     }
   }
 
@@ -836,16 +1022,7 @@
       const horse = cardRenderer.getHorse ? cardRenderer.getHorse(hId) : null;
       if (!horse) return { hId, originalIndex, horse: null, score: 0 };
 
-      const getVal = (v) => {
-        if (typeof v === 'number') return v;
-        const rankMap = { 'SS': 100, 'S': 90, 'A': 80, 'B': 70, 'C': 60, 'D': 50, 'E': 40 };
-        return rankMap[v] || 0;
-      };
-
-      const score = getVal(horse.speed) + getVal(horse.stamina) + 
-                    getVal(horse.sharp ?? horse.sharpness) + 
-                    getVal(horse.jizoku) + getVal(horse.guts);
-
+      const score = getHorseScore(horse);
       return { hId, originalIndex, horse, score };
     });
 
@@ -860,7 +1037,6 @@
       else if (rank === 2) mark = '<span style="color:#1a73e8; font-weight:bold;">▲</span>';
       else if (rank === 3 || rank === 4) mark = '<span style="color:#2d6a37; font-weight:bold;">△</span>';
       else if (rank === 5) mark = '<span style="color:#c29b1d; font-weight:bold;">注</span>';
-      
       markMap.set(item.hId, mark);
     });
 
@@ -882,7 +1058,6 @@
       const name = horse.name || hId;
       const mark = markMap.get(hId) || 'ー';
       const style = horse.style || horse.running_style || horse.leg_style || '-';
-
       const aptitude = formatAptitudeSimple(horse);
 
       let distance = '-';
@@ -890,18 +1065,11 @@
         const res = cardRenderer.getDistanceText(horse);
         if (res && res !== '-' && res !== 'undefined') distance = res;
       }
-
       if (distance === '-') {
         if (horse.distance) {
           distance = typeof horse.distance === 'number' ? `${horse.distance}m` : horse.distance;
         } else if (horse.min_distance && horse.max_distance) {
           distance = `${horse.min_distance}-${horse.max_distance}m`;
-        } else if (horse.min_dist && horse.max_dist) {
-          distance = `${horse.min_dist}-${horse.max_dist}m`;
-        } else if (horse.distance_aptitude) {
-          distance = horse.distance_aptitude;
-        } else if (horse.dist) {
-          distance = horse.dist;
         }
       }
 
