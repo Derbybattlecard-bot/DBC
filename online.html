@@ -166,63 +166,53 @@
         if (!Array.isArray(selectedSeries) || selectedSeries.length < 3) {
           disableMatchButtons();
           alert("オンライン対戦を行うには、シリーズ図鑑で対戦用シリーズを3つ設定する必要があります。");
-          window.location.href = 'index.html';
           return;
         }
 
         const userDecks = userData.decks || [];
-        const hasValidDeck = userDecks.some(deck => deck && deck.horse_ids && deck.horse_ids.length > 0);
+        const hasValidDeck = userDecks.some(deck => deck && deck.horse_ids && deck.horse_ids.length >= 18);
         if (!hasValidDeck) {
           disableMatchButtons();
-          alert("対戦で使用できるデックがありません。マイページまたはデッキ編成画面でデックを作成してください。");
-          window.location.href = 'index.html';
+          alert("対戦で使用できるデック（18頭登録済み）がありません。デッキ編成画面で作成してください。");
           return;
         }
 
         isOnlineAvailable = true;
       }
-      document.getElementById('syncStatus').textContent = "✅";
+      document.getElementById('syncStatus').textContent = "✅ 準備完了";
     } catch (err) {
-      document.getElementById('syncStatus').textContent = "❌";
+      document.getElementById('syncStatus').textContent = "❌ 接続エラー";
       console.error("初期化エラー:", err);
     }
   });
 
   async function cleanupOldMatches(userId) {
     try {
-      const queueQuery = query(collection(db, "match_queue"), where("host_uid", "==", userId));
-      const queueSnap = await getDocs(queueQuery);
       const batch = writeBatch(db);
       
-      queueSnap.forEach(qDoc => {
-        batch.delete(qDoc.ref);
-      });
+      // 自分がホストとして残してしまった古いキューを削除
+      const queueQuery = query(collection(db, "match_queue"), where("host_uid", "==", userId));
+      const queueSnap = await getDocs(queueQuery);
+      queueSnap.forEach(qDoc => batch.delete(qDoc.ref));
 
+      // 進行中として残っている古い試合を強制キャンセル
       const activeStatuses = ["matching", "deck_selecting", "entry_selecting", "racing", "ready", "playing"];
-
       const matchesRef = collection(db, "online_matches");
-      const qHost = query(matchesRef, where("host_uid", "==", userId), where("status", "in", activeStatuses));
-      const qGuest = query(matchesRef, where("guest_uid", "==", userId), where("status", "in", activeStatuses));
       
-      const [hostSnap, guestSnap] = await Promise.all([getDocs(qHost), getDocs(qGuest)]);
+      const [hostSnap, guestSnap] = await Promise.all([
+        getDocs(query(matchesRef, where("host_uid", "==", userId), where("status", "in", activeStatuses))),
+        getDocs(query(matchesRef, where("guest_uid", "==", userId), where("status", "in", activeStatuses)))
+      ]);
 
-      hostSnap.forEach(docSnap => {
-        batch.update(docSnap.ref, { 
-          status: "cancelled", 
-          cancelled_by: userId,
-          player1_giveup: deleteField(),
-          player2_giveup: deleteField()
-        });
-      });
+      const cancelData = { 
+        status: "cancelled", 
+        cancelled_by: userId,
+        player1_giveup: deleteField(),
+        player2_giveup: deleteField()
+      };
 
-      guestSnap.forEach(docSnap => {
-        batch.update(docSnap.ref, { 
-          status: "cancelled", 
-          cancelled_by: userId,
-          player1_giveup: deleteField(),
-          player2_giveup: deleteField()
-        });
-      });
+      hostSnap.forEach(docSnap => batch.update(docSnap.ref, cancelData));
+      guestSnap.forEach(docSnap => batch.update(docSnap.ref, cancelData));
       
       await batch.commit();
     } catch (e) {
@@ -234,41 +224,41 @@
     if (!currentUser) return;
     if (!confirm("残存している対戦・マッチングデータを完全にクリアしますか？")) return;
 
-    document.getElementById('syncStatus').textContent = "⏳";
+    document.getElementById('syncStatus').textContent = "⏳ 処理中...";
+    
+    // 処理中の連打を防ぐためボタンを一時無効化
+    document.querySelectorAll('.btn-reset, .btn-match').forEach(btn => btn.disabled = true);
+
     try {
       if (matchingUnsubscribe) {
         matchingUnsubscribe();
         matchingUnsubscribe = null;
       }
 
+      if (currentQueueId) {
+        await deleteDoc(doc(db, "match_queue", currentQueueId)).catch(()=>{});
+        currentQueueId = null;
+      }
+
       await cleanupOldMatches(currentUser.uid);
-      currentQueueId = null;
 
       document.getElementById('searchingModal').style.display = "none";
-      document.getElementById('syncStatus').textContent = "✅";
+      document.getElementById('syncStatus').textContent = "✅ クリア完了";
       alert("マッチングおよび対戦データをクリアしました。");
     } catch (err) {
       console.error("データクリア失敗:", err);
-      document.getElementById('syncStatus').textContent = "❌";
+      document.getElementById('syncStatus').textContent = "❌ エラー";
       alert("データクリアに失敗しました。");
+    } finally {
+      if (isOnlineAvailable) {
+        document.querySelectorAll('.btn-reset, .btn-match').forEach(btn => btn.disabled = false);
+      }
     }
   };
 
   window.startMatching = async function(type) {
     if (!currentUser || !isOnlineAvailable) return;
     isNavigatingToBattle = false;
-
-    const userSnap = await getDoc(doc(db, "users", currentUser.uid));
-    const userData = userSnap.exists() ? userSnap.data() : {};
-    const myDecks = userData.decks || [];
-    const activeDeck = myDecks.find(d => d && d.horse_ids && d.horse_ids.length > 0) || myDecks[0] || {};
-    const myDeckIds = activeDeck.horse_ids || [];
-    const mySeries = userData.selected_online_series || [];
-
-    if (myDeckIds.length === 0) {
-      alert("使用可能なデックが見つかりません。");
-      return;
-    }
 
     let targetMode = selectedRandomMode;
     if (type === 'random') {
@@ -291,50 +281,35 @@
     try {
       const snap = await getDoc(queueRef);
 
+      // 【ゲスト側の処理】既にホストが待っているキューを見つけた場合
       if (snap.exists() && snap.data().host_uid !== currentUser.uid && !snap.data().matched_roomId) {
         const hostData = snap.data();
         const hostUid = hostData.host_uid;
         const matchedMode = hostData.mode || targetMode;
         const newRoomId = `room_${Date.now()}`;
 
-        const combinedSeries = [...(hostData.host_series || []), ...mySeries];
-        while (combinedSeries.length < 5) {
-          combinedSeries.push(combinedSeries[0] || "series_01");
-        }
-
+        // 余計な series 結合処理を削除し、純粋な部屋の初期化のみ行う（コース生成はonbattleに任せる）
         await setDoc(doc(db, "online_matches", newRoomId), {
           host_uid: hostUid,
           guest_uid: currentUser.uid,
-          player1: hostUid,
-          player2: currentUser.uid,
-          player1_deck: hostData.host_deck || [],
-          player2_deck: myDeckIds,
-          
+          player1_uid: hostUid,
+          player2_uid: currentUser.uid,
           status: "deck_selecting",
           p1_status: "deck_selecting",
           p2_status: "deck_selecting",
           current_series_index: 0,
-          
-          player1_ready: false,
-          player2_ready: false,
-          player1_entries: [null, null, null, null, null],
-          player2_entries: [null, null, null, null, null],
-          
-          match_series: combinedSeries.slice(0, 5),
           mode: matchedMode,
           created_at: new Date().toISOString()
         });
 
-        await updateDoc(queueRef, {
-          matched_roomId: newRoomId
-        });
+        await updateDoc(queueRef, { matched_roomId: newRoomId });
 
         proceedToBattle(newRoomId, "guest", matchedMode);
+        
       } else {
+        // 【ホスト側の処理】自分がキューを作る
         await setDoc(queueRef, {
           host_uid: currentUser.uid,
-          host_deck: myDeckIds,
-          host_series: mySeries,
           mode: targetMode,
           created_at: new Date().toISOString()
         });
@@ -342,20 +317,16 @@
         matchingUnsubscribe = onSnapshot(queueRef, async (docSnap) => {
           if (docSnap.exists()) {
             const queueData = docSnap.data();
+            // ゲストが入室し、matched_roomId が書き込まれたら部屋へ移動
             if (queueData.matched_roomId) {
               const matchedRoomId = queueData.matched_roomId;
-
               if (matchingUnsubscribe) {
                 matchingUnsubscribe();
                 matchingUnsubscribe = null;
               }
-
-              try {
-                await deleteDoc(queueRef);
-              } catch (e) {
-                console.error("Queue削除エラー:", e);
-              }
-
+              // ホストが責任を持ってキューを削除
+              try { await deleteDoc(queueRef); } catch (e) {}
+              
               proceedToBattle(matchedRoomId, "host", targetMode);
             }
           }
@@ -377,9 +348,18 @@
     document.getElementById('searchingModal').style.display = "none";
   };
 
-  window.addEventListener('beforeunload', () => {
+  // タブ閉じ・リロード時のキュー確実削除用
+  window.addEventListener('beforeunload', (e) => {
     if (currentQueueId && !isNavigatingToBattle) {
-      deleteDoc(doc(db, "match_queue", currentQueueId));
+      // 確実性を持たせるため navigator.sendBeacon は使えないFirestoreの仕様上、
+      // 可能な限り同期的に破棄を試みる
+      deleteDoc(doc(db, "match_queue", currentQueueId)).catch(()=>{});
+    }
+  });
+
+  window.addEventListener('pagehide', () => {
+    if (currentQueueId && !isNavigatingToBattle) {
+      deleteDoc(doc(db, "match_queue", currentQueueId)).catch(()=>{});
     }
   });
 
