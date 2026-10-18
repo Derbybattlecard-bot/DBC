@@ -47,41 +47,53 @@
       font-weight: 900;
     }
 
-    /* --- 統合型 ユーザープロフィール & 1行5列ステータスエリア --- */
+    /* --- 新・統合型 ユーザープロフィール & 2段バッジエリア --- */
     .user-profile-panel {
       background: rgba(255, 255, 255, 0.95);
       border: 1px solid var(--border-green);
-      border-radius: 8px;
-      padding: 8px 10px;
+      border-radius: 10px;
+      padding: 10px 12px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+      gap: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
     }
     .user-top-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      border-bottom: 1px dashed var(--border-green);
+      padding-bottom: 6px;
     }
     .user-name-text {
-      font-size: 13.5px;
+      font-size: 14px;
       font-weight: bold;
       color: var(--header-green);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .user-side-info {
+      font-size: 10px;
+      font-weight: bold;
+      color: var(--sub-text);
+      background: var(--card-inner-bg);
+      padding: 2px 6px;
+      border-radius: 10px;
+      border: 1px solid #c2dfc6;
     }
 
-    /* 1行5列のコンパクトグリッド */
+    /* 2段コンパクトグリッドデザイン */
     .stats-badge-grid {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 3px;
-      padding-top: 5px;
-      border-top: 1px dashed var(--border-green);
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5px;
     }
     .stat-badge-box {
       background: var(--card-inner-bg);
       border: 1px solid #c2dfc6;
-      border-radius: 5px;
-      padding: 3px 1px;
+      border-radius: 6px;
+      padding: 4px 2px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -93,9 +105,9 @@
       border: 1px solid #2d6a37;
       color: #2d6a37;
       border-radius: 8px;
-      font-size: 7.5px;
+      font-size: 8px;
       font-weight: bold;
-      padding: 1px 4px;
+      padding: 1px 5px;
       line-height: 1.1;
       white-space: nowrap;
       margin-bottom: 2px;
@@ -104,7 +116,7 @@
       max-width: 100%;
     }
     .stat-num {
-      font-size: 11.5px;
+      font-size: 12px;
       font-weight: 900;
       color: var(--text-color);
       line-height: 1.2;
@@ -112,7 +124,7 @@
     }
     .stat-num.gold { color: var(--accent-gold); }
 
-    /* サバイバル制覇バッジ専用セル（5列目のデザイン） */
+    /* サバイバル制覇バッジ専用セル（特別感のあるデザイン） */
     .stat-badge-box.badge-box {
       background: #f5f5f5;
       border-color: #ccc;
@@ -120,7 +132,7 @@
     .stat-badge-box.badge-box.unlocked {
       background: linear-gradient(135deg, #fffdf4, #fef3c7);
       border-color: #d4af37;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+      box-shadow: 0 1px 3px rgba(212, 175, 55, 0.3);
     }
     .stat-badge-box.badge-box .stat-tag {
       background: #eee;
@@ -133,13 +145,14 @@
       color: #855b08;
     }
     .badge-status-text {
-      font-size: 9px;
+      font-size: 9.5px;
       font-weight: bold;
       color: #888;
       white-space: nowrap;
     }
     .stat-badge-box.badge-box.unlocked .badge-status-text {
       color: #b8860b;
+      font-weight: 900;
     }
 
     /* --- ボーナスカード部分 --- */
@@ -399,16 +412,17 @@
 <div class="container">
   <div class="header"><h1>DERBY BATTLE CARD</h1></div>
   
-  <!-- 統合型プロフィール & 1行5列ステータスエリア -->
+  <!-- 統合型プロフィール & 2段バッジエリア -->
   <div class="user-profile-panel">
     <div class="user-top-row">
       <div class="user-name-text" id="userNameText">👤 読み込み中...</div>
+      <div class="user-side-info" id="userTitleBadge">✨ 挑戦者</div>
     </div>
 
-    <!-- 1行5列グリッド（通算、最高連勝、最多1着、所持カード、サバイバル制覇バッジ） -->
+    <!-- 2段グリッド（上段:通算・最高連勝・最多1着 / 下段:所持カード・制覇バッジ・空きまたはプレースホルダー） -->
     <div class="stats-badge-grid">
       <div class="stat-badge-box">
-        <span class="stat-tag">通算</span>
+        <span class="stat-tag">通算勝利</span>
         <span class="stat-num gold" id="statTotalWins">-</span>
       </div>
       <div class="stat-badge-box">
@@ -420,11 +434,11 @@
         <span class="stat-num" id="statMax1stVal">-</span>
       </div>
       <div class="stat-badge-box">
-        <span class="stat-tag">所持</span>
+        <span class="stat-tag">所持カード</span>
         <span class="stat-num" id="statCardTypes">-</span>
       </div>
-      <div class="stat-badge-box badge-box" id="badgeSurvivalClearBox">
-        <span class="stat-tag">制覇</span>
+      <div class="stat-badge-box badge-box" id="badgeSurvivalClearBox" style="grid-column: span 2;">
+        <span class="stat-tag">サバイバル制覇状況</span>
         <span class="badge-status-text" id="badgeSurvivalClearText">未制覇</span>
       </div>
     </div>
@@ -603,12 +617,10 @@
   async function renderRecord() {
     const totalWins = globalUserData.total_wins || 0;
     
-    // 最高連続勝利数（チャレンジとサバイバルの高い方）
     const chMax = globalUserData.challenge_max_streak || 0;
     const svMax = globalUserData.survival_max_streak || 0;
     const highestMaxStreak = Math.max(chMax, svMax);
 
-    // 1着最多数（多い方を判定）
     const challengeMax1st = globalUserData.max_1st_places || 0;
     const survivalMax1st = globalUserData.survival_bests?.max_1st?.c1 || 0;
     
@@ -622,19 +634,17 @@
       max1stTag = "最多1着";
     }
 
-    // サバイバル制覇バッジの状態反映
     const badges = globalUserData.survival_badges || {};
     const badgeBox = document.getElementById('badgeSurvivalClearBox');
     const badgeText = document.getElementById('badgeSurvivalClearText');
     if (badges.clear) {
       badgeBox.classList.add('unlocked');
-      badgeText.textContent = "🛡️制覇";
+      badgeText.textContent = "🛡️ サバイバルモード完全制覇達成！";
     } else {
       badgeBox.classList.remove('unlocked');
-      badgeText.textContent = "未制覇";
+      badgeText.textContent = "🔒 サバイバルモード未制覇";
     }
 
-    // 数値DOM反映
     document.getElementById('statTotalWins').textContent = `${totalWins}勝`;
     document.getElementById('statMaxStreak').textContent = `${highestMaxStreak}連勝`;
     document.getElementById('statMax1stTag').textContent = max1stTag;
@@ -934,12 +944,14 @@
   document.getElementById('tabMain1').onclick = () => switchTab(0);
   document.getElementById('tabMain2').onclick = () => switchTab(1);
 
-  window.openCardDetail = (horseId) => {
-    if (!cardRenderer) return;
-    const cardHtml = cardRenderer.renderCardUI(horseId, 'large');
-    document.getElementById('cardDetailBox').innerHTML = cardHtml;
-    document.getElementById('cardDetailModal').classList.add('active');
-  };
+  Object.assign(window, {
+    openCardDetail: (horseId) => {
+      if (!cardRenderer) return;
+      const cardHtml = cardRenderer.renderCardUI(horseId, 'large');
+      document.getElementById('cardDetailBox').innerHTML = cardHtml;
+      document.getElementById('cardDetailModal').classList.add('active');
+    }
+  });
 
   document.getElementById('cardDetailModal').addEventListener('click', (e) => {
     if (e.target.id === 'cardDetailModal') {
