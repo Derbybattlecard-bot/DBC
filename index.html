@@ -861,7 +861,7 @@
     }
   }
 
-  // ★ 連打・二重取り防止（トランザクション処理対応版）
+  // ★ 連打・二重取り防止（トランザクション処理対応・読み書き順序修正版）
   async function claimLoginBonus() {
     if (isClaimingBonus) return; // UI側の連打ガード
     isClaimingBonus = true;
@@ -879,8 +879,8 @@
     let newStateForUI = null;
 
     try {
-      // ▼ トランザクション処理でサーバーの最新データを読み込みながら更新
       await runTransaction(db, async (transaction) => {
+        // 【1. 読み込みフェーズ】
         const userDoc = await transaction.get(userRef);
         if (!userDoc.exists()) throw new Error("ユーザーデータが存在しません");
 
@@ -891,7 +891,6 @@
         const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const nowMs = now.getTime();
 
-        // 日付が変わっていればリセット
         if (state.last_date !== todayStr) {
           state = {
             last_date: todayStr,
@@ -904,15 +903,13 @@
 
         const cards = state.today_cards || [];
 
-        // サーバー側のガードチェック1：既に3枚引いているか
         if (cards.length >= 3) {
           throw new Error("本日のログインボーナスはすべて獲得済みです。");
         }
 
-        // サーバー側のガードチェック2：1時間経過しているか（1枚目以外）
         if (cards.length > 0) {
           const diffMs = nowMs - parseTimestamp(state.last_claim_time);
-          if (diffMs < 3600000) { // 3600000ms = 1時間
+          if (diffMs < 3600000) { 
             throw new Error("次のボーナス獲得まで1時間経過していません。");
           }
         }
@@ -924,13 +921,16 @@
           throw new Error("カードデータの取得に失敗しました。");
         }
 
-        // 状態を更新
+        // ★ 書き込みを行う前に、インベントリの「読み込み」をここで済ませる
+        const inventoryRef = doc(db, `users/${currentUser.uid}/inventory/${chosenHorse.horse_id}`);
+        const invDoc = await transaction.get(inventoryRef);
+
+        // 【2. ロジック・状態計算フェーズ】
         const newCardData = { horse_id: chosenHorse.horse_id, rarity: chosenHorse.rarity, timestamp: nowMs };
         const newCardsArray = [...cards, newCardData];
         state.today_cards = newCardsArray;
         state.last_claim_time = nowMs;
 
-        // 3枚目でマルチリーチ判定（どれか1要素でも3枚揃えばOK）
         if (newCardsArray.length === 3) {
           const h1 = cardRenderer.getHorse ? cardRenderer.getHorse(newCardsArray[0].horse_id) : null;
           const h2 = cardRenderer.getHorse ? cardRenderer.getHorse(newCardsArray[1].horse_id) : null;
@@ -966,18 +966,14 @@
         }
 
         newStateForUI = { ...state };
-
-        // Firestoreの更新予約（ログインボーナス状態）
-        transaction.set(userRef, { login_bonus_state: state }, { merge: true });
-
-        // インベントリの枚数増加もトランザクション内で行う
-        const inventoryRef = doc(db, `users/${currentUser.uid}/inventory/${chosenHorse.horse_id}`);
-        const invDoc = await transaction.get(inventoryRef);
         const newCount = invDoc.exists() ? (invDoc.data().count || 0) + 1 : 1;
+
+        // 【3. 書き込みフェーズ】（すべての読み込みが終わった後にまとめてセットする）
+        transaction.set(userRef, { login_bonus_state: state }, { merge: true });
         transaction.set(inventoryRef, { count: newCount, obtained_at: new Date().toISOString() }, { merge: true });
       });
 
-      // トランザクション成功後、UIに反映
+      // トランザクション成功後のUI反映処理
       globalUserData.login_bonus_state = newStateForUI;
 
       if (typeof playFourthCornerCutIn === 'function') {
@@ -994,9 +990,9 @@
     } catch (err) {
       console.error("ログインボーナス処理失敗:", err);
       alert(err.message || "通信エラーが発生しました。時間を置いて再度お試しください。");
-      renderBonusUI(globalUserData.login_bonus_state); // 元の状態で再描画してボタン戻す
+      renderBonusUI(globalUserData.login_bonus_state);
     } finally {
-      isClaimingBonus = false; // ロック解除
+      isClaimingBonus = false; 
     }
   }
 
