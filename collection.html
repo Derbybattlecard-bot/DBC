@@ -446,8 +446,9 @@
   function getRadarPoints(horse) {
     const getVal = (v) => {
       if (typeof v === 'number') return v;
-      const rankMap = { 'SS': 100, 'S': 90, 'A': 80, 'B': 70, 'C': 60, 'D': 50, 'E': 40 };
-      return rankMap[v] || 50;
+      // 数値以外（SS等）が入ってきた場合のフォールバック（最大20基準）
+      const rankMap = { 'SS': 20, 'S': 18, 'A': 16, 'B': 14, 'C': 12, 'D': 10, 'E': 8 };
+      return rankMap[v] || 10;
     };
     const spd = getVal(horse.speed);
     const stm = getVal(horse.stamina);
@@ -455,8 +456,8 @@
     const jzk = getVal(horse.jizoku);
     const gut = getVal(horse.guts);
 
-    // SVGを限界まで大きくする (半径45)
-    const calcR = (val) => (val / 100) * 45;
+    // ★修正: 最大値20の時に半径45（SVG枠のほぼ限界）まで広がるように計算
+    const calcR = (val) => (val / 20) * 45;
     const cx = 50, cy = 50;
     const angles = [0, 72, 144, 216, 288];
     const stats = [spd, stm, shp, jzk, gut];
