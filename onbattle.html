@@ -222,7 +222,8 @@
 
   .history-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 6px; }
   .history-table th { background: #4c1d95; color: #ffffff; padding: 6px 4px; font-weight: bold; white-space: nowrap; }
-  .history-table td { padding: 8px 4px; border-bottom: 1px solid #e2e8f0; text-align: center; }
+  /* ★修正：セル内を縦方向中央揃えに */
+  .history-table td { padding: 8px 4px; border-bottom: 1px solid #e2e8f0; text-align: center; vertical-align: middle; }
   .history-table tr:nth-child(even) { background-color: #f8fafc; }
   .badge-win { background: #d1fae5; color: #047857; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; }
   .badge-loss { background: #fee2e2; color: #b91c1c; padding: 2px 6px; border-radius: 4px; font-weight: bold; display: inline-block; }
@@ -326,13 +327,13 @@
     <div style="text-align: left; margin-top: 10px;">
       <div style="font-weight: bold; font-size: 12px; color: #4c1d95; margin-bottom: 4px;">📜 各回戦の対戦結果</div>
       <table class="history-table">
+        <!-- ★修正：列を4列に整理して幅を調整 -->
         <thead>
           <tr>
-            <th style="width:16%;">回戦</th>
-            <th>シリーズコース</th>
-            <th style="width:20%;">勝敗成績</th>
-            <th style="width:22%;">着順 (1-2-3着)</th>
-            <th style="width:18%;">勝敗</th>
+            <th style="width:14%;">回戦</th>
+            <th style="width:36%;">シリーズコース</th>
+            <th style="width:32%;">対戦スコア (着順内訳)</th>
+            <th style="width:18%;">結果</th>
           </tr>
         </thead>
         <tbody id="historyTableBody"></tbody>
@@ -797,7 +798,6 @@
     }
   }
 
-  // ★ 【新アーキテクチャ】 単一情報源(round_results)からの完全な勝敗・終了判定
   function calculateMatchWinner(data) {
     const p1RoundResults = data.p1_round_results || {};
     const p2RoundResults = data.p2_round_results || {};
@@ -808,7 +808,6 @@
     let playedRounds = 0;
     let isDrawOccurred = false;
 
-    // 全消化済みラウンドを集計
     const keys = Object.keys(p1RoundResults);
     keys.forEach(k => {
       playedRounds++;
@@ -823,11 +822,9 @@
       p2_1st += p2Res.r1 || 0; p2_2nd += p2Res.r2 || 0; p2_3rd += p2Res.r3 || 0;
     });
 
-    // モード共通判定: 過半数勝利
     if (p1Wins >= requiredWins) return { winner: 'p1', reason: 'wins_majority', p1Wins, p2Wins };
     if (p2Wins >= requiredWins) return { winner: 'p2', reason: 'wins_majority', p1Wins, p2Wins };
 
-    // 引き分け発生による「残り全勝しても追いつけない」状態での即終了判定
     const remainingRounds = totalRounds - playedRounds;
     if (p1Wins + remainingRounds < p2Wins) return { winner: 'p2', reason: 'unbeatable_lead', p1Wins, p2Wins };
     if (p2Wins + remainingRounds < p1Wins) return { winner: 'p1', reason: 'unbeatable_lead', p1Wins, p2Wins };
@@ -838,7 +835,6 @@
       return { winner: null, isOngoing: true };
     }
 
-    // 全ラウンド終了時: 同点の場合はタイブレーク判定
     if (p1Wins > p2Wins) return { winner: 'p1', reason: 'round_wins', p1Wins, p2Wins };
     if (p2Wins > p1Wins) return { winner: 'p2', reason: 'round_wins', p1Wins, p2Wins };
 
@@ -884,7 +880,6 @@
     }
   }
 
-  // ★ 新アーキテクチャ対応: 結果モーダルの描画
   function showFinalMatchResultModal(data, matchResult) {
     const isHost = (role === 'host');
     const myRoleKey = isHost ? 'p1' : 'p2';
@@ -936,7 +931,8 @@
     const keys = Object.keys(p1Results).sort((a,b) => Number(a) - Number(b));
     
     if (keys.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" style="color:#9ca3af;">対戦履歴データなし</td></tr>`;
+      // ★colspan="5" を "4" に修正
+      tbody.innerHTML = `<tr><td colspan="4" style="color:#9ca3af;">対戦履歴データなし</td></tr>`;
     } else {
       keys.forEach(k => {
         const p1R = p1Results[k];
@@ -956,13 +952,22 @@
 
         const myDetail = `${myR.r1 || 0}-${myR.r2 || 0}-${myR.r3 || 0}-${myR.r4Plus || 0}`;
         const oppDetail = `${oppR.r1 || 0}-${oppR.r2 || 0}-${oppR.r3 || 0}-${oppR.r4Plus || 0}`;
-        const combinedScoreDisplay = `${myR.myWins || 0}勝(${myDetail}) - ${oppR.myWins || 0}勝(${oppDetail})`;
+        
+        // ★修正：2行レイアウトにする
+        const scoreHtml = `
+          <div style="font-size:12px; font-weight:900; color:var(--text-main); margin-bottom:2px;">
+            <span style="color:#2563eb;">${myR.myWins || 0}勝</span> - <span style="color:#dc2626;">${oppR.myWins || 0}勝</span>
+          </div>
+          <div style="font-size:9px; color:#64748b; font-family:monospace;">
+            (${myDetail}) - (${oppDetail})
+          </div>
+        `;
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>第 ${roundNum} 回戦</td>
-          <td style="font-weight:bold; text-align:left; padding-left:6px;">${seriesName}</td>
-          <td style="font-weight:bold; color:var(--accent-color); font-family:monospace; font-size:10px;">${combinedScoreDisplay}</td>
+          <td style="font-weight:bold; text-align:left; padding-left:6px; font-size:10.5px; line-height:1.3;">${seriesName}</td>
+          <td style="text-align:center;">${scoreHtml}</td>
           <td>${badgeHtml}</td>
         `;
         tbody.appendChild(tr);
@@ -972,7 +977,6 @@
     document.getElementById('finalResultModal').style.display = 'flex';
   }
 
-  // ★ 進行管理の心臓部
   function initOnlineRoomWatch() {
     const roomRef = doc(db, "online_matches", roomId);
 
@@ -1003,7 +1007,6 @@
 
       const isHost = (role === 'host');
 
-      // 観戦完了フラグの検知と次ラウンドへの自動進行
       if (data.player1_watched && data.player2_watched && data.status !== "finished") {
         if (isHost && !isNavigatingAway) {
           isNavigatingAway = true;
@@ -1018,7 +1021,9 @@
               player1_strategies: deleteField(), player2_strategies: deleteField(),
               races_mob_ids: deleteField(), races_track_conditions: deleteField(),
               race_results_cache: deleteField(), giveup_processed: deleteField(),
-              status: "deck_selecting" 
+              status: "deck_selecting",
+              p1_status: "deck_selecting",
+              p2_status: "deck_selecting"
             });
             window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
           } catch(e) {}
@@ -1027,7 +1032,7 @@
           isNavigatingAway = true;
           setTimeout(() => {
             window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
-          }, 1000); // ゲストはホストの初期化を少し待ってリロード
+          }, 1500); 
           return;
         }
       }
@@ -1043,7 +1048,6 @@
         return;
       }
 
-      // 終了判定チェック
       const matchResult = calculateMatchWinner(data);
 
       if (matchResult.winner !== null) {
@@ -1176,7 +1180,6 @@
     }
   }
 
-  // ★ 新アーキテクチャ対応: 単一情報源（p1_round_results等）からカードへ成績を描画する
   function renderCompletedMatchView(data) {
     const mySeriesPanel = document.getElementById('mySeriesPanel');
     if (mySeriesPanel) mySeriesPanel.style.display = 'none';
@@ -1184,12 +1187,10 @@
     const banPanel = document.getElementById('banPanel');
     banPanel.classList.add('completed');
     
-    // ★ ここから追加 ★
     const banTitleEl = document.getElementById('banPanelTitle');
     const banSubTextEl = document.getElementById('banPanelSubText');
     if (banTitleEl) banTitleEl.textContent = "🏁 マッチ対戦コース・進行状況";
     if (banSubTextEl) banSubTextEl.style.display = "none";
-    // ★ ここまで追加 ★
     
     const isHost = (role === 'host');
     const currentSeriesIdx = data.current_series_index || 0;
@@ -1212,7 +1213,6 @@
     let matchSeries = data.match_series || [];
     let matchOwners = data.match_series_owners || [];
     
-    // 新アーキテクチャのデータを取得
     const p1Results = data.p1_round_results || {};
     const p2Results = data.p2_round_results || {};
 
