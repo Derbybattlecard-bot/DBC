@@ -600,6 +600,17 @@
         return;
       }
 
+      // ★追加：相手がすでに完了してレース画面へ移行していた場合の強制追従フェイルセーフ
+      if (data.status === "racing" || data.status === "race_running" || data.status === "finished") {
+        if (!isNavigatingAway) {
+          isNavigatingAway = true;
+          if (roomUnsubscribe) roomUnsubscribe();
+          const modeQuery = matchMode ? `&mode=${matchMode}` : '';
+          window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}${modeQuery}`;
+        }
+        return;
+      }
+
       const isHost = (role === 'host');
 
       const prevMatchupReady = isOpponentMatchupReady;
@@ -610,8 +621,9 @@
         renderRaceCards();
       }
 
-      const p1Ready = !!(data.player1_strategy_ready || data.player1_ready);
-      const p2Ready = !!(data.player2_strategy_ready || data.player2_ready);
+      // ★修正：残留フラグ（player_ready）を含めず、厳密に作戦完了フラグだけを監視する
+      const p1Ready = !!data.player1_strategy_ready;
+      const p2Ready = !!data.player2_strategy_ready;
       const myReady = isHost ? p1Ready : p2Ready;
       const opponentStrategyReady = isHost ? p2Ready : p1Ready;
 
@@ -631,6 +643,7 @@
 
       updateTotalStatus();
 
+      // 双方が作戦指示を完了した時のみレース画面へ移行
       if ((isMyStrategySubmitted || myReady) && opponentStrategyReady) {
         isNavigatingAway = true;
         if (roomUnsubscribe) roomUnsubscribe();
@@ -890,17 +903,16 @@
 
     const normalizedMyEntries = playerEntries.map(id => normalizeHorseId(id));
 
+    // playerX_ready フラグをここで更新しないことで残留フラグの誤認を防止
     const updateData = isHost ? {
       player1_entries: normalizedMyEntries,
       player1_strategies: myStrategies,
       player1_strategy_ready: true,
-      player1_ready: true,
       p1_status: "strategy_ready"
     } : {
       player2_entries: normalizedMyEntries,
       player2_strategies: myStrategies,
       player2_strategy_ready: true,
-      player2_ready: true,
       p2_status: "strategy_ready"
     };
 
