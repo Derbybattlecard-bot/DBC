@@ -2,105 +2,695 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>世代別カード図鑑 - DERBY BATTLE CARD</title>
   <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%);
+      --card-bg: rgba(255, 255, 255, 0.94);
+      --card-inner-bg: #f2f8f3;
+      --accent-gold: #c29b1d;
+      --text-color: #1a2e1d;
+      --sub-text: #4e6b52;
+      --header-green: #0d4220;
+      --border-green: #b2d4b6;
+      /* バインダー用追加カラー */
+      --gold-gradient: linear-gradient(135deg, #fef08a, #d4af37);
+      --silver-gradient: linear-gradient(135deg, #f3f4f6, #9ca3af);
+      --bronze-gradient: linear-gradient(135deg, #fcd34d, #b45309);
+      --binder-bg: #1c2620;
+    }
+    
     body {
-      background: #1c2620; 
+      margin: 0;
+      padding: 8px;
+      background: var(--bg-gradient);
+      background-attachment: fixed;
+      color: var(--text-color);
+      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
       display: flex;
-      gap: 15px;
-      padding: 30px;
-      font-family: 'Hiragino Mincho ProN', 'MS PMincho', serif;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
 
-    /* サムネイルベース */
+    /* 共通ヘッダー（タブ集約型） */
+    .header-bar {
+      display: flex;
+      flex-direction: column;
+      background: #ffffff;
+      border-radius: 6px;
+      border: 1px solid var(--border-green);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    /* グローバルタブ (ページ間移動 兼 ホーム戻る用) */
+    .global-tabs {
+      display: flex;
+      background: #e2efe3;
+    }
+    .global-tab-btn {
+      flex: 1;
+      padding: 12px 0;
+      text-align: center;
+      font-weight: bold;
+      font-size: 12.5px;
+      color: var(--sub-text);
+      text-decoration: none;
+      border-right: 1px solid var(--border-green);
+      border-bottom: 3px solid var(--border-green);
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+    .global-tab-btn:last-child { border-right: none; }
+    .global-tab-btn.home-tab {
+      flex: 0.6;
+      background: #d0e4d2;
+      color: var(--header-green);
+    }
+    .global-tab-btn.active {
+      background: #ffffff;
+      color: var(--header-green);
+      border-bottom: 3px solid var(--header-green);
+    }
+
+    /* 統計バー */
+    .stats-bar {
+      background: #ffffff;
+      border: 1px solid var(--border-green);
+      border-radius: 6px;
+      padding: 6px 4px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      text-align: center;
+    }
+    .stat-item { flex: 1; }
+    .stat-label { font-size: 9px; color: var(--sub-text); margin-bottom: 1px; display: block; }
+    .stat-value { font-size: 14px; font-weight: bold; color: var(--header-green); }
+
+    /* フィルターボタン群 */
+    .filter-scroll {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 5px;
+      scrollbar-width: none;
+    }
+    .filter-scroll::-webkit-scrollbar { display: none; }
+    .filter-btn {
+      background: rgba(255, 255, 255, 0.8);
+      color: var(--sub-text);
+      border: 1px solid var(--border-green);
+      padding: 6px 14px;
+      border-radius: 16px;
+      font-size: 11.5px;
+      white-space: nowrap;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .filter-btn.active {
+      background: var(--header-green);
+      color: #ffffff;
+      border-color: var(--header-green);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    /* バインダー風コンテナ */
+    .binder-container {
+      background: var(--binder-bg);
+      border: 3px solid #141b17;
+      border-radius: 12px;
+      padding: 10px;
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 4px 12px rgba(0,0,0,0.2);
+      min-height: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      position: relative;
+    }
+    .binder-container::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 15px; bottom: 0; width: 8px;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent, transparent 40px,
+        #9ca3af 40px, #e5e7eb 42px, #9ca3af 44px,
+        transparent 44px, transparent 80px
+      );
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    /* 世代セクション */
+    .gen-section {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+      padding: 8px 8px 8px 24px;
+    }
+    .gen-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: 4px;
+    }
+    .gen-title { font-size: 13px; font-weight: bold; color: var(--border-green); letter-spacing: 1px; }
+    .gen-progress { font-size: 11px; color: #9ca3af; }
+
+    /* TCG風 カードグリッド (ミニカード) */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+      gap: 6px;
+    }
+
     .card-thumb {
-      width: 80px; 
       aspect-ratio: 59 / 86;
       border-radius: 4px;
       position: relative;
+      cursor: pointer;
+      transition: transform 0.1s;
       overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.5);
       display: flex;
       flex-direction: column;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+      border: 2px solid #a3a3a3; /* デフォルト枠 */
+      font-family: 'Hiragino Mincho ProN', 'MS PMincho', serif; /* 筆文字用 */
     }
+    .card-thumb:active { transform: scale(0.97); }
 
-    /* ★追加: 芝・ダート適性による背景色 */
-    .surface-turf { background: linear-gradient(135deg, #183321, #244b31); } /* 深緑 */
-    .surface-dirt { background: linear-gradient(135deg, #3d2918, #5c3f25); } /* 焦茶 */
-    .surface-both { background: linear-gradient(135deg, #183321 50%, #5c3f25 50%); } /* 緑と茶のツートン */
+    /* 適性別 背景色 */
+    .surface-turf { background: linear-gradient(135deg, #183321, #244b31); }
+    .surface-dirt { background: linear-gradient(135deg, #3d2918, #5c3f25); }
+    .surface-both { background: linear-gradient(135deg, #183321 50%, #5c3f25 50%); }
 
-    /* レアリティフレーム */
-    .rarity-ssr { border: 2px solid #d4af37; border-image: linear-gradient(135deg, #fef08a, #d4af37) 1; }
-    .rarity-sr  { border: 2px solid #94a3b8; border-image: linear-gradient(135deg, #f3f4f6, #9ca3af) 1; }
-    .rarity-r   { border: 2px solid #b45309; }
+    /* 未所持 */
+    .card-thumb.unobtained {
+      opacity: 0.5; filter: grayscale(100%); cursor: default;
+      background: repeating-linear-gradient(45deg, #1c2620, #1c2620 5px, #141b17 5px, #141b17 10px);
+      border: 1px solid #333;
+    }
+    .card-thumb.unobtained:active { transform: none; }
+    
+    /* レアリティ別フレーム */
+    .card-thumb.rarity-r { border-color: #b45309; }
+    .card-thumb.rarity-sr { border-image: var(--silver-gradient) 1; }
+    .card-thumb.rarity-ssr { border-image: var(--gold-gradient) 1; }
 
-    /* ★改善: 筆文字の視認性アップ */
+    /* 背景の特大筆文字（透かし） */
     .watermark-text {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -55%);
-      font-size: 65px;
+      font-size: 55px;
       font-weight: 900;
       color: #ffffff;
-      opacity: 0.15; /* 0.08 から 0.15 に上げてくっきり */
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.5); /* 影をつけて立体感を */
+      opacity: 0.15;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
       z-index: 1;
       pointer-events: none;
     }
 
-    /* レーダーアート */
+    /* レーダーアートのエリア */
     .radar-art-area {
-      flex: 1; display: flex; justify-content: center; align-items: center; z-index: 2; padding: 4px;
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 2;
+      padding: 4px;
     }
     .radar-svg {
       width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.8));
     }
+    
+    /* レアリティごとのレーダー色 */
     .rarity-ssr .radar-polygon { fill: rgba(212, 175, 55, 0.45); stroke: #fef08a; stroke-width: 2.5; }
     .rarity-sr  .radar-polygon { fill: rgba(156, 163, 175, 0.45); stroke: #f3f4f6; stroke-width: 2; }
     .rarity-r   .radar-polygon { fill: rgba(180, 83, 9, 0.45); stroke: #fcd34d; stroke-width: 1.5; }
+    .radar-polygon { fill: rgba(163, 163, 163, 0.45); stroke: #e5e5e5; stroke-width: 1.5; }
 
     /* 下部の名前帯 */
     .card-name-bar {
-      background: rgba(0, 0, 0, 0.85); color: #fff; font-size: 8.5px; font-weight: bold; text-align: center;
-      padding: 3px 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      background: rgba(0, 0, 0, 0.85); color: #fff; font-size: 8.5px; font-weight: bold;
+      text-align: center; padding: 2px 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       font-family: 'Helvetica Neue', Arial, sans-serif; z-index: 3;
     }
+
+    .count-badge {
+      position: absolute; top: -3px; right: -3px; background: #e53935; color: #fff; font-size: 9px;
+      font-weight: bold; padding: 1px 4px; border-radius: 4px; border: 1px solid #fff; z-index: 5;
+    }
+
+    .loading-msg, .error-msg {
+      text-align: center; padding: 40px 10px; color: var(--border-green); font-weight: bold; font-size: 13px;
+    }
+    .error-msg { color: #d93838; }
+
+    /* モーダル共通 */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.8); display: none;
+      justify-content: center; align-items: center; z-index: 1000;
+      backdrop-filter: blur(2px);
+    }
+    .modal-overlay.active { display: flex; }
+
+    /* カード詳細モーダル (新UI) */
+    .detail-modal-container {
+      display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%;
+    }
+    .card-modal-wrapper {
+      width: 82vw; max-width: 325px; aspect-ratio: 59 / 86; background: #ffffff;
+      border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5); position: relative;
+    }
+    .detail-close-btn {
+      position: absolute; top: 10px; right: 10px; width: 32px; height: 32px;
+      background: rgba(0,0,0,0.6); color: #fff; border: 2px solid #fff; border-radius: 50%;
+      font-size: 18px; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center;
+    }
+    .btn-trade-offer-large {
+      width: 82vw; max-width: 325px; background: linear-gradient(135deg, #d4af37, #b8860b);
+      color: #111827; border: 2px solid #fef08a; border-radius: 8px; padding: 12px;
+      font-size: 14px; font-weight: 900; cursor: pointer; box-shadow: 0 4px 10px rgba(212, 175, 55, 0.4);
+    }
+    .btn-trade-offer-large:disabled {
+      background: #4b5563; border-color: #6b7280; color: #9ca3af; cursor: not-allowed; box-shadow: none;
+    }
+
+    /* トレード出品モーダル (既存UI維持) */
+    .modal-box {
+      background: #ffffff; border-radius: 8px; width: 92%; max-width: 400px;
+      max-height: 85vh; overflow-y: auto; padding: 14px; box-sizing: border-box; border: 2px solid var(--border-green);
+    }
+    .modal-title { font-size: 14px; font-weight: bold; color: var(--header-green); margin-bottom: 10px; text-align: center; }
+    .form-group { margin-bottom: 8px; display: flex; flex-direction: column; gap: 3px; font-size: 11px; }
+    .form-group label { font-weight: bold; color: var(--sub-text); font-size: 10.5px; }
+    .form-input, .form-textarea { padding: 5px 6px; border: 1px solid var(--border-green); border-radius: 4px; font-size: 11px; box-sizing: border-box; width: 100%; }
+    .horse-name-inputs { display: flex; flex-direction: column; gap: 4px; }
+    .form-textarea { resize: vertical; height: 40px; }
+    .modal-btns { display: flex; gap: 8px; margin-top: 12px; }
+    .btn-modal-submit { flex: 1; background: var(--header-green); color: #fff; border: none; padding: 8px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; }
+    .btn-modal-cancel { flex: 1; background: #e0e0e0; color: #333; border: none; padding: 8px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; }
   </style>
 </head>
 <body>
-
-  <!-- パターン1: 芝 × SSR × 逃げ -->
-  <div class="card-thumb rarity-ssr surface-turf">
-    <div class="watermark-text">逃</div>
-    <div class="radar-art-area">
-      <svg viewBox="0 0 100 100" class="radar-svg">
-        <polygon points="50,10 80,40 59,63 31,76 27,42" class="radar-polygon" stroke-linejoin="round" />
-      </svg>
+<div class="container">
+  <!-- ヘッダー ＆ グローバルタブ -->
+  <div class="header-bar">
+    <div class="global-tabs">
+      <a href="index.html" class="global-tab-btn home-tab">🏠 ホーム</a>
+      <a href="collection.html" class="global-tab-btn active">🎴 図鑑</a>
+      <a href="g1.html" class="global-tab-btn">🏆 G1殿堂</a>
     </div>
-    <div class="card-name-bar">サイレンススズカ</div>
   </div>
 
-  <!-- パターン2: ダート × SR × 先行 -->
-  <div class="card-thumb rarity-sr surface-dirt">
-    <div class="watermark-text">先</div>
-    <div class="radar-art-area">
-      <svg viewBox="0 0 100 100" class="radar-svg">
-        <polygon points="50,20 85,35 75,70 30,80 15,45" class="radar-polygon" stroke-linejoin="round" />
-      </svg>
-    </div>
-    <div class="card-name-bar">クロフネ</div>
+  <!-- 統計バー -->
+  <div class="stats-bar">
+    <div class="stat-item"><span class="stat-label">獲得種類</span><span class="stat-value" id="statObtainedCount">0</span></div>
+    <div class="stat-item"><span class="stat-label">全カード</span><span class="stat-value" id="statTotalCount">0</span></div>
+    <div class="stat-item"><span class="stat-label">コンプ率</span><span class="stat-value" id="statCompRate">0%</span></div>
   </div>
 
-  <!-- パターン3: 芝ダート両用 × R × 差し -->
-  <div class="card-thumb rarity-r surface-both">
-    <div class="watermark-text">差</div>
-    <div class="radar-art-area">
-      <svg viewBox="0 0 100 100" class="radar-svg">
-        <polygon points="50,30 70,50 60,80 40,80 30,50" class="radar-polygon" stroke-linejoin="round" />
-      </svg>
-    </div>
-    <div class="card-name-bar">アグネスデジタル</div>
+  <!-- フィルター -->
+  <div class="filter-scroll" id="filterContainer">
+    <!-- JSで生成 -->
   </div>
 
+  <!-- メインコンテンツ (バインダー) -->
+  <div class="binder-container" id="mainContent">
+    <div class="loading-msg" id="loadingDisplay">カードデータを読み込み中...</div>
+  </div>
+</div>
+
+<!-- モーダル: カード詳細表示 (新UI) -->
+<div class="modal-overlay" id="cardDetailModal" style="z-index: 2000;">
+  <button class="detail-close-btn" onclick="closeModal('cardDetailModal')">×</button>
+  <div class="detail-modal-container">
+    <div class="card-modal-wrapper" id="cardDetailBox">
+      <!-- cardRenderer によってここにカードが描画される -->
+    </div>
+    
+    <!-- トレード出品ボタン (2枚以上所持で有効化) -->
+    <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+      <button class="btn-trade-offer-large" id="btnOpenTradeSetup" disabled onclick="openTradeSetupModal()">
+        📤 このカードをトレードに出品する
+      </button>
+      <div id="tradeNotice" style="color: #ccc; font-size: 11px; font-weight: bold;">
+        ※出品には2枚以上所持している必要があります
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- モーダル: トレード出品条件設定 (完全既存維持) -->
+<div class="modal-overlay" id="tradeModal" style="z-index: 2010;">
+  <div class="modal-box">
+    <div class="modal-title">🔁 トレード出品条件設定</div>
+    <div style="font-size:11px; background:#f2f8f3; padding:6px; border-radius:4px; margin-bottom:8px;">
+      出品カード: <strong id="modalCardName" style="color:var(--header-green);"></strong>
+    </div>
+    <div class="form-group">
+      <label>希望条件（馬名を直接入力・最大5つ）</label>
+      <div class="horse-name-inputs">
+        <input type="text" class="form-input want-horse-input" placeholder="希望馬名 1（例: ディープインパクト）">
+        <input type="text" class="form-input want-horse-input" placeholder="希望馬名 2（任意）">
+        <input type="text" class="form-input want-horse-input" placeholder="希望馬名 3（任意）">
+        <input type="text" class="form-input want-horse-input" placeholder="希望馬名 4（任意）">
+        <input type="text" class="form-input want-horse-input" placeholder="希望馬名 5（任意）">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>出品コメント</label>
+      <textarea class="form-textarea" id="tradeComment" placeholder="例: 探している馬です！よろしくお願いします。"></textarea>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-modal-cancel" id="btnCancelTrade">キャンセル</button>
+      <button class="btn-modal-submit" id="btnSubmitTrade">出品する</button>
+    </div>
+  </div>
+</div>
+
+<!-- 既存のJSロジック + ミニカード生成ロジック -->
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { createTradeListing } from './js/trade-service.js';
+  import { cardRenderer } from './js/card_renderer.js';
+
+  let HORSES_ARRAY = [];
+  let HORSES_MASTER = {};
+  let currentUser = null;
+  let selectedHorseForTrade = null;
+  let userInventoryGlobal = {};
+  let currentFilter = 'ALL';
+
+  function parseHorseYear(horse) {
+    if (horse.gen_year) return Number(horse.gen_year);
+    if (horse.year) return Number(horse.year);
+    const idStr = String(horse.horse_id ?? horse.id ?? '');
+    if (idStr.length >= 4) {
+      const yy = parseInt(idStr.substring(0, idStr.length - 2), 10);
+      if (!isNaN(yy)) {
+        return yy >= 30 ? 1900 + yy : 2000 + yy;
+      }
+    }
+    return 9999;
+  }
+
+  function getGenGroupInfo(year) {
+    if (year === 9999 || isNaN(year)) return { id: 'unknown', label: '年代不明', sortOrder: 0 };
+    if (year <= 1980) return { id: 'gen_1980', label: '〜1980', sortOrder: 1980 };
+    if (year <= 1985) return { id: 'gen_1985', label: '1981〜1985', sortOrder: 1985 };
+    if (year <= 1990) return { id: 'gen_1990', label: '1986〜1990', sortOrder: 1990 };
+    if (year <= 2000) return { id: 'gen_2000', label: '1991〜2000', sortOrder: 2000 };
+    return { id: `gen_${year}`, label: `${year}年代`, sortOrder: year };
+  }
+
+  // --- ミニカード用 動的生成関数群 ---
+  function getSurfaceClass(horse) {
+    const t = Number(horse.turf_potential ?? horse.turf) || 0;
+    const d = Number(horse.dirt_potential ?? horse.dirt) || 0;
+    if (t > 0 && d > 0) return 'surface-both';
+    if (t > 0) return 'surface-turf';
+    if (d > 0) return 'surface-dirt';
+    return 'surface-turf'; 
+  }
+
+  function getStyleChar(horse) {
+    const style = horse.style || horse.running_style || horse.leg_style || '他';
+    if (style.includes('逃')) return '逃';
+    if (style.includes('先')) return '先';
+    if (style.includes('差')) return '差';
+    if (style.includes('追')) return '追';
+    return style.charAt(0);
+  }
+
+  function getRadarPoints(horse) {
+    const getVal = (v) => {
+      if (typeof v === 'number') return v;
+      const rankMap = { 'SS': 100, 'S': 90, 'A': 80, 'B': 70, 'C': 60, 'D': 50, 'E': 40 };
+      return rankMap[v] || 50; // デフォルト50
+    };
+    const spd = getVal(horse.speed);
+    const stm = getVal(horse.stamina);
+    const shp = getVal(horse.sharp ?? horse.sharpness);
+    const jzk = getVal(horse.jizoku);
+    const gut = getVal(horse.guts);
+
+    // 半径38 (100x100の中心50,50)
+    const calcR = (val) => (val / 100) * 38;
+    const cx = 50, cy = 50;
+    const angles = [0, 72, 144, 216, 288];
+    const stats = [spd, stm, shp, jzk, gut];
+    
+    return stats.map((val, i) => {
+       const r = calcR(val);
+       const rad = (angles[i] - 90) * (Math.PI / 180);
+       return `${(cx + r * Math.cos(rad)).toFixed(1)},${(cy + r * Math.sin(rad)).toFixed(1)}`;
+    }).join(' ');
+  }
+  // ---------------------------------
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.href = 'auth.html';
+      return;
+    }
+    currentUser = user;
+
+    try {
+      await cardRenderer.init();
+      const res = await fetch('./data/horses_master.json');
+      if (!res.ok) throw new Error(`horses_master.json の読み込みに失敗しました`);
+      
+      HORSES_ARRAY = await res.json();
+      HORSES_MASTER = {};
+
+      HORSES_ARRAY.sort((a, b) => {
+        const yearA = parseHorseYear(a);
+        const yearB = parseHorseYear(b);
+        if (yearA !== yearB) return yearB - yearA;
+        const idA = Number(a.horse_id ?? a.id ?? 0);
+        const idB = Number(b.horse_id ?? b.id ?? 0);
+        return idA - idB;
+      });
+
+      HORSES_ARRAY.forEach(h => {
+        const id = String(h.horse_id ?? h.id);
+        HORSES_MASTER[id] = h;
+      });
+
+      const inventorySnap = await getDocs(collection(db, `users/${user.uid}/inventory`));
+      inventorySnap.forEach(docSnap => {
+        userInventoryGlobal[docSnap.id] = docSnap.data();
+      });
+
+      renderCollection(userInventoryGlobal);
+
+    } catch (error) {
+      console.error("図鑑ロードエラー:", error);
+      document.getElementById('mainContent').innerHTML = `<div class="error-msg">⚠️ カードデータの読み込みに失敗しました。</div>`;
+    }
+  });
+
+  window.filterGen = function(genId) {
+    currentFilter = genId;
+    renderCollection(userInventoryGlobal);
+  };
+
+  function renderCollection(inventory) {
+    if (!HORSES_ARRAY || HORSES_ARRAY.length === 0) return;
+
+    const groupMap = {};
+    let totalObtained = 0;
+
+    HORSES_ARRAY.forEach(horse => {
+      const strId = String(horse.horse_id ?? horse.id);
+      const cardInfo = inventory[strId];
+      const count = (typeof cardInfo === 'object' && cardInfo !== null) ? (cardInfo.count || 1) : (cardInfo || 0);
+      const lockedCount = (typeof cardInfo === 'object' && cardInfo !== null) ? (cardInfo.locked_count || 0) : 0;
+      const availableCount = count - lockedCount;
+
+      if (count > 0) totalObtained++;
+
+      const year = parseHorseYear(horse);
+      const groupInfo = getGenGroupInfo(year);
+
+      if (!groupMap[groupInfo.id]) {
+        groupMap[groupInfo.id] = { info: groupInfo, horses: [] };
+      }
+      groupMap[groupInfo.id].horses.push({ horse, count, availableCount });
+    });
+
+    // 統計更新
+    document.getElementById('statObtainedCount').textContent = totalObtained;
+    document.getElementById('statTotalCount').textContent = HORSES_ARRAY.length;
+    const rate = Math.floor((totalObtained / HORSES_ARRAY.length) * 100);
+    document.getElementById('statCompRate').textContent = `${rate}%`;
+
+    const sortedGroups = Object.values(groupMap).sort((a, b) => b.info.sortOrder - a.info.sortOrder);
+
+    // フィルター再構築
+    const filterContainer = document.getElementById('filterContainer');
+    filterContainer.innerHTML = `<button class="filter-btn ${currentFilter === 'ALL' ? 'active' : ''}" onclick="filterGen('ALL')">すべて</button>`;
+    sortedGroups.forEach(g => {
+      filterContainer.innerHTML += `<button class="filter-btn ${currentFilter === g.info.id ? 'active' : ''}" onclick="filterGen('${g.info.id}')">${g.info.label}</button>`;
+    });
+
+    // メイン描画
+    const contentEl = document.getElementById('mainContent');
+    contentEl.innerHTML = '';
+
+    sortedGroups.forEach(group => {
+      if(currentFilter !== 'ALL' && currentFilter !== group.info.id) return;
+
+      const horsesInGroup = group.horses;
+      const obtainedInGroup = horsesInGroup.filter(item => item.count > 0).length;
+
+      const sectionEl = document.createElement('div');
+      sectionEl.className = 'gen-section';
+      sectionEl.innerHTML = `
+        <div class="gen-header">
+          <span class="gen-title">📁 ${group.info.label} 世代</span>
+          <span class="gen-progress">${obtainedInGroup} / ${horsesInGroup.length}</span>
+        </div>
+      `;
+
+      const gridEl = document.createElement('div');
+      gridEl.className = 'card-grid';
+
+      gridEl.innerHTML = horsesInGroup.map(item => {
+        const h = item.horse;
+        const isObtained = item.count > 0;
+        const strId = String(h.horse_id ?? h.id);
+        const rarityClass = isObtained && h.rarity ? `rarity-${h.rarity.toLowerCase()}` : '';
+        const countBadge = item.count > 1 ? `<div class="count-badge">${item.count}</div>` : '';
+        
+        // ミニカードの動的生成
+        const surfaceClass = isObtained ? getSurfaceClass(h) : '';
+        const styleChar = getStyleChar(h);
+        const radarPoints = getRadarPoints(h);
+
+        let cardContent = '';
+        if (isObtained) {
+          cardContent = `
+            <div class="watermark-text">${styleChar}</div>
+            <div class="radar-art-area">
+              <svg viewBox="0 0 100 100" class="radar-svg">
+                <polygon points="${radarPoints}" class="radar-polygon" stroke-linejoin="round" />
+              </svg>
+            </div>
+            <div class="card-name-bar">${h.name}</div>
+          `;
+        } else {
+          cardContent = `<div class="card-name-bar">NO DATA</div>`;
+        }
+
+        return `
+          <div class="card-thumb ${isObtained ? 'obtained' : 'unobtained'} ${rarityClass} ${surfaceClass}" 
+               ${isObtained ? `onclick="openCardDetail('${strId}', true, ${item.count},${item.availableCount})"` : ''}>
+            ${countBadge}
+            ${cardContent}
+          </div>
+        `;
+      }).join('');
+
+      sectionEl.appendChild(gridEl);
+      contentEl.appendChild(sectionEl);
+    });
+  }
+
+  // --- モーダル制御ロジック ---
+
+  window.openCardDetail = (horseId, isObtained, count, availableCount) => {
+    if (!isObtained) return;
+
+    // 本来のカードUIを描画
+    const cardHtml = cardRenderer.renderCardUI(horseId, 'large');
+    document.getElementById('cardDetailBox').innerHTML = cardHtml;
+    
+    // トレードボタンの制御
+    const btnTrade = document.getElementById('btnOpenTradeSetup');
+    const notice = document.getElementById('tradeNotice');
+    
+    if(count >= 2 && availableCount >= 2) {
+      btnTrade.disabled = false;
+      notice.style.display = 'none';
+      selectedHorseForTrade = HORSES_MASTER[horseId];
+    } else {
+      btnTrade.disabled = true;
+      notice.style.display = 'block';
+      selectedHorseForTrade = null;
+    }
+
+    document.getElementById('cardDetailModal').classList.add('active');
+  };
+
+  window.openTradeSetupModal = () => {
+    if (!selectedHorseForTrade) return;
+
+    document.getElementById('modalCardName').textContent = selectedHorseForTrade.name;
+    document.querySelectorAll('.want-horse-input').forEach(i => i.value = "");
+    document.getElementById('tradeComment').value = "";
+    
+    // 詳細モーダルを閉じてトレードモーダルを開く
+    closeModal('cardDetailModal');
+    document.getElementById('tradeModal').classList.add('active');
+  };
+
+  window.closeModal = (modalId) => {
+    document.getElementById(modalId).classList.remove('active');
+  };
+
+  document.getElementById('btnCancelTrade').addEventListener('click', () => {
+    closeModal('tradeModal');
+  });
+
+  document.getElementById('btnSubmitTrade').addEventListener('click', async () => {
+    if (!selectedHorseForTrade || !currentUser) return;
+
+    const inputs = document.querySelectorAll('.want-horse-input');
+    const wantHorseNames = Array.from(inputs).map(i => i.value);
+    const comment = document.getElementById('tradeComment').value.trim();
+
+    try {
+      const q = query(
+        collection(db, "trades"),
+        where("seller_uid", "==", currentUser.uid),
+        where("status", "==", "active")
+      );
+      const activeSnap = await getDocs(q);
+
+      if (!activeSnap.empty) {
+        alert("既に出品中のカードがあります。トレードの出品は1人1つまでです。\n新規に出品する場合は、掲示板の「自分の出品」から現在の出品を取り下げてください。");
+        return;
+      }
+
+      await createTradeListing(db, currentUser, selectedHorseForTrade, wantHorseNames, comment);
+      alert(`「${selectedHorseForTrade.name}」をトレード掲示板に出品しました！`);
+      closeModal('tradeModal');
+      location.reload();
+    } catch (err) {
+      console.error("出品エラー:", err);
+      alert("出品エラー詳細:\n" + (err.code || err.message || JSON.stringify(err)));
+    }
+  });
+
+</script>
 </body>
 </html>
