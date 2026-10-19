@@ -1,531 +1,1060 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>コレクションルーム</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            background-color: #0f2b1d;
-            color: #ffffff;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            padding-bottom: 40px;
-        }
-        header {
-            background-color: #07170f;
-            padding: 12px 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #1a4a32;
-            position: sticky;
-            top: 0;
-            z-index: 50;
-        }
-        h1 { font-size: 16px; font-weight: bold; display: flex; align-items: center; gap: 8px; }
-        #status { font-size: 12px; color: #a0aec0; }
-        .nav-tabs {
-            display: flex;
-            justify-content: center;
-            background-color: #07170f;
-            border-bottom: 1px solid #1a4a32;
-            gap: 8px;
-            padding: 0 8px;
-            flex-wrap: wrap;
-        }
-        .tab-btn {
-            padding: 10px 16px;
-            font-size: 13px;
-            color: #a0aec0;
-            background: none;
-            border: none;
-            text-decoration: none;
-            cursor: pointer;
-            border-bottom: 2px solid transparent;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .tab-btn.active {
-            color: #48bb78;
-            border-bottom-color: #48bb78;
-            font-weight: bold;
-        }
-        .stats-container {
-            max-width: 800px;
-            margin: 16px auto;
-            padding: 0 12px;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            text-align: center;
-        }
-        .stat-box {
-            background-color: rgba(26, 74, 50, 0.5);
-            padding: 8px;
-            border-radius: 8px;
-            border: 1px solid #1a4a32;
-        }
-        .stat-title { font-size: 10px; color: #a0aec0; margin-bottom: 2px; }
-        .stat-val { font-size: 16px; font-weight: bold; color: #48bb78; }
-        .filter-container {
-            max-width: 800px;
-            margin: 0 auto 16px;
-            padding: 0 12px;
-            display: flex;
-            gap: 6px;
-            overflow-x: auto;
-        }
-        .filter-btn {
-            background-color: #1a4a32;
-            color: #ffffff;
-            font-size: 11px;
-            padding: 4px 12px;
-            border-radius: 12px;
-            border: none;
-            white-space: nowrap;
-            cursor: pointer;
-        }
-        .filter-btn.active { background-color: #48bb78; color: #07170f; font-weight: bold; }
-        main { max-width: 800px; margin: 0 auto; padding: 0 12px; }
-        .card-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-            gap: 10px;
-        }
-        .card-item {
-            background-color: #2a362f;
-            border: 1px solid #236141;
-            border-radius: 8px;
-            overflow: hidden;
-            position: relative;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        .card-item:hover { transform: translateY(-2px); }
-        .card-item.not-owned { opacity: 0.5; filter: grayscale(0.6); }
-        .card-media {
-            aspect-ratio: 3/4;
-            background-color: #0a2115;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .card-media img { width: 100%; height: 100%; object-fit: cover; }
-        .birth-year-badge {
-            position: absolute;
-            top: 4px;
-            left: 4px;
-            background-color: rgba(0, 0, 0, 0.7);
-            color: #e2e8f0;
-            font-size: 9px;
-            padding: 1px 4px;
-            border-radius: 3px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            z-index: 10;
-        }
-        .count-badge {
-            position: absolute;
-            top: 4px;
-            right: 4px;
-            background-color: #48bb78;
-            color: #07170f;
-            font-size: 10px;
-            font-weight: bold;
-            padding: 1px 5px;
-            border-radius: 10px;
-            z-index: 10;
-        }
-        .pt-center {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #ffffff;
-            font-size: 16px;
-            font-weight: 900;
-            pointer-events: none;
-            z-index: 10;
-            text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8);
-        }
-        .radar-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 8; }
-        .pt-rank-god .radar-polygon { fill: rgba(255, 215, 0, 0.45); stroke: #ffd700; stroke-width: 1.5; }
-        .pt-rank-god .pt-center { text-shadow: 0 0 10px #ffd700, 0 0 20px #ff8c00, 1px 1px 0 #000; }
-        .pt-rank-s .radar-polygon { fill: rgba(255, 105, 180, 0.45); stroke: #ff69b4; stroke-width: 1.5; }
-        .pt-rank-s .pt-center { text-shadow: 0 0 10px #ff69b4, 0 0 20px #da70d6, 1px 1px 0 #000; }
-        .pt-rank-a .radar-polygon { fill: rgba(64, 224, 208, 0.45); stroke: #40e0d0; stroke-width: 1.5; }
-        .pt-rank-a .pt-center { text-shadow: 0 0 10px #40e0d0, 0 0 20px #00bfff, 1px 1px 0 #000; }
-        .pt-rank-b .radar-polygon { fill: rgba(72, 187, 120, 0.45); stroke: #48bb78; stroke-width: 1.5; }
-        .pt-rank-b .pt-center { text-shadow: 0 0 8px #48bb78, 1px 1px 0 #000; }
-        .watermark-text {
-            position: absolute;
-            bottom: 2px;
-            right: 4px;
-            font-size: 10px;
-            font-weight: bold;
-            color: #ffffff;
-            opacity: 0.4;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-            z-index: 5;
-        }
-        .card-name-bar {
-            padding: 4px;
-            text-align: center;
-            font-size: 8.5px;
-            height: 20px;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: center;
-            line-height: 1.1;
-            overflow: hidden;
-            font-weight: bold;
-            color: #ffffff;
-        }
-        .name-turf { background: linear-gradient(135deg, #1b4d23, #2d6a37); }
-        .name-dirt { background: linear-gradient(135deg, #5c3f25, #8b5a2b); }
-        .name-both { background: linear-gradient(135deg, #1b4d23 50%, #8b5a2b 50%); }
-        /* Modal */
-        .modal {
-            position: fixed;
-            inset: 0;
-            background-color: rgba(0, 0, 0, 0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 16px;
-            z-index: 100;
-        }
-        .modal.hidden { display: none; }
-        .modal-content {
-            background-color: #07170f;
-            border: 1px solid #1a4a32;
-            border-radius: 12px;
-            width: 100%;
-            max-width: 360px;
-            padding: 20px;
-            position: relative;
-            text-align: center;
-        }
-        .close-btn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: none;
-            border: none;
-            color: #a0aec0;
-            font-size: 18px;
-            cursor: pointer;
-        }
-        .trade-btn {
-            width: 100%;
-            background-color: #48bb78;
-            color: #07170f;
-            font-weight: bold;
-            padding: 10px;
-            border-radius: 8px;
-            border: none;
-            margin-top: 12px;
-            cursor: pointer;
-        }
-        .trade-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        input, textarea {
-            width: 100%;
-            background-color: #143d28;
-            border: 1px solid #236141;
-            color: #ffffff;
-            padding: 8px;
-            border-radius: 6px;
-            margin-top: 4px;
-            font-size: 12px;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DERBY BATTLE CARD - オンライン出走登録</title>
+<style>
+  :root {
+    --bg-gradient: linear-gradient(135deg, #2e1065 0%, #4c1d95 50%, #5b21b6 100%);
+    --panel-bg: rgba(255, 255, 255, 0.95);
+    --accent-color: #6b21a8;
+    --accent-hover: #581c87;
+    --accent-orange: #f97316;
+    --text-main: #1e1b4b;
+    --text-sub: #4b5563;
+    --border-color: #ddd6fe;
+    --turf-color: #16a34a;
+    --dirt-color: #b45309;
+    --danger-color: #dc2626;
+    --success-color: #16a34a;
+  }
+  body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg-gradient);
+    background-attachment: fixed;
+    color: var(--text-main);
+    margin: 0;
+    padding: 15px;
+    font-size: 13px;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  .container { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 680px; padding-bottom: 30px; }
+  
+  .header-panel {
+    background-color: var(--panel-bg);
+    padding: 10px 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .btn-back {
+    background: #ffffff;
+    color: var(--danger-color);
+    border: 1.5px solid var(--danger-color);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 12px;
+  }
+
+  .opponent-status-panel {
+    background: #faf5ff;
+    border: 2px solid var(--accent-color);
+    border-radius: 8px;
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  .opponent-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: bold;
+    color: #fff;
+    background: #9ca3af;
+  }
+  .opponent-badge.ready { background: var(--success-color); }
+  .opponent-badge.selecting { background: var(--accent-orange); }
+
+  .series-info-panel {
+    position: relative;
+    margin-top: 10px;
+    background: rgba(238, 242, 255, 0.95);
+    border: 1.5px solid #a5b4fc;
+    border-radius: 10px;
+    padding: 16px 15px 12px 15px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.08);
+  }
+  .series-info-panel .title-label {
+    position: absolute;
+    top: -11px;
+    left: 12px;
+    font-weight: bold;
+    background: linear-gradient(135deg, #4f46e5, #4338ca);
+    color: white;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    border: 1px solid #c7d2fe;
+  }
+  .series-info-panel .series-names {
+    font-weight: bold;
+    font-size: 16px;
+    color: #1e1b4b;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+    margin-top: 2px;
+  }
+
+  .status-bar {
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  }
+  .status-item { text-align: center; }
+  .status-label { font-size: 10px; color: var(--text-sub); display: block; margin-bottom: 2px; }
+  .status-val { font-size: 14px; font-weight: bold; }
+  .status-val.error { color: var(--danger-color); }
+  .status-val.ok { color: var(--success-color); }
+
+  .entry-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  }
+  .race-info-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px dashed var(--border-color);
+    padding-bottom: 6px;
+  }
+  .race-title { font-weight: bold; font-size: 14px; color: var(--accent-color); }
+  .race-cond-badge {
+    font-size: 10.5px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    color: white;
+    font-weight: bold;
+  }
+  .surface-turf { background-color: var(--turf-color); }
+  .surface-dirt { background-color: var(--dirt-color); }
+
+  .mob-field-preview {
+    background: #f3e8ff;
+    border: 1px solid #d8b4fe;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 11px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .mob-style-counts span {
+    margin-left: 6px;
+    font-weight: bold;
+  }
+
+  .select-horse-dropdown {
+    width: 100%;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: #ffffff;
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--text-main);
+  }
+
+  .horse-detail-preview {
+    font-size: 11px;
+    color: var(--text-sub);
+    display: flex;
+    justify-content: space-between;
+    background: #f8fafc;
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .action-group {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .btn-submit {
+    flex: 2;
+    background: linear-gradient(135deg, #f97316, #ea580c);
+    color: white;
+    border: none;
+    padding: 15px 10px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 15px;
+    cursor: pointer;
+    text-align: center;
+    box-shadow: 0 4px 0 #c2410c;
+  }
+  .btn-submit:disabled { background: #9ca3af; box-shadow: none; cursor: not-allowed; }
+
+  .btn-redeck {
+    flex: 1;
+    background: #ffffff;
+    color: var(--accent-color);
+    border: 1.5px solid var(--accent-color);
+    padding: 15px 5px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 12px;
+    cursor: pointer;
+    text-align: center;
+  }
+
+  .btn-giveup {
+    flex: 1.2;
+    background: #ffffff;
+    color: var(--danger-color);
+    border: 1.5px solid var(--danger-color);
+    padding: 15px 5px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 11px;
+    cursor: pointer;
+    text-align: center;
+  }
+</style>
 </head>
 <body>
-    <header>
-        <h1><i class="fa-solid fa-book-open text-emerald-400"></i> コレクションルーム</h1>
-        <div id="status"><i class="fa-solid fa-cloud-arrow-down animate-pulse"></i> 読込中...</div>
-    </header>
 
-    <nav class="nav-tabs" id="global-tabs">
-        <a href="index.html" class="tab-btn"><i class="fa-solid fa-house"></i> ホーム</a>
-        <button class="tab-btn active" onclick="switchTab('all')"><i class="fa-solid fa-id-card"></i> カード図鑑</button>
-        <button class="tab-btn" onclick="switchTab('g1')"><i class="fa-solid fa-trophy"></i> G1ギャラリー</button>
-    </nav>
+<div class="container">
+  <div class="header-panel">
+    <button class="btn-back" onclick="leaveMatch()">辞退・退室</button>
+    <h2 style="margin:0; font-size: 16px; color: var(--accent-color);">オンライン対戦 - チーム編成</h2>
+    <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中</div>
+  </div>
 
-    <div class="stats-container">
-        <div class="stat-box"><div class="stat-title">獲得種類</div><div id="stat-owned-types" class="stat-val">0</div></div>
-        <div class="stat-box"><div class="stat-title">全カード数</div><div id="stat-total-cards" class="stat-val" style="color: #ffffff;">0</div></div>
-        <div class="stat-box"><div class="stat-title">コンプ率</div><div id="stat-comp-rate" class="stat-val">0%</div></div>
+  <div class="opponent-status-panel">
+    <div>
+      <span style="font-size: 10px; color: var(--text-sub); display: block;">対戦相手</span>
+      <strong id="opponentName" style="font-size: 13px;">対戦相手を取得中...</strong>
     </div>
+    <div id="opponentStatusBadge" class="opponent-badge selecting">選定中…</div>
+  </div>
 
-    <div class="filter-container" id="filter-container">
-        <button class="filter-btn active" onclick="filterGen('all')">すべて</button>
+  <div class="series-info-panel">
+    <span class="title-label" id="seriesRoundLabel">第1回戦 対象シリーズ</span>
+    <span class="series-names" id="displaySeriesName">読み込み中...</span>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-item">
+      <span class="status-label">登録頭数</span>
+      <span class="status-val" id="registeredCount">0 / 5</span>
     </div>
-
-    <main>
-        <div id="card-grid" class="card-grid">
-            <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #a0aec0;">
-                <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px;"></i>
-                <div>カードデータを読み込み中...</div>
-            </div>
-        </div>
-    </main>
-
-    <!-- Card Details Modal -->
-    <div id="card-modal" class="modal hidden">
-        <div class="modal-content">
-            <button onclick="closeModal()" class="close-btn"><i class="fa-solid fa-xmark"></i></button>
-            <div id="modal-content"></div>
-            <button id="trade-btn" class="trade-btn"><i class="fa-solid fa-handshake"></i> トレードに出品する</button>
-        </div>
+    <div class="status-item">
+      <span class="status-label">合計ポテンシャル</span>
+      <span class="status-val" id="totalPotential">0 / --</span>
     </div>
-
-    <!-- Trade Modal -->
-    <div id="trade-modal" class="modal hidden">
-        <div class="modal-content" style="text-align: left;">
-            <h3 style="font-size: 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
-                <i class="fa-solid fa-repeat text-emerald-400"></i> トレード出品条件設定
-            </h3>
-            <div id="trade-offered-card" style="margin-bottom: 12px; padding: 8px; background: rgba(26,74,50,0.5); border-radius: 6px;"></div>
-            <form id="trade-form" onsubmit="event.preventDefault();">
-                <label style="font-size: 11px; color: #a0aec0;">希望条件（馬名を直接入力）</label>
-                <input type="text" placeholder="希望馬名 1">
-                <label style="font-size: 11px; color: #a0aec0; margin-top: 8px; display: block;">出品コメント</label>
-                <textarea placeholder="コメントを入力..." rows="3"></textarea>
-                <div style="display: flex; justify-end; gap: 8px; margin-top: 12px;">
-                    <button type="button" onclick="closeTradeModal()" style="background: none; border: none; color: #a0aec0; cursor: pointer; font-size: 12px;">キャンセル</button>
-                    <button type="submit" class="trade-btn" style="width: auto; padding: 6px 16px; margin-top: 0;">出品する</button>
-                </div>
-            </form>
-        </div>
+    <div class="status-item">
+      <span class="status-label">制限判定</span>
+      <span class="status-val" id="limitStatus">未完了</span>
     </div>
+  </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  <div id="entryList" style="display:flex; flex-direction:column; gap:10px;"></div>
 
-        const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_AUTH_DOMAIN",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_STORAGE_BUCKET",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
+  <div class="action-group">
+    <button class="btn-giveup" onclick="giveUpRound()">この回戦のギブアップ</button>
+    <button class="btn-redeck" onclick="returnToDeckSelect()">デック変更</button>
+    <button class="btn-submit" id="btnBattleStart" disabled onclick="submitEntries()">エントリー完了</button>
+  </div>
+</div>
 
-        let currentTab = 'all';
-        let selectedGen = 'all';
-        let masterCards = [];
-        let userInventory = {};
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { doc, getDoc, updateDoc, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { generateOnlineMobEntries } from "./js/mob.js";
 
-        const calcR = (val) => (val / 20) * 45;
-        function getPtRankClass(pt) {
-            if (pt >= 99) return 'pt-rank-god';
-            if (pt >= 95) return 'pt-rank-s';
-            if (pt >= 90) return 'pt-rank-a';
-            return 'pt-rank-b';
-        }
-        function getSurfaceClass(card) {
-            const turf = card.turfAptitude || card.turfPt || 0;
-            const dirt = card.dirtAptitude || card.dirtPt || 0;
-            if (turf > 0 && dirt > 0) return 'name-both';
-            if (dirt > 0) return 'name-dirt';
-            return 'name-turf';
-        }
+  let currentUser = null;
+  let globalUserData = null;
+  let SERIES_MASTER = {};
+  let HORSES_MASTER = {};
+  
+  let matchRaces = []; 
+  let deckHorses = [];
+  let playerDeckIds = [];
+  let oppDeckIds = [];
+  
+  let oppUsedHorseIdsInPast = [];
+  let myUsedHorseIdsInPast = []; 
+  let initialCardPriorities = {};
 
-        window.addEventListener('DOMContentLoaded', () => {
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    await loadUserInventory(user.uid);
-                }
-                await loadMasterCards();
-                renderFilterButtons();
-                renderCollection();
-            });
+  let selectedEntries = [null, null, null, null, null];
+  let racesMobData = {}; 
+  let racesTrackConditions = [];
+  let roomUnsubscribe = null;
+  let isNavigatingAway = false;
+  let currentRoundIndex = 0;
+
+  let currentMaxTotalPt = 85;
+  let currentMinPtPerRace = 14;
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const roomId = urlParams.get('roomId');
+  const role = urlParams.get('role');
+  const matchMode = urlParams.get('mode') || 'light';
+
+  function normalizeHorseId(id) {
+    if (id === null || id === undefined) return "";
+    if (typeof id === 'object') {
+      id = id.horse_id || id.id || id.code || id.horseId || "";
+    }
+    const str = String(id).trim();
+    if (!str) return "";
+
+    const num = parseInt(str, 10);
+    if (!isNaN(num)) {
+      return String(num).padStart(4, '0');
+    }
+    return str;
+  }
+
+  async function fetchJsonSafe(filename) {
+    const candidatePaths = [`./data/${filename}`, `data/${filename}`, `/data/${filename}`];
+    for (const path of candidatePaths) {
+      try {
+        const res = await fetch(path);
+        if (res.ok) return await res.json();
+      } catch (e) {}
+    }
+    throw new Error(`${filename} 読み込み失敗`);
+  }
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { window.location.href = 'auth.html'; return; }
+    currentUser = user;
+
+    try {
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) globalUserData = userDoc.data();
+
+      const [seriesData, horsesData] = await Promise.all([
+        fetchJsonSafe('series_master.json'),
+        fetchJsonSafe('horses_master.json')
+      ]);
+
+      if (Array.isArray(seriesData)) {
+        seriesData.forEach(s => { SERIES_MASTER[s.series_id || s.id] = s; });
+      } else {
+        SERIES_MASTER = seriesData;
+      }
+
+      if (Array.isArray(horsesData)) {
+        horsesData.forEach(h => {
+          const idStr = normalizeHorseId(h.horse_id);
+          if (idStr) {
+            HORSES_MASTER[idStr] = h;
+          }
         });
+      }
 
-        async function loadMasterCards() {
-            try {
-                const querySnapshot = await getDocs(collection(db, "cards"));
-                masterCards = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                document.getElementById('status').innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i> 同期完了`;
-            } catch (e) {
-                console.error("Error loading cards: ", e);
-                document.getElementById('status').innerHTML = `<i class="fa-solid fa-triangle-exclamation text-red-400"></i> エラー`;
-            }
+      document.getElementById('syncStatus').textContent = "✅";
+      initMatchup();
+    } catch (e) {
+      console.error("初期化エラー:", e);
+      document.getElementById('syncStatus').textContent = "❌";
+    }
+  });
+
+  function resolveOpponentName(roomData) {
+    const isHost = (role === 'host');
+    const directName = isHost 
+      ? (roomData.guest_name || roomData.guestName || roomData.player2_name || roomData.p1_name)
+      : (roomData.host_name || roomData.hostName || roomData.player1_name || roomData.p1_name);
+
+    if (directName) return directName;
+    return isHost ? "ゲストプレイヤー" : "ホストプレイヤー";
+  }
+
+  async function initMatchup() {
+    const roomRef = doc(db, "online_matches", roomId);
+    const roomSnap = await getDoc(roomRef);
+
+    if (!roomSnap.exists()) {
+      alert("対戦ルームが存在しません");
+      window.location.href = 'online.html';
+      return;
+    }
+
+    const roomData = roomSnap.data();
+    const isHost = (role === 'host');
+
+    currentRoundIndex = roomData.current_series_index || roomData.current_round || 0;
+
+    const myReadyKey = isHost ? 'player1_matchup_ready' : 'player2_matchup_ready';
+    const myDraftKey = isHost ? 'player1_draft' : 'player2_draft';
+
+    // ★修正：過去画面のフラグが残留してホスト側が「準備完了」と誤認するのを完全に防ぐため、
+    // ここで確実に関連フラグを全てリセット（初期化）する
+    await updateDoc(roomRef, {
+      [myReadyKey]: false,
+      [myDraftKey]: [null, null, null, null, null],
+      [isHost ? 'player1_ready' : 'player2_ready']: false,
+      [isHost ? 'player1_strategy_ready' : 'player2_strategy_ready']: false,
+      [isHost ? 'player1_watched' : 'player2_watched']: deleteField()
+    });
+
+    playerDeckIds = (isHost ? (roomData.player1_deck || []) : (roomData.player2_deck || [])).map(id => normalizeHorseId(id)).filter(Boolean);
+    oppDeckIds = (isHost ? (roomData.player2_deck || []) : (roomData.player1_deck || [])).map(id => normalizeHorseId(id)).filter(Boolean);
+    
+    deckHorses = playerDeckIds.map(id => HORSES_MASTER[id]).filter(Boolean);
+
+    const oppUsedList = isHost ? (roomData.player2_used_horses || []) : (roomData.player1_used_horses || []);
+    oppUsedHorseIdsInPast = oppUsedList.map(id => normalizeHorseId(id)).filter(Boolean);
+
+    const myUsedList = isHost ? (roomData.player1_used_horses || []) : (roomData.player2_used_horses || []);
+    myUsedHorseIdsInPast = myUsedList.map(id => normalizeHorseId(id)).filter(Boolean);
+
+    initialCardPriorities = roomData.initial_card_priorities || {};
+
+    if (!deckHorses || deckHorses.length === 0) {
+      alert("対戦に必要なデックデータが見つかりません。対戦を終了してロビーへ戻ります。");
+      await forceCleanupAndExit();
+      return;
+    }
+
+    let oppName = resolveOpponentName(roomData);
+    const oppUid = isHost ? (roomData.guest_uid || roomData.player2_uid) : (roomData.host_uid || roomData.player1_uid);
+    
+    if (oppUid) {
+      try {
+        const oppUserSnap = await getDoc(doc(db, "users", oppUid));
+        if (oppUserSnap.exists()) {
+          const uData = oppUserSnap.data();
+          oppName = uData.nickname || uData.displayName || uData.name || uData.userName || oppName;
         }
+      } catch (err) {}
+    }
+    document.getElementById('opponentName').textContent = oppName;
 
-        async function loadUserInventory(uid) {
-            try {
-                const userDoc = await getDoc(doc(db, "users", uid));
-                if (userDoc.exists()) {
-                    userInventory = userDoc.data().inventory || {};
-                }
-            } catch (e) {
-                console.error("Error loading inventory: ", e);
-            }
-        }
+    let rawRaces = [];
+    const matchSeries = roomData.match_series || roomData.selected_series || roomData.series_id || ["SERIES_001"];
+    const seriesIdList = Array.isArray(matchSeries) ? matchSeries : [matchSeries];
+    
+    const currentSeriesId = seriesIdList[currentRoundIndex] || seriesIdList[0] || "SERIES_001";
+    const sObj = SERIES_MASTER[currentSeriesId] || SERIES_MASTER[String(currentSeriesId).toUpperCase()] || Object.values(SERIES_MASTER)[0] || {};
+    
+    const racesInSeries = sObj.races || (sObj.rounds && sObj.rounds[0] ? sObj.rounds[0].races : null);
+    const potLimit = sObj.potential_limit || {};
+    const maxTotal = potLimit.max_total_potential ?? 85;
+    const minPerRace = potLimit.min_potential_per_race ?? 14;
 
-        function getGenGroupInfo(birthYear) {
-            const y = parseInt(birthYear, 10);
-            if (isNaN(y) || y >= 2020) return null;
-            if (y <= 1980) return { key: 'gen1', label: '〜1980年' };
-            if (y <= 1985) return { key: 'gen2', label: '1981〜1985年' };
-            if (y <= 1990) return { key: 'gen3', label: '1986〜1990年' };
-            if (y <= 1991) return { key: 'gen4', label: '1991〜1995年' };
-            if (y <= 2000) return { key: 'gen5', label: '1996〜2000年' };
-            if (y <= 2005) return { key: 'gen6', label: '2001〜2005年' };
-            if (y <= 2010) return { key: 'gen7', label: '2006〜2010年' };
-            if (y <= 2015) return { key: 'gen8', label: '2011〜2015年' };
-            if (y <= 2019) return { key: 'gen9', label: '2016〜2019年' };
-            return null;
-        }
+    if (Array.isArray(racesInSeries) && racesInSeries.length > 0) {
+      racesInSeries.forEach(r => {
+        rawRaces.push({
+          race_name: r.race_name || r.name,
+          surface: r.surface || "芝",
+          distance: r.distance || 2000,
+          sex: r.sex || sObj.sex || "制限なし",
+          series_name: sObj.series_name || sObj.name || "",
+          category: sObj.category || sObj.series_category || sObj.group || "地方交流シリーズ",
+          max_total_potential: maxTotal,
+          min_potential_per_race: minPerRace
+        });
+      });
+    } else {
+      rawRaces.push({
+        race_name: sObj.race_name || sObj.name || "特別競走",
+        surface: sObj.surface || "芝",
+        distance: sObj.distance || 2000,
+        sex: sObj.sex || "制限なし",
+        series_name: sObj.series_name || sObj.name || "",
+        category: sObj.category || sObj.series_category || sObj.group || "地方交流シリーズ",
+        max_total_potential: maxTotal,
+        min_potential_per_race: minPerRace
+      });
+    }
 
-        function renderFilterButtons() {
-            const container = document.getElementById('filter-container');
-            const gens = [
-                { key: 'all', label: 'すべて' },
-                { key: 'gen1', label: '〜1980年' },
-                { key: 'gen2', label: '1981〜1985年' },
-                { key: 'gen3', label: '1986〜1990年' },
-                { key: 'gen4', label: '1991〜1995年' },
-                { key: 'gen5', label: '1996〜2000年' },
-                { key: 'gen6', label: '2001〜2005年' },
-                { key: 'gen7', label: '2006〜2010年' },
-                { key: 'gen8', label: '2011〜2015年' },
-                { key: 'gen9', label: '2016〜2019年' }
-            ];
-            container.innerHTML = gens.map(g => `
-                <button class="filter-btn ${selectedGen === g.key ? 'active' : ''}" onclick="filterGen('${g.key}')">${g.label}</button>
-            `).join('');
-        }
+    const fallbackRaces = [
+      { race_name: "北九州記念", surface: "芝", distance: 1200, sex: "制限なし", max_total_potential: 85, min_potential_per_race: 14 },
+      { race_name: "吾妻小富士ステークス", surface: "ダート", distance: 1700, sex: "制限なし", max_total_potential: 85, min_potential_per_race: 14 },
+      { race_name: "クイーンステークス", surface: "芝", distance: 1800, sex: "牝馬限定", max_total_potential: 85, min_potential_per_race: 14 },
+      { race_name: "函館記念", surface: "芝", distance: 2000, sex: "制限なし", max_total_potential: 85, min_potential_per_race: 14 },
+      { race_name: "日本海ステークス", surface: "芝", distance: 2200, sex: "制限なし", max_total_potential: 85, min_potential_per_race: 14 }
+    ];
 
-        window.filterGen = function(genKey) {
-            selectedGen = genKey;
-            renderFilterButtons();
-            renderCollection();
-        };
+    matchRaces = [];
+    const firstRaceInfo = rawRaces[0] || fallbackRaces[0];
+    for (let i = 0; i < 5; i++) {
+      const r = rawRaces[i] || fallbackRaces[i];
+      matchRaces.push({
+        race_num: i + 1,
+        race_name: r.race_name || `第${i + 1}戦`,
+        surface: r.surface || "芝",
+        distance: r.distance || 2000,
+        sex: r.sex || "制限なし",
+        series_name: r.series_name || firstRaceInfo.series_name || "対象シリーズ",
+        category: r.category || firstRaceInfo.category || "地方交流シリーズ",
+        max_total_potential: r.max_total_potential ?? firstRaceInfo.max_total_potential ?? 85,
+        min_potential_per_race: r.min_potential_per_race ?? firstRaceInfo.min_potential_per_race ?? 14
+      });
+    }
 
-        window.switchTab = function(tab) {
-            currentTab = tab;
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            event.currentTarget.classList.add('active');
-            renderCollection();
-        };
+    const currentRace = matchRaces[0];
+    const categoryName = currentRace.category || "地方交流シリーズ";
+    
+    currentMaxTotalPt = currentRace.max_total_potential;
+    currentMinPtPerRace = currentRace.min_potential_per_race;
 
-        function renderCollection() {
-            const grid = document.getElementById('card-grid');
-            grid.innerHTML = '';
-            let filteredCards = masterCards.filter(card => {
-                const genInfo = getGenGroupInfo(card.birthYear);
-                if (genInfo === null) return false;
-                if (selectedGen !== 'all' && genInfo.key !== selectedGen) return false;
-                if (currentTab === 'g1') return card.isG1Winner === true;
-                return true;
+    document.getElementById('seriesRoundLabel').textContent = `第${currentRoundIndex + 1}回戦 対象シリーズ (${categoryName})`;
+    document.getElementById('displaySeriesName').textContent = currentRace.series_name || "対象シリーズ";
+
+    if (role === 'host' && !roomData.races_mob_ids) {
+      const excludedIds = await fetchAllPlayersDeckHorseIds(roomData);
+      const mobIds = generateOnlineMobEntries(matchRaces, excludedIds, HORSES_MASTER);
+      const trackConditions = Array.from({ length: 5 }, () => {
+        const rand = Math.random() * 100;
+        if (rand < 75) return '良';
+        if (rand < 93) return '稍重';
+        return '重';
+      });
+      
+      await updateDoc(roomRef, {
+        races_mob_ids: mobIds,
+        races_track_conditions: trackConditions
+      });
+      racesMobData = mobIds;
+      racesTrackConditions = trackConditions;
+    } else {
+      racesMobData = roomData.races_mob_ids || {};
+      racesTrackConditions = roomData.races_track_conditions || Array(5).fill('良');
+    }
+
+    renderEntryCards();
+    updateStatus();
+    listenRoomStatus();
+  }
+
+  async function fetchAllPlayersDeckHorseIds(roomData) {
+    const excludedSet = new Set();
+    const p1Uid = roomData.host_uid || roomData.player1_uid;
+    const p2Uid = roomData.guest_uid || roomData.player2_uid;
+
+    try {
+      const docs = await Promise.all([
+        p1Uid ? getDoc(doc(db, "users", p1Uid)) : null,
+        p2Uid ? getDoc(doc(db, "users", p2Uid)) : null
+      ]);
+
+      docs.forEach(userDoc => {
+        if (userDoc && userDoc.exists()) {
+          const decks = userDoc.data().decks || [];
+          decks.forEach(deck => {
+            (deck.horse_ids || []).forEach(hId => {
+              const norm = normalizeHorseId(hId);
+              if (norm) excludedSet.add(norm);
             });
-
-            let ownedCount = 0;
-            filteredCards.forEach(card => {
-                const count = userInventory[card.id] || 0;
-                if (count > 0) ownedCount++;
-                
-                const turfPt = card.turfPt || card.pt || 0;
-                const dirtPt = card.dirtPt || 0;
-                const displayPt = Math.max(turfPt, dirtPt);
-                const rankClass = getPtRankClass(displayPt);
-                const surfaceClass = getSurfaceClass(card);
-                const stats = card.stats || { speed: 10, stamina: 10, power: 10, guts: 10, wisdom: 10 };
-                const rSpeed = calcR(stats.speed || 10);
-                const rStamina = calcR(stats.stamina || 10);
-                const rPower = calcR(stats.power || 10);
-                const rGuts = calcR(stats.guts || 10);
-                const rWisdom = calcR(stats.wisdom || 10);
-                const pts = [
-                    [50 + rSpeed * Math.sin(0), 50 - rSpeed * Math.cos(0)],
-                    [50 + rStamina * Math.sin(1.2566), 50 - rStamina * Math.cos(1.2566)],
-                    [50 + rPower * Math.sin(2.5132), 50 - rPower * Math.cos(2.5132)],
-                    [50 + rGuts * Math.sin(3.7699), 50 - rGuts * Math.cos(3.7699)],
-                    [50 + rWisdom * Math.sin(5.0265), 50 - rWisdom * Math.cos(5.0265)]
-                ].map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
-
-                const cardEl = document.createElement('div');
-                cardEl.className = `card-item ${rankClass} ${count > 0 ? '' : 'not-owned'}`;
-                cardEl.onclick = () => openModal(card, count);
-                cardEl.innerHTML = `
-                    <div class="card-media">
-                        <span class="birth-year-badge">${card.birthYear || '----'}年</span>
-                        ${count > 0 ? `<span class="count-badge">x${count}</span>` : ''}
-                        <img src="${card.imageUrl || 'https://via.placeholder.com/300x400?text=No+Image'}" alt="${card.name}">
-                        <svg class="radar-svg" viewBox="0 0 100 100"><polygon class="radar-polygon" points="${pts}"/></svg>
-                        <div class="pt-center">${displayPt} PT</div>
-                        <div class="watermark-text">${card.runningStyle || ''}</div>
-                    </div>
-                    <div class="card-name-bar ${surfaceClass}">
-                        ${card.name || '不明の競走馬'}
-                    </div>
-                `;
-                grid.appendChild(cardEl);
-            });
-
-            document.getElementById('stat-owned-types').innerText = ownedCount;
-            document.getElementById('stat-total-cards').innerText = filteredCards.length;
-            const rate = filteredCards.length > 0 ? Math.round((ownedCount / filteredCards.length) * 100) : 0;
-            document.getElementById('stat-comp-rate').innerText = `${rate}%`;
+          });
         }
+      });
+    } catch (err) {
+      console.error("全デック馬ID取得失敗:", err);
+    }
 
-        window.openModal = function(card, count) {
-            const modal = document.getElementById('card-modal');
-            const content = document.getElementById('modal-content');
-            const tradeBtn = document.getElementById('trade-btn');
-            content.innerHTML = `
-                <div style="width: 140px; aspect-ratio: 3/4; margin: 0 auto 12px; border-radius: 8px; overflow: hidden;">
-                    <img src="${card.imageUrl || 'https://via.placeholder.com/300x400?text=No+Image'}" style="width:100%; height:100%; object-fit:cover;">
-                </div>
-                <div style="font-size: 11px; color: #48bb78; font-weight: bold;">${card.rarity || 'NORMAL'}</div>
-                <h2 style="font-size: 16px; margin: 4px 0 8px;">${card.name}</h2>
-                <p style="font-size: 11px; color: #a0aec0; margin-bottom: 12px;">${card.description || '詳細情報はありません。'}</p>
-                <div style="background: rgba(26,74,50,0.5); padding: 6px; border-radius: 6px; font-size: 12px;">
-                    所持数: <strong style="color: #ffffff;">${count}</strong> 枚
-                </div>
-            `;
-            if (count > 1) {
-                tradeBtn.disabled = false;
-                tradeBtn.onclick = () => { closeModal(); openTradeModal(card); };
-            } else {
-                tradeBtn.disabled = true;
-            }
-            modal.classList.remove('hidden');
+    (roomData.player1_deck || []).forEach(id => { const norm = normalizeHorseId(id); if (norm) excludedSet.add(norm); });
+    (roomData.player2_deck || []).forEach(id => { const norm = normalizeHorseId(id); if (norm) excludedSet.add(norm); });
+
+    return excludedSet;
+  }
+
+  function listenRoomStatus() {
+    const roomRef = doc(db, "online_matches", roomId);
+    roomUnsubscribe = onSnapshot(roomRef, (snapshot) => {
+      if (!snapshot.exists()) return;
+      const data = snapshot.data();
+
+      // エラー等による相手のキャンセル退室を確実に検知してロビーへ戻る
+      if (data.status === "cancelled") {
+        if (!isNavigatingAway) {
+          isNavigatingAway = true;
+          if (roomUnsubscribe) roomUnsubscribe();
+          alert("対戦相手が切断・離脱しました。対戦ロビーに戻ります。");
+          window.location.href = 'online.html';
+        }
+        return;
+      }
+
+      // ★追加：万が一、ホストが通信のラグ等で先行してレース画面へ行ってしまった場合の強制追従（フェイルセーフ）
+      if (data.status === "racing" || data.status === "race_running" || data.status === "finished") {
+        if (!isNavigatingAway) {
+          isNavigatingAway = true;
+          if (roomUnsubscribe) roomUnsubscribe();
+          const modeQuery = matchMode ? `&mode=${matchMode}` : '';
+          window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}${modeQuery}`;
+        }
+        return;
+      }
+
+      const freshName = resolveOpponentName(data);
+      if (freshName && freshName !== "対戦相手を取得中...") {
+        document.getElementById('opponentName').textContent = freshName;
+      }
+
+      const isHost = (role === 'host');
+      const opponentReady = isHost ? data.player2_matchup_ready : data.player1_matchup_ready;
+      
+      const badge = document.getElementById('opponentStatusBadge');
+      if (badge) {
+        if (opponentReady) {
+          badge.textContent = "エントリー完了！";
+          badge.className = "opponent-badge ready";
+        } else {
+          badge.textContent = "選定中…";
+          badge.className = "opponent-badge selecting";
+        }
+      }
+    });
+  }
+
+  function getSurfaceLabel(surface) { return (!surface || surface.includes('芝')) ? '芝' : 'ダ'; }
+  
+  function getHorsePotential(horse, surface) {
+    if (!horse) return 0;
+    const isTurf = !surface || surface.includes('芝');
+    return isTurf ? Number(horse.turf_potential ?? horse.aptitude?.turf_potential ?? 0)
+                  : Number(horse.dirt_potential ?? horse.aptitude?.dirt_potential ?? 0);
+  }
+  
+  function isValidSurface(horse, surface) { return getHorsePotential(horse, surface) > 0; }
+  
+  function isValidSex(horseSex, sexLimit) {
+    if (!sexLimit || sexLimit === "制限なし" || sexLimit === "なし") return true;
+    const isMare = (horseSex || "").includes("牝");
+    return sexLimit.includes("牝") ? isMare : !isMare;
+  }
+
+  function getHorseLegStyle(horse) {
+    return horse?.style || horse?.running_style || horse?.leg_style || horse?.strategy || '-';
+  }
+
+  function getHorseDistanceString(horse) {
+    if (!horse) return '';
+    const minD = horse.min_distance ?? horse.aptitude?.min_distance;
+    const maxD = horse.max_distance ?? horse.aptitude?.max_distance;
+
+    if (minD !== undefined && maxD !== undefined && minD !== null && maxD !== null && minD !== '' && maxD !== '') {
+      return minD === maxD ? `${minD}` : `${minD}-${maxD}`;
+    }
+    if (horse.distance) return String(horse.distance);
+    return '';
+  }
+
+  function isValidDistance(horse, raceDistance) {
+    if (!horse) return false;
+    const target = parseInt(raceDistance, 10);
+    const minD = horse.min_distance ?? horse.aptitude?.min_distance;
+    const maxD = horse.max_distance ?? horse.aptitude?.max_distance;
+
+    if (minD !== undefined && maxD !== undefined && minD !== null && maxD !== null && minD !== '' && maxD !== '') {
+      return target >= Number(minD) && target <= Number(maxD);
+    }
+
+    const distStr = getHorseDistanceString(horse);
+    if (!distStr) return true;
+
+    if (distStr.includes('-')) {
+      const [minStr, maxStr] = distStr.split('-');
+      return target >= parseInt(minStr, 10) && target <= parseInt(maxStr, 10);
+    } else {
+      return parseInt(distStr, 10) === target;
+    }
+  }
+
+  function getBestDeckIndex(horsesList, horseId) {
+    let bestIdx = Infinity;
+    for (let i = 0; i < horsesList.length; i++) {
+      if (horsesList[i] === horseId) {
+        const deckIdx = i % 18;
+        if (deckIdx < bestIdx) {
+          bestIdx = deckIdx;
+        }
+      }
+    }
+    return bestIdx === Infinity ? -1 : bestIdx;
+  }
+
+  function checkDuplicateHorsePriority(horseId) {
+    const targetIdStr = normalizeHorseId(horseId);
+    const isHost = (role === 'host');
+    const myRoleKey = isHost ? 'host' : 'guest';
+
+    if (oppUsedHorseIdsInPast.includes(targetIdStr)) {
+      return { canUse: true };
+    }
+
+    if (initialCardPriorities && initialCardPriorities[targetIdStr]) {
+      const priorityOwner = initialCardPriorities[targetIdStr];
+      const isMyPriority = (priorityOwner === myRoleKey) || 
+                           (isHost && (priorityOwner === 'p1' || priorityOwner === 'player1')) ||
+                           (!isHost && (priorityOwner === 'p2' || priorityOwner === 'player2'));
+      if (isMyPriority) {
+        return { canUse: true };
+      } else {
+        return { canUse: false, reason: "相手優先" };
+      }
+    }
+
+    const myIdx = getBestDeckIndex(playerDeckIds, targetIdStr);
+    const oppIdx = getBestDeckIndex(oppDeckIds, targetIdStr);
+
+    if (oppIdx === -1) return { canUse: true };
+
+    if (myIdx < oppIdx) {
+      return { canUse: true };
+    } else if (myIdx > oppIdx) {
+      return { canUse: false, reason: "相手優先" };
+    } else {
+      if (isHost) {
+        return { canUse: true };
+      } else {
+        return { canUse: false, reason: "ホスト優先" };
+      }
+    }
+  }
+
+  function renderEntryCards() {
+    const container = document.getElementById('entryList');
+    container.innerHTML = '';
+
+    matchRaces.forEach((race, rIdx) => {
+      const card = document.createElement('div');
+      card.className = 'entry-card';
+
+      const surfaceClass = (race.surface && race.surface.includes('芝')) ? 'surface-turf' : 'surface-dirt';
+      const trackCond = racesTrackConditions[rIdx] || '良';
+
+      const mobList = racesMobData[rIdx] || [];
+      const styleCounts = { "逃": 0, "先": 0, "差": 0, "追": 0 };
+      
+      mobList.forEach(mId => {
+        const mob = HORSES_MASTER[normalizeHorseId(mId)];
+        if (!mob) return;
+        const style = getHorseLegStyle(mob);
+        if (style.includes('大逃') || style.includes('逃')) styleCounts['逃']++;
+        else if (style.includes('先') || style.includes('好')) styleCounts['先']++;
+        else if (style.includes('差')) styleCounts['差']++;
+        else styleCounts['追']++;
+      });
+
+      card.innerHTML = `
+        <div class="race-info-header">
+          <span class="race-title">第${race.race_num}戦: ${race.race_name}</span>
+          <span class="race-cond-badge ${surfaceClass}">${race.surface} ${race.distance}m [${trackCond}]</span>
+        </div>
+        
+        <div class="mob-field-preview">
+          <span style="font-weight:bold; color:var(--accent-color);">🏇 出走モブ展開:</span>
+          <div class="mob-style-counts">
+            <span>逃:${styleCounts["逃"]}</span>
+            <span>先:${styleCounts["先"]}</span>
+            <span>差:${styleCounts["差"]}</span>
+            <span>追:${styleCounts["追"]}</span>
+          </div>
+        </div>
+
+        <select class="select-horse-dropdown" id="selectRace${rIdx}" onchange="onHorseSelected(${rIdx}, this.value)">
+          <option value="">-- 出走馬を選択してください --</option>
+        </select>
+        <div class="horse-detail-preview" id="previewRace${rIdx}">
+          <span>適性: - | 脚質: - | 性別: -</span>
+          <span>ポテンシャル: -</span>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+
+    populateDropdowns();
+  }
+
+  function populateDropdowns() {
+    const minPtPerRace = currentMinPtPerRace;
+
+    matchRaces.forEach((race, rIdx) => {
+      const select = document.getElementById(`selectRace${rIdx}`);
+      if (!select) return;
+      
+      const currentVal = selectedEntries[rIdx] ? normalizeHorseId(selectedEntries[rIdx]) : null;
+      const raceSexLimit = race.sex || "制限なし";
+      const surfaceLabel = getSurfaceLabel(race.surface);
+
+      select.innerHTML = '<option value="">-- 出走馬を選択してください --</option>';
+
+      deckHorses.forEach(horse => {
+        const horseIdStr = normalizeHorseId(horse.horse_id);
+        const isChosenElsewhere = selectedEntries.some((id, idx) => idx !== rIdx && id && normalizeHorseId(id) === horseIdStr);
+        const pt = getHorsePotential(horse, race.surface);
+        const legStyle = getHorseLegStyle(horse);
+
+        if (!isChosenElsewhere) {
+          const opt = document.createElement('option');
+          opt.value = horseIdStr;
+          
+          const ptLabel = pt > 0 ? `${surfaceLabel}${pt}` : '適性外';
+          const info = `${horse.name} (${ptLabel} / ${legStyle} / ${horse.sex || '牡'})`;
+
+          const priorityCheck = checkDuplicateHorsePriority(horseIdStr);
+
+          if (myUsedHorseIdsInPast.includes(horseIdStr)) {
+            opt.textContent = `[使用済み] ${info}`; opt.disabled = true;
+          } else if (!isValidSex(horse.sex, raceSexLimit)) {
+            opt.textContent = `[性別不可] ${info}`; opt.disabled = true;
+          } else if (!isValidSurface(horse, race.surface)) {
+            opt.textContent = `[適性外] ${info}`; opt.disabled = true;
+          } else if (!isValidDistance(horse, race.distance)) {
+            opt.textContent = `[距離不可] ${info}`; opt.disabled = true;
+          } else if (pt < minPtPerRace) {
+            opt.textContent = `[Pt不足(${minPtPerRace}未満)] ${info}`; opt.disabled = true;
+          } else if (!priorityCheck.canUse) {
+            opt.textContent = `[${priorityCheck.reason}] ${info}`; opt.disabled = true;
+          } else {
+            opt.textContent = info;
+          }
+
+          if (horseIdStr === currentVal) opt.selected = true;
+          select.appendChild(opt);
+        }
+      });
+    });
+  }
+
+  window.onHorseSelected = function(raceIdx, horseId) {
+    const normId = normalizeHorseId(horseId);
+    selectedEntries[raceIdx] = normId || null;
+
+    const roomRef = doc(db, "online_matches", roomId);
+    const draftField = (role === 'host') ? { player1_draft: selectedEntries } : { player2_draft: selectedEntries };
+    updateDoc(roomRef, draftField).catch(e => console.error("Draft update failed:", e));
+
+    const preview = document.getElementById(`previewRace${raceIdx}`);
+    if (normId && HORSES_MASTER[normId]) {
+      const horse = HORSES_MASTER[normId];
+      const race = matchRaces[raceIdx];
+      const pt = getHorsePotential(horse, race.surface);
+      const isSurfaceValid = isValidSurface(horse, race.surface);
+      const ptDisplay = isSurfaceValid ? `${getSurfaceLabel(race.surface)}${pt}` : '適性外';
+
+      preview.innerHTML = `
+        <span><strong>${ptDisplay}</strong> | 脚質: <strong>${getHorseLegStyle(horse)}</strong> | 性: <strong>${horse.sex||'牡'}</strong></span>
+        <span>${isSurfaceValid ? '適性馬場OK' : '<span style="color:var(--danger-color)">適性外</span>'}</span>
+      `;
+    } else {
+      preview.innerHTML = `<span>適性: - | 脚質: - | 性別: -</span><span>ポテンシャル: -</span>`;
+    }
+
+    populateDropdowns();
+    updateStatus();
+    
+  };
+
+  function updateStatus() {
+    const maxTotalPt = currentMaxTotalPt;
+    let totalPt = 0;
+    let count = 0;
+    let hasDistError = false;
+
+    selectedEntries.forEach((id, rIdx) => {
+      const normId = normalizeHorseId(id);
+      if (normId && HORSES_MASTER[normId] && matchRaces[rIdx]) {
+        count++;
+        const horse = HORSES_MASTER[normId];
+        const race = matchRaces[rIdx];
+        totalPt += getHorsePotential(horse, race.surface);
+        if (!isValidDistance(horse, race.distance)) {
+          hasDistError = true;
+        }
+      }
+    });
+
+    document.getElementById('registeredCount').textContent = `${count} / 5`;
+    const ptEl = document.getElementById('totalPotential');
+    ptEl.textContent = `${totalPt} / ${maxTotalPt}`;
+
+    const limitEl = document.getElementById('limitStatus');
+    const startBtn = document.getElementById('btnBattleStart');
+
+    const isAllSelected = count === 5;
+    const isPtValid = totalPt <= maxTotalPt;
+
+    if (hasDistError) {
+      limitEl.textContent = "距離適性違反";
+      limitEl.className = "status-val error";
+      startBtn.disabled = true;
+    } else if (isAllSelected && isPtValid) {
+      limitEl.textContent = "OK";
+      limitEl.className = "status-val ok";
+      startBtn.disabled = false;
+    } else {
+      limitEl.textContent = !isPtValid ? "Pt超過" : "未完了";
+      limitEl.className = "status-val error";
+      startBtn.disabled = true;
+    }
+  }
+
+  window.submitEntries = async function() {
+    if (selectedEntries.includes(null)) {
+      alert("全5戦の出走馬を選択してください。");
+      return;
+    }
+
+    const startBtn = document.getElementById('btnBattleStart');
+    startBtn.disabled = true;
+
+    const normalizedEntries = selectedEntries.map(id => normalizeHorseId(id));
+    const roomRef = doc(db, "online_matches", roomId);
+    const isHost = (role === 'host');
+
+    const updatedUsedList = Array.from(new Set([...myUsedHorseIdsInPast, ...normalizedEntries]));
+    
+    const updateData = isHost ? {
+      player1_entries: normalizedEntries,
+      player1_used_horses: updatedUsedList,
+      player1_matchup_ready: true,
+      p1_status: "strategy_selecting"
+    } : {
+      player2_entries: normalizedEntries,
+      player2_used_horses: updatedUsedList,
+      player2_matchup_ready: true,
+      p2_status: "strategy_selecting"
+    };
+
+    try {
+      await updateDoc(roomRef, updateData);
+      isNavigatingAway = true;
+      if (roomUnsubscribe) roomUnsubscribe();
+      
+      const modeQuery = matchMode ? `&mode=${matchMode}` : '';
+      window.location.href = `onstrategy.html?roomId=${roomId}&role=${role}${modeQuery}`;
+    } catch (err) {
+      console.error("エントリー保存エラー:", err);
+      alert("通信エラーが発生しました。");
+      startBtn.disabled = false;
+    }
+  };
+
+  window.returnToDeckSelect = async function() {
+    if (!confirm("対戦を辞退せずにデック選択画面（onbattle）へ戻りますか？\n（選択中のエントリーと出走前準備状態はリセットされます）")) {
+      return;
+    }
+
+    isNavigatingAway = true;
+    if (roomUnsubscribe) roomUnsubscribe();
+
+    if (roomId && currentUser) {
+      try {
+        const roomRef = doc(db, "online_matches", roomId);
+        const isHost = (role === 'host');
+
+        const resetData = isHost ? {
+          player1_ready: false,
+          player1_matchup_ready: false,
+          p1_status: "deck_selecting",
+          player1_draft: [null, null, null, null, null],
+          player1_entries: [null, null, null, null, null],
+          player1_strategies: [null, null, null, null, null]
+        } : {
+          player2_ready: false,
+          player2_matchup_ready: false,
+          p2_status: "deck_selecting",
+          player2_draft: [null, null, null, null, null],
+          player2_entries: [null, null, null, null, null],
+          player2_strategies: [null, null, null, null, null]
         };
 
-        window.closeModal = function() {
-            document.getElementById('card-modal').classList.add('hidden');
+        await updateDoc(roomRef, resetData);
+      } catch (e) {
+        console.error("デック選択画面へのリセット移動エラー:", e);
+      }
+    }
+
+    const modeQuery = matchMode ? `&mode=${matchMode}` : '';
+    window.location.href = `onbattle.html?roomId=${roomId}&role=${role}${modeQuery}`;
+  };
+
+  window.giveUpRound = async function() {
+    if (!confirm("この回戦をギブアップしますか？\n（チームが組めないため、この回戦を見送ります）")) {
+      return;
+    }
+
+    isNavigatingAway = true;
+    if (roomUnsubscribe) roomUnsubscribe();
+
+    if (roomId && currentUser) {
+      try {
+        const roomRef = doc(db, "online_matches", roomId);
+        const isHost = (role === 'host');
+
+        const updateObj = {
+          [isHost ? 'player1_giveup' : 'player2_giveup']: true,
+          [isHost ? 'player1_ready' : 'player2_ready']: true,
+          [isHost ? 'player1_matchup_ready' : 'player2_matchup_ready']: true,
+          [isHost ? 'p1_status' : 'p2_status']: 'giveup',
+          status: "racing"
         };
 
-        window.openTradeModal = function(card) {
-            const tradeModal = document.getElementById('trade-modal');
-            const offeredCardContainer = document.getElementById('trade-offered-card');
-            offeredCardContainer.innerHTML = `
-                <div style="font-size: 11px; color: #48bb78; font-weight: bold;">${card.rarity || 'NORMAL'}</div>
-                <div style="font-size: 14px; font-weight: bold;">${card.name}</div>
-            `;
-            tradeModal.classList.remove('hidden');
-        };
+        await updateDoc(roomRef, updateObj);
+      } catch (e) {
+        console.error("ギブアップ状態保存エラー:", e);
+      }
+    }
 
-        window.closeTradeModal = function() {
-            document.getElementById('trade-modal').classList.add('hidden');
-        };
-    </script>
+    const modeQuery = matchMode ? `&mode=${matchMode}` : '';
+    window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}${modeQuery}`;
+  };
+
+  window.leaveMatch = async function() {
+    if (confirm("対戦を辞退して退室しますか？")) {
+      await forceCleanupAndExit();
+    }
+  };
+
+  async function forceCleanupAndExit() {
+    isNavigatingAway = true;
+    if (roomUnsubscribe) roomUnsubscribe();
+
+    if (roomId && currentUser) {
+      try {
+        const roomRef = doc(db, "online_matches", roomId);
+        const isHost = (role === 'host');
+        
+        await updateDoc(roomRef, {
+          status: "cancelled",
+          cancelled_by: currentUser.uid,
+          [isHost ? 'player1_draft' : 'player2_draft']: [null, null, null, null, null],
+          [isHost ? 'player1_entries' : 'player2_entries']: [null, null, null, null, null],
+          [isHost ? 'player1_matchup_ready' : 'player2_matchup_ready']: false
+        });
+      } catch (e) {
+        console.error("退室クリーンアップエラー:", e);
+      }
+    }
+    window.location.href = 'online.html';
+  }
+</script>
+
 </body>
 </html>
-
