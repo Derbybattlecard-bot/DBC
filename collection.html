@@ -4,32 +4,36 @@
   <meta charset="UTF-8">
   <style>
     body {
-      background: #1c2620; /* バインダー背景 */
+      background: #1c2620; 
       display: flex;
       gap: 15px;
       padding: 30px;
-      font-family: 'Hiragino Mincho ProN', 'MS PMincho', serif; /* 和風感を出すため明朝体ベース */
+      font-family: 'Hiragino Mincho ProN', 'MS PMincho', serif;
     }
 
-    /* TCG風 カードサムネイルベース */
+    /* サムネイルベース */
     .card-thumb {
-      width: 80px; /* 実際のスマホ画面での想定サイズ */
+      width: 80px; 
       aspect-ratio: 59 / 86;
       border-radius: 4px;
       position: relative;
       overflow: hidden;
-      background: #2a362f; /* カードの地の色 */
       display: flex;
       flex-direction: column;
       box-shadow: 0 4px 6px rgba(0,0,0,0.5);
     }
 
-    /* レアリティ別のフレーム色 */
+    /* ★追加: 芝・ダート適性による背景色 */
+    .surface-turf { background: linear-gradient(135deg, #183321, #244b31); } /* 深緑 */
+    .surface-dirt { background: linear-gradient(135deg, #3d2918, #5c3f25); } /* 焦茶 */
+    .surface-both { background: linear-gradient(135deg, #183321 50%, #5c3f25 50%); } /* 緑と茶のツートン */
+
+    /* レアリティフレーム */
     .rarity-ssr { border: 2px solid #d4af37; border-image: linear-gradient(135deg, #fef08a, #d4af37) 1; }
     .rarity-sr  { border: 2px solid #94a3b8; border-image: linear-gradient(135deg, #f3f4f6, #9ca3af) 1; }
     .rarity-r   { border: 2px solid #b45309; }
 
-    /* 背景の特大筆文字（透かし） */
+    /* ★改善: 筆文字の視認性アップ */
     .watermark-text {
       position: absolute;
       top: 50%;
@@ -38,57 +42,37 @@
       font-size: 65px;
       font-weight: 900;
       color: #ffffff;
-      opacity: 0.08; /* うっすら見せる */
+      opacity: 0.15; /* 0.08 から 0.15 に上げてくっきり */
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.5); /* 影をつけて立体感を */
       z-index: 1;
       pointer-events: none;
     }
 
-    /* レーダーアートのエリア */
+    /* レーダーアート */
     .radar-art-area {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 2;
-      padding: 4px;
+      flex: 1; display: flex; justify-content: center; align-items: center; z-index: 2; padding: 4px;
     }
-
-    /* レーダーのSVG調整 */
     .radar-svg {
-      width: 100%;
-      height: 100%;
-      overflow: visible;
-      filter: drop-shadow(0 2px 2px rgba(0,0,0,0.6));
+      width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.8));
     }
-
-    /* レアリティごとのレーダー色 */
-    .rarity-ssr .radar-polygon { fill: rgba(212, 175, 55, 0.4); stroke: #fef08a; stroke-width: 2.5; }
-    .rarity-sr  .radar-polygon { fill: rgba(156, 163, 175, 0.4); stroke: #f3f4f6; stroke-width: 2; }
-    .rarity-r   .radar-polygon { fill: rgba(180, 83, 9, 0.4); stroke: #fcd34d; stroke-width: 1.5; }
+    .rarity-ssr .radar-polygon { fill: rgba(212, 175, 55, 0.45); stroke: #fef08a; stroke-width: 2.5; }
+    .rarity-sr  .radar-polygon { fill: rgba(156, 163, 175, 0.45); stroke: #f3f4f6; stroke-width: 2; }
+    .rarity-r   .radar-polygon { fill: rgba(180, 83, 9, 0.45); stroke: #fcd34d; stroke-width: 1.5; }
 
     /* 下部の名前帯 */
     .card-name-bar {
-      background: rgba(0, 0, 0, 0.85);
-      color: #fff;
-      font-size: 9px;
-      font-weight: bold;
-      text-align: center;
-      padding: 3px 2px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      font-family: 'Helvetica Neue', Arial, sans-serif; /* 名前は読みやすいゴシック系 */
-      z-index: 3;
+      background: rgba(0, 0, 0, 0.85); color: #fff; font-size: 8.5px; font-weight: bold; text-align: center;
+      padding: 3px 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      font-family: 'Helvetica Neue', Arial, sans-serif; z-index: 3;
     }
   </style>
 </head>
 <body>
 
-  <!-- SSR: 逃げ (尖ったレーダー) -->
-  <div class="card-thumb rarity-ssr">
+  <!-- パターン1: 芝 × SSR × 逃げ -->
+  <div class="card-thumb rarity-ssr surface-turf">
     <div class="watermark-text">逃</div>
     <div class="radar-art-area">
-      <!-- 座標は スピード特化のいびつな形を表現 -->
       <svg viewBox="0 0 100 100" class="radar-svg">
         <polygon points="50,10 80,40 59,63 31,76 27,42" class="radar-polygon" stroke-linejoin="round" />
       </svg>
@@ -96,26 +80,26 @@
     <div class="card-name-bar">サイレンススズカ</div>
   </div>
 
-  <!-- SR: 差し (バランス型のレーダー) -->
-  <div class="card-thumb rarity-sr">
+  <!-- パターン2: ダート × SR × 先行 -->
+  <div class="card-thumb rarity-sr surface-dirt">
+    <div class="watermark-text">先</div>
+    <div class="radar-art-area">
+      <svg viewBox="0 0 100 100" class="radar-svg">
+        <polygon points="50,20 85,35 75,70 30,80 15,45" class="radar-polygon" stroke-linejoin="round" />
+      </svg>
+    </div>
+    <div class="card-name-bar">クロフネ</div>
+  </div>
+
+  <!-- パターン3: 芝ダート両用 × R × 差し -->
+  <div class="card-thumb rarity-r surface-both">
     <div class="watermark-text">差</div>
     <div class="radar-art-area">
       <svg viewBox="0 0 100 100" class="radar-svg">
-        <polygon points="50,25 75,45 65,75 35,75 25,45" class="radar-polygon" stroke-linejoin="round" />
+        <polygon points="50,30 70,50 60,80 40,80 30,50" class="radar-polygon" stroke-linejoin="round" />
       </svg>
     </div>
-    <div class="card-name-bar">ウオッカ</div>
-  </div>
-
-  <!-- R: 追込 (極端なレーダー) -->
-  <div class="card-thumb rarity-r">
-    <div class="watermark-text">追</div>
-    <div class="radar-art-area">
-      <svg viewBox="0 0 100 100" class="radar-svg">
-        <polygon points="50,40 85,35 70,85 20,85 30,50" class="radar-polygon" stroke-linejoin="round" />
-      </svg>
-    </div>
-    <div class="card-name-bar">ヒシアマゾン</div>
+    <div class="card-name-bar">アグネスデジタル</div>
   </div>
 
 </body>
