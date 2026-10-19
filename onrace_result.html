@@ -342,7 +342,8 @@
   <div class="error-modal-content">
     <div class="error-title">⚠ エラー発生 / データ異常</div>
     <div class="error-msg" id="error-modal-msg">対戦データに問題が発生したか、正しく読み込めませんでした。</div>
-    <button class="btn-secondary" onclick="window.location.href='online.html'">🔙 オンラインロビー（online.html）に戻る</button>
+    <!-- 修正：quitOnlineMatch() を呼んで相手に退室を伝達してから戻る -->
+    <button class="btn-secondary" onclick="quitOnlineMatch()">🔙 オンラインロビー（online.html）に戻る</button>
   </div>
 </div>
 
@@ -408,7 +409,6 @@ const urlParams = new URLSearchParams(window.location.search);
 const roomId = urlParams.get('roomId');
 const role = urlParams.get('role');
 
-// ★ 新アーキテクチャ: 絶対番地キー生成関数 (例: 1回戦の3レース目 = "13")
 function getCurrentProgressCode() {
   const seriesNum = (roomData?.current_series_index || 0) + 1;
   const raceNum = currentRaceIndex + 1;
@@ -699,7 +699,6 @@ async function ensureUsedHorsesUpdated() {
   }
 }
 
-// ★ 【新アーキテクチャ】 ホスト計算時に「絶対番地のレース結果」と「ラウンドの集計結果」を一括作成して保存
 async function calculateAndUploadAllRaces() {
   await ensureUsedHorsesUpdated();
 
@@ -745,7 +744,6 @@ async function calculateAndUploadAllRaces() {
       const progressKey = String(`${seriesNum}${rIdx + 1}`);
       allRaceResults[progressKey] = cleanResult;
 
-      // この段階でラウンド集計用の勝敗や着順を計算しておく
       const p1Horse = cleanResult.results.find(h => h.playerRole === 'host');
       const p2Horse = cleanResult.results.find(h => h.playerRole === 'guest');
       const p1Rank = p1Horse ? (cleanResult.results.indexOf(p1Horse) + 1) : 99;
@@ -766,7 +764,6 @@ async function calculateAndUploadAllRaces() {
     const p1_r4Plus = Math.max(0, 5 - (p1_r1 + p1_r2 + p1_r3));
     const p2_r4Plus = Math.max(0, 5 - (p2_r1 + p2_r2 + p2_r3));
 
-    // 単一情報源（p1_round_results, p2_round_results）の構築
     const p1RoundResults = { ...(roomData.p1_round_results || {}) };
     const p2RoundResults = { ...(roomData.p2_round_results || {}) };
 
@@ -795,7 +792,6 @@ async function calculateAndUploadAllRaces() {
   }
 }
 
-// 🛡️ 【絶対ガード & ギブアップ判定同期関数】
 async function checkAndUpdateReadyState() {
   if (!roomData) return;
 
@@ -831,7 +827,6 @@ async function checkAndUpdateReadyState() {
     return; 
   }
 
-  // 🚨 【ギブアップ判定処理】
   if (p1Giveup || p2Giveup) {
     isGiveupMatch = true;
     if (startBtn) {
@@ -855,7 +850,6 @@ async function checkAndUpdateReadyState() {
     return;
   }
 
-  // 通常の対戦フロー
   await ensureUsedHorsesUpdated();
 
   buildRaceGridsFromOnlineData();
@@ -908,7 +902,6 @@ async function checkAndUpdateReadyState() {
   }
 }
 
-// ★ ギブアップ時の結果保存も単一情報源 (round_results) へ統合
 async function processGiveupResultsAndUsedHorses(data, p1Giveup, p2Giveup) {
   const roomRef = doc(db, "online_matches", roomId);
   const updatePayload = { giveup_processed: true };
@@ -921,7 +914,6 @@ async function processGiveupResultsAndUsedHorses(data, p1Giveup, p2Giveup) {
   let p1W = 0, p2W = 0;
 
   if (p1Giveup && p2Giveup) {
-    // 引き分け
   } else if (p1Giveup && !p2Giveup) {
     p2IsWin = true; p2W = 5;
   } else if (!p1Giveup && p2Giveup) {
@@ -1005,7 +997,7 @@ async function handleRoomDataUpdate(data) {
 
   if (data[myWatchedField]) {
     if (data[oppWatchedField]) {
-      // ★ 修正箇所：双方が完了したら、ループさせずに自動で画面遷移とデータ初期化を行う
+      // 双方が完了したら自動で画面遷移とデータ初期化を行う
       if (modalBtn) {
         modalBtn.disabled = true;
         modalBtn.textContent = "🔄 次の回戦へ移動しています...";
@@ -1017,9 +1009,9 @@ async function handleRoomDataUpdate(data) {
 
       if (!isNavigatingAway) {
         isNavigatingAway = true;
+        stopRoomListening();
         
         if (isHost) {
-          // ホストが部屋の情報を次ラウンド向けにリセットして画面遷移
           try {
             const roomRef = doc(db, "online_matches", roomId);
             await updateDoc(roomRef, {
@@ -1040,9 +1032,9 @@ async function handleRoomDataUpdate(data) {
             window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
           } catch(e) {
             console.error("次ラウンド更新エラー", e);
+            window.location.href = 'online.html';
           }
         } else {
-          // ゲストはホストのリセット処理を少し待ってから画面遷移
           setTimeout(() => {
             const matchMode = urlParams.get('mode') || data.match_mode || 'online';
             window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
