@@ -409,8 +409,7 @@
     const myReadyKey = isHost ? 'player1_matchup_ready' : 'player2_matchup_ready';
     const myDraftKey = isHost ? 'player1_draft' : 'player2_draft';
 
-    // ★修正：過去画面のフラグが残留してホスト側が「準備完了」と誤認するのを完全に防ぐため、
-    // ここで確実に関連フラグを全てリセット（初期化）する
+    // ★重要：過去画面のフラグが残留して誤認するのを完全に防ぐため、確実に関連フラグを全てリセット
     await updateDoc(roomRef, {
       [myReadyKey]: false,
       [myDraftKey]: [null, null, null, null, null],
@@ -588,24 +587,11 @@
       if (!snapshot.exists()) return;
       const data = snapshot.data();
 
-      // エラー等による相手のキャンセル退室を確実に検知してロビーへ戻る
       if (data.status === "cancelled") {
         if (!isNavigatingAway) {
           isNavigatingAway = true;
-          if (roomUnsubscribe) roomUnsubscribe();
-          alert("対戦相手が切断・離脱しました。対戦ロビーに戻ります。");
+          alert("対戦相手が切断・離脱しました。");
           window.location.href = 'online.html';
-        }
-        return;
-      }
-
-      // ★追加：万が一、ホストが通信のラグ等で先行してレース画面へ行ってしまった場合の強制追従（フェイルセーフ）
-      if (data.status === "racing" || data.status === "race_running" || data.status === "finished") {
-        if (!isNavigatingAway) {
-          isNavigatingAway = true;
-          if (roomUnsubscribe) roomUnsubscribe();
-          const modeQuery = matchMode ? `&mode=${matchMode}` : '';
-          window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}${modeQuery}`;
         }
         return;
       }
@@ -617,7 +603,6 @@
 
       const isHost = (role === 'host');
       const opponentReady = isHost ? data.player2_matchup_ready : data.player1_matchup_ready;
-      
       const badge = document.getElementById('opponentStatusBadge');
       if (badge) {
         if (opponentReady) {
@@ -930,6 +915,8 @@
 
     const updatedUsedList = Array.from(new Set([...myUsedHorseIdsInPast, ...normalizedEntries]));
     
+    // ★修正：playerX_ready（総合準備完了フラグ）をここでは true にしない。
+    // この画面では「編成完了（matchup_ready）」だけを相手に伝える
     const updateData = isHost ? {
       player1_entries: normalizedEntries,
       player1_used_horses: updatedUsedList,
