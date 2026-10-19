@@ -1,1060 +1,772 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DERBY BATTLE CARD - オンライン出走登録</title>
-<style>
-  :root {
-    --bg-gradient: linear-gradient(135deg, #2e1065 0%, #4c1d95 50%, #5b21b6 100%);
-    --panel-bg: rgba(255, 255, 255, 0.95);
-    --accent-color: #6b21a8;
-    --accent-hover: #581c87;
-    --accent-orange: #f97316;
-    --text-main: #1e1b4b;
-    --text-sub: #4b5563;
-    --border-color: #ddd6fe;
-    --turf-color: #16a34a;
-    --dirt-color: #b45309;
-    --danger-color: #dc2626;
-    --success-color: #16a34a;
-  }
-  body {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
-    background: var(--bg-gradient);
-    background-attachment: fixed;
-    color: var(--text-main);
-    margin: 0;
-    padding: 15px;
-    font-size: 13px;
-    display: flex;
-    justify-content: center;
-    min-height: 100vh;
-  }
-  .container { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 680px; padding-bottom: 30px; }
-  
-  .header-panel {
-    background-color: var(--panel-bg);
-    padding: 10px 15px;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  }
-  .btn-back {
-    background: #ffffff;
-    color: var(--danger-color);
-    border: 1.5px solid var(--danger-color);
-    padding: 6px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 12px;
-  }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>世代別カード図鑑 - DERBY BATTLE CARD</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      /* 明るい緑背景グラデーション */
+      --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%);
+      --card-bg: rgba(255, 255, 255, 0.94);
+      --card-inner-bg: #f2f8f3;
+      --accent-gold: #c29b1d;
+      --text-color: #1a2e1d;
+      --sub-text: #4e6b52;
+      --header-green: #0d4220;
+      --border-green: #b2d4b6;
+      --gold-gradient: linear-gradient(135deg, #fef08a, #d4af37);
+      --silver-gradient: linear-gradient(135deg, #f3f4f6, #9ca3af);
+      --bronze-gradient: linear-gradient(135deg, #fcd34d, #b45309);
+      --binder-bg: #1c2620; /* バインダー内部の暗い色 */
+    }
+    
+    body {
+      margin: 0;
+      padding: 8px;
+      background: var(--bg-gradient);
+      background-attachment: fixed;
+      color: var(--text-color);
+      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
 
-  .opponent-status-panel {
-    background: #faf5ff;
-    border: 2px solid var(--accent-color);
-    border-radius: 8px;
-    padding: 10px 15px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  }
-  .opponent-badge {
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: bold;
-    color: #fff;
-    background: #9ca3af;
-  }
-  .opponent-badge.ready { background: var(--success-color); }
-  .opponent-badge.selecting { background: var(--accent-orange); }
+    /* 共通ヘッダー（タブ集約型・白背景） */
+    .header-bar {
+      display: flex;
+      flex-direction: column;
+      background: #ffffff;
+      border-radius: 6px;
+      border: 1px solid var(--border-green);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
 
-  .series-info-panel {
-    position: relative;
-    margin-top: 10px;
-    background: rgba(238, 242, 255, 0.95);
-    border: 1.5px solid #a5b4fc;
-    border-radius: 10px;
-    padding: 16px 15px 12px 15px;
-    box-shadow: 0 3px 6px rgba(0,0,0,0.08);
-  }
-  .series-info-panel .title-label {
-    position: absolute;
-    top: -11px;
-    left: 12px;
-    font-weight: bold;
-    background: linear-gradient(135deg, #4f46e5, #4338ca);
-    color: white;
-    padding: 2px 10px;
-    border-radius: 12px;
-    font-size: 11px;
-    white-space: nowrap;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-    border: 1px solid #c7d2fe;
-  }
-  .series-info-panel .series-names {
-    font-weight: bold;
-    font-size: 16px;
-    color: #1e1b4b;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    display: block;
-    margin-top: 2px;
-  }
+    /* グローバルタブ */
+    .global-tabs {
+      display: flex;
+      background: #e2efe3;
+    }
+    .global-tab-btn {
+      flex: 1;
+      padding: 12px 0;
+      text-align: center;
+      font-weight: bold;
+      font-size: 12.5px;
+      color: var(--sub-text);
+      text-decoration: none;
+      border-right: 1px solid var(--border-green);
+      border-bottom: 3px solid var(--border-green);
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+    .global-tab-btn:last-child { border-right: none; }
+    .global-tab-btn.home-tab {
+      flex: 0.6;
+      background: #d0e4d2;
+      color: var(--header-green);
+    }
+    .global-tab-btn.active {
+      background: #ffffff;
+      color: var(--header-green);
+      border-bottom: 3px solid var(--header-green);
+    }
 
-  .status-bar {
-    background: var(--panel-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 10px 15px;
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-  }
-  .status-item { text-align: center; }
-  .status-label { font-size: 10px; color: var(--text-sub); display: block; margin-bottom: 2px; }
-  .status-val { font-size: 14px; font-weight: bold; }
-  .status-val.error { color: var(--danger-color); }
-  .status-val.ok { color: var(--success-color); }
+    /* 統計バー */
+    .stats-bar {
+      background: #ffffff;
+      border: 1px solid var(--border-green);
+      border-radius: 6px;
+      padding: 6px 4px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      text-align: center;
+    }
+    .stat-item { flex: 1; }
+    .stat-label { font-size: 9px; color: var(--sub-text); margin-bottom: 1px; display: block; }
+    .stat-value { font-size: 14px; font-weight: bold; color: var(--header-green); }
 
-  .entry-card {
-    background: var(--panel-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-  }
-  .race-info-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px dashed var(--border-color);
-    padding-bottom: 6px;
-  }
-  .race-title { font-weight: bold; font-size: 14px; color: var(--accent-color); }
-  .race-cond-badge {
-    font-size: 10.5px;
-    padding: 3px 8px;
-    border-radius: 4px;
-    color: white;
-    font-weight: bold;
-  }
-  .surface-turf { background-color: var(--turf-color); }
-  .surface-dirt { background-color: var(--dirt-color); }
+    /* フィルターボタン群 */
+    .filter-scroll {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 5px;
+      scrollbar-width: none;
+    }
+    .filter-scroll::-webkit-scrollbar { display: none; }
+    .filter-btn {
+      background: rgba(255, 255, 255, 0.8);
+      color: var(--sub-text);
+      border: 1px solid var(--border-green);
+      padding: 6px 14px;
+      border-radius: 16px;
+      font-size: 11.5px;
+      white-space: nowrap;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .filter-btn.active {
+      background: var(--header-green);
+      color: #ffffff;
+      border-color: var(--header-green);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
 
-  .mob-field-preview {
-    background: #f3e8ff;
-    border: 1px solid #d8b4fe;
-    border-radius: 6px;
-    padding: 6px 10px;
-    font-size: 11px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .mob-style-counts span {
-    margin-left: 6px;
-    font-weight: bold;
-  }
+    /* バインダー風コンテナ */
+    .binder-container {
+      background: var(--binder-bg);
+      border: 3px solid #141b17;
+      border-radius: 12px;
+      padding: 8px 6px;
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 4px 12px rgba(0,0,0,0.2);
+      min-height: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+    }
+    .binder-container::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 10px; bottom: 0; width: 6px;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent, transparent 40px,
+        #9ca3af 40px, #e5e7eb 42px, #9ca3af 44px,
+        transparent 44px, transparent 80px
+      );
+      z-index: 10;
+      pointer-events: none;
+    }
 
-  .select-horse-dropdown {
-    width: 100%;
-    padding: 8px;
-    border-radius: 6px;
-    border: 1px solid var(--border-color);
-    background: #ffffff;
-    font-size: 12px;
-    font-weight: bold;
-    color: var(--text-main);
-  }
+    /* 世代セクション */
+    .gen-section {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+      padding: 6px 4px 6px 20px;
+    }
+    .gen-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: 4px;
+    }
+    .gen-title { font-size: 12px; font-weight: bold; color: var(--border-green); letter-spacing: 1px; }
+    .gen-progress { font-size: 10px; color: #9ca3af; }
 
-  .horse-detail-preview {
-    font-size: 11px;
-    color: var(--text-sub);
-    display: flex;
-    justify-content: space-between;
-    background: #f8fafc;
-    padding: 6px 10px;
-    border-radius: 4px;
-    border: 1px solid #e2e8f0;
-  }
+    /* TCG風 カードグリッド (横5〜6列用) */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+      gap: 4px;
+    }
 
-  .action-group {
-    display: flex;
-    gap: 8px;
-    margin-top: 10px;
-  }
+    .card-thumb {
+      aspect-ratio: 59 / 86;
+      border-radius: 4px;
+      position: relative;
+      cursor: pointer;
+      transition: transform 0.1s;
+      overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      display: flex;
+      flex-direction: column;
+      border: 1.5px solid #a3a3a3;
+      background-color: #2a362f; /* カードのベース背景（ダークグリーン） */
+      font-family: 'Hiragino Mincho ProN', 'MS PMincho', serif;
+    }
+    .card-thumb:active { transform: scale(0.95); }
 
-  .btn-submit {
-    flex: 2;
-    background: linear-gradient(135deg, #f97316, #ea580c);
-    color: white;
-    border: none;
-    padding: 15px 10px;
-    border-radius: 8px;
-    font-weight: bold;
-    font-size: 15px;
-    cursor: pointer;
-    text-align: center;
-    box-shadow: 0 4px 0 #c2410c;
-  }
-  .btn-submit:disabled { background: #9ca3af; box-shadow: none; cursor: not-allowed; }
+    /* 未所持 */
+    .card-thumb.unobtained {
+      opacity: 0.5; filter: grayscale(100%); cursor: default;
+      background: repeating-linear-gradient(45deg, #1c2620, #1c2620 5px, #141b17 5px, #141b17 10px);
+      border: 1px solid #333;
+    }
+    .card-thumb.unobtained:active { transform: none; }
+    
+    /* レアリティ別フレーム */
+    .card-thumb.rarity-r { border-color: #b45309; }
+    .card-thumb.rarity-sr { border-image: var(--silver-gradient) 1; }
+    .card-thumb.rarity-ssr { border-image: var(--gold-gradient) 1; }
 
-  .btn-redeck {
-    flex: 1;
-    background: #ffffff;
-    color: var(--accent-color);
-    border: 1.5px solid var(--accent-color);
-    padding: 15px 5px;
-    border-radius: 8px;
-    font-weight: bold;
-    font-size: 12px;
-    cursor: pointer;
-    text-align: center;
-  }
+    /* 要件4: 左上の誕生年バッジ */
+    .birth-year-badge {
+      position: absolute;
+      top: 0;
+      left: 0;
+      background-color: rgba(0, 0, 0, 0.8);
+      color: #ccc;
+      font-size: 7.5px;
+      padding: 1px 3px;
+      border-radius: 0 0 4px 0;
+      z-index: 10;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+    }
 
-  .btn-giveup {
-    flex: 1.2;
-    background: #ffffff;
-    color: var(--danger-color);
-    border: 1.5px solid var(--danger-color);
-    padding: 15px 5px;
-    border-radius: 8px;
-    font-weight: bold;
-    font-size: 11px;
-    cursor: pointer;
-    text-align: center;
-  }
-</style>
+    /* 要件3: 脚質透かし文字の強調 (opacity: 0.4, 影追加) */
+    .watermark-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -55%);
+      font-size: 38px;
+      font-weight: 900;
+      color: #ffffff;
+      opacity: 0.4;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* レーダーアートのエリア */
+    .radar-art-area {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 2;
+      padding: 1px;
+    }
+    .radar-svg {
+      width: 120%;
+      height: 120%;
+      overflow: visible;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));
+    }
+
+    /* 要件2: 中央のPT表示 + PTランク別 レーダー＆オーラ発光 */
+    .pt-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 900;
+      pointer-events: none;
+      z-index: 10;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+    }
+    /* PT20〜 (GOD) */
+    .pt-rank-god .radar-polygon { fill: rgba(212, 175, 55, 0.45); stroke: #fef08a; stroke-width: 2.5; }
+    .pt-rank-god .pt-center { text-shadow: 0 0 10px #fef08a, 0 0 20px #d4af37, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8); }
+    /* PT18〜19 (S) */
+    .pt-rank-s .radar-polygon { fill: rgba(255, 50, 50, 0.45); stroke: #ff9999; stroke-width: 2; }
+    .pt-rank-s .pt-center { text-shadow: 0 0 10px #ff9999, 0 0 20px #ff3232, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8); }
+    /* PT15〜17 (A) */
+    .pt-rank-a .radar-polygon { fill: rgba(50, 150, 255, 0.45); stroke: #99ccff; stroke-width: 2; }
+    .pt-rank-a .pt-center { text-shadow: 0 0 10px #99ccff, 0 0 20px #3296ff, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8); }
+    /* PT〜14 (B) */
+    .pt-rank-b .radar-polygon { fill: rgba(163, 163, 163, 0.45); stroke: #e5e5e5; stroke-width: 1.5; }
+    .pt-rank-b .pt-center { text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8); }
+
+    /* 要件1: 馬名帯の拡大と2行化 */
+    .card-name-bar {
+      color: #fff; 
+      font-size: 8.5px; 
+      font-weight: bold;
+      text-align: center; 
+      padding: 4px; 
+      overflow: hidden;
+      font-family: 'Helvetica Neue', Arial, sans-serif; 
+      z-index: 3;
+      height: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.1;
+      margin-top: auto;
+    }
+
+    /* 適性別 名前帯背景色 */
+    .name-turf { background: linear-gradient(135deg, #1b4d23, #2d6a37); }
+    .name-dirt { background: linear-gradient(135deg, #5c3f25, #8b5a2b); }
+    .name-both { background: linear-gradient(135deg, #1b4d23 50%, #8b5a2b 50%); }
+
+    .count-badge {
+      position: absolute; top: -3px; right: -3px; background: #e53935; color: #fff; font-size: 8px;
+      font-weight: bold; padding: 1px 3px; border-radius: 4px; border: 1px solid #fff; z-index: 15;
+    }
+
+    .loading-msg, .error-msg {
+      text-align: center; padding: 40px 10px; color: var(--border-green); font-weight: bold; font-size: 13px;
+    }
+    .error-msg { color: #d93838; }
+
+    /* モーダル共通 */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.8); display: none;
+      justify-content: center; align-items: center; z-index: 1000;
+      backdrop-filter: blur(2px);
+    }
+    .modal-overlay.active { display: flex; }
+
+    /* カード詳細モーダル */
+    .detail-modal-container {
+      display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%;
+    }
+    .card-modal-wrapper {
+      width: 82vw; max-width: 325px; aspect-ratio: 59 / 86; background: #ffffff;
+      border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5); position: relative;
+    }
+    .detail-close-btn {
+      position: absolute; top: 10px; right: 10px; width: 32px; height: 32px;
+      background: rgba(0,0,0,0.6); color: #fff; border: 2px solid #fff; border-radius: 50%;
+      font-size: 18px; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center;
+    }
+    .btn-trade-offer-large {
+      width: 82vw; max-width: 325px; background: linear-gradient(135deg, #d4af37, #b8860b);
+      color: #111827; border: 2px solid #fef08a; border-radius: 8px; padding: 12px;
+      font-size: 14px; font-weight: 900; cursor: pointer; box-shadow: 0 4px 10px rgba(212, 175, 55, 0.4);
+    }
+    .btn-trade-offer-large:disabled {
+      background: #4b5563; border-color: #6b7280; color: #9ca3af; cursor: not-allowed; box-shadow: none;
+    }
+
+    /* トレード出品モーダル */
+    .modal-box {
+      background: #ffffff; border-radius: 8px; width: 92%; max-width: 400px;
+      max-height: 85vh; overflow-y: auto; padding: 14px; box-sizing: border-box; border: 2px solid var(--border-green);
+    }
+    .modal-title { font-size: 14px; font-weight: bold; color: var(--header-green); margin-bottom: 10px; text-align: center; }
+    .form-group { margin-bottom: 8px; display: flex; flex-direction: column; gap: 3px; font-size: 11px; }
+    .form-group label { font-weight: bold; color: var(--sub-text); font-size: 10.5px; }
+    .form-input, .form-textarea { padding: 5px 6px; border: 1px solid var(--border-green); border-radius: 4px; font-size: 11px; box-sizing: border-box; width: 100%; }
+    .horse-name-inputs { display: flex; flex-direction: column; gap: 4px; }
+    .form-textarea { resize: vertical; height: 40px; }
+    .modal-btns { display: flex; gap: 8px; margin-top: 12px; }
+    .btn-modal-submit { flex: 1; background: var(--header-green); color: #fff; border: none; padding: 8px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; }
+    .btn-modal-cancel { flex: 1; background: #e0e0e0; color: #333; border: none; padding: 8px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; }
+  </style>
 </head>
 <body>
-
 <div class="container">
-  <div class="header-panel">
-    <button class="btn-back" onclick="leaveMatch()">辞退・退室</button>
-    <h2 style="margin:0; font-size: 16px; color: var(--accent-color);">オンライン対戦 - チーム編成</h2>
-    <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️ 読込中</div>
-  </div>
-
-  <div class="opponent-status-panel">
-    <div>
-      <span style="font-size: 10px; color: var(--text-sub); display: block;">対戦相手</span>
-      <strong id="opponentName" style="font-size: 13px;">対戦相手を取得中...</strong>
-    </div>
-    <div id="opponentStatusBadge" class="opponent-badge selecting">選定中…</div>
-  </div>
-
-  <div class="series-info-panel">
-    <span class="title-label" id="seriesRoundLabel">第1回戦 対象シリーズ</span>
-    <span class="series-names" id="displaySeriesName">読み込み中...</span>
-  </div>
-
-  <div class="status-bar">
-    <div class="status-item">
-      <span class="status-label">登録頭数</span>
-      <span class="status-val" id="registeredCount">0 / 5</span>
-    </div>
-    <div class="status-item">
-      <span class="status-label">合計ポテンシャル</span>
-      <span class="status-val" id="totalPotential">0 / --</span>
-    </div>
-    <div class="status-item">
-      <span class="status-label">制限判定</span>
-      <span class="status-val" id="limitStatus">未完了</span>
+  <!-- ヘッダー ＆ グローバルタブ -->
+  <div class="header-bar">
+    <div class="global-tabs">
+      <a href="index.html" class="global-tab-btn home-tab">🏠 ホーム</a>
+      <a href="collection.html" class="global-tab-btn active">🎴 図鑑</a>
+      <a href="g1.html" class="global-tab-btn">🏆 G1殿堂</a>
     </div>
   </div>
 
-  <div id="entryList" style="display:flex; flex-direction:column; gap:10px;"></div>
+  <!-- 統計バー -->
+  <div class="stats-bar">
+    <div class="stat-item"><span class="stat-label">獲得種類</span><span class="stat-value" id="statObtainedCount">0</span></div>
+    <div class="stat-item"><span class="stat-label">全カード</span><span class="stat-value" id="statTotalCount">0</span></div>
+    <div class="stat-item"><span class="stat-label">コンプ率</span><span class="stat-value" id="statCompRate">0%</span></div>
+  </div>
 
-  <div class="action-group">
-    <button class="btn-giveup" onclick="giveUpRound()">この回戦のギブアップ</button>
-    <button class="btn-redeck" onclick="returnToDeckSelect()">デック変更</button>
-    <button class="btn-submit" id="btnBattleStart" disabled onclick="submitEntries()">エントリー完了</button>
+  <!-- フィルター -->
+  <div class="filter-scroll" id="filterContainer">
+    <!-- JSで生成 -->
+  </div>
+
+  <!-- メインコンテンツ (バインダー) -->
+  <div class="binder-container" id="mainContent">
+    <div class="loading-msg" id="loadingDisplay">カードデータを読み込み中...</div>
+  </div>
+</div>
+
+<!-- モーダル: カード詳細表示 -->
+<div class="modal-overlay" id="cardDetailModal" style="z-index: 2000;">
+  <button class="detail-close-btn" onclick="closeModal('cardDetailModal')">×</button>
+  <div class="detail-modal-container">
+    <div class="card-modal-wrapper" id="cardDetailBox">
+      <!-- cardRenderer によってここにカードが描画される -->
+    </div>
+    
+    <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+      <button class="btn-trade-offer-large" id="btnOpenTradeSetup" disabled onclick="openTradeSetupModal()">
+        📤 このカードをトレードに出品する
+      </button>
+      <div id="tradeNotice" style="color: #ccc; font-size: 11px; font-weight: bold;">
+        ※出品には2枚以上所持している必要があります
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- モーダル: トレード出品条件設定 -->
+<div class="modal-overlay" id="tradeModal" style="z-index: 2010;">
+  <div class="modal-box">
+    <div class="modal-title">🔁 トレード出品条件設定</div>
+    <div style="font-size:11px; background:#f2f8f3; padding:6px; border-radius:4px; margin-bottom:8px;">
+      出品カード: <strong id="modalCardName" style="color:var(--header-green);"></strong>
+    </div>
+    <div class="form-group">
+      <label>希望条件（馬名を直接入力・最大5つ）</label>
+      <div class="horse-name-inputs">
+        <input type="text" class="form-input want-horse-input" placeholder="希望馬名 1（例: ディープインパクト）">
+        <input type="text" class="form-input want-horse-input" placeholder="希望馬名 2（任意）">
+        <input type="text" class="form-input want-horse-input" placeholder="希望馬名 3（任意）">
+        <input type="text" class="form-input want-horse-input" placeholder="希望馬名 4（任意）">
+        <input type="text" class="form-input want-horse-input" placeholder="希望馬名 5（任意）">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>出品コメント</label>
+      <textarea class="form-textarea" id="tradeComment" placeholder="例: 探している馬です！よろしくお願いします。"></textarea>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-modal-cancel" id="btnCancelTrade">キャンセル</button>
+      <button class="btn-modal-submit" id="btnSubmitTrade">出品する</button>
+    </div>
   </div>
 </div>
 
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc, updateDoc, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-  import { generateOnlineMobEntries } from "./js/mob.js";
+  import { collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { createTradeListing } from './js/trade-service.js';
+  import { cardRenderer } from './js/card_renderer.js';
 
-  let currentUser = null;
-  let globalUserData = null;
-  let SERIES_MASTER = {};
+  let HORSES_ARRAY = [];
   let HORSES_MASTER = {};
-  
-  let matchRaces = []; 
-  let deckHorses = [];
-  let playerDeckIds = [];
-  let oppDeckIds = [];
-  
-  let oppUsedHorseIdsInPast = [];
-  let myUsedHorseIdsInPast = []; 
-  let initialCardPriorities = {};
+  let currentUser = null;
+  let selectedHorseForTrade = null;
+  let userInventoryGlobal = {};
+  let currentFilter = 'ALL';
 
-  let selectedEntries = [null, null, null, null, null];
-  let racesMobData = {}; 
-  let racesTrackConditions = [];
-  let roomUnsubscribe = null;
-  let isNavigatingAway = false;
-  let currentRoundIndex = 0;
-
-  let currentMaxTotalPt = 85;
-  let currentMinPtPerRace = 14;
-
-  const urlParams = new URLSearchParams(window.location.search);
-  const roomId = urlParams.get('roomId');
-  const role = urlParams.get('role');
-  const matchMode = urlParams.get('mode') || 'light';
-
-  function normalizeHorseId(id) {
-    if (id === null || id === undefined) return "";
-    if (typeof id === 'object') {
-      id = id.horse_id || id.id || id.code || id.horseId || "";
+  function parseHorseYear(horse) {
+    if (horse.gen_year) return Number(horse.gen_year);
+    if (horse.year) return Number(horse.year);
+    const idStr = String(horse.horse_id ?? horse.id ?? '');
+    if (idStr.length >= 4) {
+      const yy = parseInt(idStr.substring(0, idStr.length - 2), 10);
+      if (!isNaN(yy)) {
+        return yy >= 30 ? 1900 + yy : 2000 + yy;
+      }
     }
-    const str = String(id).trim();
-    if (!str) return "";
-
-    const num = parseInt(str, 10);
-    if (!isNaN(num)) {
-      return String(num).padStart(4, '0');
-    }
-    return str;
+    return 9999;
   }
 
-  async function fetchJsonSafe(filename) {
-    const candidatePaths = [`./data/${filename}`, `data/${filename}`, `/data/${filename}`];
-    for (const path of candidatePaths) {
-      try {
-        const res = await fetch(path);
-        if (res.ok) return await res.json();
-      } catch (e) {}
-    }
-    throw new Error(`${filename} 読み込み失敗`);
+  // 要件5: 世代タブの3〜5年刻み化 (2020年以降除外)
+  function getGenGroupInfo(year) {
+    if (year === 9999 || isNaN(year)) return { id: 'unknown', label: '年代不明', sortOrder: 0 };
+    if (year >= 2020) return null; 
+    
+    if (year <= 1980) return { id: 'gen_1980', label: '〜1980', sortOrder: 1980 };
+    if (year <= 1985) return { id: 'gen_1985', label: '1981〜1985', sortOrder: 1985 };
+    if (year <= 1990) return { id: 'gen_1990', label: '1986〜1990', sortOrder: 1990 };
+    if (year <= 1995) return { id: 'gen_1995', label: '1991〜1995', sortOrder: 1995 };
+    if (year <= 2000) return { id: 'gen_2000', label: '1996〜2000', sortOrder: 2000 };
+    if (year <= 2005) return { id: 'gen_2005', label: '2001〜2005', sortOrder: 2005 };
+    if (year <= 2010) return { id: 'gen_2010', label: '2006〜2010', sortOrder: 2010 };
+    if (year <= 2015) return { id: 'gen_2015', label: '2011〜2015', sortOrder: 2015 };
+    return { id: 'gen_2019', label: '2016〜2019', sortOrder: 2019 };
+  }
+
+  // 適性による背景帯のクラス取得
+  function getSurfaceClass(horse) {
+    const t = Number(horse.turf_potential ?? horse.turf) || 0;
+    const d = Number(horse.dirt_potential ?? horse.dirt) || 0;
+    if (t > 0 && d > 0) return 'name-both';
+    if (t > 0) return 'name-turf';
+    if (d > 0) return 'name-dirt';
+    return 'name-turf'; 
+  }
+
+  function getStyleChar(horse) {
+    const style = horse.style || horse.running_style || horse.leg_style || '他';
+    if (style.includes('逃')) return '逃';
+    if (style.includes('先')) return '先';
+    if (style.includes('差')) return '差';
+    if (style.includes('追')) return '追';
+    return style.charAt(0);
+  }
+
+  // PTの取得
+  function getMaxPT(horse) {
+    const t = Number(horse.turf_potential ?? horse.turf) || 0;
+    const d = Number(horse.dirt_potential ?? horse.dirt) || 0;
+    return Math.max(t, d, horse.pt || 0);
+  }
+
+  // PTに基づくランククラスの取得
+  function getPtRankClass(pt) {
+    if (pt >= 20) return 'pt-rank-god';
+    if (pt >= 18) return 'pt-rank-s';
+    if (pt >= 15) return 'pt-rank-a';
+    return 'pt-rank-b';
+  }
+
+  // レーダー計算式維持: (val / 20) * 45
+  function getRadarPoints(horse) {
+    const getVal = (v) => {
+      if (typeof v === 'number') return v;
+      const rankMap = { 'SS': 20, 'S': 18, 'A': 16, 'B': 14, 'C': 12, 'D': 10, 'E': 8 };
+      return rankMap[v] || 10;
+    };
+    const spd = getVal(horse.speed);
+    const stm = getVal(horse.stamina);
+    const shp = getVal(horse.sharp ?? horse.sharpness);
+    const jzk = getVal(horse.jizoku);
+    const gut = getVal(horse.guts);
+
+    const calcR = (val) => (val / 20) * 45;
+    const cx = 50, cy = 50;
+    const angles = [0, 72, 144, 216, 288];
+    const stats = [spd, stm, shp, jzk, gut];
+    
+    return stats.map((val, i) => {
+       const r = calcR(val);
+       const rad = (angles[i] - 90) * (Math.PI / 180);
+       return `${(cx + r * Math.cos(rad)).toFixed(1)},${(cy + r * Math.sin(rad)).toFixed(1)}`;
+    }).join(' ');
   }
 
   onAuthStateChanged(auth, async (user) => {
-    if (!user) { window.location.href = 'auth.html'; return; }
+    if (!user) {
+      window.location.href = 'auth.html';
+      return;
+    }
     currentUser = user;
 
     try {
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) globalUserData = userDoc.data();
+      await cardRenderer.init();
+      const res = await fetch('./data/horses_master.json');
+      if (!res.ok) throw new Error(`horses_master.json の読み込みに失敗しました`);
+      
+      HORSES_ARRAY = await res.json();
+      HORSES_MASTER = {};
 
-      const [seriesData, horsesData] = await Promise.all([
-        fetchJsonSafe('series_master.json'),
-        fetchJsonSafe('horses_master.json')
-      ]);
+      HORSES_ARRAY.sort((a, b) => {
+        const yearA = parseHorseYear(a);
+        const yearB = parseHorseYear(b);
+        if (yearA !== yearB) return yearB - yearA;
+        const idA = Number(a.horse_id ?? a.id ?? 0);
+        const idB = Number(b.horse_id ?? b.id ?? 0);
+        return idA - idB;
+      });
 
-      if (Array.isArray(seriesData)) {
-        seriesData.forEach(s => { SERIES_MASTER[s.series_id || s.id] = s; });
-      } else {
-        SERIES_MASTER = seriesData;
-      }
+      HORSES_ARRAY.forEach(h => {
+        const id = String(h.horse_id ?? h.id);
+        HORSES_MASTER[id] = h;
+      });
 
-      if (Array.isArray(horsesData)) {
-        horsesData.forEach(h => {
-          const idStr = normalizeHorseId(h.horse_id);
-          if (idStr) {
-            HORSES_MASTER[idStr] = h;
-          }
-        });
-      }
+      const inventorySnap = await getDocs(collection(db, `users/${user.uid}/inventory`));
+      inventorySnap.forEach(docSnap => {
+        userInventoryGlobal[docSnap.id] = docSnap.data();
+      });
 
-      document.getElementById('syncStatus').textContent = "✅";
-      initMatchup();
-    } catch (e) {
-      console.error("初期化エラー:", e);
-      document.getElementById('syncStatus').textContent = "❌";
+      renderCollection(userInventoryGlobal);
+
+    } catch (error) {
+      console.error("図鑑ロードエラー:", error);
+      document.getElementById('mainContent').innerHTML = `<div class="error-msg">⚠️ カードデータの読み込みに失敗しました。</div>`;
     }
   });
 
-  function resolveOpponentName(roomData) {
-    const isHost = (role === 'host');
-    const directName = isHost 
-      ? (roomData.guest_name || roomData.guestName || roomData.player2_name || roomData.p1_name)
-      : (roomData.host_name || roomData.hostName || roomData.player1_name || roomData.p1_name);
+  window.filterGen = function(genId) {
+    currentFilter = genId;
+    renderCollection(userInventoryGlobal);
+  };
 
-    if (directName) return directName;
-    return isHost ? "ゲストプレイヤー" : "ホストプレイヤー";
-  }
+  function renderCollection(inventory) {
+    if (!HORSES_ARRAY || HORSES_ARRAY.length === 0) return;
 
-  async function initMatchup() {
-    const roomRef = doc(db, "online_matches", roomId);
-    const roomSnap = await getDoc(roomRef);
+    const groupMap = {};
+    let totalObtained = 0;
+    let targetCardTotal = 0;
 
-    if (!roomSnap.exists()) {
-      alert("対戦ルームが存在しません");
-      window.location.href = 'online.html';
-      return;
-    }
+    HORSES_ARRAY.forEach(horse => {
+      const year = parseHorseYear(horse);
+      const groupInfo = getGenGroupInfo(year);
+      
+      if (!groupInfo) return; 
 
-    const roomData = roomSnap.data();
-    const isHost = (role === 'host');
+      targetCardTotal++;
 
-    currentRoundIndex = roomData.current_series_index || roomData.current_round || 0;
+      const strId = String(horse.horse_id ?? horse.id);
+      const cardInfo = inventory[strId];
+      const count = (typeof cardInfo === 'object' && cardInfo !== null) ? (cardInfo.count || 1) : (cardInfo || 0);
+      const lockedCount = (typeof cardInfo === 'object' && cardInfo !== null) ? (cardInfo.locked_count || 0) : 0;
+      const availableCount = count - lockedCount;
 
-    const myReadyKey = isHost ? 'player1_matchup_ready' : 'player2_matchup_ready';
-    const myDraftKey = isHost ? 'player1_draft' : 'player2_draft';
+      if (count > 0) totalObtained++;
 
-    // ★修正：過去画面のフラグが残留してホスト側が「準備完了」と誤認するのを完全に防ぐため、
-    // ここで確実に関連フラグを全てリセット（初期化）する
-    await updateDoc(roomRef, {
-      [myReadyKey]: false,
-      [myDraftKey]: [null, null, null, null, null],
-      [isHost ? 'player1_ready' : 'player2_ready']: false,
-      [isHost ? 'player1_strategy_ready' : 'player2_strategy_ready']: false,
-      [isHost ? 'player1_watched' : 'player2_watched']: deleteField()
+      if (!groupMap[groupInfo.id]) {
+        groupMap[groupInfo.id] = { info: groupInfo, horses: [] };
+      }
+      groupMap[groupInfo.id].horses.push({ horse, count, availableCount });
     });
 
-    playerDeckIds = (isHost ? (roomData.player1_deck || []) : (roomData.player2_deck || [])).map(id => normalizeHorseId(id)).filter(Boolean);
-    oppDeckIds = (isHost ? (roomData.player2_deck || []) : (roomData.player1_deck || [])).map(id => normalizeHorseId(id)).filter(Boolean);
-    
-    deckHorses = playerDeckIds.map(id => HORSES_MASTER[id]).filter(Boolean);
+    document.getElementById('statObtainedCount').textContent = totalObtained;
+    document.getElementById('statTotalCount').textContent = targetCardTotal;
+    const rate = targetCardTotal > 0 ? Math.floor((totalObtained / targetCardTotal) * 100) : 0;
+    document.getElementById('statCompRate').textContent = `${rate}%`;
 
-    const oppUsedList = isHost ? (roomData.player2_used_horses || []) : (roomData.player1_used_horses || []);
-    oppUsedHorseIdsInPast = oppUsedList.map(id => normalizeHorseId(id)).filter(Boolean);
+    const sortedGroups = Object.values(groupMap).sort((a, b) => b.info.sortOrder - a.info.sortOrder);
 
-    const myUsedList = isHost ? (roomData.player1_used_horses || []) : (roomData.player2_used_horses || []);
-    myUsedHorseIdsInPast = myUsedList.map(id => normalizeHorseId(id)).filter(Boolean);
+    const filterContainer = document.getElementById('filterContainer');
+    filterContainer.innerHTML = `<button class="filter-btn ${currentFilter === 'ALL' ? 'active' : ''}" onclick="filterGen('ALL')">すべて</button>`;
+    sortedGroups.forEach(g => {
+      filterContainer.innerHTML += `<button class="filter-btn ${currentFilter === g.info.id ? 'active' : ''}" onclick="filterGen('${g.info.id}')">${g.info.label}</button>`;
+    });
 
-    initialCardPriorities = roomData.initial_card_priorities || {};
+    const contentEl = document.getElementById('mainContent');
+    contentEl.innerHTML = '';
 
-    if (!deckHorses || deckHorses.length === 0) {
-      alert("対戦に必要なデックデータが見つかりません。対戦を終了してロビーへ戻ります。");
-      await forceCleanupAndExit();
-      return;
-    }
+    sortedGroups.forEach(group => {
+      if(currentFilter !== 'ALL' && currentFilter !== group.info.id) return;
 
-    let oppName = resolveOpponentName(roomData);
-    const oppUid = isHost ? (roomData.guest_uid || roomData.player2_uid) : (roomData.host_uid || roomData.player1_uid);
-    
-    if (oppUid) {
-      try {
-        const oppUserSnap = await getDoc(doc(db, "users", oppUid));
-        if (oppUserSnap.exists()) {
-          const uData = oppUserSnap.data();
-          oppName = uData.nickname || uData.displayName || uData.name || uData.userName || oppName;
-        }
-      } catch (err) {}
-    }
-    document.getElementById('opponentName').textContent = oppName;
+      const horsesInGroup = group.horses;
+      const obtainedInGroup = horsesInGroup.filter(item => item.count > 0).length;
 
-    let rawRaces = [];
-    const matchSeries = roomData.match_series || roomData.selected_series || roomData.series_id || ["SERIES_001"];
-    const seriesIdList = Array.isArray(matchSeries) ? matchSeries : [matchSeries];
-    
-    const currentSeriesId = seriesIdList[currentRoundIndex] || seriesIdList[0] || "SERIES_001";
-    const sObj = SERIES_MASTER[currentSeriesId] || SERIES_MASTER[String(currentSeriesId).toUpperCase()] || Object.values(SERIES_MASTER)[0] || {};
-    
-    const racesInSeries = sObj.races || (sObj.rounds && sObj.rounds[0] ? sObj.rounds[0].races : null);
-    const potLimit = sObj.potential_limit || {};
-    const maxTotal = potLimit.max_total_potential ?? 85;
-    const minPerRace = potLimit.min_potential_per_race ?? 14;
+      const sectionEl = document.createElement('div');
+      sectionEl.className = 'gen-section';
+      sectionEl.innerHTML = `
+        <div class="gen-header">
+          <span class="gen-title">📁 ${group.info.label} 世代</span>
+          <span class="gen-progress">${obtainedInGroup} / ${horsesInGroup.length}</span>
+        </div>
+      `;
 
-    if (Array.isArray(racesInSeries) && racesInSeries.length > 0) {
-      racesInSeries.forEach(r => {
-        rawRaces.push({
-          race_name: r.race_name || r.name,
-          surface: r.surface || "芝",
-          distance: r.distance || 2000,
-          sex: r.sex || sObj.sex || "制限なし",
-          series_name: sObj.series_name || sObj.name || "",
-          category: sObj.category || sObj.series_category || sObj.group || "地方交流シリーズ",
-          max_total_potential: maxTotal,
-          min_potential_per_race: minPerRace
-        });
-      });
-    } else {
-      rawRaces.push({
-        race_name: sObj.race_name || sObj.name || "特別競走",
-        surface: sObj.surface || "芝",
-        distance: sObj.distance || 2000,
-        sex: sObj.sex || "制限なし",
-        series_name: sObj.series_name || sObj.name || "",
-        category: sObj.category || sObj.series_category || sObj.group || "地方交流シリーズ",
-        max_total_potential: maxTotal,
-        min_potential_per_race: minPerRace
-      });
-    }
+      const gridEl = document.createElement('div');
+      gridEl.className = 'card-grid';
 
-    const fallbackRaces = [
-      { race_name: "北九州記念", surface: "芝", distance: 1200, sex: "制限なし", max_total_potential: 85, min_potential_per_race: 14 },
-      { race_name: "吾妻小富士ステークス", surface: "ダート", distance: 1700, sex: "制限なし", max_total_potential: 85, min_potential_per_race: 14 },
-      { race_name: "クイーンステークス", surface: "芝", distance: 1800, sex: "牝馬限定", max_total_potential: 85, min_potential_per_race: 14 },
-      { race_name: "函館記念", surface: "芝", distance: 2000, sex: "制限なし", max_total_potential: 85, min_potential_per_race: 14 },
-      { race_name: "日本海ステークス", surface: "芝", distance: 2200, sex: "制限なし", max_total_potential: 85, min_potential_per_race: 14 }
-    ];
+      gridEl.innerHTML = horsesInGroup.map(item => {
+        const h = item.horse;
+        const isObtained = item.count > 0;
+        const strId = String(h.horse_id ?? h.id);
+        const rarityClass = isObtained && h.rarity ? `rarity-${h.rarity.toLowerCase()}` : '';
+        const countBadge = item.count > 1 ? `<div class="count-badge">${item.count}</div>` : '';
+        
+        const surfaceClass = isObtained ? getSurfaceClass(h) : '';
+        const styleChar = getStyleChar(h);
+        const radarPoints = getRadarPoints(h);
+        const birthYear = parseHorseYear(h);
+        
+        // 要件2: PT表示 + オーラのためのランク取得
+        const ptVal = getMaxPT(h);
+        const ptRankClass = isObtained ? getPtRankClass(ptVal) : '';
 
-    matchRaces = [];
-    const firstRaceInfo = rawRaces[0] || fallbackRaces[0];
-    for (let i = 0; i < 5; i++) {
-      const r = rawRaces[i] || fallbackRaces[i];
-      matchRaces.push({
-        race_num: i + 1,
-        race_name: r.race_name || `第${i + 1}戦`,
-        surface: r.surface || "芝",
-        distance: r.distance || 2000,
-        sex: r.sex || "制限なし",
-        series_name: r.series_name || firstRaceInfo.series_name || "対象シリーズ",
-        category: r.category || firstRaceInfo.category || "地方交流シリーズ",
-        max_total_potential: r.max_total_potential ?? firstRaceInfo.max_total_potential ?? 85,
-        min_potential_per_race: r.min_potential_per_race ?? firstRaceInfo.min_potential_per_race ?? 14
-      });
-    }
-
-    const currentRace = matchRaces[0];
-    const categoryName = currentRace.category || "地方交流シリーズ";
-    
-    currentMaxTotalPt = currentRace.max_total_potential;
-    currentMinPtPerRace = currentRace.min_potential_per_race;
-
-    document.getElementById('seriesRoundLabel').textContent = `第${currentRoundIndex + 1}回戦 対象シリーズ (${categoryName})`;
-    document.getElementById('displaySeriesName').textContent = currentRace.series_name || "対象シリーズ";
-
-    if (role === 'host' && !roomData.races_mob_ids) {
-      const excludedIds = await fetchAllPlayersDeckHorseIds(roomData);
-      const mobIds = generateOnlineMobEntries(matchRaces, excludedIds, HORSES_MASTER);
-      const trackConditions = Array.from({ length: 5 }, () => {
-        const rand = Math.random() * 100;
-        if (rand < 75) return '良';
-        if (rand < 93) return '稍重';
-        return '重';
-      });
-      
-      await updateDoc(roomRef, {
-        races_mob_ids: mobIds,
-        races_track_conditions: trackConditions
-      });
-      racesMobData = mobIds;
-      racesTrackConditions = trackConditions;
-    } else {
-      racesMobData = roomData.races_mob_ids || {};
-      racesTrackConditions = roomData.races_track_conditions || Array(5).fill('良');
-    }
-
-    renderEntryCards();
-    updateStatus();
-    listenRoomStatus();
-  }
-
-  async function fetchAllPlayersDeckHorseIds(roomData) {
-    const excludedSet = new Set();
-    const p1Uid = roomData.host_uid || roomData.player1_uid;
-    const p2Uid = roomData.guest_uid || roomData.player2_uid;
-
-    try {
-      const docs = await Promise.all([
-        p1Uid ? getDoc(doc(db, "users", p1Uid)) : null,
-        p2Uid ? getDoc(doc(db, "users", p2Uid)) : null
-      ]);
-
-      docs.forEach(userDoc => {
-        if (userDoc && userDoc.exists()) {
-          const decks = userDoc.data().decks || [];
-          decks.forEach(deck => {
-            (deck.horse_ids || []).forEach(hId => {
-              const norm = normalizeHorseId(hId);
-              if (norm) excludedSet.add(norm);
-            });
-          });
-        }
-      });
-    } catch (err) {
-      console.error("全デック馬ID取得失敗:", err);
-    }
-
-    (roomData.player1_deck || []).forEach(id => { const norm = normalizeHorseId(id); if (norm) excludedSet.add(norm); });
-    (roomData.player2_deck || []).forEach(id => { const norm = normalizeHorseId(id); if (norm) excludedSet.add(norm); });
-
-    return excludedSet;
-  }
-
-  function listenRoomStatus() {
-    const roomRef = doc(db, "online_matches", roomId);
-    roomUnsubscribe = onSnapshot(roomRef, (snapshot) => {
-      if (!snapshot.exists()) return;
-      const data = snapshot.data();
-
-      // エラー等による相手のキャンセル退室を確実に検知してロビーへ戻る
-      if (data.status === "cancelled") {
-        if (!isNavigatingAway) {
-          isNavigatingAway = true;
-          if (roomUnsubscribe) roomUnsubscribe();
-          alert("対戦相手が切断・離脱しました。対戦ロビーに戻ります。");
-          window.location.href = 'online.html';
-        }
-        return;
-      }
-
-      // ★追加：万が一、ホストが通信のラグ等で先行してレース画面へ行ってしまった場合の強制追従（フェイルセーフ）
-      if (data.status === "racing" || data.status === "race_running" || data.status === "finished") {
-        if (!isNavigatingAway) {
-          isNavigatingAway = true;
-          if (roomUnsubscribe) roomUnsubscribe();
-          const modeQuery = matchMode ? `&mode=${matchMode}` : '';
-          window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}${modeQuery}`;
-        }
-        return;
-      }
-
-      const freshName = resolveOpponentName(data);
-      if (freshName && freshName !== "対戦相手を取得中...") {
-        document.getElementById('opponentName').textContent = freshName;
-      }
-
-      const isHost = (role === 'host');
-      const opponentReady = isHost ? data.player2_matchup_ready : data.player1_matchup_ready;
-      
-      const badge = document.getElementById('opponentStatusBadge');
-      if (badge) {
-        if (opponentReady) {
-          badge.textContent = "エントリー完了！";
-          badge.className = "opponent-badge ready";
+        let cardContent = '';
+        if (isObtained) {
+          cardContent = `
+            <div class="birth-year-badge">${birthYear !== 9999 ? birthYear : '----'}</div>
+            <div class="watermark-text">${styleChar}</div>
+            <div class="radar-art-area">
+              <svg viewBox="0 0 100 100" class="radar-svg">
+                <polygon points="${radarPoints}" class="radar-polygon" stroke-linejoin="round" />
+              </svg>
+            </div>
+            ${ptVal > 0 ? `<div class="pt-center">${ptVal}</div>` : ''}
+            <div class="card-name-bar ${surfaceClass}">${h.name}</div>
+          `;
         } else {
-          badge.textContent = "選定中…";
-          badge.className = "opponent-badge selecting";
+          cardContent = `
+            <div class="birth-year-badge">${birthYear !== 9999 ? birthYear : '----'}</div>
+            <div class="card-name-bar">NO DATA</div>
+          `;
         }
-      }
-    });
-  }
 
-  function getSurfaceLabel(surface) { return (!surface || surface.includes('芝')) ? '芝' : 'ダ'; }
-  
-  function getHorsePotential(horse, surface) {
-    if (!horse) return 0;
-    const isTurf = !surface || surface.includes('芝');
-    return isTurf ? Number(horse.turf_potential ?? horse.aptitude?.turf_potential ?? 0)
-                  : Number(horse.dirt_potential ?? horse.aptitude?.dirt_potential ?? 0);
-  }
-  
-  function isValidSurface(horse, surface) { return getHorsePotential(horse, surface) > 0; }
-  
-  function isValidSex(horseSex, sexLimit) {
-    if (!sexLimit || sexLimit === "制限なし" || sexLimit === "なし") return true;
-    const isMare = (horseSex || "").includes("牝");
-    return sexLimit.includes("牝") ? isMare : !isMare;
-  }
-
-  function getHorseLegStyle(horse) {
-    return horse?.style || horse?.running_style || horse?.leg_style || horse?.strategy || '-';
-  }
-
-  function getHorseDistanceString(horse) {
-    if (!horse) return '';
-    const minD = horse.min_distance ?? horse.aptitude?.min_distance;
-    const maxD = horse.max_distance ?? horse.aptitude?.max_distance;
-
-    if (minD !== undefined && maxD !== undefined && minD !== null && maxD !== null && minD !== '' && maxD !== '') {
-      return minD === maxD ? `${minD}` : `${minD}-${maxD}`;
-    }
-    if (horse.distance) return String(horse.distance);
-    return '';
-  }
-
-  function isValidDistance(horse, raceDistance) {
-    if (!horse) return false;
-    const target = parseInt(raceDistance, 10);
-    const minD = horse.min_distance ?? horse.aptitude?.min_distance;
-    const maxD = horse.max_distance ?? horse.aptitude?.max_distance;
-
-    if (minD !== undefined && maxD !== undefined && minD !== null && maxD !== null && minD !== '' && maxD !== '') {
-      return target >= Number(minD) && target <= Number(maxD);
-    }
-
-    const distStr = getHorseDistanceString(horse);
-    if (!distStr) return true;
-
-    if (distStr.includes('-')) {
-      const [minStr, maxStr] = distStr.split('-');
-      return target >= parseInt(minStr, 10) && target <= parseInt(maxStr, 10);
-    } else {
-      return parseInt(distStr, 10) === target;
-    }
-  }
-
-  function getBestDeckIndex(horsesList, horseId) {
-    let bestIdx = Infinity;
-    for (let i = 0; i < horsesList.length; i++) {
-      if (horsesList[i] === horseId) {
-        const deckIdx = i % 18;
-        if (deckIdx < bestIdx) {
-          bestIdx = deckIdx;
-        }
-      }
-    }
-    return bestIdx === Infinity ? -1 : bestIdx;
-  }
-
-  function checkDuplicateHorsePriority(horseId) {
-    const targetIdStr = normalizeHorseId(horseId);
-    const isHost = (role === 'host');
-    const myRoleKey = isHost ? 'host' : 'guest';
-
-    if (oppUsedHorseIdsInPast.includes(targetIdStr)) {
-      return { canUse: true };
-    }
-
-    if (initialCardPriorities && initialCardPriorities[targetIdStr]) {
-      const priorityOwner = initialCardPriorities[targetIdStr];
-      const isMyPriority = (priorityOwner === myRoleKey) || 
-                           (isHost && (priorityOwner === 'p1' || priorityOwner === 'player1')) ||
-                           (!isHost && (priorityOwner === 'p2' || priorityOwner === 'player2'));
-      if (isMyPriority) {
-        return { canUse: true };
-      } else {
-        return { canUse: false, reason: "相手優先" };
-      }
-    }
-
-    const myIdx = getBestDeckIndex(playerDeckIds, targetIdStr);
-    const oppIdx = getBestDeckIndex(oppDeckIds, targetIdStr);
-
-    if (oppIdx === -1) return { canUse: true };
-
-    if (myIdx < oppIdx) {
-      return { canUse: true };
-    } else if (myIdx > oppIdx) {
-      return { canUse: false, reason: "相手優先" };
-    } else {
-      if (isHost) {
-        return { canUse: true };
-      } else {
-        return { canUse: false, reason: "ホスト優先" };
-      }
-    }
-  }
-
-  function renderEntryCards() {
-    const container = document.getElementById('entryList');
-    container.innerHTML = '';
-
-    matchRaces.forEach((race, rIdx) => {
-      const card = document.createElement('div');
-      card.className = 'entry-card';
-
-      const surfaceClass = (race.surface && race.surface.includes('芝')) ? 'surface-turf' : 'surface-dirt';
-      const trackCond = racesTrackConditions[rIdx] || '良';
-
-      const mobList = racesMobData[rIdx] || [];
-      const styleCounts = { "逃": 0, "先": 0, "差": 0, "追": 0 };
-      
-      mobList.forEach(mId => {
-        const mob = HORSES_MASTER[normalizeHorseId(mId)];
-        if (!mob) return;
-        const style = getHorseLegStyle(mob);
-        if (style.includes('大逃') || style.includes('逃')) styleCounts['逃']++;
-        else if (style.includes('先') || style.includes('好')) styleCounts['先']++;
-        else if (style.includes('差')) styleCounts['差']++;
-        else styleCounts['追']++;
-      });
-
-      card.innerHTML = `
-        <div class="race-info-header">
-          <span class="race-title">第${race.race_num}戦: ${race.race_name}</span>
-          <span class="race-cond-badge ${surfaceClass}">${race.surface} ${race.distance}m [${trackCond}]</span>
-        </div>
-        
-        <div class="mob-field-preview">
-          <span style="font-weight:bold; color:var(--accent-color);">🏇 出走モブ展開:</span>
-          <div class="mob-style-counts">
-            <span>逃:${styleCounts["逃"]}</span>
-            <span>先:${styleCounts["先"]}</span>
-            <span>差:${styleCounts["差"]}</span>
-            <span>追:${styleCounts["追"]}</span>
+        return `
+          <div class="card-thumb ${isObtained ? 'obtained' : 'unobtained'} ${rarityClass} ${ptRankClass}" 
+               ${isObtained ? `onclick="openCardDetail('${strId}', true, ${item.count},${item.availableCount})"` : ''}>
+            ${countBadge}
+            ${cardContent}
           </div>
-        </div>
+        `;
+      }).join('');
 
-        <select class="select-horse-dropdown" id="selectRace${rIdx}" onchange="onHorseSelected(${rIdx}, this.value)">
-          <option value="">-- 出走馬を選択してください --</option>
-        </select>
-        <div class="horse-detail-preview" id="previewRace${rIdx}">
-          <span>適性: - | 脚質: - | 性別: -</span>
-          <span>ポテンシャル: -</span>
-        </div>
-      `;
-      container.appendChild(card);
-    });
-
-    populateDropdowns();
-  }
-
-  function populateDropdowns() {
-    const minPtPerRace = currentMinPtPerRace;
-
-    matchRaces.forEach((race, rIdx) => {
-      const select = document.getElementById(`selectRace${rIdx}`);
-      if (!select) return;
-      
-      const currentVal = selectedEntries[rIdx] ? normalizeHorseId(selectedEntries[rIdx]) : null;
-      const raceSexLimit = race.sex || "制限なし";
-      const surfaceLabel = getSurfaceLabel(race.surface);
-
-      select.innerHTML = '<option value="">-- 出走馬を選択してください --</option>';
-
-      deckHorses.forEach(horse => {
-        const horseIdStr = normalizeHorseId(horse.horse_id);
-        const isChosenElsewhere = selectedEntries.some((id, idx) => idx !== rIdx && id && normalizeHorseId(id) === horseIdStr);
-        const pt = getHorsePotential(horse, race.surface);
-        const legStyle = getHorseLegStyle(horse);
-
-        if (!isChosenElsewhere) {
-          const opt = document.createElement('option');
-          opt.value = horseIdStr;
-          
-          const ptLabel = pt > 0 ? `${surfaceLabel}${pt}` : '適性外';
-          const info = `${horse.name} (${ptLabel} / ${legStyle} / ${horse.sex || '牡'})`;
-
-          const priorityCheck = checkDuplicateHorsePriority(horseIdStr);
-
-          if (myUsedHorseIdsInPast.includes(horseIdStr)) {
-            opt.textContent = `[使用済み] ${info}`; opt.disabled = true;
-          } else if (!isValidSex(horse.sex, raceSexLimit)) {
-            opt.textContent = `[性別不可] ${info}`; opt.disabled = true;
-          } else if (!isValidSurface(horse, race.surface)) {
-            opt.textContent = `[適性外] ${info}`; opt.disabled = true;
-          } else if (!isValidDistance(horse, race.distance)) {
-            opt.textContent = `[距離不可] ${info}`; opt.disabled = true;
-          } else if (pt < minPtPerRace) {
-            opt.textContent = `[Pt不足(${minPtPerRace}未満)] ${info}`; opt.disabled = true;
-          } else if (!priorityCheck.canUse) {
-            opt.textContent = `[${priorityCheck.reason}] ${info}`; opt.disabled = true;
-          } else {
-            opt.textContent = info;
-          }
-
-          if (horseIdStr === currentVal) opt.selected = true;
-          select.appendChild(opt);
-        }
-      });
+      sectionEl.appendChild(gridEl);
+      contentEl.appendChild(sectionEl);
     });
   }
 
-  window.onHorseSelected = function(raceIdx, horseId) {
-    const normId = normalizeHorseId(horseId);
-    selectedEntries[raceIdx] = normId || null;
+  window.openCardDetail = (horseId, isObtained, count, availableCount) => {
+    if (!isObtained) return;
 
-    const roomRef = doc(db, "online_matches", roomId);
-    const draftField = (role === 'host') ? { player1_draft: selectedEntries } : { player2_draft: selectedEntries };
-    updateDoc(roomRef, draftField).catch(e => console.error("Draft update failed:", e));
-
-    const preview = document.getElementById(`previewRace${raceIdx}`);
-    if (normId && HORSES_MASTER[normId]) {
-      const horse = HORSES_MASTER[normId];
-      const race = matchRaces[raceIdx];
-      const pt = getHorsePotential(horse, race.surface);
-      const isSurfaceValid = isValidSurface(horse, race.surface);
-      const ptDisplay = isSurfaceValid ? `${getSurfaceLabel(race.surface)}${pt}` : '適性外';
-
-      preview.innerHTML = `
-        <span><strong>${ptDisplay}</strong> | 脚質: <strong>${getHorseLegStyle(horse)}</strong> | 性: <strong>${horse.sex||'牡'}</strong></span>
-        <span>${isSurfaceValid ? '適性馬場OK' : '<span style="color:var(--danger-color)">適性外</span>'}</span>
-      `;
+    const cardHtml = cardRenderer.renderCardUI(horseId, 'large');
+    document.getElementById('cardDetailBox').innerHTML = cardHtml;
+    
+    const btnTrade = document.getElementById('btnOpenTradeSetup');
+    const notice = document.getElementById('tradeNotice');
+    
+    if(count >= 2 && availableCount >= 2) {
+      btnTrade.disabled = false;
+      notice.style.display = 'none';
+      selectedHorseForTrade = HORSES_MASTER[horseId];
     } else {
-      preview.innerHTML = `<span>適性: - | 脚質: - | 性別: -</span><span>ポテンシャル: -</span>`;
+      btnTrade.disabled = true;
+      notice.style.display = 'block';
+      selectedHorseForTrade = null;
     }
 
-    populateDropdowns();
-    updateStatus();
-    
+    document.getElementById('cardDetailModal').classList.add('active');
   };
 
-  function updateStatus() {
-    const maxTotalPt = currentMaxTotalPt;
-    let totalPt = 0;
-    let count = 0;
-    let hasDistError = false;
+  window.openTradeSetupModal = () => {
+    if (!selectedHorseForTrade) return;
 
-    selectedEntries.forEach((id, rIdx) => {
-      const normId = normalizeHorseId(id);
-      if (normId && HORSES_MASTER[normId] && matchRaces[rIdx]) {
-        count++;
-        const horse = HORSES_MASTER[normId];
-        const race = matchRaces[rIdx];
-        totalPt += getHorsePotential(horse, race.surface);
-        if (!isValidDistance(horse, race.distance)) {
-          hasDistError = true;
-        }
-      }
-    });
-
-    document.getElementById('registeredCount').textContent = `${count} / 5`;
-    const ptEl = document.getElementById('totalPotential');
-    ptEl.textContent = `${totalPt} / ${maxTotalPt}`;
-
-    const limitEl = document.getElementById('limitStatus');
-    const startBtn = document.getElementById('btnBattleStart');
-
-    const isAllSelected = count === 5;
-    const isPtValid = totalPt <= maxTotalPt;
-
-    if (hasDistError) {
-      limitEl.textContent = "距離適性違反";
-      limitEl.className = "status-val error";
-      startBtn.disabled = true;
-    } else if (isAllSelected && isPtValid) {
-      limitEl.textContent = "OK";
-      limitEl.className = "status-val ok";
-      startBtn.disabled = false;
-    } else {
-      limitEl.textContent = !isPtValid ? "Pt超過" : "未完了";
-      limitEl.className = "status-val error";
-      startBtn.disabled = true;
-    }
-  }
-
-  window.submitEntries = async function() {
-    if (selectedEntries.includes(null)) {
-      alert("全5戦の出走馬を選択してください。");
-      return;
-    }
-
-    const startBtn = document.getElementById('btnBattleStart');
-    startBtn.disabled = true;
-
-    const normalizedEntries = selectedEntries.map(id => normalizeHorseId(id));
-    const roomRef = doc(db, "online_matches", roomId);
-    const isHost = (role === 'host');
-
-    const updatedUsedList = Array.from(new Set([...myUsedHorseIdsInPast, ...normalizedEntries]));
+    document.getElementById('modalCardName').textContent = selectedHorseForTrade.name;
+    document.querySelectorAll('.want-horse-input').forEach(i => i.value = "");
+    document.getElementById('tradeComment').value = "";
     
-    const updateData = isHost ? {
-      player1_entries: normalizedEntries,
-      player1_used_horses: updatedUsedList,
-      player1_matchup_ready: true,
-      p1_status: "strategy_selecting"
-    } : {
-      player2_entries: normalizedEntries,
-      player2_used_horses: updatedUsedList,
-      player2_matchup_ready: true,
-      p2_status: "strategy_selecting"
-    };
+    closeModal('cardDetailModal');
+    document.getElementById('tradeModal').classList.add('active');
+  };
+
+  window.closeModal = (modalId) => {
+    document.getElementById(modalId).classList.remove('active');
+  };
+
+  document.getElementById('btnCancelTrade').addEventListener('click', () => {
+    closeModal('tradeModal');
+  });
+
+  document.getElementById('btnSubmitTrade').addEventListener('click', async () => {
+    if (!selectedHorseForTrade || !currentUser) return;
+
+    const inputs = document.querySelectorAll('.want-horse-input');
+    const wantHorseNames = Array.from(inputs).map(i => i.value);
+    const comment = document.getElementById('tradeComment').value.trim();
 
     try {
-      await updateDoc(roomRef, updateData);
-      isNavigatingAway = true;
-      if (roomUnsubscribe) roomUnsubscribe();
-      
-      const modeQuery = matchMode ? `&mode=${matchMode}` : '';
-      window.location.href = `onstrategy.html?roomId=${roomId}&role=${role}${modeQuery}`;
+      const q = query(
+        collection(db, "trades"),
+        where("seller_uid", "==", currentUser.uid),
+        where("status", "==", "active")
+      );
+      const activeSnap = await getDocs(q);
+
+      if (!activeSnap.empty) {
+        alert("既に出品中のカードがあります。トレードの出品は1人1つまでです。\n新規に出品する場合は、掲示板の「自分の出品」から現在の出品を取り下げてください。");
+        return;
+      }
+
+      await createTradeListing(db, currentUser, selectedHorseForTrade, wantHorseNames, comment);
+      alert(`「${selectedHorseForTrade.name}」をトレード掲示板に出品しました！`);
+      closeModal('tradeModal');
+      location.reload();
     } catch (err) {
-      console.error("エントリー保存エラー:", err);
-      alert("通信エラーが発生しました。");
-      startBtn.disabled = false;
+      console.error("出品エラー:", err);
+      alert("出品エラー詳細:\n" + (err.code || err.message || JSON.stringify(err)));
     }
-  };
-
-  window.returnToDeckSelect = async function() {
-    if (!confirm("対戦を辞退せずにデック選択画面（onbattle）へ戻りますか？\n（選択中のエントリーと出走前準備状態はリセットされます）")) {
-      return;
-    }
-
-    isNavigatingAway = true;
-    if (roomUnsubscribe) roomUnsubscribe();
-
-    if (roomId && currentUser) {
-      try {
-        const roomRef = doc(db, "online_matches", roomId);
-        const isHost = (role === 'host');
-
-        const resetData = isHost ? {
-          player1_ready: false,
-          player1_matchup_ready: false,
-          p1_status: "deck_selecting",
-          player1_draft: [null, null, null, null, null],
-          player1_entries: [null, null, null, null, null],
-          player1_strategies: [null, null, null, null, null]
-        } : {
-          player2_ready: false,
-          player2_matchup_ready: false,
-          p2_status: "deck_selecting",
-          player2_draft: [null, null, null, null, null],
-          player2_entries: [null, null, null, null, null],
-          player2_strategies: [null, null, null, null, null]
-        };
-
-        await updateDoc(roomRef, resetData);
-      } catch (e) {
-        console.error("デック選択画面へのリセット移動エラー:", e);
-      }
-    }
-
-    const modeQuery = matchMode ? `&mode=${matchMode}` : '';
-    window.location.href = `onbattle.html?roomId=${roomId}&role=${role}${modeQuery}`;
-  };
-
-  window.giveUpRound = async function() {
-    if (!confirm("この回戦をギブアップしますか？\n（チームが組めないため、この回戦を見送ります）")) {
-      return;
-    }
-
-    isNavigatingAway = true;
-    if (roomUnsubscribe) roomUnsubscribe();
-
-    if (roomId && currentUser) {
-      try {
-        const roomRef = doc(db, "online_matches", roomId);
-        const isHost = (role === 'host');
-
-        const updateObj = {
-          [isHost ? 'player1_giveup' : 'player2_giveup']: true,
-          [isHost ? 'player1_ready' : 'player2_ready']: true,
-          [isHost ? 'player1_matchup_ready' : 'player2_matchup_ready']: true,
-          [isHost ? 'p1_status' : 'p2_status']: 'giveup',
-          status: "racing"
-        };
-
-        await updateDoc(roomRef, updateObj);
-      } catch (e) {
-        console.error("ギブアップ状態保存エラー:", e);
-      }
-    }
-
-    const modeQuery = matchMode ? `&mode=${matchMode}` : '';
-    window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}${modeQuery}`;
-  };
-
-  window.leaveMatch = async function() {
-    if (confirm("対戦を辞退して退室しますか？")) {
-      await forceCleanupAndExit();
-    }
-  };
-
-  async function forceCleanupAndExit() {
-    isNavigatingAway = true;
-    if (roomUnsubscribe) roomUnsubscribe();
-
-    if (roomId && currentUser) {
-      try {
-        const roomRef = doc(db, "online_matches", roomId);
-        const isHost = (role === 'host');
-        
-        await updateDoc(roomRef, {
-          status: "cancelled",
-          cancelled_by: currentUser.uid,
-          [isHost ? 'player1_draft' : 'player2_draft']: [null, null, null, null, null],
-          [isHost ? 'player1_entries' : 'player2_entries']: [null, null, null, null, null],
-          [isHost ? 'player1_matchup_ready' : 'player2_matchup_ready']: false
-        });
-      } catch (e) {
-        console.error("退室クリーンアップエラー:", e);
-      }
-    }
-    window.location.href = 'online.html';
-  }
+  });
 </script>
-
 </body>
 </html>
