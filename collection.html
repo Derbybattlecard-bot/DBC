@@ -491,44 +491,49 @@
     return Math.max(t, d, horse.pt || 0);
   }
 
-  // ★新機能: PT値から8段階のカラーを動的に生成
+  // ★PT値から8段階のカラーを動的に生成
   function getPtColorStyle(pt) {
-    // PT21以上: 黄金 (Gold)
+    // ----------------------------------------------------
+    // 🎨 ここから色の設定（ご自身で自由に変更可能です）
+    // ----------------------------------------------------
+
+    // PT21以上: 白ベースで光る（プラチナ/ダイヤモンド仕様）
     if (pt >= 21) {
         return {
-            fill: 'rgba(212, 175, 55, 0.45)', // #d4af37
-            stroke: '#fef08a', // 明るい黄色
-            glow: '0 0 10px #fef08a, 0 0 20px #d4af37, 0 0 30px #d4af37, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8)'
+            fill: 'rgba(255, 255, 255, 0.5)', // レーダー中身（半透明の白）
+            stroke: '#ffffff',                // レーダー枠線（純白）
+            // 白 → 水色 → 薄紫 に広がる神々しいオーラ
+            glow: '0 0 10px #ffffff, 0 0 20px #bae6fd, 0 0 30px #c7d2fe, 0 0 40px #a78bfa, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8)'
         };
     }
     // PT20: 赤 (Red)
     if (pt === 20) {
         return {
-            fill: 'rgba(220, 38, 38, 0.45)', // #dc2626
+            fill: 'rgba(220, 38, 38, 0.45)',
             stroke: '#fca5a5',
             glow: '0 0 10px #fca5a5, 0 0 20px #ef4444, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8)'
         };
     }
-    // PT19: 橙 (Orange)
+    // PT19: 橙 (Orange) - 18と差別化するため、はっきりしたオレンジ
     if (pt === 19) {
         return {
-            fill: 'rgba(234, 88, 12, 0.45)', // #ea580c
+            fill: 'rgba(234, 88, 12, 0.45)',
             stroke: '#fdba74',
             glow: '0 0 10px #fdba74, 0 0 20px #f97316, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8)'
         };
     }
-    // PT18: 黄 (Yellow) - ゴールドとの差別化で明るいイエロー
+    // PT18: 非常に明るい黄色 (Electric Yellow) - 21の白や19の橙と明確に分ける
     if (pt === 18) {
         return {
-            fill: 'rgba(234, 179, 8, 0.45)', // #eab308
-            stroke: '#fde047',
-            glow: '0 0 10px #fde047, 0 0 20px #eab308, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8)'
+            fill: 'rgba(250, 204, 21, 0.45)',
+            stroke: '#fef08a',
+            glow: '0 0 10px #fef08a, 0 0 20px #facc15, 0 0 30px #eab308, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8)'
         };
     }
     // PT17: 紫 (Purple)
     if (pt === 17) {
         return {
-            fill: 'rgba(147, 51, 234, 0.45)', // #9333ea
+            fill: 'rgba(147, 51, 234, 0.45)',
             stroke: '#d8b4fe',
             glow: '0 0 10px #d8b4fe, 0 0 20px #a855f7, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8)'
         };
@@ -536,7 +541,7 @@
     // PT16: 青 (Blue)
     if (pt === 16) {
         return {
-            fill: 'rgba(37, 99, 235, 0.45)', // #2563eb
+            fill: 'rgba(37, 99, 235, 0.45)',
             stroke: '#93c5fd',
             glow: '0 0 10px #93c5fd, 0 0 20px #3b82f6, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8)'
         };
@@ -544,16 +549,16 @@
     // PT15: 水色 (Cyan/SkyBlue)
     if (pt === 15) {
         return {
-            fill: 'rgba(8, 145, 178, 0.45)', // #0891b2
+            fill: 'rgba(8, 145, 178, 0.45)',
             stroke: '#67e8f9',
             glow: '0 0 10px #67e8f9, 0 0 20px #06b6d4, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8)'
         };
     }
-    // PT14以下: 落ち着いたシルバーグレー (ベース)
+    // PT14以下: 落ち着いたグレー (ベース)
     return {
-        fill: 'rgba(156, 163, 175, 0.45)', // #9ca3af
+        fill: 'rgba(156, 163, 175, 0.45)',
         stroke: '#e5e7eb',
-        glow: '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8)' // 14以下はオーラ(glow)無しで黒フチのみ
+        glow: '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8)'
     };
   }
 
