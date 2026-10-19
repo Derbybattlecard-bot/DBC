@@ -356,6 +356,9 @@ let currentTrackConfig = TRACK_DIRECTION_MASTER["右回り"];
 let currentRaceInfo = null;
 let raceInfo = null;
 
+// G1勝利記録（ギャラリー用）を保持する変数
+let g1Records = {};
+
 window.showErrorModal = function(msg) {
   const msgEl = document.getElementById('error-modal-msg');
   if (msgEl) msgEl.textContent = msg;
@@ -394,7 +397,10 @@ onAuthStateChanged(auth, async (user) => {
   updateLog("マスターデータおよび対戦データを読み込み中...");
   try {
     const userDoc = await getDoc(doc(db, "users", user.uid));
-    if (userDoc.exists()) globalUserData = userDoc.data();
+    if (userDoc.exists()) {
+      globalUserData = userDoc.data();
+      g1Records = globalUserData.g1_records || {}; // ★既存のG1レコードを取得
+    }
 
     await loadMasterData();
     const isSuccess = buildRaceGridsFromFirebase();
@@ -765,6 +771,7 @@ async function startRace() {
     currentRaceFormulaStr = "標準評価算定";
   }
 
+  // ★勝敗記録
   recordHistory(calculatedResults);
   const nextRaceIdx = currentRaceIndex + 1;
 
@@ -961,7 +968,8 @@ function recordHistory(scoredList) {
     cRank: cRank, 
     win: pRank < cRank,
     myHorseId: pHorse ? pHorse.horse_id : "0000",
-    oppHorseId: cHorse ? cHorse.horse_id : "0000"
+    oppHorseId: cHorse ? cHorse.horse_id : "0000",
+    tactic: pHorse ? pHorse.tactic : "通常" // G1記録用に作戦を保存
   });
 }
 
@@ -1017,6 +1025,58 @@ window.goToNextSeries = async function() {
   const status = globalUserData?.cpu_battle_status || {};
   const isSurvival = (status.battle_type === 'survival' || status.deck_type == 1);
   const currentRoundNum = status.current_round || 1;
+  const seriesId = status.selected_series_id || (status.series_lineup ? status.series_lineup[currentRoundNum - 1] : null);
+
+  // --- ★ 【追加】G1勝利記録の判定と更新ロジック ---
+  let updatedG1Records = { ...g1Records };
+  
+  // 対象のシリーズ情報を探す
+  const seriesObj = seriesMasterData?.find(s => s.series_id === seriesId);
+  if (seriesObj) {
+    // シリーズ内のレース情報を取得 (今回は簡略化のため rounds[0].races を参照)
+    const racesInfo = seriesObj.rounds?.[0]?.races || [];
+    
+    // seriesHistory をループして1着だったレースをチェック
+    seriesHistory.forEach(h => {
+      if (h.pRank === 1) { // プレイヤーが1着
+        const raceInfo = racesInfo[h.raceNum - 1]; // raceNumは1始まりなので-1
+        if (raceInfo) {
+          const gradeStr = String(raceInfo.grade || raceInfo.class || raceInfo.race_grade || "").toUpperCase();
+          const rName = String(raceInfo.race_name || raceInfo.name || "");
+          
+          // G1かどうかの判定 (g1.html の判定基準と同じ)
+          const isG1 = gradeStr.includes('G1') || gradeStr.includes('JPN1') || gradeStr === 'GI' || gradeStr === 'JPI' || rName.includes('G1') || rName.includes('Jpn1');
+          
+          if (isG1) {
+            const raceId = raceInfo.race_id || raceInfo.id || rName; // レースを特定するキー
+            const cleanName = rName.replace(/【.*?】/g, '').replace(/\[.*?\]/g, '').trim();
+            const wonHorse = HORSES_MASTER[h.myHorseId];
+            const horseName = wonHorse ? wonHorse.name : "不明な馬";
+            
+            // 今日の日付を取得 (YYYY/MM/DD)
+            const today = new Date();
+            const dateStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
+            
+            const newRecord = {
+              name: horseName,
+              strategy: h.tactic,
+              date: dateStr
+            };
+
+            // 既存の記録があるかどうかでスロット1/2を振り分ける
+            if (!updatedG1Records[raceId]) {
+              // 初制覇の場合はスロット1に入れる
+              updatedG1Records[raceId] = { slot1: newRecord };
+            } else {
+              // すでに制覇済みの場合は、最新記録としてスロット2に入れる
+              updatedG1Records[raceId].slot2 = newRecord;
+            }
+          }
+        }
+      }
+    });
+  }
+  // --------------------------------------------------
 
   // 1. レース詳細の絶対番地キーへの書き込み (race_results)
   let updatedRaceResults = { ...(status.race_results || {}) };
@@ -1046,17 +1106,13 @@ window.goToNextSeries = async function() {
   const usedIds = currentMatchEntries.map(e => e.horse_id).filter(Boolean);
   const updatedUsedCards = Array.from(new Set([...(status.used_cards_history || []), ...usedIds]));
 
-  const _races = seriesMasterData?.find(s => s.series_id === (status.selected_series_id || status.series_lineup?.[currentRoundNum - 1]))?.rounds?.[0]?.races || [];
+  const _races = seriesObj?.rounds?.[0]?.races || [];
   const totalPotential = currentMatchEntries.reduce((sum, e, idx) => sum + Number(HORSES_MASTER[e.horse_id]?.[_races[idx]?.surface?.includes('ダ') ? 'dirt_potential' : 'turf_potential'] ?? HORSES_MASTER[e.horse_id]?.potential ?? 18), 0);
 
   let maxPotentialLimit = 100;
-  const seriesId = status.selected_series_id || (status.series_lineup ? status.series_lineup[currentRoundNum - 1] : null);
-  try {
-    const seriesObj = seriesMasterData?.find(s => s.series_id === seriesId);
-    if (seriesObj?.potential_limit?.max_total_potential) {
-      maxPotentialLimit = parseInt(seriesObj.potential_limit.max_total_potential, 10);
-    }
-  } catch (e) {}
+  if (seriesObj?.potential_limit?.max_total_potential) {
+    maxPotentialLimit = parseInt(seriesObj.potential_limit.max_total_potential, 10);
+  }
 
   const rateValue = parseFloat(((totalPotential / maxPotentialLimit) * 100).toFixed(1));
 
@@ -1130,7 +1186,6 @@ window.goToNextSeries = async function() {
     current_match: null
   };
 
-  // （古い不要なプロパティの削除・無効化）
   delete updatedCpuBattleStatus.round_history;
   delete updatedCpuBattleStatus.match_round_results;
 
@@ -1138,7 +1193,8 @@ window.goToNextSeries = async function() {
     await setDoc(doc(db, "users", currentUser.uid), {
       cpu_battle_status: updatedCpuBattleStatus,
       series_best_records: updatedBestRecords,
-      survival_best_records: updatedSurvivalRecords
+      survival_best_records: updatedSurvivalRecords,
+      g1_records: updatedG1Records // ★ここでG1記録をFirebaseのユーザー直下に保存！
     }, { merge: true });
 
     window.location.href = 'battle.html';
