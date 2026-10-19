@@ -342,7 +342,6 @@
   <div class="error-modal-content">
     <div class="error-title">⚠ エラー発生 / データ異常</div>
     <div class="error-msg" id="error-modal-msg">対戦データに問題が発生したか、正しく読み込めませんでした。</div>
-    <!-- 修正：quitOnlineMatch() を呼んで相手に退室を伝達してから戻る -->
     <button class="btn-secondary" onclick="quitOnlineMatch()">🔙 オンラインロビー（online.html）に戻る</button>
   </div>
 </div>
@@ -699,6 +698,7 @@ async function ensureUsedHorsesUpdated() {
   }
 }
 
+// ★充足率（合計ポテンシャル）の計算と記録を追加
 async function calculateAndUploadAllRaces() {
   await ensureUsedHorsesUpdated();
 
@@ -720,6 +720,19 @@ async function calculateAndUploadAllRaces() {
     const seriesId = Array.isArray(matchSeries) ? (matchSeries[currentSeriesIndex] || matchSeries[0]) : matchSeries;
     const seriesInfo = seriesMasterData[seriesId] || Object.values(seriesMasterData)[0] || {};
     const racesInSeries = seriesInfo.races || (seriesInfo.rounds && seriesInfo.rounds[0] ? seriesInfo.rounds[0].races : null);
+
+    // ★ ポテンシャル上限の取得（充足率計算用）
+    let maxPotentialLimit = 85; 
+    if (seriesInfo?.potential_limit?.max_total_potential) {
+      maxPotentialLimit = parseInt(seriesInfo.potential_limit.max_total_potential, 10);
+    } else if (seriesInfo?.potential_limit?.total_limit) {
+      maxPotentialLimit = parseInt(seriesInfo.potential_limit.total_limit, 10);
+    } else if (seriesInfo?.potential_limit?.max_pt) {
+      maxPotentialLimit = parseInt(seriesInfo.potential_limit.max_pt, 10);
+    }
+
+    let p1TotalPt = 0;
+    let p2TotalPt = 0;
 
     for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
       const raceGrid = fullRaceGrids[rIdx];
@@ -759,10 +772,25 @@ async function calculateAndUploadAllRaces() {
       if (p2Rank === 1) p2_r1++;
       if (p2Rank === 2) p2_r2++;
       if (p2Rank === 3) p2_r3++;
+
+      // ★ 充足率計算用のポテンシャル合算
+      const isDirt = rInfo.surface.includes('ダ');
+      if (p1Horse) {
+        const pt = isDirt ? (p1Horse.dirt_potential ?? p1Horse.potential ?? 0) : (p1Horse.turf_potential ?? p1Horse.potential ?? 0);
+        p1TotalPt += Number(pt);
+      }
+      if (p2Horse) {
+        const pt = isDirt ? (p2Horse.dirt_potential ?? p2Horse.potential ?? 0) : (p2Horse.turf_potential ?? p2Horse.potential ?? 0);
+        p2TotalPt += Number(pt);
+      }
     }
 
     const p1_r4Plus = Math.max(0, 5 - (p1_r1 + p1_r2 + p1_r3));
     const p2_r4Plus = Math.max(0, 5 - (p2_r1 + p2_r2 + p2_r3));
+
+    // ★ 充足率の計算
+    const p1Fulfillment = parseFloat(((p1TotalPt / maxPotentialLimit) * 100).toFixed(1));
+    const p2Fulfillment = parseFloat(((p2TotalPt / maxPotentialLimit) * 100).toFixed(1));
 
     const p1RoundResults = { ...(roomData.p1_round_results || {}) };
     const p2RoundResults = { ...(roomData.p2_round_results || {}) };
@@ -770,13 +798,17 @@ async function calculateAndUploadAllRaces() {
     p1RoundResults[String(seriesNum)] = {
       isWin: (p1RoundWins > p2RoundWins),
       myWins: p1RoundWins, oppWins: p2RoundWins,
-      r1: p1_r1, r2: p1_r2, r3: p1_r3, r4Plus: p1_r4Plus
+      r1: p1_r1, r2: p1_r2, r3: p1_r3, r4Plus: p1_r4Plus,
+      teamPotential: p1TotalPt,
+      fulfillment: p1Fulfillment
     };
 
     p2RoundResults[String(seriesNum)] = {
       isWin: (p2RoundWins > p1RoundWins),
       myWins: p2RoundWins, oppWins: p1RoundWins,
-      r1: p2_r1, r2: p2_r2, r3: p2_r3, r4Plus: p2_r4Plus
+      r1: p2_r1, r2: p2_r2, r3: p2_r3, r4Plus: p2_r4Plus,
+      teamPotential: p2TotalPt,
+      fulfillment: p2Fulfillment
     };
 
     const roomRef = doc(db, "online_matches", roomId);
@@ -920,11 +952,12 @@ async function processGiveupResultsAndUsedHorses(data, p1Giveup, p2Giveup) {
     p1IsWin = true; p1W = 5;
   }
 
+  // ★ ギブアップ時の充足率は0%として記録
   p1RoundResults[String(seriesNum)] = {
-    isGiveUp: true, isWin: p1IsWin, myWins: p1W, oppWins: p2W, r1: 0, r2: 0, r3: 0, r4Plus: 5
+    isGiveUp: true, isWin: p1IsWin, myWins: p1W, oppWins: p2W, r1: 0, r2: 0, r3: 0, r4Plus: 5, teamPotential: 0, fulfillment: 0
   };
   p2RoundResults[String(seriesNum)] = {
-    isGiveUp: true, isWin: p2IsWin, myWins: p2W, oppWins: p1W, r1: 0, r2: 0, r3: 0, r4Plus: 5
+    isGiveUp: true, isWin: p2IsWin, myWins: p2W, oppWins: p1W, r1: 0, r2: 0, r3: 0, r4Plus: 5, teamPotential: 0, fulfillment: 0
   };
 
   updatePayload.p1_round_results = p1RoundResults;
@@ -991,13 +1024,11 @@ async function handleRoomDataUpdate(data) {
   const modalBtn = document.getElementById('modalNextBtn');
   const statusMsgEl = document.getElementById('modalHostStatusMsg');
 
-  // ★ 【新アーキテクチャ】観戦完了フラグをベースにした画面遷移処理
   const myWatchedField = isHost ? 'player1_watched' : 'player2_watched';
   const oppWatchedField = isHost ? 'player2_watched' : 'player1_watched';
 
   if (data[myWatchedField]) {
     if (data[oppWatchedField]) {
-      // ★ 修正箇所：双方が完了したら、ループさせずに自動で画面遷移とデータ初期化を行う
       if (modalBtn) {
         modalBtn.disabled = true;
         modalBtn.textContent = "🔄 次の回戦へ移動しています...";
@@ -1009,10 +1040,9 @@ async function handleRoomDataUpdate(data) {
 
       if (!isNavigatingAway) {
         isNavigatingAway = true;
-        stopRoomListening(); // ★追記: 遷移前にリスナー解除して重複処理を防ぐ
+        stopRoomListening(); 
         
         if (isHost) {
-          // ホストが部屋の情報を次ラウンド向けにリセットして画面遷移
           try {
             const roomRef = doc(db, "online_matches", roomId);
             await updateDoc(roomRef, {
@@ -1033,10 +1063,9 @@ async function handleRoomDataUpdate(data) {
             window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
           } catch(e) {
             console.error("次ラウンド更新エラー", e);
-            window.location.href = 'online.html'; // エラー時はロビーへ
+            window.location.href = 'online.html';
           }
         } else {
-          // ゲストはホストのリセット処理を少し待ってから画面遷移
           setTimeout(() => {
             const matchMode = urlParams.get('mode') || data.match_mode || 'online';
             window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
