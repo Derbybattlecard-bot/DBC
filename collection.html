@@ -1,713 +1,281 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>世代別カード図鑑 - DERBY BATTLE CARD</title>
-  <style>
-    :root {
-      --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%);
-      --card-bg: rgba(255, 255, 255, 0.94);
-      --card-inner-bg: #f2f8f3;
-      --accent-gold: #c29b1d;
-      --text-color: #1a2e1d;
-      --sub-text: #4e6b52;
-      --header-green: #0d4220;
-      --border-green: #b2d4b6;
-      --gold-gradient: linear-gradient(135deg, #fef08a, #d4af37);
-      --silver-gradient: linear-gradient(135deg, #f3f4f6, #9ca3af);
-      --bronze-gradient: linear-gradient(135deg, #fcd34d, #b45309);
-      --binder-bg: #1c2620;
-    }
-    
-    body {
-      margin: 0;
-      padding: 8px;
-      background: var(--bg-gradient);
-      background-attachment: fixed;
-      color: var(--text-color);
-      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
-      display: flex;
-      justify-content: center;
-    }
-    .container {
-      width: 100%;
-      max-width: 480px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    /* 共通ヘッダー（タブ集約型） */
-    .header-bar {
-      display: flex;
-      flex-direction: column;
-      background: #ffffff;
-      border-radius: 6px;
-      border: 1px solid var(--border-green);
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      overflow: hidden;
-    }
-
-    /* グローバルタブ (ページ間移動 兼 ホーム戻る用) */
-    .global-tabs {
-      display: flex;
-      background: #e2efe3;
-    }
-    .global-tab-btn {
-      flex: 1;
-      padding: 12px 0;
-      text-align: center;
-      font-weight: bold;
-      font-size: 12.5px;
-      color: var(--sub-text);
-      text-decoration: none;
-      border-right: 1px solid var(--border-green);
-      border-bottom: 3px solid var(--border-green);
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-    }
-    .global-tab-btn:last-child { border-right: none; }
-    .global-tab-btn.home-tab {
-      flex: 0.6;
-      background: #d0e4d2;
-      color: var(--header-green);
-    }
-    .global-tab-btn.active {
-      background: #ffffff;
-      color: var(--header-green);
-      border-bottom: 3px solid var(--header-green);
-    }
-
-    /* 統計バー */
-    .stats-bar {
-      background: #ffffff;
-      border: 1px solid var(--border-green);
-      border-radius: 6px;
-      padding: 6px 4px;
-      display: flex;
-      justify-content: space-around;
-      align-items: center;
-      text-align: center;
-    }
-    .stat-item { flex: 1; }
-    .stat-label { font-size: 9px; color: var(--sub-text); margin-bottom: 1px; display: block; }
-    .stat-value { font-size: 14px; font-weight: bold; color: var(--header-green); }
-
-    /* フィルターボタン群 */
-    .filter-scroll {
-      display: flex;
-      gap: 6px;
-      overflow-x: auto;
-      padding-bottom: 5px;
-      scrollbar-width: none;
-    }
-    .filter-scroll::-webkit-scrollbar { display: none; }
-    .filter-btn {
-      background: rgba(255, 255, 255, 0.8);
-      color: var(--sub-text);
-      border: 1px solid var(--border-green);
-      padding: 6px 14px;
-      border-radius: 16px;
-      font-size: 11.5px;
-      white-space: nowrap;
-      cursor: pointer;
-      font-weight: bold;
-    }
-    .filter-btn.active {
-      background: var(--header-green);
-      color: #ffffff;
-      border-color: var(--header-green);
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-
-    /* バインダー風コンテナ */
-    .binder-container {
-      background: var(--binder-bg);
-      border: 3px solid #141b17;
-      border-radius: 12px;
-      padding: 8px 6px;
-      box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 4px 12px rgba(0,0,0,0.2);
-      min-height: 400px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      position: relative;
-    }
-    .binder-container::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 10px; bottom: 0; width: 6px;
-      background: repeating-linear-gradient(
-        to bottom,
-        transparent, transparent 40px,
-        #9ca3af 40px, #e5e7eb 42px, #9ca3af 44px,
-        transparent 44px, transparent 80px
-      );
-      z-index: 10;
-      pointer-events: none;
-    }
-
-    /* 世代セクション */
-    .gen-section {
-      background: rgba(255, 255, 255, 0.03);
-      border-radius: 8px;
-      padding: 6px 4px 6px 20px;
-    }
-    .gen-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      padding-bottom: 4px;
-    }
-    .gen-title { font-size: 12px; font-weight: bold; color: var(--border-green); letter-spacing: 1px; }
-    .gen-progress { font-size: 10px; color: #9ca3af; }
-
-    /* TCG風 カードグリッド (横5〜6列用) */
-    .card-grid {
-      display: grid;
-      /* 75px -> 50px に縮小して5〜6列並ぶように変更 */
-      grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
-      gap: 4px;
-    }
-
-    .card-thumb {
-      aspect-ratio: 59 / 86;
-      border-radius: 4px;
-      position: relative;
-      cursor: pointer;
-      transition: transform 0.1s;
-      overflow: hidden;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.5);
-      display: flex;
-      flex-direction: column;
-      border: 1.5px solid #a3a3a3;
-      font-family: 'Hiragino Mincho ProN', 'MS PMincho', serif;
-    }
-    .card-thumb:active { transform: scale(0.95); }
-
-    /* 適性別 背景色 */
-    .surface-turf { background: linear-gradient(135deg, #183321, #244b31); }
-    .surface-dirt { background: linear-gradient(135deg, #3d2918, #5c3f25); }
-    .surface-both { background: linear-gradient(135deg, #183321 50%, #5c3f25 50%); }
-
-    /* 未所持 */
-    .card-thumb.unobtained {
-      opacity: 0.5; filter: grayscale(100%); cursor: default;
-      background: repeating-linear-gradient(45deg, #1c2620, #1c2620 5px, #141b17 5px, #141b17 10px);
-      border: 1px solid #333;
-    }
-    .card-thumb.unobtained:active { transform: none; }
-    
-    /* レアリティ別フレーム */
-    .card-thumb.rarity-r { border-color: #b45309; }
-    .card-thumb.rarity-sr { border-image: var(--silver-gradient) 1; }
-    .card-thumb.rarity-ssr { border-image: var(--gold-gradient) 1; }
-
-    /* 背景の特大筆文字（透かし） */
-    .watermark-text {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -55%);
-      font-size: 38px; /* カード幅に合わせて縮小 */
-      font-weight: 900;
-      color: #ffffff;
-      opacity: 0.15;
-      text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-      z-index: 1;
-      pointer-events: none;
-    }
-
-    /* レーダーアートのエリア */
-    .radar-art-area {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 2;
-      padding: 1px; /* ギリギリまで広げる */
-    }
-    .radar-svg {
-      width: 120%; /* 枠からはみ出るくらい大きく見せる */
-      height: 120%;
-      overflow: visible;
-      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));
-    }
-    
-    /* レアリティごとのレーダー色 */
-    .rarity-ssr .radar-polygon { fill: rgba(212, 175, 55, 0.45); stroke: #fef08a; stroke-width: 2.5; }
-    .rarity-sr  .radar-polygon { fill: rgba(156, 163, 175, 0.45); stroke: #f3f4f6; stroke-width: 2; }
-    .rarity-r   .radar-polygon { fill: rgba(180, 83, 9, 0.45); stroke: #fcd34d; stroke-width: 1.5; }
-    .radar-polygon { fill: rgba(163, 163, 163, 0.45); stroke: #e5e5e5; stroke-width: 1.5; }
-
-    /* 下部の名前帯 */
-    .card-name-bar {
-      background: rgba(0, 0, 0, 0.85); color: #fff; font-size: 7.5px; font-weight: bold;
-      text-align: center; padding: 2px 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      font-family: 'Helvetica Neue', Arial, sans-serif; z-index: 3;
-    }
-
-    .count-badge {
-      position: absolute; top: -3px; right: -3px; background: #e53935; color: #fff; font-size: 8px;
-      font-weight: bold; padding: 1px 3px; border-radius: 4px; border: 1px solid #fff; z-index: 5;
-    }
-
-    .loading-msg, .error-msg {
-      text-align: center; padding: 40px 10px; color: var(--border-green); font-weight: bold; font-size: 13px;
-    }
-    .error-msg { color: #d93838; }
-
-    /* モーダル共通 */
-    .modal-overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.8); display: none;
-      justify-content: center; align-items: center; z-index: 1000;
-      backdrop-filter: blur(2px);
-    }
-    .modal-overlay.active { display: flex; }
-
-    /* カード詳細モーダル (新UI) */
-    .detail-modal-container {
-      display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%;
-    }
-    .card-modal-wrapper {
-      width: 82vw; max-width: 325px; aspect-ratio: 59 / 86; background: #ffffff;
-      border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5); position: relative;
-    }
-    .detail-close-btn {
-      position: absolute; top: 10px; right: 10px; width: 32px; height: 32px;
-      background: rgba(0,0,0,0.6); color: #fff; border: 2px solid #fff; border-radius: 50%;
-      font-size: 18px; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center;
-    }
-    .btn-trade-offer-large {
-      width: 82vw; max-width: 325px; background: linear-gradient(135deg, #d4af37, #b8860b);
-      color: #111827; border: 2px solid #fef08a; border-radius: 8px; padding: 12px;
-      font-size: 14px; font-weight: 900; cursor: pointer; box-shadow: 0 4px 10px rgba(212, 175, 55, 0.4);
-    }
-    .btn-trade-offer-large:disabled {
-      background: #4b5563; border-color: #6b7280; color: #9ca3af; cursor: not-allowed; box-shadow: none;
-    }
-
-    /* トレード出品モーダル (既存UI維持) */
-    .modal-box {
-      background: #ffffff; border-radius: 8px; width: 92%; max-width: 400px;
-      max-height: 85vh; overflow-y: auto; padding: 14px; box-sizing: border-box; border: 2px solid var(--border-green);
-    }
-    .modal-title { font-size: 14px; font-weight: bold; color: var(--header-green); margin-bottom: 10px; text-align: center; }
-    .form-group { margin-bottom: 8px; display: flex; flex-direction: column; gap: 3px; font-size: 11px; }
-    .form-group label { font-weight: bold; color: var(--sub-text); font-size: 10.5px; }
-    .form-input, .form-textarea { padding: 5px 6px; border: 1px solid var(--border-green); border-radius: 4px; font-size: 11px; box-sizing: border-box; width: 100%; }
-    .horse-name-inputs { display: flex; flex-direction: column; gap: 4px; }
-    .form-textarea { resize: vertical; height: 40px; }
-    .modal-btns { display: flex; gap: 8px; margin-top: 12px; }
-    .btn-modal-submit { flex: 1; background: var(--header-green); color: #fff; border: none; padding: 8px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; }
-    .btn-modal-cancel { flex: 1; background: #e0e0e0; color: #333; border: none; padding: 8px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; }
-  </style>
-</head>
-<body>
-<div class="container">
-  <!-- ヘッダー ＆ グローバルタブ -->
-  <div class="header-bar">
-    <div class="global-tabs">
-      <a href="index.html" class="global-tab-btn home-tab">🏠 ホーム</a>
-      <a href="collection.html" class="global-tab-btn active">🎴 図鑑</a>
-      <a href="g1.html" class="global-tab-btn">🏆 G1殿堂</a>
-    </div>
-  </div>
-
-  <!-- 統計バー -->
-  <div class="stats-bar">
-    <div class="stat-item"><span class="stat-label">獲得種類</span><span class="stat-value" id="statObtainedCount">0</span></div>
-    <div class="stat-item"><span class="stat-label">全カード</span><span class="stat-value" id="statTotalCount">0</span></div>
-    <div class="stat-item"><span class="stat-label">コンプ率</span><span class="stat-value" id="statCompRate">0%</span></div>
-  </div>
-
-  <!-- フィルター -->
-  <div class="filter-scroll" id="filterContainer">
-    <!-- JSで生成 -->
-  </div>
-
-  <!-- メインコンテンツ (バインダー) -->
-  <div class="binder-container" id="mainContent">
-    <div class="loading-msg" id="loadingDisplay">カードデータを読み込み中...</div>
-  </div>
-</div>
-<!-- ミニカードの描画イメージ -->
-<div class="card-thumb rarity-ssr surface-turf">
-  <!-- 左上の誕生年バッジ -->
-  <div class="birth-year-badge">1998</div>
-  
-  <!-- くっきりさせた脚質の透かし -->
-  <div class="watermark-text">逃</div>
-  
-  <!-- レーダーアート -->
-  <div class="radar-art-area">
-    <svg viewBox="0 0 100 100" class="radar-svg">
-      <polygon points="..." class="radar-polygon" />
-    </svg>
-  </div>
-  
-  <!-- ど真ん中に配置したポテンシャル(PT) -->
-  <div class="pt-center">92</div>
-  
-  <!-- 2行対応で少し大きくした名前帯 -->
-  <div class="card-name-bar">サイレンス<br>スズカ</div>
-</div>
-<!-- モーダル: カード詳細表示 (新UI) -->
-<div class="modal-overlay" id="cardDetailModal" style="z-index: 2000;">
-  <button class="detail-close-btn" onclick="closeModal('cardDetailModal')">×</button>
-  <div class="detail-modal-container">
-    <div class="card-modal-wrapper" id="cardDetailBox">
-      <!-- cardRenderer によってここにカードが描画される -->
-    </div>
-    
-    <!-- トレード出品ボタン -->
-    <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
-      <button class="btn-trade-offer-large" id="btnOpenTradeSetup" disabled onclick="openTradeSetupModal()">
-        📤 このカードをトレードに出品する
-      </button>
-      <div id="tradeNotice" style="color: #ccc; font-size: 11px; font-weight: bold;">
-        ※出品には2枚以上所持している必要があります
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- モーダル: トレード出品条件設定 (完全既存維持) -->
-<div class="modal-overlay" id="tradeModal" style="z-index: 2010;">
-  <div class="modal-box">
-    <div class="modal-title">🔁 トレード出品条件設定</div>
-    <div style="font-size:11px; background:#f2f8f3; padding:6px; border-radius:4px; margin-bottom:8px;">
-      出品カード: <strong id="modalCardName" style="color:var(--header-green);"></strong>
-    </div>
-    <div class="form-group">
-      <label>希望条件（馬名を直接入力・最大5つ）</label>
-      <div class="horse-name-inputs">
-        <input type="text" class="form-input want-horse-input" placeholder="希望馬名 1（例: ディープインパクト）">
-        <input type="text" class="form-input want-horse-input" placeholder="希望馬名 2（任意）">
-        <input type="text" class="form-input want-horse-input" placeholder="希望馬名 3（任意）">
-        <input type="text" class="form-input want-horse-input" placeholder="希望馬名 4（任意）">
-        <input type="text" class="form-input want-horse-input" placeholder="希望馬名 5（任意）">
-      </div>
-    </div>
-    <div class="form-group">
-      <label>出品コメント</label>
-      <textarea class="form-textarea" id="tradeComment" placeholder="例: 探している馬です！よろしくお願いします。"></textarea>
-    </div>
-    <div class="modal-btns">
-      <button class="btn-modal-cancel" id="btnCancelTrade">キャンセル</button>
-      <button class="btn-modal-submit" id="btnSubmitTrade">出品する</button>
-    </div>
-  </div>
-</div>
-
-<!-- 既存のJSロジック + ミニカード生成ロジック -->
-<script type="module">
-  import { auth, db } from './firebase-config.js';
-  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-  import { createTradeListing } from './js/trade-service.js';
-  import { cardRenderer } from './js/card_renderer.js';
-
-  let HORSES_ARRAY = [];
-  let HORSES_MASTER = {};
-  let currentUser = null;
-  let selectedHorseForTrade = null;
-  let userInventoryGlobal = {};
-  let currentFilter = 'ALL';
-
-  function parseHorseYear(horse) {
-    if (horse.gen_year) return Number(horse.gen_year);
-    if (horse.year) return Number(horse.year);
-    const idStr = String(horse.horse_id ?? horse.id ?? '');
-    if (idStr.length >= 4) {
-      const yy = parseInt(idStr.substring(0, idStr.length - 2), 10);
-      if (!isNaN(yy)) {
-        return yy >= 30 ? 1900 + yy : 2000 + yy;
-      }
-    }
-    return 9999;
-  }
-
-  function getGenGroupInfo(year) {
-    if (year === 9999 || isNaN(year)) return { id: 'unknown', label: '年代不明', sortOrder: 0 };
-    if (year <= 1980) return { id: 'gen_1980', label: '〜1980', sortOrder: 1980 };
-    if (year <= 1985) return { id: 'gen_1985', label: '1981〜1985', sortOrder: 1985 };
-    if (year <= 1990) return { id: 'gen_1990', label: '1986〜1990', sortOrder: 1990 };
-    if (year <= 2000) return { id: 'gen_2000', label: '1991〜2000', sortOrder: 2000 };
-    return { id: `gen_${year}`, label: `${year}年代`, sortOrder: year };
-  }
-
-  // --- ミニカード用 動的生成関数群 ---
-  function getSurfaceClass(horse) {
-    const t = Number(horse.turf_potential ?? horse.turf) || 0;
-    const d = Number(horse.dirt_potential ?? horse.dirt) || 0;
-    if (t > 0 && d > 0) return 'surface-both';
-    if (t > 0) return 'surface-turf';
-    if (d > 0) return 'surface-dirt';
-    return 'surface-turf'; 
-  }
-
-  function getStyleChar(horse) {
-    const style = horse.style || horse.running_style || horse.leg_style || '他';
-    if (style.includes('逃')) return '逃';
-    if (style.includes('先')) return '先';
-    if (style.includes('差')) return '差';
-    if (style.includes('追')) return '追';
-    return style.charAt(0);
-  }
-
-  function getRadarPoints(horse) {
-    const getVal = (v) => {
-      if (typeof v === 'number') return v;
-      // 数値以外（SS等）が入ってきた場合のフォールバック（最大20基準）
-      const rankMap = { 'SS': 20, 'S': 18, 'A': 16, 'B': 14, 'C': 12, 'D': 10, 'E': 8 };
-      return rankMap[v] || 10;
-    };
-    const spd = getVal(horse.speed);
-    const stm = getVal(horse.stamina);
-    const shp = getVal(horse.sharp ?? horse.sharpness);
-    const jzk = getVal(horse.jizoku);
-    const gut = getVal(horse.guts);
-
-    // ★修正: 最大値20の時に半径45（SVG枠のほぼ限界）まで広がるように計算
-    const calcR = (val) => (val / 20) * 45;
-    const cx = 50, cy = 50;
-    const angles = [0, 72, 144, 216, 288];
-    const stats = [spd, stm, shp, jzk, gut];
-    
-    return stats.map((val, i) => {
-       const r = calcR(val);
-       const rad = (angles[i] - 90) * (Math.PI / 180);
-       return `${(cx + r * Math.cos(rad)).toFixed(1)},${(cy + r * Math.sin(rad)).toFixed(1)}`;
-    }).join(' ');
-  }
-  // ---------------------------------
-
-  onAuthStateChanged(auth, async (user) => {
-    if (!user) {
-      window.location.href = 'auth.html';
-      return;
-    }
-    currentUser = user;
-
-    try {
-      await cardRenderer.init();
-      const res = await fetch('./data/horses_master.json');
-      if (!res.ok) throw new Error(`horses_master.json の読み込みに失敗しました`);
-      
-      HORSES_ARRAY = await res.json();
-      HORSES_MASTER = {};
-
-      HORSES_ARRAY.sort((a, b) => {
-        const yearA = parseHorseYear(a);
-        const yearB = parseHorseYear(b);
-        if (yearA !== yearB) return yearB - yearA;
-        const idA = Number(a.horse_id ?? a.id ?? 0);
-        const idB = Number(b.horse_id ?? b.id ?? 0);
-        return idA - idB;
-      });
-
-      HORSES_ARRAY.forEach(h => {
-        const id = String(h.horse_id ?? h.id);
-        HORSES_MASTER[id] = h;
-      });
-
-      const inventorySnap = await getDocs(collection(db, `users/${user.uid}/inventory`));
-      inventorySnap.forEach(docSnap => {
-        userInventoryGlobal[docSnap.id] = docSnap.data();
-      });
-
-      renderCollection(userInventoryGlobal);
-
-    } catch (error) {
-      console.error("図鑑ロードエラー:", error);
-      document.getElementById('mainContent').innerHTML = `<div class="error-msg">⚠️ カードデータの読み込みに失敗しました。</div>`;
-    }
-  });
-
-  window.filterGen = function(genId) {
-    currentFilter = genId;
-    renderCollection(userInventoryGlobal);
-  };
-
-  function renderCollection(inventory) {
-    if (!HORSES_ARRAY || HORSES_ARRAY.length === 0) return;
-
-    const groupMap = {};
-    let totalObtained = 0;
-
-    HORSES_ARRAY.forEach(horse => {
-      const strId = String(horse.horse_id ?? horse.id);
-      const cardInfo = inventory[strId];
-      const count = (typeof cardInfo === 'object' && cardInfo !== null) ? (cardInfo.count || 1) : (cardInfo || 0);
-      const lockedCount = (typeof cardInfo === 'object' && cardInfo !== null) ? (cardInfo.locked_count || 0) : 0;
-      const availableCount = count - lockedCount;
-
-      if (count > 0) totalObtained++;
-
-      const year = parseHorseYear(horse);
-      const groupInfo = getGenGroupInfo(year);
-
-      if (!groupMap[groupInfo.id]) {
-        groupMap[groupInfo.id] = { info: groupInfo, horses: [] };
-      }
-      groupMap[groupInfo.id].horses.push({ horse, count, availableCount });
-    });
-
-    document.getElementById('statObtainedCount').textContent = totalObtained;
-    document.getElementById('statTotalCount').textContent = HORSES_ARRAY.length;
-    const rate = Math.floor((totalObtained / HORSES_ARRAY.length) * 100);
-    document.getElementById('statCompRate').textContent = `${rate}%`;
-
-    const sortedGroups = Object.values(groupMap).sort((a, b) => b.info.sortOrder - a.info.sortOrder);
-
-    const filterContainer = document.getElementById('filterContainer');
-    filterContainer.innerHTML = `<button class="filter-btn ${currentFilter === 'ALL' ? 'active' : ''}" onclick="filterGen('ALL')">すべて</button>`;
-    sortedGroups.forEach(g => {
-      filterContainer.innerHTML += `<button class="filter-btn ${currentFilter === g.info.id ? 'active' : ''}" onclick="filterGen('${g.info.id}')">${g.info.label}</button>`;
-    });
-
-    const contentEl = document.getElementById('mainContent');
-    contentEl.innerHTML = '';
-
-    sortedGroups.forEach(group => {
-      if(currentFilter !== 'ALL' && currentFilter !== group.info.id) return;
-
-      const horsesInGroup = group.horses;
-      const obtainedInGroup = horsesInGroup.filter(item => item.count > 0).length;
-
-      const sectionEl = document.createElement('div');
-      sectionEl.className = 'gen-section';
-      sectionEl.innerHTML = `
-        <div class="gen-header">
-          <span class="gen-title">📁 ${group.info.label} 世代</span>
-          <span class="gen-progress">${obtainedInGroup} / ${horsesInGroup.length}</span>
-        </div>
-      `;
-
-      const gridEl = document.createElement('div');
-      gridEl.className = 'card-grid';
-
-      gridEl.innerHTML = horsesInGroup.map(item => {
-        const h = item.horse;
-        const isObtained = item.count > 0;
-        const strId = String(h.horse_id ?? h.id);
-        const rarityClass = isObtained && h.rarity ? `rarity-${h.rarity.toLowerCase()}` : '';
-        const countBadge = item.count > 1 ? `<div class="count-badge">${item.count}</div>` : '';
-        
-        const surfaceClass = isObtained ? getSurfaceClass(h) : '';
-        const styleChar = getStyleChar(h);
-        const radarPoints = getRadarPoints(h);
-
-        let cardContent = '';
-        if (isObtained) {
-          cardContent = `
-            <div class="watermark-text">${styleChar}</div>
-            <div class="radar-art-area">
-              <svg viewBox="0 0 100 100" class="radar-svg">
-                <polygon points="${radarPoints}" class="radar-polygon" stroke-linejoin="round" />
-              </svg>
-            </div>
-            <div class="card-name-bar">${h.name}</div>
-          `;
-        } else {
-          cardContent = `<div class="card-name-bar">NO DATA</div>`;
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>コレクションルーム</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
         }
-
-        return `
-          <div class="card-thumb ${isObtained ? 'obtained' : 'unobtained'} ${rarityClass} ${surfaceClass}" 
-               ${isObtained ? `onclick="openCardDetail('${strId}', true, ${item.count},${item.availableCount})"` : ''}>
-            ${countBadge}
-            ${cardContent}
-          </div>
-        `;
-      }).join('');
-
-      sectionEl.appendChild(gridEl);
-      contentEl.appendChild(sectionEl);
-    });
-  }
-
-  // --- モーダル制御ロジック ---
-
-  window.openCardDetail = (horseId, isObtained, count, availableCount) => {
-    if (!isObtained) return;
-
-    const cardHtml = cardRenderer.renderCardUI(horseId, 'large');
-    document.getElementById('cardDetailBox').innerHTML = cardHtml;
-    
-    const btnTrade = document.getElementById('btnOpenTradeSetup');
-    const notice = document.getElementById('tradeNotice');
-    
-    if(count >= 2 && availableCount >= 2) {
-      btnTrade.disabled = false;
-      notice.style.display = 'none';
-      selectedHorseForTrade = HORSES_MASTER[horseId];
-    } else {
-      btnTrade.disabled = true;
-      notice.style.display = 'block';
-      selectedHorseForTrade = null;
-    }
-
-    document.getElementById('cardDetailModal').classList.add('active');
-  };
-
-  window.openTradeSetupModal = () => {
-    if (!selectedHorseForTrade) return;
-
-    document.getElementById('modalCardName').textContent = selectedHorseForTrade.name;
-    document.querySelectorAll('.want-horse-input').forEach(i => i.value = "");
-    document.getElementById('tradeComment').value = "";
-    
-    closeModal('cardDetailModal');
-    document.getElementById('tradeModal').classList.add('active');
-  };
-
-  window.closeModal = (modalId) => {
-    document.getElementById(modalId).classList.remove('active');
-  };
-
-  document.getElementById('btnCancelTrade').addEventListener('click', () => {
-    closeModal('tradeModal');
-  });
-
-  document.getElementById('btnSubmitTrade').addEventListener('click', async () => {
-    if (!selectedHorseForTrade || !currentUser) return;
-
-    const inputs = document.querySelectorAll('.want-horse-input');
-    const wantHorseNames = Array.from(inputs).map(i => i.value);
-    const comment = document.getElementById('tradeComment').value.trim();
-
-    try {
-      const q = query(
-        collection(db, "trades"),
-        where("seller_uid", "==", currentUser.uid),
-        where("status", "==", "active")
-      );
-      const activeSnap = await getDocs(q);
-
-      if (!activeSnap.empty) {
-        alert("既に出品中のカードがあります。トレードの出品は1人1つまでです。\n新規に出品する場合は、掲示板の「自分の出品」から現在の出品を取り下げてください。");
-        return;
-      }
-
-      await createTradeListing(db, currentUser, selectedHorseForTrade, wantHorseNames, comment);
-      alert(`「${selectedHorseForTrade.name}」をトレード掲示板に出品しました！`);
-      closeModal('tradeModal');
-      location.reload();
-    } catch (err) {
-      console.error("出品エラー:", err);
-      alert("出品エラー詳細:\n" + (err.code || err.message || JSON.stringify(err)));
-    }
-  });
-
-</script>
+        .tab-btn.active {
+            border-bottom: 2px solid #3b82f6;
+            color: #3b82f6;
+        }
+        .card-item {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card-item:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
+.watermark-text {
+}
+    </style>
+</head>
+<body class="min-h-screen pb-12">
+    <header class="bg-gray-900 border-b border-gray-800 sticky top-0 z-50 p-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <h1 class="text-xl font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-book-open text-blue-500"></i> コレクションルーム
+            </h1>
+        </div>
+        <div id="status" class="text-xs text-gray-400 flex items-center gap-1">
+            <i class="fa-solid fa-cloud-arrow-down animate-pulse text-blue-400"></i> 読込中...
+        </div>
+    </header>
+<!-- Navigation Tabs -->
+    <div id="global-tabs" class="bg-gray-900 border-b border-gray-800 flex justify-center text-sm font-medium text-gray-400 mb-6 flex-wrap gap-2">
+        <a href="index.html" class="tab-btn px-4 py-3 flex items-center gap-2 transition-colors hover:text-white">
+            <i class="fa-solid fa-house text-gray-400"></i> ホーム
+        </a>
+        <button class="tab-btn active px-6 py-3 flex items-center gap-2 transition-colors" onclick="switchTab('all')">
+            <i class="fa-solid fa-id-card"></i> カード図鑑
+        </button>
+        <button class="tab-btn px-6 py-3 flex items-center gap-2 transition-colors" onclick="switchTab('g1')">
+            <i class="fa-solid fa-trophy text-yellow-500"></i> G1ギャラリー
+        </button>
+    </div>
+<!-- Stats Overview -->
+    <div class="max-w-6xl mx-auto px-4 mb-6 grid grid-cols-3 gap-4 text-center">
+        <div class="bg-gray-800/60 p-3 rounded-lg border border-gray-700/50">
+            <div class="text-xs text-gray-400 mb-1">獲得種類</div>
+            <div id="stat-owned-types" class="text-xl font-bold text-blue-400">0</div>
+        </div>
+        <div class="bg-gray-800/60 p-3 rounded-lg border border-gray-700/50">
+            <div class="text-xs text-gray-400 mb-1">全カード数</div>
+            <div id="stat-total-cards" class="text-xl font-bold text-gray-200">0</div>
+        </div>
+        <div class="bg-gray-800/60 p-3 rounded-lg border border-gray-700/50">
+            <div class="text-xs text-gray-400 mb-1">コンプ率</div>
+            <div id="stat-comp-rate" class="text-xl font-bold text-green-400">0%</div>
+        </div>
+    </div>
+<!-- Filter Controls -->
+    <div class="max-w-6xl mx-auto px-4 mb-6 flex flex-wrap gap-2 justify-between items-center">
+        <div id="filter-container" class="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+            <button class="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full whitespace-nowrap font-medium">すべて</button>
+        </div>
+    </div>
+<!-- Main Content Container -->
+    <main class="max-w-6xl mx-auto px-4">
+        <div id="card-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            <div class="col-span-full text-center py-12 text-gray-500 flex flex-col items-center justify-center gap-2">
+                <i class="fa-solid fa-spinner animate-spin text-2xl text-blue-500"></i>
+                <span>カードデータを読み込み中...</span>
+            </div>
+        </div>
+    </main>
+<!-- Card Details Modal -->
+    <div id="card-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-gray-900 border border-gray-800 w-full max-w-sm rounded-2xl overflow-hidden relative shadow-2xl">
+            <button onclick="closeModal()" class="absolute top-3 right-3 z-10 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70 transition-colors">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div id="modal-content" class="p-6 flex flex-col items-center text-center">
+                <!-- Dynamic content populated via JS -->
+            </div>
+            <div id="modal-actions" class="p-4 bg-gray-950 border-t border-gray-800 flex justify-center gap-2">
+                <button id="trade-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fa-solid fa-handshake"></i> トレードに出品する
+                </button>
+            </div>
+        </div>
+    </div>
+<!-- Trade Modal -->
+    <div id="trade-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-gray-900 border border-gray-800 w-full max-w-md rounded-2xl overflow-hidden relative shadow-2xl p-6">
+            <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-repeat text-emerald-400"></i> トレード出品条件設定
+            </h3>
+            <div id="trade-offered-card" class="mb-4 p-3 bg-gray-800/50 rounded-xl border border-gray-700/50 flex items-center gap-3">
+                <!-- Target card summary -->
+            </div>
+            <form id="trade-form" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">希望条件（馬名を直接入力・最大5つ）</label>
+                    <div id="wanted-inputs" class="space-y-2">
+                        <input type="text" placeholder="希望馬名 1" class="w-full bg-gray-800 border border-gray-700 text-sm rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">出品コメント</label>
+                    <textarea placeholder="トレードに関する補足や希望などを入力..." class="w-full bg-gray-800 border border-gray-700 text-sm rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 h-20 resize-none"></textarea>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" onclick="closeTradeModal()" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">キャンセル</button>
+                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold px-5 py-2 rounded-xl transition-colors">出品する</button>
+                </div>
+            </form>
+        </div>
+    </div>
+<!-- Firebase Integration Script -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        // TODO: Replace with application's Firebase config
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        let currentTab = 'all';
+        let masterCards = [];
+        let userInventory = {};
+        window.addEventListener('DOMContentLoaded', () => {
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    await loadUserInventory(user.uid);
+                }
+                await loadMasterCards();
+                renderCollection();
+            });
+        });
+        async function loadMasterCards() {
+            try {
+                const querySnapshot = await getDocs(collection(db, "cards"));
+                masterCards = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                document.getElementById('status').innerHTML = `<i class="fa-solid fa-check text-green-400"></i> 同期完了`;
+            } catch (e) {
+                console.error("Error loading cards: ", e);
+                document.getElementById('status').innerHTML = `<i class="fa-solid fa-triangle-exclamation text-red-400"></i> エラー`;
+            }
+        }
+        async function loadUserInventory(uid) {
+            try {
+                const userDoc = await getDoc(doc(db, "users", uid));
+                if (userDoc.exists()) {
+                    userInventory = userDoc.data().inventory || {};
+                }
+            } catch (e) {
+                console.error("Error loading inventory: ", e);
+            }
+        }
+        function getGenGroupInfo(birthYear) {
+            const y = parseInt(birthYear, 10);
+            if (isNaN(y)) return null;
+            if (y <= 1980) return { key: 'gen1', label: '〜1980年' };
+            if (y <= 1985) return { key: 'gen2', label: '1981〜1985年' };
+            if (y <= 1990) return { key: 'gen3', label: '1986〜1990年' };
+            if (y <= 1995) return { key: 'gen4', label: '1991〜1995年' };
+            if (y <= 2000) return { key: 'gen5', label: '1996〜2000年' };
+            if (y <= 2005) return { key: 'gen6', label: '2001〜2005年' };
+            if (y <= 2010) return { key: 'gen7', label: '2006〜2010年' };
+            if (y <= 2015) return { key: 'gen8', label: '2011〜2015年' };
+            return null;
+        }
+        function getRadarPoints(stats) {
+            const speed = calcR(stats?.speed);
+            const stamina = calcR(stats?.stamina);
+            const power = calcR(stats?.power);
+            const guts = calcR(stats?.guts);
+            const wisdom = calcR(stats?.wisdom);
+            return `${speed},${stamina} ${power},${guts} ${wisdom}`;
+        }
+        window.switchTab = function(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            renderCollection();
+        };
+        function renderCollection() {
+            const grid = document.getElementById('card-grid');
+            grid.innerHTML = '';
+            let filteredCards = masterCards.filter(card => {
+                if (getGenGroupInfo(card.birthYear) === null) return false;
+                if (currentTab === 'g1') return card.isG1Winner === true;
+                return true;
+            });
+            let ownedCount = 0;
+            filteredCards.forEach(card => {
+                const count = userInventory[card.id] || 0;
+                if (count > 0) ownedCount++;
+                const cardEl = document.createElement('div');
+                cardEl.className = `card-item bg-gray-900 border ${count > 0 ? 'border-gray-700' : 'border-gray-800 opacity-50'} rounded-xl overflow-hidden cursor-pointer relative shadow-lg`;
+                cardEl.onclick = () => openModal(card, count);
+                cardEl.innerHTML = `
+                    <div class="aspect-[3/4] bg-gray-800 relative overflow-hidden flex items-center justify-center">
+                        <span class="birth-year-badge absolute top-2 left-2 bg-black/70 text-gray-200 text-[10px] px-1.5 py-0.5 rounded border border-gray-600/50 z-10">${card.birthYear || '----'}年</span>
+                        <img src="${card.imageUrl || 'https://via.placeholder.com/300x400?text=No+Image'}" alt="${card.name}" class="w-full h-full object-cover">
+                        <div class="pt-center absolute inset-0 flex items-center justify-center text-white font-extrabold text-2xl drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] pointer-events-none z-10">${card.pt || 0} PT</div>
+                        ${count > 0 ? `<span class="absolute top-2 right-2 bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow z-10">x${count}</span>` : ''}
+                    </div>
+                    <div class="card-name-bar p-3 text-center bg-gray-900/90">
+                        <div class="text-xs text-blue-400 font-semibold mb-0.5">${card.rarity || 'NORMAL'}</div>
+                        <div class="text-base font-bold text-white line-clamp-2 leading-snug">${card.name || '不明の競走馬'}</div>
+                    </div>
+                `;
+                grid.appendChild(cardEl);
+            });
+            document.getElementById('stat-owned-types').innerText = ownedCount;
+            document.getElementById('stat-total-cards').innerText = filteredCards.length;
+            const rate = filteredCards.length > 0 ? Math.round((ownedCount / filteredCards.length) * 100) : 0;
+            document.getElementById('stat-comp-rate').innerText = `${rate}%`;
+        }
+        window.openModal = function(card, count) {
+            const modal = document.getElementById('card-modal');
+            const content = document.getElementById('modal-content');
+            const tradeBtn = document.getElementById('trade-btn');
+            content.innerHTML = `
+                <div class="w-48 aspect-[3/4] rounded-xl overflow-hidden mb-4 shadow-xl border border-gray-700">
+                    <img src="${card.imageUrl || 'https://via.placeholder.com/300x400?text=No+Image'}" class="w-full h-full object-cover">
+                </div>
+                <span class="text-xs text-blue-400 font-bold tracking-wider uppercase mb-1">${card.rarity || 'NORMAL'}</span>
+                <h2 class="text-xl font-bold text-white mb-2">${card.name}</h2>
+                <p class="text-xs text-gray-400 mb-4 line-clamp-3">${card.description || '詳細情報はありません。'}</p>
+                <div class="bg-gray-800/80 px-4 py-2 rounded-lg text-xs text-gray-300 font-medium">
+                    所持数: <span class="text-white font-bold text-sm ml-1">${count}</span> 枚
+                </div>
+            `;
+            if (count > 1) {
+                tradeBtn.disabled = false;
+                tradeBtn.onclick = () => { closeModal(); openTradeModal(card); };
+            } else {
+                tradeBtn.disabled = true;
+            }
+            modal.classList.remove('hidden');
+        };
+        window.closeModal = function() {
+            document.getElementById('card-modal').classList.add('hidden');
+        };
+        window.openTradeModal = function(card) {
+            const tradeModal = document.getElementById('trade-modal');
+            const offeredCardContainer = document.getElementById('trade-offered-card');
+            offeredCardContainer.innerHTML = `
+                <div class="w-12 h-16 bg-gray-700 rounded overflow-hidden flex-shrink-0">
+                    <img src="${card.imageUrl || 'https://via.placeholder.com/300x400?text=No+Image'}" class="w-full h-full object-cover">
+                </div>
+                <div class="text-left overflow-hidden">
+                    <div class="text-xs text-blue-400 font-bold">${card.rarity || 'NORMAL'}</div>
+                    <div class="text-sm font-bold text-white truncate">${card.name}</div>
+                </div>
+            `;
+            tradeModal.classList.remove('hidden');
+        };
+        window.closeTradeModal = function() {
+            document.getElementById('trade-modal').classList.add('hidden');
+        };
+    </script>
 </body>
 </html>
