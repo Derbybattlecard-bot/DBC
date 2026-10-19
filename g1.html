@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>G1ギャラリー - DERBY BATTLE CARD</title>
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%);
+      --panel-bg: rgba(255, 255, 255, 0.94);
+      --accent-color: #2d6a37;
+      --accent-hover: #1b4d23;
+      --text-main: #1a2e1d;
+      --text-sub: #4e6b52;
+      --border-color: #b2d4b6;
+      --gold-gradient: linear-gradient(135deg, #fef08a, #d4af37);
+      --bronze-gradient: linear-gradient(135deg, #fcd34d, #b45309);
+    }
+
+    body {
+      margin: 0;
+      padding: 15px;
+      background: var(--bg-gradient);
+      background-attachment: fixed;
+      color: var(--text-main);
+      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+      display: flex;
+      justify-content: center;
+      font-size: 13px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 780px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* ヘッダー */
+    .header-panel {
+      background-color: var(--panel-bg);
+      padding: 10px 15px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .btn-back {
+      background: #ffffff;
+      color: var(--accent-color);
+      border: 1px solid var(--accent-color);
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 12px;
+      text-decoration: none;
+    }
+    
+    .page-title {
+      font-size: 15px;
+      font-weight: bold;
+      color: var(--accent-color);
+      margin: 0;
+    }
+
+    /* メインタブ切替 */
+    .view-tabs {
+      display: flex;
+      gap: 4px;
+      width: 100%;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 8px 2px;
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-weight: bold;
+      color: var(--text-sub);
+      cursor: pointer;
+      text-align: center;
+      font-size: clamp(10px, 2.9vw, 12.5px);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tab-btn.active {
+      background: var(--accent-color);
+      color: white;
+      border-color: var(--accent-color);
+    }
+
+    /* トロフィー陳列棚 (国内・地方) */
+    .trophy-rack {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 12px;
+    }
+
+    .trophy-item {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+      position: relative;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .trophy-item.unobtained {
+      filter: grayscale(100%) opacity(0.6);
+      cursor: default;
+      background: rgba(240, 240, 240, 0.85);
+      border-color: #cccccc;
+    }
+
+    .trophy-icon {
+      font-size: 32px;
+      line-height: 1;
+    }
+
+    .race-plate {
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      color: var(--accent-color);
+      font-size: 11px;
+      font-weight: bold;
+      padding: 4px 8px;
+      border-radius: 4px;
+      width: 100%;
+      box-sizing: border-box;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .trophy-item.unobtained .race-plate {
+      color: #666;
+    }
+
+    .horse-plate {
+      font-size: 10px;
+      color: var(--text-main);
+      font-weight: bold;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+    }
+
+    /* ワールドマップ (海外) */
+    .map-container {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #e3f2fd; /* 海の色を爽やかに */
+      border: 2px solid var(--border-color);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    
+    .map-bg {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background-image: radial-gradient(#90caf9 1px, transparent 1px);
+      background-size: 10px 10px;
+      opacity: 0.5;
+    }
+
+    /* 霧のレイヤー */
+    .fog-layer {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: radial-gradient(circle at center, rgba(255, 255, 255, 0.7) 0%, rgba(226, 239, 227, 0.95) 100%);
+      pointer-events: none;
+      z-index: 10;
+      transition: opacity 1s ease;
+    }
+
+    /* 疑似的な大陸 */
+    .continent {
+      position: absolute;
+      background: #c8e6c9;
+      border: 1px solid #a5d6a7;
+      border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+      filter: blur(1px);
+    }
+    .cont-asia { top: 30%; right: 15%; width: 35%; height: 40%; }
+    .cont-europe { top: 20%; left: 40%; width: 20%; height: 25%; }
+    .cont-america { top: 25%; left: 10%; width: 25%; height: 50%; }
+    .cont-aus { bottom: 15%; right: 20%; width: 15%; height: 20%; }
+
+    /* ロケーションピン */
+    .loc-pin {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      transform: translate(-50%, -100%);
+      cursor: pointer;
+      z-index: 20;
+      opacity: 0; /* 初期状態は非表示（霧の中） */
+      transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    
+    .loc-pin.unlocked {
+      opacity: 1;
+    }
+
+    .pin-icon {
+      width: 100%;
+      height: 100%;
+      background: var(--bronze-gradient);
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      border: 2px solid #fff;
+      box-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+      position: relative;
+    }
+    
+    .loc-pin.cleared .pin-icon {
+      background: var(--gold-gradient);
+    }
+
+    .pin-icon::after {
+      content: '';
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background: #fff;
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    
+    .pin-label {
+      position: absolute;
+      bottom: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      font-size: 10px;
+      font-weight: bold;
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    /* トリビュートフレーム (デザイン変更) */
+    .tribute-rack {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .tribute-frame {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 15px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+
+    .tribute-frame.unobtained {
+      background: rgba(240, 240, 240, 0.85);
+      border-color: #cccccc;
+      opacity: 0.8;
+    }
+
+    .tribute-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px dashed var(--border-color);
+      padding-bottom: 6px;
+    }
+
+    .tribute-title {
+      font-size: 14px;
+      font-weight: bold;
+      color: var(--accent-color);
+    }
+    
+    .tribute-badge {
+      font-size: 10px;
+      background: #e2efe3;
+      color: var(--accent-color);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-weight: bold;
+    }
+
+    .tribute-body {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
+
+    .tribute-image-area {
+      width: 100px;
+      height: 100px;
+      background: #f2f8f3;
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 40px;
+      color: var(--text-sub);
+      flex-shrink: 0;
+    }
+
+    .tribute-frame.obtained .tribute-image-area {
+      background: linear-gradient(135deg, #fff9c4, #ffecb3);
+      border-color: #d4af37;
+      color: #d4af37;
+    }
+
+    .tribute-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tribute-horse-name {
+      font-size: 16px;
+      font-weight: 900;
+      color: var(--text-main);
+    }
+
+    .tribute-desc {
+      font-size: 11.5px;
+      color: #2b3a2d;
+      line-height: 1.45;
+      background: rgba(244, 249, 245, 0.8);
+      padding: 8px 10px;
+      border-radius: 4px;
+      border-left: 3px solid var(--accent-color);
+    }
+
+    /* モーダル (スロット切替・国ガイド共通) */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.7); display: none;
+      justify-content: center; align-items: center; z-index: 1000;
+      backdrop-filter: blur(2px);
+    }
+    .modal-overlay.active { display: flex; }
+    
+    .modal-content {
+      background: #ffffff;
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      width: 90%;
+      max-width: 400px;
+      padding: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      position: relative;
+    }
+
+    .modal-close-btn {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      background: none;
+      border: none;
+      color: #999;
+      font-size: 24px;
+      cursor: pointer;
+      line-height: 1;
+    }
+    
+    /* 国ガイド用スタイル */
+    .guide-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px dashed var(--border-color);
+    }
+    .guide-flag { font-size: 32px; }
+    .guide-title { font-size: 16px; font-weight: bold; color: var(--accent-color); margin: 0; }
+    
+    .guide-desc {
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: var(--text-main);
+      background: #f2f8f3;
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      border-left: 3px solid var(--accent-color);
+    }
+
+    .guide-races {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .guide-race-item {
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      padding: 8px 12px;
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+    }
+    .guide-race-item.cleared {
+      border-color: var(--accent-color);
+      background: #fdfae7;
+    }
+
+    /* 殿堂馬切替（スロット）用スタイル */
+    .slot-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 15px;
+    }
+
+    .horse-slot {
+      background: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      position: relative;
+    }
+
+    .horse-slot.is-active {
+      border-color: var(--accent-color);
+      background: #fdfae7;
+    }
+
+    .slot-badge {
+      position: absolute;
+      top: -10px;
+      left: 10px;
+      background: var(--border-color);
+      color: #fff;
+      font-size: 10px;
+      font-weight: bold;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+    .horse-slot.is-active .slot-badge {
+      background: var(--accent-color);
+    }
+
+    .slot-horse-name {
+      font-size: 15px;
+      font-weight: bold;
+      color: var(--text-main);
+      margin-bottom: 4px;
+      margin-top: 4px;
+    }
+
+    .slot-details {
+      display: flex;
+      gap: 10px;
+      font-size: 11px;
+      color: var(--text-sub);
+    }
+
+    .btn-commit {
+      width: 100%;
+      background: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 13px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header-panel">
+    <a href="index.html" class="btn-back">← 戻る</a>
+    <h2 class="page-title">🏆 G1殿堂ギャラリー</h2>
+    <div id="syncStatus" style="font-size: 11px; color: var(--text-sub); font-weight: bold;">☁️ 読込中...</div>
+  </div>
+
+  <div class="view-tabs">
+    <div class="tab-btn active" id="tabBtnDomestic" onclick="switchMainTab('domestic')">国内 G1</div>
+    <div class="tab-btn" id="tabBtnLocal" onclick="switchMainTab('local')">地方交流 G1</div>
+    <!-- アンロックされるまで非表示 -->
+    <div class="tab-btn" id="tabBtnOverseas" onclick="switchMainTab('overseas')" style="display: none;">世界遠征 Map</div>
+    <div class="tab-btn" id="tabBtnTribute" onclick="switchMainTab('tribute')" style="display: none;">メモリアル</div>
+  </div>
+
+  <!-- タブ: 国内 G1 -->
+  <div id="tabDomestic" style="display: flex; flex-direction: column;">
+    <div class="trophy-rack" id="domesticRack">
+      <!-- JSで生成 -->
+    </div>
+  </div>
+
+  <!-- タブ: 地方交流 G1 -->
+  <div id="tabLocal" style="display: none; flex-direction: column;">
+    <div class="trophy-rack" id="localRack">
+      <!-- JSで生成 -->
+    </div>
+  </div>
+
+  <!-- タブ: 海外遠征 (ワールドマップ) -->
+  <div id="tabOverseas" style="display: none; flex-direction: column;">
+    <div class="map-container">
+      <div class="map-bg"></div>
+      
+      <div class="continent cont-asia"></div>
+      <div class="continent cont-europe"></div>
+      <div class="continent cont-america"></div>
+      <div class="continent cont-aus"></div>
+
+      <div class="fog-layer" id="mapFog"></div>
+
+      <div class="loc-pin" id="pin_hongkong" style="top: 45%; left: 78%;" onclick="openCountryGuide('hongkong')">
+        <div class="pin-icon"></div>
+        <div class="pin-label">🇭🇰 香港</div>
+      </div>
+      
+      <div class="loc-pin" id="pin_dubai" style="top: 55%; left: 62%;" onclick="openCountryGuide('dubai')">
+        <div class="pin-icon"></div>
+        <div class="pin-label">🇦🇪 ドバイ</div>
+      </div>
+
+      <div class="loc-pin" id="pin_europe" style="top: 25%; left: 45%;" onclick="openCountryGuide('europe')">
+        <div class="pin-icon"></div>
+        <!-- 未アンロックなのでラベルなし -->
+      </div>
+
+      <div class="loc-pin" id="pin_america" style="top: 35%; left: 20%;" onclick="openCountryGuide('america')">
+        <div class="pin-icon"></div>
+        <!-- 未アンロックなのでラベルなし -->
+      </div>
+
+      <div class="loc-pin" id="pin_aus" style="top: 80%; left: 85%;" onclick="openCountryGuide('aus')">
+        <div class="pin-icon"></div>
+        <!-- 未アンロックなのでラベルなし -->
+      </div>
+    </div>
+  </div>
+
+  <!-- タブ: トリビュート (メモリアル) -->
+  <div id="tabTribute" style="display: none; flex-direction: column;">
+    <div class="tribute-rack" id="tributeRack">
+      <!-- JSで生成 -->
+    </div>
+  </div>
+
+</div>
+
+<!-- モーダル: スロット切替 (殿堂馬詳細) -->
+<div class="modal-overlay" id="horseDetailModal">
+  <div class="modal-content">
+    <button class="modal-close-btn" onclick="closeModal('horseDetailModal')">&times;</button>
+    
+    <div style="text-align: center; margin-bottom: 10px;">
+      <div style="font-size: 24px; margin-bottom: 5px;">🏆</div>
+      <div class="page-title" id="detailRaceName">日本ダービー</div>
+    </div>
+
+    <div class="slot-container">
+      <div class="horse-slot is-active" id="slot1Container">
+        <div class="slot-badge">👑 殿堂馬 (展示中)</div>
+        <div class="slot-horse-name" id="slot1Name">ディープインパクト</div>
+        <div class="slot-details">
+          <span>作戦: <span id="slot1Strat">先行</span></span>
+          <span>達成日: <span id="slot1Date">2023/10/01</span></span>
+        </div>
+      </div>
+
+      <div class="horse-slot" id="slot2Container" style="display: none;">
+        <div class="slot-badge">🔄 最新の勝ち馬</div>
+        <div class="slot-horse-name" id="slot2Name">コントレイル</div>
+        <div class="slot-details">
+          <span>作戦: <span id="slot2Strat">差し</span></span>
+          <span>達成日: <span id="slot2Date">2023/10/05</span></span>
+        </div>
+        <button class="btn-commit" onclick="commitSlot2()">⬆ この馬を殿堂馬に昇格・展示する</button>
+      </div>
+      
+      <div id="noSlot2Msg" style="font-size: 11px; color: var(--text-sub); text-align: center; padding: 10px;">
+        ※新たにこのレースを勝利すると、最新の記録がここに表示され、展示馬を入れ替えることができます。
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- モーダル: 国ガイド -->
+<div class="modal-overlay" id="countryGuideModal">
+  <div class="modal-content">
+    <button class="modal-close-btn" onclick="closeModal('countryGuideModal')">&times;</button>
+    
+    <div class="guide-header">
+      <div class="guide-flag" id="guideFlag">🇭🇰</div>
+      <h3 class="guide-title" id="guideTitle">香港 (沙田)</h3>
+    </div>
+    
+    <div class="guide-desc" id="guideDesc">
+      アジアが誇る近代競馬のメッカ。フラットで時計の出やすい洋芝コースが特徴で、日本馬の適性が高く数々の名勝負が生まれている。
+    </div>
+
+    <div style="font-size: 11.5px; color: var(--accent-color); font-weight: bold; margin-bottom: 8px;">▼ 開催G1レース一覧</div>
+    <div class="guide-races" id="guideRacesList">
+      <!-- JSで生成 -->
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  // モックデータと基本ロジック
+  
+  const DOMESTIC_G1 = [
+    { id: "JPN_DERBY", name: "日本ダービー", track: "東京" },
+    { id: "ARIMA", name: "有馬記念", track: "中山" },
+    { id: "TENNO_AUTUMN", name: "天皇賞(秋)", track: "東京" }
+  ];
+
+  const LOCAL_G1 = [
+    { id: "TEIO", name: "帝王賞", track: "大井" },
+    { id: "JBC_C", name: "JBCクラシック", track: "大井" }
+  ];
+
+  const TRIBUTE_G1 = [
+    { id: "TRIB_01", name: "伝説のラストラン", desc: "歓声に包まれた有馬記念のラストラン！すべての競馬ファンを泣かせた奇跡の復活劇", horseClass: "芦毛の怪物" },
+    { id: "TRIB_02", name: "世界を翔けた怪鳥", desc: "ダート圧勝の衝撃からロンシャンの凱旋門へ。世界を震撼させた漆黒の怪鳥の軌跡", horseClass: "漆黒の怪鳥" }
+  ];
+
+  let userG1Records = {
+    "JPN_DERBY": {
+      slot1: { name: "ディープインパクト", strategy: "先行", date: "2023/10/01" },
+      slot2: { name: "コントレイル", strategy: "差し", date: "2023/10/05" }
+    },
+    "ARIMA": {
+      slot1: { name: "オルフェーヴル", strategy: "追込", date: "2023/10/02" }
+    },
+    "TRIB_01": {
+      slot1: { name: "オグリキャップ", strategy: "先行", date: "2023/10/03" }
+    }
+  };
+
+  let unlockedRegions = ['hongkong', 'dubai']; 
+  // ★アンロックフラグ（仮）
+  let isOverseasUnlocked = true;
+  let isTributeUnlocked = true;
+
+  // 初期表示設定
+  if(isOverseasUnlocked) document.getElementById('tabBtnOverseas').style.display = 'block';
+  if(isTributeUnlocked) document.getElementById('tabBtnTribute').style.display = 'block';
+
+  window.switchMainTab = function(tabName) {
+    const tabs = ['domestic', 'local', 'overseas', 'tribute'];
+    tabs.forEach(t => {
+      document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`).style.display = (t === tabName) ? 'flex' : 'none';
+      const btn = document.getElementById(`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
+      if(btn) btn.classList.toggle('active', t === tabName);
+    });
+
+    if(tabName === 'overseas') {
+      renderMap();
+    }
+  };
+
+  function renderTrophyRack(containerId, dataList) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+
+    dataList.forEach(race => {
+      const record = userG1Records[race.id];
+      const isObtained = !!record?.slot1;
+      const mainHorseName = isObtained ? record.slot1.name : "未制覇";
+      
+      const item = document.createElement('div');
+      item.className = `trophy-item ${isObtained ? 'obtained' : 'unobtained'}`;
+      item.onclick = () => { if(isObtained) openHorseDetailModal(race.id, race.name); };
+      
+      item.innerHTML = `
+        <div class="trophy-icon">🏆</div>
+        <div class="race-plate">${race.name}</div>
+        <div class="horse-plate">${mainHorseName}</div>
+      `;
+      container.appendChild(item);
+    });
+  }
+
+  function renderTributeRack() {
+    const container = document.getElementById('tributeRack');
+    if (!container) return;
+    container.innerHTML = '';
+
+    TRIBUTE_G1.forEach(race => {
+      const record = userG1Records[race.id];
+      const isObtained = !!record?.slot1;
+      
+      const item = document.createElement('div');
+      item.className = `tribute-frame ${isObtained ? 'obtained' : 'unobtained'}`;
+      item.onclick = () => { if(isObtained) openHorseDetailModal(race.id, race.name); };
+
+      item.innerHTML = `
+        <div class="tribute-header">
+          <span class="tribute-title">${race.name}</span>
+          <span class="tribute-badge">${race.horseClass}</span>
+        </div>
+        <div class="tribute-body">
+          <div class="tribute-image-area">🐎</div>
+          <div class="tribute-info">
+             <div class="tribute-horse-name">${isObtained ? record.slot1.name : '？？？？'}</div>
+             <div class="tribute-desc">${isObtained ? race.desc : '条件を満たすと伝説の軌跡が解放されます。'}</div>
+          </div>
+        </div>
+      `;
+      container.appendChild(item);
+    });
+  }
+
+  function renderMap() {
+    const fog = document.getElementById('mapFog');
+    fog.style.opacity = unlockedRegions.length > 0 ? "0.6" : "0.95";
+
+    const regions = ['hongkong', 'dubai', 'europe', 'america', 'aus'];
+    regions.forEach(r => {
+      const pin = document.getElementById(`pin_${r}`);
+      if (!pin) return;
+      
+      if (unlockedRegions.includes(r)) {
+        pin.classList.add('unlocked');
+        if(r === 'hongkong') pin.classList.add('cleared'); 
+      } else {
+        pin.classList.remove('unlocked');
+      }
+    });
+  }
+
+  window.openCountryGuide = function(regionId) {
+    if (!unlockedRegions.includes(regionId)) return;
+    
+    const guides = {
+      'hongkong': { flag: '🇭🇰', title: '香港 (沙田)', desc: 'アジアが誇る近代競馬のメッカ。フラットで時計の出やすい洋芝コースが特徴で、日本馬の適性が高く数々の名勝負が生まれている。' },
+      'dubai': { flag: '🇦🇪', title: 'ドバイ (メイダン)', desc: '砂漠にそびえる世界最高峰の舞台。圧倒的なスケールを誇るダートコースと、美しい芝コースでの世界的決戦。' }
+    };
+    
+    const info = guides[regionId];
+    if(!info) return;
+
+    document.getElementById('guideFlag').textContent = info.flag;
+    document.getElementById('guideTitle').textContent = info.title;
+    document.getElementById('guideDesc').textContent = info.desc;
+    
+    const list = document.getElementById('guideRacesList');
+    list.innerHTML = `
+      <div class="guide-race-item cleared"><span>🏆 香港カップ</span><span style="font-size:10px; font-weight:bold;">制覇済</span></div>
+      <div class="guide-race-item"><span>🏆 香港マイル</span><span style="font-size:10px; color:var(--text-sub);">未制覇</span></div>
+    `;
+
+    document.getElementById('countryGuideModal').classList.add('active');
+  };
+
+  window.openHorseDetailModal = function(raceId, raceName) {
+    const record = userG1Records[raceId];
+    if (!record || !record.slot1) return;
+
+    document.getElementById('detailRaceName').textContent = raceName;
+    
+    document.getElementById('slot1Name').textContent = record.slot1.name;
+    document.getElementById('slot1Strat').textContent = record.slot1.strategy;
+    document.getElementById('slot1Date').textContent = record.slot1.date;
+
+    const slot2El = document.getElementById('slot2Container');
+    const msgEl = document.getElementById('noSlot2Msg');
+    
+    if (record.slot2) {
+      slot2El.style.display = 'block';
+      msgEl.style.display = 'none';
+      document.getElementById('slot2Name').textContent = record.slot2.name;
+      document.getElementById('slot2Strat').textContent = record.slot2.strategy;
+      document.getElementById('slot2Date').textContent = record.slot2.date;
+    } else {
+      slot2El.style.display = 'none';
+      msgEl.style.display = 'block';
+    }
+
+    document.getElementById('horseDetailModal').classList.add('active');
+  };
+
+  window.closeModal = function(modalId) {
+    document.getElementById(modalId).classList.remove('active');
+  };
+
+  window.commitSlot2 = function() {
+    if(!confirm("最新の勝ち馬を殿堂馬として登録（上書き）しますか？\n※元の殿堂馬の記録は消去されます。")) return;
+    alert("殿堂馬の展示を更新しました！");
+    closeModal('horseDetailModal');
+  };
+
+  document.getElementById('syncStatus').textContent = "✅ 準備完了";
+  renderTrophyRack('domesticRack', DOMESTIC_G1);
+  renderTrophyRack('localRack', LOCAL_G1);
+  renderTributeRack();
+
+</script>
+</body>
+</html>
