@@ -276,13 +276,12 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
       });
     });
 
-    // 💡 保険として14頭ではなく15頭（補欠+1頭）抽選するように拡張
     while (selectedMobs.length < 15) {
       const fallback = allHorses.find(h => {
         const hId = String(h.horse_id).padStart(4, '0');
         if (raceUsedIds.has(hId)) return false;
         if (!isValidSurface(h, race.surface)) return false;
-        if (!isValidSex(h.sex || "牡馬", raceSexLimit)) return false; // 性別条件も厳守
+        if (!isValidSex(h.sex || "牡馬", raceSexLimit)) return false;
         if (!isOverseas && !isJapanCup && h.region && h.region !== "日本") return false;
         return true;
       });
@@ -313,6 +312,12 @@ export function generateOnlineMobEntries(races, excludedIdsSet, HORSES_MASTER) {
     const surface = race.surface || "芝";
     const sexLimit = race.sex || "制限なし";
     const distance = Number(race.distance || 2000);
+    const trackName = race.track || "";
+    const raceName = race.race_name || "";
+
+    // ★修正ポイント：オンライン戦でも海外判定を導入
+    const isOverseas = ["香港", "沙田", "ロンシャン", "パリロンシャン", "サンクルー", "アスコット", "ニューマーケット", "エプソム", "メイダン", "デルマー", "サンタアニタ", "チャーチルダウンズ", "ベルモントパーク"].some(t => trackName.includes(t)) || raceName.includes("香港");
+    const isJapanCup = raceName.includes("ジャパンカップ");
 
     const raceUsedIds = new Set(excludedIdsSet);
 
@@ -320,17 +325,39 @@ export function generateOnlineMobEntries(races, excludedIdsSet, HORSES_MASTER) {
       const hId = String(h.horse_id).padStart(4, '0');
       if (raceUsedIds.has(hId)) return false;
       if (getHorsePotential(h, surface) <= 0) return false;
-      if (!isValidSex(h.sex, sexLimit)) return false; // 牝馬戦などの性別チェック
+      if (!isValidSex(h.sex, sexLimit)) return false;
       if (!isValidDistance(h, distance)) return false;
+      
+      // ★修正ポイント：海外レースでもJCでもない場合は、国内馬（regionが"日本"か空）に限定する
+      if (!isOverseas && !isJapanCup) {
+        if (h.region && h.region !== "日本") return false;
+      }
+
       return true;
     }).sort(() => Math.random() - 0.5);
 
-    // 💡 オンライン戦でも15頭（補欠込み）を確保
     const selected = mobPool.slice(0, 15).map(m => String(m.horse_id).padStart(4, '0'));
     
+    // 足りない場合のフォールバック（ここでも海外馬を弾く）
     while (selected.length < 15) {
-      selected.push(validFallbackHorseId);
+      const fallback = allHorses.find(h => {
+        const hId = String(h.horse_id).padStart(4, '0');
+        if (raceUsedIds.has(hId)) return false;
+        if (!isValidSurface(h, surface)) return false;
+        if (!isValidSex(h.sex, sexLimit)) return false;
+        if (!isOverseas && !isJapanCup && h.region && h.region !== "日本") return false;
+        return true;
+      });
+      if (fallback) {
+        const mId = String(fallback.horse_id).padStart(4, '0');
+        selected.push(mId);
+        raceUsedIds.add(mId);
+      } else {
+        selected.push(validFallbackHorseId);
+        break; // 無限ループ回避
+      }
     }
+    
     mobIds[rIdx] = selected;
   });
 
