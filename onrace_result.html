@@ -997,7 +997,7 @@ async function handleRoomDataUpdate(data) {
 
   if (data[myWatchedField]) {
     if (data[oppWatchedField]) {
-      // 双方が完了したら自動で画面遷移とデータ初期化を行う
+      // ★ 修正箇所：双方が完了したら、ループさせずに自動で画面遷移とデータ初期化を行う
       if (modalBtn) {
         modalBtn.disabled = true;
         modalBtn.textContent = "🔄 次の回戦へ移動しています...";
@@ -1009,9 +1009,10 @@ async function handleRoomDataUpdate(data) {
 
       if (!isNavigatingAway) {
         isNavigatingAway = true;
-        stopRoomListening();
+        stopRoomListening(); // ★追記: 遷移前にリスナー解除して重複処理を防ぐ
         
         if (isHost) {
+          // ホストが部屋の情報を次ラウンド向けにリセットして画面遷移
           try {
             const roomRef = doc(db, "online_matches", roomId);
             await updateDoc(roomRef, {
@@ -1032,9 +1033,10 @@ async function handleRoomDataUpdate(data) {
             window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
           } catch(e) {
             console.error("次ラウンド更新エラー", e);
-            window.location.href = 'online.html';
+            window.location.href = 'online.html'; // エラー時はロビーへ
           }
         } else {
+          // ゲストはホストのリセット処理を少し待ってから画面遷移
           setTimeout(() => {
             const matchMode = urlParams.get('mode') || data.match_mode || 'online';
             window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
