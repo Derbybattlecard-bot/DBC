@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>世代別カード図鑑 - DERBY BATTLE CARD</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     :root {
       /* 明るい緑背景グラデーション */
@@ -206,7 +205,7 @@
     .card-thumb.rarity-sr { border-image: var(--silver-gradient) 1; }
     .card-thumb.rarity-ssr { border-image: var(--gold-gradient) 1; }
 
-    /* 要件4: 左上の誕生年バッジ */
+    /* 左上の誕生年バッジ */
     .birth-year-badge {
       position: absolute;
       top: 0;
@@ -220,7 +219,7 @@
       font-family: 'Helvetica Neue', Arial, sans-serif;
     }
 
-    /* 要件3: 脚質透かし文字の強調 (opacity: 0.4, 影追加) */
+    /* 脚質透かし文字の強調 */
     .watermark-text {
       position: absolute;
       top: 50%;
@@ -251,7 +250,7 @@
       filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));
     }
 
-    /* 要件2: 中央のPT表示 + PTランク別 レーダー＆オーラ発光 */
+    /* 中央のPT表示 */
     .pt-center {
       position: absolute;
       inset: 0;
@@ -265,20 +264,8 @@
       z-index: 10;
       font-family: 'Helvetica Neue', Arial, sans-serif;
     }
-    /* PT20〜 (GOD) */
-    .pt-rank-god .radar-polygon { fill: rgba(212, 175, 55, 0.45); stroke: #fef08a; stroke-width: 2.5; }
-    .pt-rank-god .pt-center { text-shadow: 0 0 10px #fef08a, 0 0 20px #d4af37, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8); }
-    /* PT18〜19 (S) */
-    .pt-rank-s .radar-polygon { fill: rgba(255, 50, 50, 0.45); stroke: #ff9999; stroke-width: 2; }
-    .pt-rank-s .pt-center { text-shadow: 0 0 10px #ff9999, 0 0 20px #ff3232, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8); }
-    /* PT15〜17 (A) */
-    .pt-rank-a .radar-polygon { fill: rgba(50, 150, 255, 0.45); stroke: #99ccff; stroke-width: 2; }
-    .pt-rank-a .pt-center { text-shadow: 0 0 10px #99ccff, 0 0 20px #3296ff, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8); }
-    /* PT〜14 (B) */
-    .pt-rank-b .radar-polygon { fill: rgba(163, 163, 163, 0.45); stroke: #e5e5e5; stroke-width: 1.5; }
-    .pt-rank-b .pt-center { text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8); }
 
-    /* 要件1: 馬名帯の拡大と2行化 */
+    /* 馬名帯の拡大と2行化 */
     .card-name-bar {
       color: #fff; 
       font-size: 8.5px; 
@@ -462,7 +449,7 @@
     return 9999;
   }
 
-  // 要件5: 世代タブの3〜5年刻み化 (2020年以降除外)
+  // 世代タブの3〜5年刻み化 (2020年以降除外)
   function getGenGroupInfo(year) {
     if (year === 9999 || isNaN(year)) return { id: 'unknown', label: '年代不明', sortOrder: 0 };
     if (year >= 2020) return null; 
@@ -504,15 +491,36 @@
     return Math.max(t, d, horse.pt || 0);
   }
 
-  // PTに基づくランククラスの取得
-  function getPtRankClass(pt) {
-    if (pt >= 20) return 'pt-rank-god';
-    if (pt >= 18) return 'pt-rank-s';
-    if (pt >= 15) return 'pt-rank-a';
-    return 'pt-rank-b';
+  // ★新機能: PT値からHSLカラーを動的に生成
+  function getPtColorStyle(pt) {
+    if (pt >= 20) {
+        return {
+            fill: 'rgba(212, 175, 55, 0.45)',
+            stroke: '#fef08a',
+            glow: '0 0 10px #fef08a, 0 0 20px #d4af37, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8)'
+        };
+    }
+    if (pt <= 14) {
+        return {
+            fill: 'rgba(163, 163, 163, 0.45)',
+            stroke: '#e5e5e5',
+            glow: '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8)'
+        };
+    }
+    // 15〜19 のグラデーション (15=シアン 16=水色 17=青 18=赤 19=オレンジ)
+    const hues = { 15: 180, 16: 210, 17: 230, 18: 340, 19: 15 };
+    const hue = hues[pt] !== undefined ? hues[pt] : 200;
+    const stroke = `hsl(${hue}, 100%, 75%)`;
+    const glowColor = `hsl(${hue}, 100%, 50%)`;
+    
+    return {
+        fill: `hsla(${hue}, 80%, 50%, 0.45)`,
+        stroke: stroke,
+        glow: `0 0 8px ${stroke}, 0 0 15px ${glowColor}, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 2px 4px rgba(0,0,0,0.8)`
+    };
   }
 
-  // レーダー計算式維持: (val / 20) * 45
+  // レーダー計算式
   function getRadarPoints(horse) {
     const getVal = (v) => {
       if (typeof v === 'number') return v;
@@ -659,9 +667,8 @@
         const radarPoints = getRadarPoints(h);
         const birthYear = parseHorseYear(h);
         
-        // 要件2: PT表示 + オーラのためのランク取得
         const ptVal = getMaxPT(h);
-        const ptRankClass = isObtained ? getPtRankClass(ptVal) : '';
+        const colorStyle = isObtained ? getPtColorStyle(ptVal) : null;
 
         let cardContent = '';
         if (isObtained) {
@@ -670,10 +677,10 @@
             <div class="watermark-text">${styleChar}</div>
             <div class="radar-art-area">
               <svg viewBox="0 0 100 100" class="radar-svg">
-                <polygon points="${radarPoints}" class="radar-polygon" stroke-linejoin="round" />
+                <polygon points="${radarPoints}" stroke-linejoin="round" style="fill: ${colorStyle.fill}; stroke: ${colorStyle.stroke}; stroke-width: 2px;" />
               </svg>
             </div>
-            ${ptVal > 0 ? `<div class="pt-center">${ptVal}</div>` : ''}
+            ${ptVal > 0 ? `<div class="pt-center" style="text-shadow: ${colorStyle.glow};">${ptVal}</div>` : ''}
             <div class="card-name-bar ${surfaceClass}">${h.name}</div>
           `;
         } else {
@@ -684,7 +691,7 @@
         }
 
         return `
-          <div class="card-thumb ${isObtained ? 'obtained' : 'unobtained'} ${rarityClass} ${ptRankClass}" 
+          <div class="card-thumb ${isObtained ? 'obtained' : 'unobtained'} ${rarityClass}" 
                ${isObtained ? `onclick="openCardDetail('${strId}', true, ${item.count},${item.availableCount})"` : ''}>
             ${countBadge}
             ${cardContent}
