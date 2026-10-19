@@ -287,8 +287,8 @@
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-  import { generateOnlineMobEntries } from "./js/mob.js"; // 外部モジュールからインポート
+  import { doc, getDoc, updateDoc, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { generateOnlineMobEntries } from "./js/mob.js";
 
   let currentUser = null;
   let globalUserData = null;
@@ -409,9 +409,14 @@
     const myReadyKey = isHost ? 'player1_matchup_ready' : 'player2_matchup_ready';
     const myDraftKey = isHost ? 'player1_draft' : 'player2_draft';
 
+    // ★修正：過去画面のフラグが残留してホスト側が「準備完了」と誤認するのを完全に防ぐため、
+    // ここで確実に関連フラグを全てリセット（初期化）する
     await updateDoc(roomRef, {
       [myReadyKey]: false,
-      [myDraftKey]: [null, null, null, null, null]
+      [myDraftKey]: [null, null, null, null, null],
+      [isHost ? 'player1_ready' : 'player2_ready']: false,
+      [isHost ? 'player1_strategy_ready' : 'player2_strategy_ready']: false,
+      [isHost ? 'player1_watched' : 'player2_watched']: deleteField()
     });
 
     playerDeckIds = (isHost ? (roomData.player1_deck || []) : (roomData.player2_deck || [])).map(id => normalizeHorseId(id)).filter(Boolean);
@@ -519,14 +524,9 @@
     document.getElementById('seriesRoundLabel').textContent = `第${currentRoundIndex + 1}回戦 対象シリーズ (${categoryName})`;
     document.getElementById('displaySeriesName').textContent = currentRace.series_name || "対象シリーズ";
 
-    // ホスト側：mob.jsの関数を呼び出してモブ馬と馬場状態を生成
     if (role === 'host' && !roomData.races_mob_ids) {
       const excludedIds = await fetchAllPlayersDeckHorseIds(roomData);
-      
-      // mob.jsのオンライン用抽選関数を使用
       const mobIds = generateOnlineMobEntries(matchRaces, excludedIds, HORSES_MASTER);
-      
-      // 馬場状態の抽選（onmatchup側に維持）
       const trackConditions = Array.from({ length: 5 }, () => {
         const rand = Math.random() * 100;
         if (rand < 75) return '良';
@@ -588,11 +588,24 @@
       if (!snapshot.exists()) return;
       const data = snapshot.data();
 
+      // エラー等による相手のキャンセル退室を確実に検知してロビーへ戻る
       if (data.status === "cancelled") {
         if (!isNavigatingAway) {
           isNavigatingAway = true;
-          alert("対戦相手が切断・離脱しました。");
+          if (roomUnsubscribe) roomUnsubscribe();
+          alert("対戦相手が切断・離脱しました。対戦ロビーに戻ります。");
           window.location.href = 'online.html';
+        }
+        return;
+      }
+
+      // ★追加：万が一、ホストが通信のラグ等で先行してレース画面へ行ってしまった場合の強制追従（フェイルセーフ）
+      if (data.status === "racing" || data.status === "race_running" || data.status === "finished") {
+        if (!isNavigatingAway) {
+          isNavigatingAway = true;
+          if (roomUnsubscribe) roomUnsubscribe();
+          const modeQuery = matchMode ? `&mode=${matchMode}` : '';
+          window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}${modeQuery}`;
         }
         return;
       }
@@ -603,8 +616,8 @@
       }
 
       const isHost = (role === 'host');
-
       const opponentReady = isHost ? data.player2_matchup_ready : data.player1_matchup_ready;
+      
       const badge = document.getElementById('opponentStatusBadge');
       if (badge) {
         if (opponentReady) {
@@ -617,7 +630,6 @@
       }
     });
   }
-
 
   function getSurfaceLabel(surface) { return (!surface || surface.includes('芝')) ? '芝' : 'ダ'; }
   
@@ -922,12 +934,12 @@
       player1_entries: normalizedEntries,
       player1_used_horses: updatedUsedList,
       player1_matchup_ready: true,
-      p1_status: "matchup_ready"
+      p1_status: "strategy_selecting"
     } : {
       player2_entries: normalizedEntries,
       player2_used_horses: updatedUsedList,
       player2_matchup_ready: true,
-      p2_status: "matchup_ready"
+      p2_status: "strategy_selecting"
     };
 
     try {
