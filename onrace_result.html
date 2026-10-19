@@ -999,19 +999,55 @@ async function handleRoomDataUpdate(data) {
   const modalBtn = document.getElementById('modalNextBtn');
   const statusMsgEl = document.getElementById('modalHostStatusMsg');
 
-  // ★ 【新アーキテクチャ】観戦完了フラグをベースにした画面遷移準備
+  // ★ 【新アーキテクチャ】観戦完了フラグをベースにした画面遷移処理
   const myWatchedField = isHost ? 'player1_watched' : 'player2_watched';
   const oppWatchedField = isHost ? 'player2_watched' : 'player1_watched';
 
   if (data[myWatchedField]) {
     if (data[oppWatchedField]) {
-      if (modalBtn && modalBtn.textContent !== "⏳ 移動中...") {
-        modalBtn.disabled = false;
-        modalBtn.textContent = "➡️ 対戦画面へ進む（双方が観戦完了）";
+      // ★ 修正箇所：双方が完了したら、ループさせずに自動で画面遷移とデータ初期化を行う
+      if (modalBtn) {
+        modalBtn.disabled = true;
+        modalBtn.textContent = "🔄 次の回戦へ移動しています...";
       }
       if (statusMsgEl) {
-        statusMsgEl.textContent = "✅ お互いの観戦が完了しました！ボタンを押して次へお進みください。";
+        statusMsgEl.textContent = "✅ お互いの観戦が完了しました！自動で移動します。";
         statusMsgEl.style.color = "var(--accent-green)";
+      }
+
+      if (!isNavigatingAway) {
+        isNavigatingAway = true;
+        
+        if (isHost) {
+          // ホストが部屋の情報を次ラウンド向けにリセットして画面遷移
+          try {
+            const roomRef = doc(db, "online_matches", roomId);
+            await updateDoc(roomRef, {
+              current_series_index: increment(1),
+              player1_giveup: false, player2_giveup: false,
+              player1_ready: false, player2_ready: false,
+              player1_strategy_ready: false, player2_strategy_ready: false,
+              player1_watched: deleteField(), player2_watched: deleteField(),
+              player1_entries: deleteField(), player2_entries: deleteField(),
+              player1_strategies: deleteField(), player2_strategies: deleteField(),
+              races_mob_ids: deleteField(), races_track_conditions: deleteField(),
+              race_results_cache: deleteField(), giveup_processed: deleteField(),
+              status: "deck_selecting",
+              p1_status: "deck_selecting",
+              p2_status: "deck_selecting"
+            });
+            const matchMode = urlParams.get('mode') || data.match_mode || 'online';
+            window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
+          } catch(e) {
+            console.error("次ラウンド更新エラー", e);
+          }
+        } else {
+          // ゲストはホストのリセット処理を少し待ってから画面遷移
+          setTimeout(() => {
+            const matchMode = urlParams.get('mode') || data.match_mode || 'online';
+            window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
+          }, 1500);
+        }
       }
     } else {
       if (modalBtn && modalBtn.textContent !== "⏳ 移動中...") {
