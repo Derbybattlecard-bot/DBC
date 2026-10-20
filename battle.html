@@ -31,7 +31,7 @@
   .streak-sub-badge { background: linear-gradient(135deg, #00acc1, #e0f7fa); color: #006064; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid #00838f; }
 
   .status-header { background-color: var(--panel-bg); border: 2px solid #d4af37; border-radius: 8px; padding: 10px; text-align: center; font-weight: bold; font-size: 14px; color: #b8860b; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 6px; }
-  .status-header-top { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+  .status-header-top { display: flex; flex-direction: column; gap: 8px; align-items: center; width: 100%; }
   .win-loss-text { color: #d32f2f; font-size: 16px; margin: 0 4px; }
   .btn-reset-data { background: #d9534f; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer; }
   .btn-reset-data:hover { background: #c9302c; }
@@ -277,11 +277,20 @@
   </div>
 
   <div class="status-header" id="winLossHeader" style="display: none;">
-    <div class="status-header-top">
-      <div>現在の成績： <span class="win-loss-text" id="winCount">0</span>勝 <span class="win-loss-text" id="lossCount">0</span>敗</div>
-      <button class="btn-reset-data" id="btnResetData" onclick="manualResetBattleData()">対戦データ初期化</button>
+    <!-- ★ 修正：赤丸の場所（勝敗の横に全体の勝率を追加） -->
+    <div class="status-header-top" style="display: flex; flex-direction: column; gap: 8px; align-items: center;">
+      <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+        <div>
+          現在の成績： <span class="win-loss-text" id="winCount">0</span>勝 <span class="win-loss-text" id="lossCount">0</span>敗
+        </div>
+        <button class="btn-reset-data" id="btnResetData" onclick="manualResetBattleData()">対戦データ初期化</button>
+      </div>
+      <div id="winRateDisplay" style="width: 100%; text-align: center; font-size: 13px; font-weight: bold; padding: 6px 0; border-radius: 6px; border: 1px solid #ccc; background: #fff; transition: all 0.3s;">
+         <span style="color:#666;">レース総計:</span> <span id="totalRaceWins" style="font-size:15px; margin-left:4px; color:#d32f2f;">0</span>勝 <span id="totalRaceLosses" style="font-size:15px; margin-left:2px; color:#1976d2;">0</span>敗 <span id="totalRaceRate" style="margin-left:6px;">(勝率: -%)</span>
+      </div>
     </div>
-    <div class="header-total-summary" id="headerTotalSummary">
+    
+    <div class="header-total-summary" id="headerTotalSummary" style="margin-top: 4px;">
       <div>トータル: <span style="font-family:monospace; font-weight:bold;" id="totalDetailText">0-0-0-0 (合計0着)</span></div>
       <div id="survivalFulfillmentHeaderVal" style="display: none; color:#8d6e63; font-weight:800;">⚡ 3戦合計充足率: -%</div>
     </div>
@@ -469,16 +478,13 @@
     }
   }
 
-  // ★ 【新アーキテクチャ】 単一情報源に基づく連勝記録の判定・加算・リセット
   async function checkAndUpdateStreaks(status) {
     if (!status || !status.round_results) return;
     const isSurvival = (status.battle_type === 'survival' || status.deck_type === 1);
     
-    // round_results のキー数（＝消化済みのラウンド数）
     const roundsPlayedKeys = Object.keys(status.round_results).map(Number).sort((a, b) => a - b);
     const processedCount = status.streak_processed_round || 0;
     
-    // まだ処理していない新しいラウンド結果がある場合のみ集計
     const unprocessedKeys = roundsPlayedKeys.filter(key => key > processedCount);
 
     if (unprocessedKeys.length > 0) {
@@ -488,21 +494,21 @@
       let svMax = globalUserData.survival_max_streak || 0;
 
       for (const roundKey of unprocessedKeys) {
-        const isWin = status.round_results[String(roundKey)].isWin; // 単一情報源から勝敗を取得
+        const isWin = status.round_results[String(roundKey)].isWin;
 
         if (isSurvival) {
           if (isWin) {
             svCurr += 1;
             if (svCurr > svMax) svMax = svCurr;
           } else {
-            svCurr = 0; // 敗北したらサバイバル連勝リセット
+            svCurr = 0; 
           }
         } else {
           if (isWin) {
             chCurr += 1;
             if (chCurr > chMax) chMax = chCurr;
           } else {
-            chCurr = 0; // 敗北したらチャレンジ連勝リセット
+            chCurr = 0; 
           }
         }
       }
@@ -549,7 +555,7 @@
     }).join('');
   }
 
-  // ★ 【新アーキテクチャ】 単一情報源からカードの成績部分を描画する関数
+  // ★ 修正：青丸・緑丸の場所（今ある情報を削らずに、2行で綺麗に並べる）
   function renderSeriesItemCardHTML(sObj, roundNum, isCurrentRound, roundResult) {
     const catName = getNormalizedCategory(sObj) || '一般';
     const sName = sObj.series_name || '名称未設定';
@@ -560,28 +566,21 @@
 
     let resultHtml = "";
     if (roundResult) {
-      // ギブアップ（不戦敗）判定
       const isGiveUp = roundResult.isGiveUp || false;
-
-      let roundFulfillmentHtml = "";
-      if (typeof roundResult.teamPotential === 'number') {
-        const maxLimit = limits.max_total_potential;
-        if (typeof maxLimit === 'number' && maxLimit > 0) {
-          const roundRate = ((roundResult.teamPotential / maxLimit) * 100).toFixed(1);
-          roundFulfillmentHtml = `<div style="font-size:11px; color:#2d6a37; font-weight:bold; margin-top:2px;">⚡ 充足率: ${roundRate}% (${roundResult.teamPotential}/${maxLimit})</div>`;
-        } else {
-          roundFulfillmentHtml = `<div style="font-size:11px; color:#2d6a37; font-weight:bold; margin-top:2px;">⚡ 合計Pt: ${roundResult.teamPotential}Pt</div>`;
-        }
-      }
 
       if (isGiveUp) {
         resultHtml = `
-          <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d0e3d2; display: flex; flex-direction: column; gap: 4px; background: #fff5f5; padding: 6px 8px; border-radius: 4px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
-              <div><span style="font-weight:bold; color:#d32f2f;">成績:</span> ギブアップ <span style="font-size:10px; color:#666;">(出走馬不足・不戦敗)</span></div>
-              <div><span class="badge-loss" style="padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px;">× 不戦敗</span></div>
+          <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d0e3d2; display: flex; justify-content: space-between; align-items: center; background: #fff5f5; padding: 8px 10px; border-radius: 6px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <div style="font-weight:bold; color:#d32f2f; font-size:12px;">成績: ギブアップ <span style="font-size:10px; color:#666; font-weight:normal;">(不戦敗)</span></div>
+              <div style="color:#d97706; font-family:monospace; font-size: 11px;">
+                着順計 -着 <span style="font-size:9.5px; color:#888;">(全て不戦敗)</span>
+              </div>
             </div>
-            ${roundFulfillmentHtml}
+            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+              <span class="badge-loss" style="padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 11px;">× 不戦敗</span>
+              <span style="color:#2d6a37; font-weight:bold; font-size: 11px;">⚡ 充足率: 0.0%</span>
+            </div>
           </div>
         `;
       } else {
@@ -595,17 +594,32 @@
         const c4Plus = roundResult.r4Plus || 0;
         const rankSum = roundResult.rankSum || 0;
 
-        const detailText = `(1着:${c1}, 2着:${c2}, 3着:${c3}, 4着以下:${c4Plus}) 合計${rankSum}着`;
         const badgeClass = roundResult.isWin ? 'badge-win' : 'badge-loss';
         const badgeText = roundResult.isWin ? '○ 勝利' : '× 敗北';
 
+        let roundRateHtml = "充足率データなし";
+        if (typeof roundResult.teamPotential === 'number') {
+          const maxLimit = limits.max_total_potential;
+          if (typeof maxLimit === 'number' && maxLimit > 0) {
+            const roundRate = ((roundResult.teamPotential / maxLimit) * 100).toFixed(1);
+            roundRateHtml = `⚡ 充足率: ${roundRate}% <span style="font-size:9px; color:#555;">(${roundResult.teamPotential}/${maxLimit})</span>`;
+          } else {
+            roundRateHtml = `⚡ 合計Pt: ${roundResult.teamPotential}Pt`;
+          }
+        }
+
         resultHtml = `
-          <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d0e3d2; display: flex; flex-direction: column; gap: 4px; background: #f8fafc; padding: 6px 8px; border-radius: 4px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
-              <div><span style="font-weight:bold; color:var(--accent-color);">成績:</span> ${scoreText} <span style="font-family:monospace; color:#d97706; margin-left:4px;">${detailText}</span></div>
-              <div><span class="${badgeClass}" style="padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px;">${badgeText}</span></div>
+          <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d0e3d2; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 8px 10px; border-radius: 6px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <div style="font-weight:bold; color:var(--accent-color); font-size:12px;">成績: ${scoreText}</div>
+              <div style="color:#d97706; font-family:monospace; font-size: 11px;">
+                着順詳細 <span style="font-size:9.5px; color:#888;">(1着${c1}/2着${c2}/3着${c3}/外${c4Plus})</span> 合計${rankSum}着
+              </div>
             </div>
-            ${roundFulfillmentHtml}
+            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+              <span class="${badgeClass}" style="padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 11px;">${badgeText}</span>
+              <span style="color:#2d6a37; font-weight:bold; font-size: 11px;">${roundRateHtml}</span>
+            </div>
           </div>
         `;
       }
@@ -681,7 +695,6 @@
     await processBattleState(totalWins);
   }
 
-  // ★ 【新アーキテクチャ】 単一情報源（round_results）から全てを集計して判定するメイン処理
   async function processBattleState(totalWins) {
     let status = globalUserData.cpu_battle_status;
 
@@ -690,7 +703,6 @@
       return;
     }
 
-    // 1. 連勝記録の更新
     await checkAndUpdateStreaks(status);
     updateHeaderBadges();
 
@@ -698,34 +710,36 @@
     const maxRounds = isSurvival ? 3 : (status.max_rounds || (totalWins >= 30 ? 5 : 3));
     const winCondition = isSurvival ? 3 : Math.ceil(maxRounds / 2);
 
-    let currentWins = 0;
-    let currentLosses = 0;
     const roundResults = status.round_results || {};
+    
+    let roundWins = 0;
+    let roundLosses = 0;
+    let raceWins = 0;
+    let raceLosses = 0;
 
-    // 2. round_results を元に現在の勝敗数を再集計（完全同期）
     Object.keys(roundResults).forEach(key => {
       const res = roundResults[key];
-      if (res.isWin) currentWins++;
-      else currentLosses++;
+      if (res.isWin) roundWins++;
+      else roundLosses++;
+      
+      raceWins += res.myWins || 0;
+      raceLosses += res.oppWins || 0;
     });
 
-    // 3. サバイバルモード独自の「1回でも負けたら即終了」を強制適用
-    if (isSurvival && currentLosses >= 1) {
-      currentLosses = 1;
+    if (isSurvival && roundLosses >= 1) {
+      roundLosses = 1;
       status.series_losses = 1;
     }
 
-    // 4. マッチ終了(isFinished)の判定
     const isFinished = isSurvival 
-      ? (currentWins >= 3 || currentLosses >= 1)
-      : (currentWins >= winCondition || currentLosses > Math.floor(maxRounds / 2) || status.current_round > maxRounds);
+      ? (roundWins >= 3 || roundLosses >= 1)
+      : (roundWins >= winCondition || roundLosses > Math.floor(maxRounds / 2) || status.current_round > maxRounds);
 
     if (isFinished) {
-      await renderActiveBattle(status, totalWins, true);
+      await renderActiveBattle(status, totalWins, true, roundWins, roundLosses, raceWins, raceLosses);
       return;
     }
 
-    // 5. 進行中のレースがある場合は遷移
     if (status.current_match && status.current_match.full_race_grids) {
       window.location.href = 'race_result.html';
       return;
@@ -735,8 +749,7 @@
       return;
     }
 
-    // 6. 通常のバトルトップ画面を描画
-    await renderActiveBattle(status, totalWins, false);
+    await renderActiveBattle(status, totalWins, false, roundWins, roundLosses, raceWins, raceLosses);
   }
 
   function showModeSelectUI(totalWins) {
@@ -825,7 +838,6 @@
     bestsPanel.style.display = 'block';
   }
 
-  // ★ 【新アーキテクチャ】 対戦の新規作成。初期化処理の統一。
   window.startNewBattle = async function(mode) {
     const totalWins = globalUserData.total_wins || 0;
     let maxRounds = 3;
@@ -858,7 +870,6 @@
       series_losses: 0,
       total_1st_places: 0,
       used_cards_history: [],
-      // 旧型の配列やオブジェクトを廃止し、新アーキテクチャの器を準備
       race_results: {},
       round_results: {},
       streak_processed_round: 0,
@@ -870,7 +881,7 @@
       await setDoc(doc(db, "users", currentUser.uid), { cpu_battle_status: newStatus }, { merge: true });
       globalUserData.cpu_battle_status = newStatus;
       document.getElementById('modeSelectPanel').style.display = 'none';
-      await renderActiveBattle(newStatus, totalWins, false);
+      await renderActiveBattle(newStatus, totalWins, false, 0, 0, 0, 0);
     } catch (err) {
       console.error("対戦開始エラー:", err);
       alert("対戦の開始に失敗しました。再読み込みしてください。");
@@ -1033,8 +1044,7 @@
     return lineup;
   }
 
-  // ★ 【新アーキテクチャ】 単一情報源（round_results）からデータを取得して画面を描画する
-  async function renderActiveBattle(status, totalWins, isFinished) {
+  async function renderActiveBattle(status, totalWins, isFinished, roundWins, roundLosses, raceWins, raceLosses) {
     const deckType = status.deck_type || 2;
     const isSurvival = (status.battle_type === 'survival' || deckType === 1);
 
@@ -1048,21 +1058,35 @@
 
     const roundResults = status.round_results || {};
     
-    // 勝敗数の再計算 (round_results から直接拾う)
-    let currentWins = 0;
-    let currentLosses = 0;
-    Object.keys(roundResults).forEach(key => {
-      if (roundResults[key].isWin) currentWins++;
-      else currentLosses++;
-    });
+    document.getElementById('winCount').textContent = roundWins;
+    document.getElementById('lossCount').textContent = roundLosses;
+    
+    // ★ 修正：赤丸の場所（勝敗の横に全体の勝率を追加し、色で演出）
+    const totalRacesPlayed = raceWins + raceLosses;
+    let winRateStr = "-";
+    const winRateEl = document.getElementById('winRateDisplay');
 
-    if (isSurvival && currentLosses >= 1) currentLosses = 1;
+    if (totalRacesPlayed > 0) {
+      const rateNum = (raceWins / totalRacesPlayed) * 100;
+      winRateStr = rateNum.toFixed(1) + "%";
+      
+      if (rateNum >= 80) {
+        winRateEl.style.borderColor = "#d4af37"; winRateEl.style.color = "#b8860b"; winRateEl.style.background = "#fffdf0";
+      } else if (rateNum >= 70) {
+        winRateEl.style.borderColor = "#f97316"; winRateEl.style.color = "#c2410c"; winRateEl.style.background = "#fff7ed";
+      } else if (rateNum >= 60) {
+        winRateEl.style.borderColor = "#3b82f6"; winRateEl.style.color = "#1d4ed8"; winRateEl.style.background = "#eff6ff";
+      } else {
+        winRateEl.style.borderColor = "#9ca3af"; winRateEl.style.color = "#4b5563"; winRateEl.style.background = "#f9fafb";
+      }
+      winRateEl.innerHTML = `レース総計: <span style="font-size:15px; margin-left:4px; color:#d32f2f;">${raceWins}</span>勝 <span style="font-size:15px; margin-left:2px; color:#1976d2;">${raceLosses}</span>敗 <span style="margin-left:6px;">(勝率: ${winRateStr})</span>`;
+    } else {
+      winRateEl.style.borderColor = "#e5e7eb"; winRateEl.style.color = "#6b7280"; winRateEl.style.background = "#ffffff";
+      winRateEl.innerHTML = `レース総計: <span style="font-size:15px; margin-left:4px;">0</span>勝 <span style="font-size:15px; margin-left:2px;">0</span>敗 <span style="margin-left:6px;">(勝率: -%)</span>`;
+    }
 
-    document.getElementById('winCount').textContent = currentWins;
-    document.getElementById('lossCount').textContent = currentLosses;
     document.getElementById('winLossHeader').style.display = 'flex';
 
-    // トータル成績の集計
     let totalC1 = 0, totalC2 = 0, totalC3 = 0, totalC4Plus = 0;
     let totalRankSum = 0;
     let actualTeamPotentialSum = 0;
@@ -1080,7 +1104,6 @@
 
     document.getElementById('totalDetailText').textContent = `(1着:${totalC1}, 2着:${totalC2}, 3着:${totalC3}, 4着以下:${totalC4Plus}) 合計${totalRankSum}着`;
 
-    // 充足率計算用（プレイ済みの回戦分のみ上限を加算）
     const playedRoundsCount = Object.keys(roundResults).length;
     for (let i = 0; i < Math.max(playedRoundsCount, status.current_round - 1); i++) {
       if (lineup[i]) {
@@ -1107,7 +1130,6 @@
     document.getElementById('totalRoundsText').textContent = `全${maxRounds}回戦`;
     document.getElementById('matchTypeSubText').textContent = `※${maxRounds}回戦マッチ (${typeText}) の対戦シリーズ一覧です。`;
 
-    // ラウンドカード一覧の描画
     const cardsContainer = document.getElementById('seriesCardsContainer');
     cardsContainer.innerHTML = '';
 
@@ -1118,8 +1140,7 @@
       
       let roundResult = roundResults[String(roundNum)];
       
-      // 未プレイだが敗北確定により「不戦敗（ギブアップ）」扱いとする場合
-      if (!roundResult && isFinished && roundNum <= status.current_round && currentLosses > 0) {
+      if (!roundResult && isFinished && roundNum <= status.current_round && roundLosses > 0) {
         roundResult = { isGiveUp: true, isWin: false };
       }
 
@@ -1134,7 +1155,7 @@
       document.getElementById('challengePanel').style.display = 'block';
       document.getElementById('deckPanel').style.display = 'none';
 
-      if (currentWins >= winCondition) {
+      if (roundWins >= winCondition) {
         if (!status.reward_claimed) {
           if (!window._autoRewardTriggered) {
             window._autoRewardTriggered = true;
