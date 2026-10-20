@@ -277,7 +277,6 @@
   </div>
 
   <div class="status-header" id="winLossHeader" style="display: none;">
-    <!-- ★ 修正：赤丸の場所（勝敗の横に全体の勝率を追加） -->
     <div class="status-header-top" style="display: flex; flex-direction: column; gap: 8px; align-items: center;">
       <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
         <div>
@@ -371,51 +370,9 @@
   let SERIES_MASTER = [];
   let HORSES_MASTER = {};
   let HORSES_ARRAY = [];
+  let UNLOCK_MASTER = []; 
   let selectedSeries = null;
   let selectedDeckIndex = 0;
-
-  const UNLOCK_STAGES = [
-    { wins: 0, cat: "古馬東西", no: 1, desc: "初期カテゴリ（古馬東西 NO.1）" },
-    { wins: 0, cat: "地方交流", no: 1, desc: "初期カテゴリ（地方交流 NO.1）" },
-    { wins: 0, cat: "クラシック", no: 1, desc: "初期カテゴリ（クラシック NO.1）" },
-    { wins: 5, cat: "古馬東西", no: 2, desc: "古馬東西 NO.2" },
-    { wins: 10, cat: "地方交流", no: 2, desc: "地方交流 NO.2（回戦順ランダム化解禁）" },
-    { wins: 15, cat: "古馬王道", no: 1, desc: "「古馬王道」カテゴリ（NO.1）" },
-    { wins: 20, cat: "ローカル", no: 1, desc: "「ローカル」カテゴリ（NO.1）" },
-    { wins: 25, cat: "クラシック", no: 2, desc: "クラシック NO.2" },
-    { wins: 30, cat: "古馬東西", no: 3, desc: "古馬東西 NO.3（★5回戦マッチへ昇格！）" },
-    { wins: 35, cat: "古馬王道", no: 2, desc: "古馬王道 NO.2" },
-    { wins: 40, cat: "ローカル", no: 2, desc: "ローカル NO.2" },
-    { wins: 45, cat: "古馬東西", no: 4, desc: "古馬東西 NO.4" },
-    { wins: 50, cat: "海外チャレンジ", no: 1, desc: "「海外チャレンジ」カテゴリ（NO.1）" },
-    { wins: 55, cat: "地方交流", no: 3, desc: "地方交流 NO.3" },
-    { wins: 60, cat: "クラシック", no: 3, desc: "クラシック NO.3" },
-    { wins: 65, cat: "海外チャレンジ", no: 2, desc: "海外チャレンジ NO.2" },
-    { wins: 70, cat: "古馬王道", no: 3, desc: "古馬王道 NO.3" },
-    { wins: 75, cat: "ローカル", no: 3, desc: "ローカル NO.3" },
-    { wins: 80, cat: "古馬東西", no: 5, desc: "古馬東西 NO.5" },
-    { wins: 85, cat: "海外チャレンジ", no: 3, desc: "海外チャレンジ NO.3" },
-    { wins: 90, cat: "クラシック", no: 4, desc: "クラシック NO.4" },
-    { wins: 95, cat: "地方交流", no: 4, desc: "地方交流 NO.4（全4種コンプリート）" },
-    { wins: 100, cat: "海外単独", no: 1, desc: "「海外単独」カテゴリ（NO.1）" },
-    { wins: 105, cat: "古馬東西", no: 6, desc: "古馬東西 NO.6（全6種コンプリート）" },
-    { wins: 110, cat: "ローカル", no: 4, desc: "ローカル NO.4" },
-    { wins: 115, cat: "古馬王道", no: 4, desc: "古馬王道 NO.4（全4種コンプリート）" },
-    { wins: 120, cat: "ローカル", no: 5, desc: "ローカル NO.5（全5種コンプリート）" },
-    { wins: 125, cat: "クラシック", no: 5, desc: "クラシック NO.5（全5種コンプリート）" },
-    { wins: 130, cat: "海外単独", no: 2, desc: "海外単独 NO.2" },
-    { wins: 135, cat: "海外チャレンジ", no: 4, desc: "海外チャレンジ NO.4（全4種コンプリート）" },
-    { wins: 140, cat: "海外単独", no: 3, desc: "海外単独 NO.3" },
-    { wins: 145, cat: "海外単独", no: 4, desc: "海外単独 NO.4" },
-    { wins: 150, cat: "トリビュート", no: 1, desc: "「トリビュート」カテゴリ（NO.1）" },
-    { wins: 155, cat: "海外単独", no: 5, desc: "海外単独 NO.5" },
-    { wins: 160, cat: "トリビュート", no: 2, desc: "トリビュート NO.2" },
-    { wins: 165, cat: "海外単独", no: 6, desc: "海外単独 NO.6（全6種コンプリート）" },
-    { wins: 170, cat: "トリビュート", no: 3, desc: "トリビュート NO.3" },
-    { wins: 180, cat: "トリビュート", no: 4, desc: "トリビュート NO.4" },
-    { wins: 190, cat: "トリビュート", no: 5, desc: "トリビュート NO.5" },
-    { wins: 200, cat: "トリビュート", no: 6, desc: "トリビュート NO.6（全40シリーズ達成・グランドスラム！）" }
-  ];
 
   async function fetchJsonSafely(url) {
     const res = await fetch(url);
@@ -453,9 +410,11 @@
 
   function getUnlockedLimits(totalWins) {
     const limits = { "古馬東西": 0, "地方交流": 0, "クラシック": 0, "古馬王道": 0, "ローカル": 0, "海外チャレンジ": 0, "海外単独": 0, "トリビュート": 0 };
-     UNLOCK_STAGES.forEach(item => {
-      if (totalWins >= item.wins && item.no > limits[item.cat]) { limits[item.cat] = item.no; }
-    });
+    if(UNLOCK_MASTER && UNLOCK_MASTER.length > 0) {
+      UNLOCK_MASTER.forEach(item => {
+        if (totalWins >= item.wins && item.no > limits[item.cat]) { limits[item.cat] = item.no; }
+      });
+    }
     return limits;
   }
 
@@ -555,7 +514,6 @@
     }).join('');
   }
 
-  // ★ 修正：青丸・緑丸の場所（今ある情報を削らずに、2行で綺麗に並べる）
   function renderSeriesItemCardHTML(sObj, roundNum, isCurrentRound, roundResult) {
     const catName = getNormalizedCategory(sObj) || '一般';
     const sName = sObj.series_name || '名称未設定';
@@ -654,6 +612,7 @@
 
       SERIES_MASTER = await fetchJsonSafely('./data/series_master.json');
       HORSES_ARRAY = await fetchJsonSafely('./data/horses_master.json');
+      UNLOCK_MASTER = await fetchJsonSafely('./data/unlock_master.json');
       
       const catCounters = {};
       SERIES_MASTER.forEach(s => {
@@ -683,7 +642,10 @@
     const totalWins = globalUserData.total_wins || 0;
     const lastNotifiedWins = globalUserData.last_notified_wins ?? -1;
 
-    const newlyUnlocked = UNLOCK_STAGES.filter(st => totalWins >= st.wins && st.wins > lastNotifiedWins && st.wins > 0);
+    let newlyUnlocked = [];
+    if(UNLOCK_MASTER && UNLOCK_MASTER.length > 0) {
+      newlyUnlocked = UNLOCK_MASTER.filter(st => totalWins >= st.wins && st.wins > lastNotifiedWins && st.wins > 0);
+    }
     
     if (newlyUnlocked.length > 0) {
       showUnlockAnimation(totalWins, newlyUnlocked);
@@ -1061,7 +1023,6 @@
     document.getElementById('winCount').textContent = roundWins;
     document.getElementById('lossCount').textContent = roundLosses;
     
-    // ★ 修正：赤丸の場所（勝敗の横に全体の勝率を追加し、色で演出）
     const totalRacesPlayed = raceWins + raceLosses;
     let winRateStr = "-";
     const winRateEl = document.getElementById('winRateDisplay');
