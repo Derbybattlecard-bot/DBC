@@ -645,19 +645,22 @@
 
       // 双方が作戦指示を完了した時のみレース画面へ移行
       if ((isMyStrategySubmitted || myReady) && opponentStrategyReady) {
-        isNavigatingAway = true;
-        if (roomUnsubscribe) roomUnsubscribe();
-
+        // ★修正箇所: isHost (ホスト) の場合のみ status 更新と画面遷移を行う
         if (isHost) {
+          isNavigatingAway = true;
+          if (roomUnsubscribe) roomUnsubscribe();
+
           await updateDoc(roomRef, {
             status: "racing",
             p1_status: "racing",
             p2_status: "racing"
           }).catch(e => console.error(e));
-        }
 
-        const modeQuery = matchMode ? `&mode=${matchMode}` : '';
-        window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}${modeQuery}`;
+          const modeQuery = matchMode ? `&mode=${matchMode}` : '';
+          window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}${modeQuery}`;
+        }
+        // ゲスト(isHost === false) の場合はここで何もしない。
+        // 上部にある if (data.status === "racing" ...) のフェイルセーフによって安全に遷移する。
       }
     });
   }
