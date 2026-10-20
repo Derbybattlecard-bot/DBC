@@ -729,11 +729,13 @@
 
   let currentUser = null;
   let userUnlockedSeries = []; 
+  let totalWins = 0; // ★ 追加
   
   // 各タブ用のG1レース配列
   let DOMESTIC_G1 = [];
   let LOCAL_G1 = [];
   let TRIBUTE_G1 = [];
+  let UNLOCK_MASTER = []; // ★ グローバル変数に追加
   
   let userG1Records = {};
   
@@ -759,16 +761,22 @@
     currentUser = user;
 
     try {
-      const [userDoc, seriesRes] = await Promise.all([
+      const [userDoc, seriesRes, unlockRes] = await Promise.all([ // ★ 追加
         getDoc(doc(db, "users", user.uid)),
-        fetchJsonSafe('series_master.json')
+        fetchJsonSafe('series_master.json'),
+        fetchJsonSafe('unlock_master.json') // ★ 追加
       ]);
+
+      if (unlockRes) {
+        UNLOCK_MASTER = unlockRes; // ★ 追加
+      }
 
       if (userDoc.exists()) {
         const data = userDoc.data();
         userG1Records = data.g1_records || {};
         // 開発テスト用。実運用時はここはFirebaseの値になります
         userUnlockedSeries = data.unlocked_series || ["SERIES_001", "SERIES_006", "SERIES_016", "SERIES_021"]; 
+        totalWins = data.total_wins || 0; // ★ 追加
       }
 
       if (seriesRes) {
@@ -809,13 +817,17 @@
 
     const seriesList = Array.isArray(seriesData) ? seriesData : Object.values(seriesData);
 
+    // ★ 修正：UNLOCK_MASTERから海外とトリビュートの解放条件（Wins）を取得して判定する
+    const overseasReq = UNLOCK_MASTER.find(u => u.cat.includes("海外"))?.wins || 999;
+    const tributeReq = UNLOCK_MASTER.find(u => u.cat.includes("トリビュート"))?.wins || 999;
+
+    isOverseasUnlocked = totalWins >= overseasReq;
+    isTributeUnlocked = totalWins >= tributeReq;
+
     seriesList.forEach(series => {
       if (!userUnlockedSeries.includes(series.series_id)) return;
 
       const groupName = series.group || "";
-      
-      if (groupName.includes("海外")) isOverseasUnlocked = true;
-      if (groupName.includes("トリビュート")) isTributeUnlocked = true;
 
       if (groupName.includes("トリビュート")) {
         if (!extractedTribute.has(series.series_id)) {
