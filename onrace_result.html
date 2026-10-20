@@ -1010,6 +1010,11 @@ async function handleRoomDataUpdate(data) {
   }
   
   if (data.status === "entry_selecting" || data.status === "matchup") {
+    // 【追加】両者が作戦完了している場合は、ホストのステータス更新遅延とみなし、編成画面に戻さない
+    if (data.player1_strategy_ready && data.player2_strategy_ready) {
+      return;
+    }
+
     if (raceState === 'running' || raceState === 'finished') {
       return; 
     }
