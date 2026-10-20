@@ -884,63 +884,77 @@
     await processBattleState(totalWins);
   };
 
+  // ★ 修正：報酬の重複受け取りを防ぐロックフラグ
+  let isClaimingReward = false;
+
   async function autoClaimAndShowReward(status) {
-    if (status.reward_claimed && status.reward_horse_id) {
-      await renderInlineRewardCardOnly(status.reward_horse_id);
+    // 既に報酬獲得済みの場合は即座にreturnし、画面表示のみ行う
+    if (status.reward_claimed) {
+      if (status.reward_horse_id) {
+        await renderInlineRewardCardOnly(status.reward_horse_id);
+      }
       return;
     }
-
-    let pool = HORSES_ARRAY;
-    const rewardHorse = pool[Math.floor(Math.random() * pool.length)];
-
-    const userUpdateObj = {
-      "cpu_battle_status.reward_claimed": true,
-      "cpu_battle_status.reward_horse_id": rewardHorse.horse_id,
-      "total_wins": increment(1)
-    };
-
-    globalUserData.total_wins = (globalUserData.total_wins || 0) + 1;
-    status.reward_claimed = true;
-    status.reward_horse_id = rewardHorse.horse_id;
-
-    const isSurvival = (status.battle_type === 'survival' || status.deck_type === 1);
-    if (isSurvival) {
-      globalUserData.survival_wins = (globalUserData.survival_wins || 0) + 1;
-      userUpdateObj.survival_wins = increment(1);
-    }
-
-    const current1stCount = status.total_1st_places || 0;
-    let newMax1st = globalUserData.max_1st_places || 0;
-
-    if (current1stCount > newMax1st) {
-      newMax1st = current1stCount;
-      globalUserData.max_1st_places = newMax1st;
-      userUpdateObj.max_1st_places = newMax1st;
-    }
+    
+    // 連打等による重複実行ブロック
+    if (isClaimingReward) return;
+    isClaimingReward = true;
 
     try {
+      let pool = HORSES_ARRAY;
+      const rewardHorse = pool[Math.floor(Math.random() * pool.length)];
+
+      const userUpdateObj = {
+        "cpu_battle_status.reward_claimed": true,
+        "cpu_battle_status.reward_horse_id": rewardHorse.horse_id,
+        "total_wins": increment(1)
+      };
+
+      globalUserData.total_wins = (globalUserData.total_wins || 0) + 1;
+      status.reward_claimed = true;
+      status.reward_horse_id = rewardHorse.horse_id;
+
+      const isSurvival = (status.battle_type === 'survival' || status.deck_type === 1);
+      if (isSurvival) {
+        globalUserData.survival_wins = (globalUserData.survival_wins || 0) + 1;
+        userUpdateObj.survival_wins = increment(1);
+      }
+
+      const current1stCount = status.total_1st_places || 0;
+      let newMax1st = globalUserData.max_1st_places || 0;
+
+      if (current1stCount > newMax1st) {
+        newMax1st = current1stCount;
+        globalUserData.max_1st_places = newMax1st;
+        userUpdateObj.max_1st_places = newMax1st;
+      }
+
       await Promise.all([
         setDoc(doc(db, "users", currentUser.uid), userUpdateObj, { merge: true }),
         setDoc(doc(db, `users/${currentUser.uid}/inventory/${rewardHorse.horse_id}`), { count: increment(1), obtained_at: new Date().toISOString() }, { merge: true })
       ]);
-    } catch (err)  {
+      
+      updateHeaderBadges();
+
+      try {
+        const { cardRenderer } = await import('./js/card_renderer.js');
+        if (!cardRenderer.isLoaded) await cardRenderer.init();
+        const { playFourthCornerCutIn } = await import('./js/login_bonus.js');
+        await playFourthCornerCutIn(rewardHorse, cardRenderer);
+        
+        await renderInlineRewardCardOnly(rewardHorse.horse_id);
+      } catch (err) {
+        console.warn("カットイン演出エラー:", err);
+        await renderInlineRewardCardOnly(rewardHorse.horse_id);
+      }
+    } catch (err) {
       console.error("データ保存エラー:", err);
       alert("報酬の保存に失敗しました。通信環境をご確認ください。");
-      return;
-    }
-    
-    updateHeaderBadges();
-
-    try {
-      const { cardRenderer } = await import('./js/card_renderer.js');
-      if (!cardRenderer.isLoaded) await cardRenderer.init();
-      const { playFourthCornerCutIn } = await import('./js/login_bonus.js');
-      await playFourthCornerCutIn(rewardHorse, cardRenderer);
-      
-      await renderInlineRewardCardOnly(rewardHorse.horse_id);
-    } catch (err) {
-      console.warn("カットイン演出エラー:", err);
-      await renderInlineRewardCardOnly(rewardHorse.horse_id);
+      // エラー時は再試行できるようにフラグとステータスを戻す
+      status.reward_claimed = false; 
+    } finally {
+      // 処理完了（成功・失敗問わず）でロック解除
+      isClaimingReward = false;
     }
   }
 
