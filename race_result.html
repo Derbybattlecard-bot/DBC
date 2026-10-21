@@ -59,7 +59,7 @@
   }
 
   /* =========================================================
-     レーストラック ＆ 背景（左右の余白・黒帯を完全排除）
+     レーストラック ＆ 背景
   ========================================================= */
   #track-container { 
     background: #4d9e59; 
@@ -264,15 +264,54 @@
     pointer-events: none;
   }
 
-  /* ★馬のサイズをコンパクト化（約80%サイズ）して縦長の広がりを演出 */
   .horse-icon {
     position: absolute;
     width: 94px;
     height: 61px;
     transform-origin: center center;
     will-change: left, top;
+    transition: filter 0.3s ease;
   }
   .horse-icon.dir-ltr { transform: scaleX(-1); }
+
+  /* =========================================================
+     ★ ド派手なアビリティ覚醒オーラ（オーバー目）
+  ========================================================= */
+  @keyframes auraPulsePlayer {
+    0% {
+      filter: drop-shadow(0 0 6px #00ffff) drop-shadow(0 0 14px #3399ff) drop-shadow(0 0 30px #0055ff);
+      transform: scale(1.05);
+    }
+    50% {
+      filter: drop-shadow(0 0 14px #ffffff) drop-shadow(0 0 28px #00d9ff) drop-shadow(0 0 55px #0077ff);
+      transform: scale(1.12);
+    }
+    100% {
+      filter: drop-shadow(0 0 6px #00ffff) drop-shadow(0 0 14px #3399ff) drop-shadow(0 0 30px #0055ff);
+      transform: scale(1.05);
+    }
+  }
+  @keyframes auraPulseCpu {
+    0% {
+      filter: drop-shadow(0 0 6px #ff5555) drop-shadow(0 0 14px #ff0044) drop-shadow(0 0 30px #aa0000);
+      transform: scale(1.05);
+    }
+    50% {
+      filter: drop-shadow(0 0 14px #ffffff) drop-shadow(0 0 28px #ff3344) drop-shadow(0 0 55px #ff0000);
+      transform: scale(1.12);
+    }
+    100% {
+      filter: drop-shadow(0 0 6px #ff5555) drop-shadow(0 0 14px #ff0044) drop-shadow(0 0 30px #aa0000);
+      transform: scale(1.05);
+    }
+  }
+
+  .horse-icon.aura-player .horse-bounce-wrap {
+    animation: auraPulsePlayer 0.55s ease-in-out infinite alternate !important;
+  }
+  .horse-icon.aura-cpu .horse-bounce-wrap {
+    animation: auraPulseCpu 0.55s ease-in-out infinite alternate !important;
+  }
 
   .horse-shadow {
     position: absolute;
@@ -297,7 +336,6 @@
     100% { transform: scaleX(0.86); opacity: 0.28; }
   }
 
-  /* ★記号なし、名前のみ5〜6文字のマーカー */
   .owner-marker {
     position: absolute; top: -14px; left: 48%; transform: translateX(-50%);
     padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 900;
@@ -307,26 +345,53 @@
   .owner-marker.p2-marker { background: rgba(70, 15, 15, 0.95); color: #f87171; border: 1.5px solid var(--cpu-color); }
   .horse-icon.dir-ltr .owner-marker { transform: translateX(-50%) scaleX(-1); }
 
+  /* =========================================================
+     ★ アビリティ発動ポップアップ（上部ラチ付近配置・大文字）
+  ========================================================= */
   #ability-popup-container {
-    position: absolute; left: 50%; transform: translate(-50%, -50%) scale(0.7);
+    position: absolute; left: 50%; top: 15%; transform: translate(-50%, -50%) scale(0.7);
     z-index: 60; pointer-events: none; opacity: 0;
     transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    width: 85%; max-width: 420px;
+    width: 90%; max-width: 440px;
   }
-  #ability-popup-container.p1-pos { top: 25%; }
-  #ability-popup-container.p2-pos { top: 55%; }
   #ability-popup-container.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   .ability-popup-box {
-    background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(20,20,35,0.95));
-    border: 2px solid var(--gold-color);
-    box-shadow: 0 0 20px rgba(255, 204, 0, 0.6), inset 0 0 10px rgba(255, 204, 0, 0.3);
-    border-radius: 10px; padding: 12px; text-align: center;
+    background: linear-gradient(135deg, rgba(5,5,15,0.95), rgba(15,20,35,0.98));
+    border: 2.5px solid var(--gold-color);
+    box-shadow: 0 0 24px rgba(255, 204, 0, 0.7), inset 0 0 12px rgba(255, 204, 0, 0.4);
+    border-radius: 10px; padding: 10px 16px; text-align: center;
   }
-  .ability-popup-box.p1-ability { border-color: var(--player-color); box-shadow: 0 0 20px rgba(51,153,255,0.7); }
-  .ability-popup-box.p2-ability { border-color: var(--cpu-color); box-shadow: 0 0 20px rgba(255,68,68,0.7); }
-  .ability-pop-header { font-size: 0.85em; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; }
-  .ability-pop-horse { font-size: 1.1em; font-weight: bold; color: #fff; margin: 3px 0; }
-  .ability-pop-name { font-size: 1.4em; font-weight: bold; color: var(--gold-color); text-shadow: 0 0 8px #000; }
+  .ability-popup-box.p1-ability {
+    border-color: #38bdf8;
+    box-shadow: 0 0 26px rgba(56, 189, 248, 0.85), inset 0 0 14px rgba(56, 189, 248, 0.4);
+  }
+  .ability-popup-box.p2-ability {
+    border-color: #ef4444;
+    box-shadow: 0 0 26px rgba(239, 68, 68, 0.85), inset 0 0 14px rgba(239, 68, 68, 0.4);
+  }
+  .ability-pop-name {
+    font-size: 1.45em; font-weight: 900; color: #fff;
+    text-shadow: 0 0 12px rgba(255,255,255,0.8), 2px 2px 4px #000;
+    letter-spacing: 1px;
+  }
+  .ability-popup-box.p1-ability .ability-pop-name { color: #67e8f9; }
+  .ability-popup-box.p2-ability .ability-pop-name { color: #fca5a5; }
+
+  /* =========================================================
+     ★ ペース ＆ 展開のテレビ中継風バナーポップアップ
+  ========================================================= */
+  #race-banner-popup {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%) translateY(-25px);
+    background: linear-gradient(90deg, rgba(0,0,0,0.92), rgba(20,25,35,0.95), rgba(0,0,0,0.92));
+    border: 2px solid var(--gold-color); border-radius: 20px;
+    padding: 5px 20px; font-size: 0.95em; font-weight: 900; color: var(--gold-color);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.8), 0 0 12px rgba(255,204,0,0.5);
+    z-index: 55; opacity: 0; pointer-events: none; transition: all 0.35s cubic-bezier(0.2, 1, 0.3, 1);
+    white-space: nowrap; letter-spacing: 0.5px;
+  }
+  #race-banner-popup.show {
+    opacity: 1; transform: translateX(-50%) translateY(0);
+  }
 
   #wipe-overlay {
     position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
@@ -335,14 +400,6 @@
     transition: left 0.6s cubic-bezier(0.8, 0, 0.2, 1);
   }
   .wipe-text { color: var(--gold-color); font-size: 1.5em; font-weight: bold; text-align: center; text-shadow: 2px 2px 10px #000; }
-  
-  #race-telop {
-    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%) scale(0.8);
-    background: rgba(0, 0, 0, 0.85); border: 2px solid var(--gold-color); color: var(--gold-color);
-    padding: 6px 16px; border-radius: 30px; font-size: 1em; font-weight: bold;
-    z-index: 40; opacity: 0; transition: all 0.4s; pointer-events: none; white-space: nowrap;
-  }
-  #race-telop.show { opacity: 1; transform: translateX(-50%) scale(1); }
 
   .p1-name { color: var(--player-color) !important; font-weight: bold; }
   .p2-name { color: var(--cpu-color) !important; font-weight: bold; }
@@ -480,14 +537,15 @@
     </div>
     <div id="flash-overlay"></div>
 
+    <!-- アビリティポップアップ（上部・メッセージのみ大文字） -->
     <div id="ability-popup-container">
       <div class="ability-popup-box" id="ability-popup-box">
-        <div class="ability-pop-header" id="ability-pop-header">ABILITY ACTIVATED!</div>
-        <div class="ability-pop-horse" id="ability-pop-horse">馬名</div>
         <div class="ability-pop-name" id="ability-pop-name">【アビリティ名】</div>
       </div>
     </div>
-    <div id="race-telop">【ペース】 ---</div>
+
+    <!-- ペース ＆ 展開バナーポップアップ -->
+    <div id="race-banner-popup">【展開】 ---</div>
   </div>
 
   <div id="commentary-box">
@@ -580,7 +638,6 @@ const TRACK_DIRECTION_MASTER = {
   "直線":   { phase1_3_dir: "none",          phase4_dir: "left_to_right", goal_position: "right" }
 };
 
-// ★毛色カラーパレット（未設定・海外馬は「鹿毛」デフォルト）
 const COAT_PALETTE = {
   '鹿毛':   { main: '#8c3b14', dark: '#4d1e07', light: '#b35524', sock: '#1a1310', mane: '#18110e' },
   '黒鹿毛': { main: '#3d2214', dark: '#1f1008', light: '#5c3622', sock: '#140c08', mane: '#110a07' },
@@ -597,7 +654,6 @@ function getCoatPalette(hairColor) {
   return COAT_PALETTE[key] || COAT_PALETTE['鹿毛'];
 }
 
-// 枠番規定色（1枠白、2枠黒、3枠赤、4枠青、5枠黄、6枠緑、7枠橙、8枠桃）
 function getGateColors(gateNum) {
   const g = Number(gateNum) || 1;
   const frame = Math.min(8, Math.max(1, Math.ceil(g / 2)));
@@ -614,7 +670,6 @@ function getGateColors(gateNum) {
   return map[frame] || map[1];
 }
 
-// ★日本語勝負服パーサー（金子真人氏の「黒，青袖，黄鋸歯形」等あらゆる語順・特殊柄・十字襷に対応）
 function parseSilkColors(silkText, gateNum) {
   const fallback = getGateColors(gateNum);
   if (!silkText || typeof silkText !== 'string' || silkText.trim() === '' || silkText.trim() === '-') {
@@ -790,298 +845,15 @@ function renderSleevePatternSVG(sleevePat, sleeveCol) {
   }
 }
 
-let currentUser = null;
-let globalUserData = null;
-let currentRaceIndex = 0;
-let fullRaceGrids = [];
-let trackCondition = "良";
-let activeHorses = [];
-let raceState = 'loading';
-let calculatedResults = [];
-let seriesHistory = []; 
-
-let raceMasterData = null; 
-let seriesMasterData = null; 
-let strategyMasterData = null;
-let abilityMasterData = null;
-let HORSES_MASTER = {};
-let HORSES_ARRAY = [];
-
-let currentRacePace = "";
-let currentRaceBranch = ""; 
-let currentRaceFormulaStr = "";
-let currentTrackConfig = TRACK_DIRECTION_MASTER["右回り"];
-let currentRaceInfo = null;
-let raceInfo = null;
-let currentVisualDir = "left_to_right";
-let g1Records = {};
-
-window.showErrorModal = function(msg) {
-  const msgEl = document.getElementById('error-modal-msg');
-  if (msgEl) msgEl.textContent = msg;
-  const modal = document.getElementById('error-modal');
-  if (modal) modal.style.display = "block";
-};
-
-window.resetBattleStatus = async function() {
-  if (!confirm("対戦ステータスをクリアして最初からやり直しますか？")) return;
-  try {
-    if (currentUser) {
-      await setDoc(doc(db, "users", currentUser.uid), {
-        cpu_battle_status: {
-          is_active: false, current_match: null, series_wins: 0, series_losses: 0, current_round: 1, used_cards_history: [], total_1st_places: globalUserData?.cpu_battle_status?.total_1st_places || 0
-        }
-      }, { merge: true });
-    }
-    window.location.href = 'battle.html';
-  } catch (err) { window.location.href = 'battle.html'; }
-};
-
-onAuthStateChanged(auth, async (user) => {
-  if (!user) { window.location.href = 'auth.html'; return; }
-  currentUser = user;
-  try {
-    const userDoc = await getDoc(doc(db, "users", user.uid));
-    if (userDoc.exists()) {
-      globalUserData = userDoc.data();
-      g1Records = globalUserData.g1_records || {};
-    }
-    await loadMasterData();
-    const isSuccess = buildRaceGridsFromFirebase();
-    if (!isSuccess) return;
-
-    const status = globalUserData?.cpu_battle_status || {};
-    const currentMatch = status.current_match || {};
-    if (typeof currentMatch.current_race_index === 'number') currentRaceIndex = currentMatch.current_race_index;
-    if (Array.isArray(currentMatch.series_history)) seriesHistory = currentMatch.series_history;
-
-    if (currentRaceIndex >= 5) showFinalSeriesResult();
-    else setupRace(currentRaceIndex);
-  } catch (err) { showErrorModal("データの読み込みに失敗しました。"); }
-});
-
-async function fetchJsonWithFallback(filename) {
-  const paths = [`data/${filename}`, `./data/${filename}`, `../data/${filename}`];
-  for (const path of paths) {
-    try {
-      const res = await fetch(path);
-      if (res.ok) return await res.json();
-    } catch (e) { }
-  }
-  throw new Error(`Failed to load ${filename}`);
-}
-
-async function loadMasterData() {
-  const [raceRes, seriesRes, stratRes, horseRes, abilityRes] = await Promise.all([
-    fetchJsonWithFallback('race_master.json'),
-    fetchJsonWithFallback('series_master.json'),
-    fetchJsonWithFallback('strategy_master.json'),
-    fetchJsonWithFallback('horses_master.json'),
-    fetchJsonWithFallback('ability_master.json') 
-  ]);
-  raceMasterData = raceRes;
-  seriesMasterData = seriesRes;
-  strategyMasterData = stratRes;
-  abilityMasterData = abilityRes; 
-  if (Array.isArray(horseRes)) {
-    HORSES_ARRAY = horseRes;
-    HORSES_ARRAY.forEach(h => { HORSES_MASTER[h.horse_id] = h; });
-  } else if (typeof horseRes === 'object' && horseRes !== null) {
-    HORSES_MASTER = horseRes;
-    HORSES_ARRAY = Object.values(horseRes);
-  }
-}
-
-// ★16頭立て厳格化 ＆ CPU対戦馬と重複したモブ馬を予備で差し替える保険機能
-function buildRaceGridsFromFirebase() {
-  const status = globalUserData?.cpu_battle_status || {};
-  const currentMatch = status.current_match || {};
-  const playerEntries = currentMatch.player_entries || [];
-  const cpuEntries = currentMatch.cpu_entries || [];
-  const racesMobIds = currentMatch.races_mob_ids || {};
-  const racesMobGates = currentMatch.races_mob_gates || [];
-
-  if (!playerEntries || playerEntries.length < 5) return false;
-
-  fullRaceGrids = [];
-  for (let rIdx = 0; rIdx < 5; rIdx++) {
-    const grid = [];
-    const pEntry = playerEntries[rIdx];
-    const pMaster = HORSES_MASTER[pEntry.horse_id] || { name: "自馬", horse_id: pEntry.horse_id };
-    grid.push({ ...pMaster, isPlayer: true, isCpu: false, tactic: pEntry.strategy || "先行", level: pEntry.strategy_level || 3, gate_number: pEntry.gate_number || 1 });
-
-    const cEntry = cpuEntries[rIdx] || {};
-    const cMaster = HORSES_MASTER[cEntry.horse_id] || { name: "CPU馬", horse_id: cEntry.horse_id };
-    const cpuStyle = cMaster.style || cMaster.running_style || "先行";
-    const cpuGate = cEntry.gate_number || 2;
-    const cpuStrat = determineStrategy(cEntry.horse_id, cpuStyle, cpuGate, strategyMasterData, true);
-    grid.push({ ...cMaster, isPlayer: false, isCpu: true, tactic: cpuStrat.tactic, level: cpuStrat.level, gate_number: cpuGate });
-
-    // モブ馬リストから、プレイヤーとCPUの重複を弾いてきっちり14頭選抜（合計16頭）
-    const rawMobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
-    const rawMobGates = racesMobGates[rIdx] || racesMobGates[String(rIdx)] || [];
-
-    const existingIds = new Set([String(pEntry.horse_id).padStart(4, '0'), String(cEntry.horse_id).padStart(4, '0')]);
-    const filteredMobList = [];
-
-    for (let mIdx = 0; mIdx < rawMobIds.length; mIdx++) {
-      const mobId = String(rawMobIds[mIdx]).padStart(4, '0');
-      if (!existingIds.has(mobId) && filteredMobList.length < 14) {
-        existingIds.add(mobId);
-        filteredMobList.push({ id: mobId, gate: rawMobGates[mIdx] || (filteredMobList.length + 3) });
-      }
-    }
-
-    // 万が一14頭に満たない場合のフォールバック補填
-    let fallbackCounter = 1;
-    while (filteredMobList.length < 14) {
-      const fbId = String(HORSES_ARRAY[fallbackCounter % HORSES_ARRAY.length]?.horse_id || "0001").padStart(4, '0');
-      if (!existingIds.has(fbId)) {
-        existingIds.add(fbId);
-        filteredMobList.push({ id: fbId, gate: filteredMobList.length + 3 });
-      }
-      fallbackCounter++;
-    }
-
-    filteredMobList.forEach(item => {
-      const mobMaster = HORSES_MASTER[item.id] || { name: "モブ馬", horse_id: item.id };
-      const mobStyle = mobMaster.style || mobMaster.running_style || "自在";
-      const mobStrat = determineStrategy(item.id, mobStyle, item.gate, strategyMasterData, false);
-      grid.push({ ...mobMaster, isPlayer: false, isCpu: false, tactic: mobStrat.tactic, level: mobStrat.level, gate_number: item.gate });
-    });
-
-    grid.sort((a, b) => (a.gate_number || 0) - (b.gate_number || 0));
-    fullRaceGrids.push(grid);
-  }
-  return true;
-}
-
-function ensureStats(h) {
-  const master = HORSES_MASTER[h.horse_id] || {};
-  h.turf_potential = h.turf_potential ?? master.turf_potential ?? 0;
-  h.dirt_potential = h.dirt_potential ?? master.dirt_potential ?? 0;
-  h.potential = h.potential ?? master.potential ?? 0;
-  h.speed = h.speed ?? master.speed ?? 0;
-  h.stamina = h.stamina ?? master.stamina ?? 0;
-  h.sharp = h.sharp ?? master.sharp ?? 0;
-  h.jizoku = h.jizoku ?? master.jizoku ?? 0;
-  h.guts = h.guts ?? master.guts ?? 0;
-  h.power = h.power ?? master.power ?? 0;
-  h.style = h.style || master.style || master.running_style || "自在";
-}
-
-function setupRace(rIdx) {
-  if (!raceMasterData || !seriesMasterData) return;
-  raceState = 'ready';
-  activeHorses = fullRaceGrids[rIdx] || [];
-
-  const trackContainer = document.getElementById('track-container');
-  if (trackContainer) {
-    trackContainer.classList.remove('running', 'hit-stop');
-  }
-  const flLayer = document.getElementById('furlong-layer');
-  if (flLayer) flLayer.innerHTML = '';
-
-  const racesTrackConditions = globalUserData?.cpu_battle_status?.current_match?.races_track_conditions || [];
-  trackCondition = racesTrackConditions[rIdx] || "良";
-
-  const status = globalUserData?.cpu_battle_status || {};
-  let seriesIdStr = status.selected_series_id || (status.series_lineup ? status.series_lineup[(status.current_round || 1) - 1] : null);
-  let seriesInfo = seriesMasterData.find(s => s.series_id === seriesIdStr) || seriesMasterData[0];
-  let roundInfo = (seriesInfo && seriesInfo.rounds && seriesInfo.rounds[0]) ? seriesInfo.rounds[0] : null;
-  currentRaceInfo = (roundInfo && roundInfo.races && roundInfo.races[rIdx]) 
-    ? roundInfo.races[rIdx] 
-    : { race_name: "一般レース", track: "中山", surface: "芝", distance: 2000 };
-    
-  if (trackContainer) {
-    if (currentRaceInfo.surface === "ダート") trackContainer.classList.add('dirt-track');
-    else trackContainer.classList.remove('dirt-track');
-  }
-
-  let trackName = currentRaceInfo.track || "中山";
-  let turnDir = VENUE_DIRECTION_MASTER[trackName] || "右回り";
-  if (currentRaceInfo.distance === 1000 && trackName === "新潟") turnDir = "直線"; 
-  currentTrackConfig = TRACK_DIRECTION_MASTER[turnDir] || TRACK_DIRECTION_MASTER["右回り"];
-
-  let allyStreak = 0;
-  let prevAllyLost = false;
-  for (let i = 0; i < seriesHistory.length; i++) {
-    if (seriesHistory[i].win) { allyStreak++; prevAllyLost = false; }
-    else { allyStreak = 0; prevAllyLost = true; }
-  }
-
-  const currentRaceNumber = seriesHistory.length + 1;
-  activeHorses.forEach(h => {
-    if (h.isPlayer) {
-      h.ally_win_streak = allyStreak;
-      h.prev_ally_race_lost = prevAllyLost;
-    }
-    let matchedStrat = null;
-    if (strategyMasterData && h.tactic) {
-      matchedStrat = strategyMasterData.find(s => s.name === h.tactic || s.tactic === h.tactic);
-    }
-    if (matchedStrat) {
-      h.stratObj = matchedStrat;
-      Object.keys(matchedStrat).forEach(key => {
-        if (typeof matchedStrat[key] === 'number') h[`strat_${key}`] = matchedStrat[key]; 
-      });
-    }
-    const lvl = h.level || 1;
-    h.strat_potential = lvl * 2;
-    h.strat_name = matchedStrat ? matchedStrat.name : (h.tactic || "通常");
-    const master = HORSES_MASTER[h.horse_id] || {};
-    if (master.ability) h.ability = master.ability;
-    if (master.silk_colors) h.silk_colors = master.silk_colors;
-    if (master.hair_color) h.hair_color = master.hair_color;
-    ensureStats(h);
-  });
-
-  raceInfo = {
-    race_name: currentRaceInfo.race_name,
-    race_number: currentRaceNumber,
-    surface: currentRaceInfo.surface,
-    distance: currentRaceInfo.distance,
-    track: currentRaceInfo.track
-  };
-
-  const playerObj = activeHorses.find(h => h.isPlayer) || { name: "自馬", tactic: "先行", level: 3 };
-  const cpuObj = activeHorses.find(h => h.isCpu) || { name: "敵馬", tactic: "逃げ", level: 3 };
-
-  document.getElementById('display-race-num').textContent = `RACE ${rIdx + 1} / 5`;
-  document.getElementById('display-race-title').textContent = `${currentRaceInfo.race_name}（${currentRaceInfo.track} ${currentRaceInfo.surface} ${currentRaceInfo.distance}m）`;
-  document.getElementById('display-race-cond').textContent = `馬場: ${trackCondition}`;
-  document.getElementById('p1-card-name').textContent = playerObj.name;
-  document.getElementById('p1-card-strat').textContent = `作戦: ${playerObj.tactic} (Lv.${playerObj.level})`;
-  document.getElementById('p2-card-name').textContent = cpuObj.name;
-  document.getElementById('p2-card-strat').textContent = `作戦: ${cpuObj.tactic} (Lv.${cpuObj.level})`;
-
-  const p1ImgId = playerObj.horse_id ? String(playerObj.horse_id).padStart(4, '0') : '0000';
-  const p2ImgId = cpuObj.horse_id ? String(cpuObj.horse_id).padStart(4, '0') : '0000';
-
-  const p1ImgEl = document.getElementById('p1-card-img');
-  if (p1ImgEl) { p1ImgEl.src = `./images/${p1ImgId}.jpg`; p1ImgEl.onerror = () => { p1ImgEl.src = './images/0000.jpg'; }; }
-  const p2ImgEl = document.getElementById('p2-card-img');
-  if (p2ImgEl) { p2ImgEl.src = `./images/${p2ImgId}.jpg`; p2ImgEl.onerror = () => { p2ImgEl.src = './images/0000.jpg'; }; }
-
-  renderLanes();
-
-  const btn = document.getElementById('nextBtn');
-  btn.disabled = false;
-  btn.innerText = "🏁 レーススタート！";
-  document.getElementById('result-container').style.display = "none";
-  updateLog(`第${rIdx + 1}レース（${currentRaceInfo.race_name}）の準備が完了しました。`);
+function getName6(name) {
+  if (!name) return 'ダミーバ';
+  return name.length >= 6 ? name.substring(0, 6) : name;
 }
 
 function getKana3(name) {
   if (!name) return 'ダミ';
   const kanaOnly = name.replace(/[^\u30A0-\u30FF]/g, '');
   return kanaOnly.length >= 3 ? kanaOnly.substring(0, 3) : name.substring(0, 3);
-}
-
-// ★記号なし、最大6文字の馬名
-function getName6(name) {
-  if (!name) return 'ダミーバ';
-  return name.length >= 6 ? name.substring(0, 6) : name;
 }
 
 function buildHorseActorSVG(h, i) {
@@ -1097,7 +869,6 @@ function buildHorseActorSVG(h, i) {
   const bodyPatSVG = renderBodyPatternSVG(silk.bodyPat, silk.patCol);
   const sleevePatSVG = renderSleevePatternSVG(silk.sleevePat, silk.sleeveCol);
 
-  // ★記号なし・名前のみ大きく表示
   let markerHTML = '';
   if (h.isPlayer) {
     markerHTML = `<div class="owner-marker p1-marker">${ name6 }</div>`;
@@ -1122,7 +893,6 @@ function buildHorseActorSVG(h, i) {
           <clipPath id="sc_${uid}">
             <path d="M 148 48 C 170 38, 198 42, 220 62 C 214 74, 198 82, 180 80 C 164 78, 152 64, 148 48 Z" />
           </clipPath>
-          <!-- ★腕のクリッピング領域を外側（下側）へ2倍太く拡張 -->
           <clipPath id="slc_${uid}">
             <path d="M 158 54 L 176 82 L 142 96 L 134 82 L 152 72 L 144 58 Z" />
           </clipPath>
@@ -1161,7 +931,6 @@ function buildHorseActorSVG(h, i) {
         <path d="M 192 156 L 190 180 L 202 180 L 204 156 Z" fill="#18181b" stroke="#f8fafc" stroke-width="1.6"/>
         <path d="M 180 88 C 200 84, 224 84, 236 92 C 228 104, 192 106, 180 88 Z" fill="#18181b" stroke="#090d16" stroke-width="2"/>
 
-        <!-- 騎手 ＆ 勝負服（上半身は維持、腕パーツのみ外側へ2倍太く誇張） -->
         <g class="jockey-group">
           <path d="M 212 58 C 228 64, 236 78, 226 92 C 216 102, 196 110, 180 110 C 174 110, 172 102, 180 96 C 192 86, 204 74, 212 58 Z" fill="#f8fafc" stroke="#18181b" stroke-width="2.2" stroke-linejoin="round"/>
           <path d="M 178 104 L 202 130 L 192 140 L 178 138 L 188 128 L 172 110 Z" fill="#18181b" stroke="#090d16" stroke-width="2" stroke-linejoin="round"/>
@@ -1177,11 +946,9 @@ function buildHorseActorSVG(h, i) {
 
           <circle cx="136" cy="54" r="10.5" fill="#fde68a" stroke="#18181b" stroke-width="2"/>
           <rect x="124" y="50" width="11" height="6" rx="2" fill="#18181b" stroke="#e2e8f0" stroke-width="1.2"/>
-          <!-- ★帽子は全馬かならず枠番規定色（gateColors.cap）を厳格適用 -->
           <path d="M 122 48 C 122 33, 136 25, 153 31 C 161 35, 163 45, 156 52 Z" fill="${gateColors.cap}" stroke="#18181b" stroke-width="2.2" stroke-linejoin="round"/>
           <polygon points="122,48 111,51 126,52" fill="#18181b"/>
 
-          <!-- 太く誇張された袖 -->
           <g clip-path="url(#slc_${uid})">
             <rect x="125" y="48" width="55" height="52" fill="${silk.sleeve}" />
             ${sleevePatSVG}
@@ -1196,7 +963,6 @@ function buildHorseActorSVG(h, i) {
   `;
 }
 
-// ★道中（フェーズ1〜3）は1枠が「下から上」、直線（フェーズ4）は「上から下」に並び替える関数
 function applyLaneLayout(isStraight = false) {
   const fieldCount = activeHorses.length || 16;
   const minTop = 85;
@@ -1206,7 +972,6 @@ function applyLaneLayout(isStraight = false) {
   activeHorses.forEach((h, i) => {
     const el = document.getElementById(`horse-icon-${i}`);
     if (el) {
-      // 道中は下から上（1番がmaxTop）、直線は上から下（1番がminTop）
       const laneTopPx = isStraight 
         ? Math.round(minTop + (i * stepY)) 
         : Math.round(maxTop - (i * stepY));
@@ -1248,7 +1013,7 @@ function renderLanes() {
   });
 
   lanes.innerHTML = htmlBuffer;
-  applyLaneLayout(false); // スタートは「下から上」
+  applyLaneLayout(false);
   setHorseDirection(initialDir);
 }
 
@@ -1399,7 +1164,7 @@ function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear",
         const startNose = -10;
         const targetNose = goalMeetXRight;
         const currentNose = startNose + ((targetNose - startNose) * (validPos / 85));
-        leftPx = Math.round(currentNose - 88); // 88pxオフセット
+        leftPx = Math.round(currentNose - 88);
       } else {
         const startNose = trackWidth + 10;
         const targetNose = goalMeetXLeft;
@@ -1430,6 +1195,17 @@ function freezeAllHorsesInPlace() {
   }
 }
 
+// ★テレビ中継風バナーポップアップ
+function showBannerPopup(text, durationMs = 3000) {
+  const banner = document.getElementById('race-banner-popup');
+  if (!banner) return;
+  banner.innerHTML = text;
+  banner.classList.add('show');
+  setTimeout(() => {
+    banner.classList.remove('show');
+  }, durationMs);
+}
+
 window.handleButtonClick = function() {
   if (raceState === 'ready') startRace();
   else if (raceState === 'finished') {
@@ -1442,27 +1218,28 @@ window.handleButtonClick = function() {
 let abilityQueue = [];
 let isShowingAbility = false;
 
+// ★ポップアップ表示 ＆ 対象馬のド派手なオーラ発光
 function processAbilityQueue() {
   if (isShowingAbility || abilityQueue.length === 0) return;
   isShowingAbility = true;
   const item = abilityQueue.shift();
   const popup = document.getElementById('ability-popup-container');
   const box = document.getElementById('ability-popup-box');
-  const horseEl = document.getElementById('ability-pop-horse');
   const nameEl = document.getElementById('ability-pop-name');
 
   box.classList.remove('p1-ability', 'p2-ability');
-  popup.classList.remove('p1-pos', 'p2-pos');
+
+  const horseIconEl = document.getElementById(`horse-icon-${item.horse.index}`);
 
   if (item.horse.isPlayer) {
     box.classList.add('p1-ability');
-    popup.classList.add('p1-pos');
+    if (horseIconEl) horseIconEl.classList.add('aura-player');
   } else {
     box.classList.add('p2-ability');
-    popup.classList.add('p2-pos');
+    if (horseIconEl) horseIconEl.classList.add('aura-cpu');
   }
 
-  horseEl.textContent = `${item.horse.gate_number}番 ${item.horse.name}`;
+  // 馬名は出さず、技名のみをデカデカと表示
   nameEl.textContent = `【${item.popupMessage || item.abilityName}】`;
   popup.classList.add('show');
 
@@ -1471,8 +1248,15 @@ function processAbilityQueue() {
     setTimeout(() => {
       isShowingAbility = false;
       processAbilityQueue();
-    }, 400);
-  }, 2000);
+    }, 300);
+  }, 2200);
+
+  // 道中フェーズの発動オーラは3.5秒で解除（直線発動はゴールまで継続）
+  if (item.phase !== 4 && horseIconEl) {
+    setTimeout(() => {
+      horseIconEl.classList.remove('aura-player', 'aura-cpu');
+    }, 3500);
+  }
 }
 
 async function startRace() {
@@ -1525,6 +1309,9 @@ async function startRace() {
   const phase1Dir = (currentTrackConfig.phase1_3_dir === "none") ? currentTrackConfig.phase4_dir : currentTrackConfig.phase1_3_dir;
   const isRTL = (phase1Dir === "right_to_left");
 
+  // 大逃げ馬の有無をチェック
+  const hasBigEscape = activeHorses.some(h => (h.style === "大逃" || h.running_style === "大逃"));
+
   // --------------------------------------------------------------------------
   // Phase 1 (0.0s〜): ゲート開放 ＆ スタート！（下から上に1枠〜16番、超縦長隊列）
   // --------------------------------------------------------------------------
@@ -1537,12 +1324,12 @@ async function startRace() {
     gateEl.style.opacity = "0";
   }
 
-  let p1Pos = getPosPointsMap(calculatedResults, 40, -15);
+  let p1Pos = getPosPointsMap(calculatedResults, 45, -20);
   setPhasePositions(p1Pos, 4.0, "linear", phase1Dir); 
   setTimeout(() => spawnFurlongPole("1000", false), 1500);
 
   // --------------------------------------------------------------------------
-  // Phase 2 (4.0s〜): 向正面（★先頭82%〜最後方-5%の超縦長）
+  // Phase 2 (4.0s〜): 向正面（★先頭95% / 大逃げ時は108%で見切れ！追込馬もしっかり視界へ）
   // --------------------------------------------------------------------------
   setTimeout(() => {
     const p1Horses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.phase1_abilities && h.phase1_abilities.length > 0);
@@ -1554,7 +1341,7 @@ async function startRace() {
         abilityLogs.push(`${label} ${h.name}の能力 ${abs} が発動！`);
         h.phase1_abilities.forEach(abName => {
           const msg = (h.popup_messages && h.popup_messages[abName]) || abName;
-          abilityQueue.push({ horse: h, abilityName: abName, popupMessage: msg });
+          abilityQueue.push({ horse: h, abilityName: abName, popupMessage: msg, phase: 2 });
         });
       });
       updateLog(`<strong>【向正面】</strong> ${comm.phase2}<br><span style="color:var(--gold-color);">${abilityLogs.join("<br>")}</span>`);
@@ -1563,8 +1350,15 @@ async function startRace() {
       updateLog(`<strong>【向正面】</strong> ${comm.phase2}`);
     }
 
+    // ★中継バナー：ペース表示
+    showBannerPopup(`【PACE】 ${currentRacePace} ⚡`, 3200);
+
     spawnFurlongPole("800", false);
-    let p2Pos = getPosPointsMap(calculatedResults, 82, -5);
+
+    // ★大逃げ時は先頭108%（後肢と尻尾のみ画面に残る！）、通常時は先頭95%。最後方は18%でしっかり見える
+    const p2Lead = hasBigEscape ? 108 : 95;
+    const p2Trail = hasBigEscape ? 12 : 18;
+    let p2Pos = getPosPointsMap(calculatedResults, p2Lead, p2Trail);
     setPhasePositions(p2Pos, 4.3, "linear", phase1Dir); 
   }, 4000);
 
@@ -1573,10 +1367,11 @@ async function startRace() {
   // --------------------------------------------------------------------------
   setTimeout(() => {
     updateLog(`<strong>【3コーナー〜展開】</strong> ${comm.phase3}`);
-    showTelop(`【ペース】 ${currentRacePace}`, 3000);
     spawnFurlongPole("600", false);
 
-    let p3Pos = getPosPointsMap(calculatedResults, 88, 10);
+    const p3Lead = hasBigEscape ? 104 : 94;
+    const p3Trail = hasBigEscape ? 18 : 24;
+    let p3Pos = getPosPointsMap(calculatedResults, p3Lead, p3Trail);
     setPhasePositions(p3Pos, 4.3, "linear", phase1Dir); 
   }, 8300); 
 
@@ -1596,9 +1391,8 @@ async function startRace() {
     wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
     wipe.style.left = "0";
     
-    // ワイプ裏（800ms後）で、直線用のレーン配置（上から下へ1枠〜16番）にスムーズ切替
     setTimeout(() => {
-      applyLaneLayout(true); // 直線用（上から下）
+      applyLaneLayout(true);
       setHorseDirection(currentTrackConfig.phase4_dir);
 
       let p4StartPos = getPosPointsMap(calculatedResults, 45, -25);
@@ -1610,7 +1404,6 @@ async function startRace() {
 
       setTimeout(() => {
         // ★ 直線スパート：1着馬は85%（ゴール板クロス地点）へ猛加速！
-        // 下位馬は22%付近に大きく取り残され、豪快なゴボウ抜きが視覚化される
         let finalPositions = new Array(activeHorses.length);
         calculatedResults.forEach((item, rank) => {
           let posVal = 85 - (rank * 4.2);
@@ -1630,14 +1423,15 @@ async function startRace() {
              
         setTimeout(() => {
           updateLog(`<strong>【最後の直線】</strong> ${comm.phase4}`);
-          showTelop(`【展開】 ${currentRaceBranch}`, 3500);
+          // ★中継バナー：展開表示
+          showBannerPopup(`【展開】 ${currentRaceBranch} 🔥`, 3500);
 
           const p4Horses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.phase4_abilities && h.phase4_abilities.length > 0);
           if (p4Horses.length > 0) {
             p4Horses.forEach(h => {
               h.phase4_abilities.forEach(abName => {
                 const msg = (h.popup_messages && h.popup_messages[abName]) || abName;
-                abilityQueue.push({ horse: h, abilityName: abName, popupMessage: `${msg}！` });
+                abilityQueue.push({ horse: h, abilityName: abName, popupMessage: `${msg}！`, phase: 4 });
               });
             });
             processAbilityQueue();
@@ -1653,7 +1447,8 @@ async function startRace() {
               abilityQueue.push({
                 horse: h,
                 abilityName: h.rank_swap_trigger,
-                popupMessage: `${h.rank_swap_trigger}発動！着順浮上！`
+                popupMessage: `${h.rank_swap_trigger}発動！着順浮上！`,
+                phase: 4
               });
             });
             processAbilityQueue();
@@ -1667,7 +1462,7 @@ async function startRace() {
         // ====================================================================
         setTimeout(() => {
           triggerFinishFlash();
-          triggerHitStop(500); // 0.5秒停止
+          triggerHitStop(500);
           updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>${comm.finish}</b></span>`);
 
           setTimeout(() => {
@@ -1690,7 +1485,6 @@ async function startRace() {
               }
 
               setTimeout(() => {
-                hideTelop();
                 renderResults(calculatedResults);
                 raceState = 'finished';
                 const btn = document.getElementById('nextBtn');
@@ -1710,12 +1504,6 @@ async function startRace() {
 }
 
 function updateLog(text) { document.getElementById('log-content').innerHTML = text; }
-function showTelop(text, durationMs = 1500) {
-  const telop = document.getElementById('race-telop');
-  telop.innerHTML = text; telop.classList.add('show');
-  setTimeout(() => { hideTelop(); }, durationMs);
-}
-function hideTelop() { document.getElementById('race-telop').classList.remove('show'); }
 
 function renderResults(scoredList) {
   document.getElementById('summary-pace-branch').textContent = `${currentRacePace} 【${currentRaceBranch}】`;
