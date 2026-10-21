@@ -3,24 +3,17 @@
  * モブ馬・CPU馬に関連する外部処理モジュール
  */
 
-// ★海外馬の漢字2文字国名マスター（主要競馬国を完全網羅）
 const OVERSEAS_REGIONS = new Set([
   "英国", "香港", "首国", "米国", "愛国", "仏国",
   "豪洲", "豪州", "独国", "伊国", "加国", "沙国", "新国", "星港", "星国"
 ]);
 
-/**
- * 外国馬（海外馬）判定ヘルパー
- * - "日本", "地方", 未設定は国内馬 (false)
- * - OVERSEAS_REGIONS に該当、または「日本・地方以外の漢字2文字」なら海外馬 (true)
- */
 function isForeignHorse(h) {
   if (!h) return false;
   const reg = String(h.region || "").trim();
   if (!reg || reg === "日本" || reg === "地方") return false;
   
   if (OVERSEAS_REGIONS.has(reg)) return true;
-  // 万が一リスト外の国名が入っていた場合のセーフティ（2文字の漢字なら海外馬）
   if (/^[\u4E00-\u9FFF]{2}$/.test(reg)) return true;
 
   return false;
@@ -99,9 +92,6 @@ function isValidSurface(horse, surface) {
   return getHorsePotential(horse, surface) > 0;
 }
 
-/**
- * 性別条件の厳密なチェック（牝馬戦に牡馬・セン馬が混ざらないように修正）
- */
 function isValidSex(horseSex, sexLimit) {
   if (!sexLimit || sexLimit === "制限なし" || sexLimit === "なし") return true;
   const sex = String(horseSex || "牡馬").trim();
@@ -180,7 +170,7 @@ function isFrom1992OrLater(horse) {
 }
 
 /**
- * CPU戦用モブ馬抽選関数
+ * CPU戦用モブ馬抽選関数（保険として15頭抽選し、被りを除外して14頭を確定）
  */
 export function generateMobEntries(races, currentSeries, globalUserData, selectedEntries, HORSES_MASTER) {
   const limits = currentSeries?.potential_limit || { max_total_potential: 95 };
@@ -247,7 +237,6 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
           if (!isValidSurface(h, race.surface)) return false;
           if (!isValidDistance(h, raceDistance, relaxDist)) return false;
 
-          // ★国内レース（ジャパンカップ以外）では外国馬を厳格に除外（日本馬・地方馬はOK）
           if (!isOverseas && !isJapanCup) {
             if (isForeignHorse(h)) return false;
           }
@@ -299,6 +288,7 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
       });
     });
 
+    // ★合計16頭立て（プレイヤー1 + CPU1 + モブ14）にするため、モブは14頭確定
     while (selectedMobs.length < 15) {
       const fallback = allHorses.find(h => {
         const hId = String(h.horse_id).padStart(4, '0');
@@ -317,7 +307,7 @@ export function generateMobEntries(races, currentSeries, globalUserData, selecte
       }
     }
 
-    racesMobIds[rIdx] = selectedMobs;
+    racesMobIds[rIdx] = selectedMobs.slice(0, 14);
   });
 
   return racesMobIds;
@@ -350,7 +340,6 @@ export function generateOnlineMobEntries(races, excludedIdsSet, HORSES_MASTER) {
       if (!isValidSex(h.sex, sexLimit)) return false;
       if (!isValidDistance(h, distance)) return false;
       
-      // ★国内レースでは外国馬を除外（日本馬・地方馬は許可）
       if (!isOverseas && !isJapanCup && isForeignHorse(h)) return false;
 
       return true;
@@ -377,7 +366,7 @@ export function generateOnlineMobEntries(races, excludedIdsSet, HORSES_MASTER) {
       }
     }
     
-    mobIds[rIdx] = selected;
+    mobIds[rIdx] = selected.slice(0, 14);
   });
 
   return mobIds;
