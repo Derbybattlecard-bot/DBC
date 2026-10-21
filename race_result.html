@@ -59,7 +59,7 @@
   }
 
   /* =========================================================
-     ダビスタ風 レーストラック・コンテナ ＆ カメラワーク
+     レーストラック ＆ カメラワーク
   ========================================================= */
   #track-container { 
     background: #4d9e59; 
@@ -72,12 +72,11 @@
     margin-bottom: 10px;
   }
 
-  /* カメラズーム（超広角パノラマ・再ズーム用ラッパー） */
   #track-camera-viewport {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
     transition: transform 1.2s cubic-bezier(0.22, 1, 0.36, 1);
-    transform-origin: center 60%;
+    transform-origin: center 55%;
   }
 
   .track-backdrop {
@@ -144,7 +143,6 @@
     );
   }
 
-  /* 背景スクロール */
   #track-container.running.dir-rtl .track-rail-posts,
   #track-container.running.dir-rtl .track-surface {
     animation: scrollGroundLTR var(--scroll-speed) linear infinite;
@@ -163,7 +161,7 @@
     to   { background-position: -180px 0; }
   }
 
-  /* ハロン棒（大型・高視認性） */
+  /* ハロン棒（JRA仕様：白地×青文字、白地×赤文字） */
   #furlong-layer {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
@@ -173,9 +171,9 @@
   }
   .furlong-pole {
     position: absolute;
-    top: 24px;
-    width: 44px;
-    height: 78px;
+    top: 22px;
+    width: 46px;
+    height: 80px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -183,41 +181,38 @@
   }
   .furlong-sign {
     border-radius: 50%;
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 900;
     font-family: Arial, sans-serif;
     box-shadow: 0 3px 8px rgba(0,0,0,0.6);
     letter-spacing: -0.5px;
   }
-  .furlong-sign.sign-yellow {
-    background: #facc15;
-    color: #0f172a;
-    border: 3px solid #ffffff;
+  /* 白地×青文字（JRA通常ハロン棒） */
+  .furlong-sign.jra-blue {
+    background: #ffffff;
+    color: #1d4ed8;
+    border: 3.5px solid #1d4ed8;
   }
-  .furlong-sign.sign-red {
-    background: #ef4444;
-    color: #ffffff;
-    border: 3px solid #ffffff;
-    box-shadow: 0 0 14px rgba(239,68,68,0.85);
-  }
-  .furlong-sign.sign-blue {
-    background: #2563eb;
-    color: #ffffff;
-    border: 3px solid #ffffff;
+  /* 白地×赤文字（残り200m 勝負所ハロン棒） */
+  .furlong-sign.jra-red {
+    background: #ffffff;
+    color: #dc2626;
+    border: 3.5px solid #dc2626;
+    box-shadow: 0 0 12px rgba(220,38,38,0.7);
   }
   .furlong-stick {
     width: 5px;
     height: 36px;
-    background: repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff 7px, #ef4444 7px, #ef4444 14px);
+    background: repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff 7px, #dc2626 7px, #dc2626 14px);
     box-shadow: 1px 0 4px rgba(0,0,0,0.5);
   }
 
-  /* ゴール板（固定カメラ配置） */
+  /* 固定ゴール板 */
   #goal-line {
     position: absolute;
     top: 24px; bottom: 0; width: 6px;
@@ -244,7 +239,6 @@
     transition: none;
   }
 
-  /* 馬群レイヤー */
   #lanes {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
@@ -447,10 +441,8 @@
       <div id="lanes"></div>
     </div>
 
-    <!-- 閃光フラッシュ -->
     <div id="flash-overlay"></div>
 
-    <!-- アビリティ発動カットイン -->
     <div id="ability-popup-container">
       <div class="ability-popup-box" id="ability-popup-box">
         <div class="ability-pop-header" id="ability-pop-header">ABILITY ACTIVATED!</div>
@@ -577,39 +569,22 @@ function getGateColors(gateNum) {
   return map[frame] || map[1];
 }
 
-// 勝負服の豊富なプリセット（写真1枚目・2枚目の体幹軸幾何学に対応）
 const SILK_PRESETS = [
-  // 0: 写真1: 4番（白地・赤縦縞・黒袖）
   { base: '#f8fafc', bodyPat: 'vertical', patCol: '#dc2626', sleeve: '#18181b', sleevePat: 'none', sleeveCol: '#ffffff' },
-  // 1: 写真2: 3番バウンスシャッセ（白地・緑二本輪・白袖赤一本輪）
   { base: '#f8fafc', bodyPat: 'band2', patCol: '#15803d', sleeve: '#f8fafc', sleevePat: 'band1', sleeveCol: '#dc2626' },
-  // 2: 写真2: 社台RH（黄地・黒のこぎり歯形・黒袖黄一本輪）
   { base: '#facc15', bodyPat: 'sawtooth', patCol: '#18181b', sleeve: '#18181b', sleevePat: 'band1', sleeveCol: '#facc15' },
-  // 3: 金子真人HD（黄地・黒山形V字・青袖）
   { base: '#facc15', bodyPat: 'chevron', patCol: '#18181b', sleeve: '#1d4ed8', sleevePat: 'none', sleeveCol: '#ffffff' },
-  // 4: 永井オーナー（緑地・黄たすき・白袖赤一本輪）
   { base: '#15803d', bodyPat: 'sash', patCol: '#facc15', sleeve: '#f8fafc', sleevePat: 'band1', sleeveCol: '#dc2626' },
-  // 5: サンデーR（黒地・赤縦縞・青袖白一本輪）
   { base: '#18181b', bodyPat: 'vertical', patCol: '#dc2626', sleeve: '#1d4ed8', sleevePat: 'band1', sleeveCol: '#ffffff' },
-  // 6: キャロットF（緑地・白二本輪・白袖赤一本輪）
   { base: '#15803d', bodyPat: 'band2', patCol: '#f8fafc', sleeve: '#f8fafc', sleevePat: 'band1', sleeveCol: '#dc2626' },
-  // 7: シルクR（水色地・赤玉/ダイヤ・赤袖白一本輪）
   { base: '#38bdf8', bodyPat: 'diamond', patCol: '#dc2626', sleeve: '#dc2626', sleevePat: 'band1', sleeveCol: '#ffffff' },
-  // 8: 社台一本輪（黄地・黒一本輪・青袖）
   { base: '#facc15', bodyPat: 'band1', patCol: '#18181b', sleeve: '#1d4ed8', sleevePat: 'none', sleeveCol: '#ffffff' },
-  // 9: 紫地・白のこぎり歯形・紫袖白二本輪
   { base: '#581c87', bodyPat: 'sawtooth', patCol: '#f8fafc', sleeve: '#581c87', sleevePat: 'band2', sleeveCol: '#f8fafc' },
-  // 10: 青地・ピンクダイヤモンド・白袖青一本輪
   { base: '#1e3a8a', bodyPat: 'diamond', patCol: '#f472b6', sleeve: '#f8fafc', sleevePat: 'band1', sleeveCol: '#1e3a8a' },
-  // 11: 黒地・茶色たすき・黒袖
   { base: '#18181b', bodyPat: 'sash', patCol: '#9a3412', sleeve: '#18181b', sleevePat: 'band1', sleeveCol: '#f8fafc' },
-  // 12: 桃地・黒山形・桃袖黒一本輪
   { base: '#f472b6', bodyPat: 'chevron', patCol: '#18181b', sleeve: '#f472b6', sleevePat: 'band1', sleeveCol: '#18181b' },
-  // 13: 青地・黄のこぎり歯形・黄袖青一本輪
   { base: '#1d4ed8', bodyPat: 'sawtooth', patCol: '#facc15', sleeve: '#facc15', sleevePat: 'band1', sleeveCol: '#1d4ed8' },
-  // 14: 白地・緑縦縞・緑袖白一本輪
   { base: '#f8fafc', bodyPat: 'vertical', patCol: '#16a34a', sleeve: '#16a34a', sleevePat: 'band1', sleeveCol: '#f8fafc' },
-  // 15: 橙地・黒二本輪・黒袖橙縦縞
   { base: '#ea580c', bodyPat: 'band2', patCol: '#18181b', sleeve: '#18181b', sleevePat: 'stripe', sleeveCol: '#ea580c' }
 ];
 
@@ -659,10 +634,9 @@ function resolveHorseVisuals(horse, index) {
   return { coat, hasBlaze, silk, gateColors };
 }
 
-// 体幹軸（傾斜10.5度）に基づく正確な幾何学パターンのSVG生成
 function renderBodyPatternSVG(bodyPat, patCol) {
   switch (bodyPat) {
-    case 'vertical': // 縦縞: 背骨に平行なストライプ（写真1枚目4番）
+    case 'vertical':
       return `
         <line x1="130" y1="46" x2="235" y2="46" stroke="${patCol}" stroke-width="4.8"/>
         <line x1="130" y1="55" x2="235" y2="55" stroke="${patCol}" stroke-width="4.8"/>
@@ -670,26 +644,26 @@ function renderBodyPatternSVG(bodyPat, patCol) {
         <line x1="130" y1="73" x2="235" y2="73" stroke="${patCol}" stroke-width="4.8"/>
         <line x1="130" y1="82" x2="235" y2="82" stroke="${patCol}" stroke-width="4.8"/>
       `;
-    case 'band1': // 一本輪: 背骨に直角な太帯
+    case 'band1':
       return `<rect x="176" y="20" width="14" height="75" fill="${patCol}"/>`;
-    case 'band2': // 二本輪: 背骨に直角な二本帯（写真2枚目3番）
+    case 'band2':
       return `
         <rect x="168" y="20" width="8.5" height="75" fill="${patCol}"/>
         <rect x="186" y="20" width="8.5" height="75" fill="${patCol}"/>
       `;
-    case 'sawtooth': // のこぎり歯形: 背骨に直角な帯に沿った三角歯（社台スタイル）
+    case 'sawtooth':
       return `
         <polygon points="172,25 186,37 172,47 186,57 172,67 186,77 172,87 184,87 198,77 184,67 198,57 184,47 198,37 184,25" fill="${patCol}"/>
       `;
-    case 'chevron': // 山形(V字): 首元に向かって尖るV字
+    case 'chevron':
       return `
         <path d="M 215 35 L 165 59 L 215 83 L 225 74 L 185 59 L 225 44 Z" fill="${patCol}"/>
       `;
-    case 'sash': // たすき掛け
+    case 'sash':
       return `
         <polygon points="152,32 166,32 216,86 202,86" fill="${patCol}"/>
       `;
-    case 'diamond': // ダイヤモンド
+    case 'diamond':
       return `
         <polygon points="160,48 172,60 160,72 148,60" fill="${patCol}"/>
         <polygon points="184,48 196,60 184,72 172,60" fill="${patCol}"/>
@@ -702,16 +676,16 @@ function renderBodyPatternSVG(bodyPat, patCol) {
 
 function renderSleevePatternSVG(sleevePat, sleeveCol) {
   switch (sleevePat) {
-    case 'band1': // 袖一本輪
+    case 'band1':
       return `<polygon points="147,65 166,69 164,75 145,71" fill="${sleeveCol}"/>`;
-    case 'band2': // 袖二本輪
+    case 'band2':
       return `
         <polygon points="148,62 166,66 165,71 147,67" fill="${sleeveCol}"/>
         <polygon points="144,72 162,76 161,81 143,77" fill="${sleeveCol}"/>
       `;
-    case 'stripe': // 袖縦縞
+    case 'stripe':
       return `<path d="M 151 56 L 160 79 L 142 84" stroke="${sleeveCol}" stroke-width="3.5" fill="none" stroke-linejoin="round"/>`;
-    case 'sawtooth': // 袖のこぎり
+    case 'sawtooth':
       return `<polygon points="146,60 160,66 146,72 160,78 142,84 139,78 152,72 142,66" fill="${sleeveCol}"/>`;
     default:
       return '';
@@ -1054,7 +1028,6 @@ function buildHorseActorSVG(h, i) {
         <path d="M 42 95 L 55 115 M 86 58 L 50 110 M 70 64 L 86 72 M 86 64 L 86 104" stroke="#18181b" stroke-width="2.8" fill="none" stroke-linecap="round"/>
         <circle cx="49" cy="112" r="4" fill="none" stroke="#e2e8f0" stroke-width="2"/>
 
-        <!-- ゼッケン（数字小・3文字馬名大） -->
         <path d="M 170 92 L 260 90 L 270 156 L 180 160 Z" fill="${gateColors.clothBg}" stroke="#111827" stroke-width="2.5" stroke-linejoin="round"/>
         <g id="saddle-txt-${i}">
           <text x="224" y="114" text-anchor="middle" fill="${gateColors.clothText}" font-size="18" font-weight="900" font-family="Arial Black, Impact, sans-serif">${gateNum}</text>
@@ -1070,7 +1043,6 @@ function buildHorseActorSVG(h, i) {
           <path d="M 178 104 L 202 130 L 192 140 L 178 138 L 188 128 L 172 110 Z" fill="#18181b" stroke="#090d16" stroke-width="2" stroke-linejoin="round"/>
           <path d="M 182 130 L 178 142 L 190 142 L 186 130" fill="none" stroke="#e2e8f0" stroke-width="2.2" stroke-linejoin="round"/>
 
-          <!-- 勝負服：胴体（体幹ローカル座標系） -->
           <g clip-path="url(#sc_${uid})">
             <rect x="135" y="28" width="100" height="65" fill="${silk.base}" />
             <g transform="translate(182, 60) rotate(10.5) translate(-182, -60)">
@@ -1084,7 +1056,6 @@ function buildHorseActorSVG(h, i) {
           <path d="M 122 48 C 122 33, 136 25, 153 31 C 161 35, 163 45, 156 52 Z" fill="${gateColors.cap}" stroke="#18181b" stroke-width="2.2" stroke-linejoin="round"/>
           <polygon points="122,48 111,51 126,52" fill="#18181b"/>
 
-          <!-- 勝負服：袖 -->
           <g clip-path="url(#slc_${uid})">
             <rect x="132" y="52" width="40" height="40" fill="${silk.sleeve}" />
             ${sleevePatSVG}
@@ -1099,32 +1070,28 @@ function buildHorseActorSVG(h, i) {
   `;
 }
 
-// 初期配置（スタート直後：枠なりに手前〜奥へ階段状配置）
+// 初期配置：スタート前は馬を「画面外」に完全退避させておく
 function renderLanes() {
   const lanes = document.getElementById('lanes');
   const initialDir = (currentTrackConfig.phase1_3_dir === "none") ? currentTrackConfig.phase4_dir : currentTrackConfig.phase1_3_dir;
   const isRightToLeft = (initialDir === "right_to_left");
-  const trackContainer = document.getElementById('track-container');
-  const trackWidth = trackContainer ? (trackContainer.clientWidth - 125) : 480;
 
   const fieldCount = activeHorses.length || 16;
   const minTop = 85;
-  const maxTop = 290;
+  const maxTop = 275;
   const stepY = fieldCount > 1 ? (maxTop - minTop) / (fieldCount - 1) : 14;
+
+  // 走る方向と逆側の画面外に配置
+  const offscreenLeftPx = isRightToLeft ? 680 : -150;
 
   let htmlBuffer = "";
   activeHorses.forEach((h, i) => {
-    // 枠なり初期Y座標（内枠が画面奥、外枠が画面手前）
+    // 枠番ごとの初期Y座標（1〜4枠は奥、5〜8枠は手前）
     const initialTopPx = Math.round(minTop + (i * stepY));
-    const staggerX = (i % 4) * 8;
-    const initialLeftPx = isRightToLeft
-      ? (trackWidth - 20 - staggerX)
-      : (16 + staggerX);
-
     const zIdx = Math.floor(initialTopPx) + (h.isPlayer ? 5 : (h.isCpu ? 3 : 0));
 
     htmlBuffer += `
-      <div class="horse-icon" id="horse-icon-${i}" style="left: ${initialLeftPx}px; top: ${initialTopPx}px; z-index: ${zIdx};">
+      <div class="horse-icon" id="horse-icon-${i}" style="left: ${offscreenLeftPx}px; top: ${initialTopPx}px; z-index: ${zIdx};">
         ${buildHorseActorSVG(h, i)}
       </div>`;
   });
@@ -1158,14 +1125,15 @@ function setHorseDirection(direction) {
   });
 }
 
-function spawnFurlongPole(label, colorType = 'yellow') {
+// ハロン棒（JRAカラー：白地×青文字、白地×赤文字）
+function spawnFurlongPole(label, isRed = false) {
   const layer = document.getElementById('furlong-layer');
   const trackContainer = document.getElementById('track-container');
   if (!layer || !trackContainer) return;
 
   const pole = document.createElement('div');
   pole.className = 'furlong-pole';
-  const signClass = (colorType === 'red') ? 'sign-red' : ((colorType === 'blue') ? 'sign-blue' : 'sign-yellow');
+  const signClass = isRed ? 'jra-red' : 'jra-blue';
   pole.innerHTML = `
     <div class="furlong-sign ${signClass}">${label}</div>
     <div class="furlong-stick"></div>
@@ -1209,7 +1177,6 @@ function setupFixedGoalBoard(goalPosition) {
   gf.style.left = `${boardX}px`;
 }
 
-// 閃光フラッシュ演出
 function triggerFinishFlash() {
   const fl = document.getElementById('flash-overlay');
   if (!fl) return;
@@ -1237,7 +1204,6 @@ function getPosPointsMap(horses, leadPos, trailPos) {
   return positions;
 }
 
-// X座標とY座標（内外進路）を同時にアニメーション更新
 function setPhaseCoords(xPositions, yPositions, durationSec = 3.0, timing = "linear", moveDir = "left_to_right") {
   const trackContainer = document.getElementById('track-container');
   if (!trackContainer) return;
@@ -1248,7 +1214,7 @@ function setPhaseCoords(xPositions, yPositions, durationSec = 3.0, timing = "lin
     if (!el) return;
 
     let validX = (typeof posX === 'number' && !isNaN(posX)) ? posX : 0;
-    const clampedX = Math.max(-12, Math.min(108, validX));
+    const clampedX = Math.max(-15, Math.min(108, validX));
     let actualLeft = (moveDir === "right_to_left") ? (100 - clampedX) : clampedX;
     const leftPx = Math.round(6 + (usableWidth * (actualLeft / 100)));
 
@@ -1361,25 +1327,33 @@ async function startRace() {
   const phase1Dir = (currentTrackConfig.phase1_3_dir === "none") ? currentTrackConfig.phase4_dir : currentTrackConfig.phase1_3_dir;
 
   // --------------------------------------------------------------------------
-  // Phase 1 (0.0s〜): スタート！隊列形成 ＆ 外枠先行勢の内ラチ切れ込み
+  // Phase 1 (0.0s〜): 画面外からの飛び出し ＆ 5〜8枠のみ内へ切れ込む
   // --------------------------------------------------------------------------
   updateLog(`<strong>【スタート】</strong> ${comm.phase1}`);
   let p1X = getPosPointsMap(calculatedResults, 88, -10);
 
-  // 内ラチ集約Y座標（逃げ・先行馬は奥の内ラチ Y:95〜120px へ斜めに切れ込む）
+  // Y座標制御：1〜4枠はそのまま内〜中目をキープ、5〜8枠（gate >= 9）のみ内ラチ側へ切れ込み
   let p1Y = new Array(activeHorses.length);
   activeHorses.forEach((h, i) => {
+    const gate = h.gate_number || (i + 1);
     const style = (h.stratObj?.style || h.tactic || "");
     const isFront = (style === "逃げ" || style === "先行");
-    const baseLaneY = 95 + ((i % 8) * 16);
-    p1Y[i] = isFront ? (90 + (i % 3) * 14) : (130 + (i % 5) * 22);
+
+    if (gate <= 8) {
+      // 1〜4枠：内〜中目キープ（Y: 95〜135px）
+      p1Y[i] = 95 + (gate * 5);
+    } else {
+      // 5〜8枠：先行・逃げ馬のみ内側（Y: 105〜135px）へ切れ込み、差し馬は中目（Y: 150〜180px）へ収束
+      p1Y[i] = isFront ? (105 + (i % 3) * 12) : (150 + (i % 4) * 12);
+    }
   });
 
+  // 画面外から一気に飛び込む
   setPhaseCoords(p1X, p1Y, 4.0, "ease-out", phase1Dir);
-  setTimeout(() => spawnFurlongPole("1000", "blue"), 1500);
+  setTimeout(() => spawnFurlongPole("1000", false), 1500);
 
   // --------------------------------------------------------------------------
-  // Phase 2 (4.0s〜): 向正面（2列縦隊の隊列、前後差拡大）
+  // Phase 2 (4.0s〜): 向正面（隊列安定、自然な前後の開き）
   // --------------------------------------------------------------------------
   setTimeout(() => {
     const p1Horses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.phase1_abilities && h.phase1_abilities.length > 0);
@@ -1400,12 +1374,11 @@ async function startRace() {
       updateLog(`<strong>【向正面】</strong> ${comm.phase2}`);
     }
 
-    spawnFurlongPole("800", "yellow");
-    let p2X = getPosPointsMap(calculatedResults, 86, -4);
-    // 2列縦隊（インコース隊列 Y:100〜125px と 外目隊列 Y:145〜175px）
+    spawnFurlongPole("800", false);
+    let p2X = getPosPointsMap(calculatedResults, 86, -5);
     let p2Y = new Array(activeHorses.length);
     activeHorses.forEach((_, i) => {
-      p2Y[i] = (i % 2 === 0) ? (102 + (i % 4) * 8) : (150 + (i % 4) * 8);
+      p2Y[i] = 100 + ((i % 5) * 16);
     });
 
     setPhaseCoords(p2X, p2Y, 4.3, "ease-in-out", phase1Dir);
@@ -1417,19 +1390,20 @@ async function startRace() {
   setTimeout(() => {
     updateLog(`<strong>【3コーナー〜展開】</strong> ${comm.phase3}`);
     showTelop(`【ペース】 ${currentRacePace}`, 3000);
-    spawnFurlongPole("600", "blue");
+    spawnFurlongPole("600", false);
 
-    let p3X = getPosPointsMap(calculatedResults, 80, 14);
+    // 隊列がギュッと縮まる
+    let p3X = getPosPointsMap(calculatedResults, 80, 15);
     let p3Y = new Array(activeHorses.length);
     activeHorses.forEach((_, i) => {
-      p3Y[i] = 110 + (i % 6) * 16;
+      p3Y[i] = 105 + ((i % 6) * 14);
     });
 
     setPhaseCoords(p3X, p3Y, 4.3, "ease-in-out", phase1Dir);
   }, 8300); 
 
   // --------------------------------------------------------------------------
-  // Phase 4 (12.6s〜): 第4コーナーワイプ ＆ 直線の攻防（超広角ズーム ＆ 進路分岐）
+  // Phase 4 ＆ Phase 5 (12.6s〜): 直線2分割展開
   // --------------------------------------------------------------------------
   setTimeout(() => {
     const wipe = document.getElementById('wipe-overlay');
@@ -1447,10 +1421,10 @@ async function startRace() {
     setTimeout(() => {
       setHorseDirection(currentTrackConfig.phase4_dir);
 
-      // 直線入口：先行勢が前に残った状態でスタート
-      let p4StartX = getPosPointsMap(calculatedResults, 68, 8);
+      // 直線入口の初期座標
+      let p4StartX = getPosPointsMap(calculatedResults, 70, 8);
       let p4StartY = new Array(activeHorses.length);
-      activeHorses.forEach((_, i) => { p4StartY[i] = 120 + (i % 5) * 18; });
+      activeHorses.forEach((_, i) => { p4StartY[i] = 110 + ((i % 5) * 14); });
       setPhaseCoords(p4StartX, p4StartY, 0, "linear", currentTrackConfig.phase4_dir);
     }, 800);
 
@@ -1458,57 +1432,76 @@ async function startRace() {
       wipe.style.left = "100%"; 
 
       setTimeout(() => {
-        // ★ 直線超広角パノラマズームアウト開始！
-        updateCameraZoom(0.72);
+        // ★ 超広角パノラマズームアウト開始
+        updateCameraZoom(0.70);
 
-        // 各馬の進路選択（大外持ち出し vs イン強襲）
+        // ====================================================================
+        // 【進路の割り振り】
+        // 位置ポイント上位10頭：内〜中目（Y: 95〜155px）をキープ（内外移動なし）
+        // 位置ポイント下位6頭：外ラチ寄り（Y: 215〜275px）へ持ち出して強襲
+        // ====================================================================
+        const posSortedHorses = [...calculatedResults].sort((a, b) => (b.positionPoint || 0) - (a.positionPoint || 0));
+        const front10Ids = new Set(posSortedHorses.slice(0, 10).map(h => (typeof h.index === 'number') ? h.index : h.horse_id));
+
         let straightY = new Array(activeHorses.length);
         calculatedResults.forEach((h, rank) => {
           const horseIdx = (typeof h.index === 'number') ? h.index : rank;
-          const isChaser = (rank < 4); // 上位に食い込む豪脚馬
-          const isInsideSlot = (h.gate_number <= 3);
+          const isFront10 = front10Ids.has(horseIdx);
 
-          if (isChaser && isInsideSlot && Math.random() < 0.35) {
-            // レア進路：内ラチ沿いのイン強襲（画面奥 Y:95px）
-            straightY[horseIdx] = 95;
-          } else if (isChaser) {
-            // 王道進路：大外へ持ち出し（画面手前 Y:240〜285px）
-            straightY[horseIdx] = 240 + (rank * 14);
+          if (isFront10) {
+            // 先頭から10頭：内〜中目に留まる（斜め一直線にならないよう自然な揺らぎ）
+            straightY[horseIdx] = 95 + ((horseIdx * 7) % 55);
           } else {
-            // 先行・バテ馬は中目〜内（Y: 130〜190px）
-            straightY[horseIdx] = 135 + (rank * 8);
+            // 残り6頭：外ラチ側へ大きく持ち出してスパート
+            straightY[horseIdx] = 215 + ((horseIdx * 11) % 60);
           }
         });
 
-        // 最終X座標（1着馬が92%へ抜け出す）
-        let finalX = new Array(activeHorses.length);
-        calculatedResults.forEach((item, rank) => {
-          let posVal = 92 - (rank * 4.6);
-          let horseIdx = (typeof item.index === 'number') ? item.index : rank;
-          finalX[horseIdx] = Math.max(4, posVal);
+        // ====================================================================
+        // 【直線前半 Phase 4（残り400m〜200m / 3.8秒間）】
+        // 逃げ・先行：伸び率 1.25倍（リードを広げる）
+        // 差し・追込：伸び率 0.95倍（まだ届かない）
+        // ====================================================================
+        let p4MidX = new Array(activeHorses.length);
+        calculatedResults.forEach((h, rank) => {
+          const horseIdx = (typeof h.index === 'number') ? h.index : rank;
+          const style = (h.stratObj?.style || h.tactic || "");
+          const isFrontType = (style === "逃げ" || style === "先行");
+          
+          let baseRatio = (16 - (h.positionRank || (rank + 1))) / 16;
+          let multiplier = isFrontType ? 1.25 : 0.95;
+          let posX = 15 + (baseRatio * 60 * multiplier);
+          p4MidX[horseIdx] = Math.max(5, Math.min(84, posX));
         });
 
-        // 直線突入からゴールまで、なめらかなイージングで持続的に加速
-        setPhaseCoords(finalX, straightY, 8.2, "cubic-bezier(0.25, 0.46, 0.45, 0.94)", currentTrackConfig.phase4_dir);
+        setPhaseCoords(p4MidX, straightY, 3.8, "ease-out", currentTrackConfig.phase4_dir);
+        setTimeout(() => spawnFurlongPole("400", false), 800);
 
-        // ハロン棒通過
-        setTimeout(() => spawnFurlongPole("400", "yellow"), 1200);
-        setTimeout(() => spawnFurlongPole("200", "red"), 4200);
-
-        // 残り100m：先頭集団へ再ズームイン ＆ 固定ゴール板設置
+        // ====================================================================
+        // 【直線後半 Phase 5（残り200m〜ゴール / 4.4秒間）】
+        // 逃げ・先行：伸び率 0.88倍（脚が鈍る）
+        // 差し・追込：伸び率 1.35倍（外から猛然と差し込む）
+        // ====================================================================
         setTimeout(() => {
-          updateCameraZoom(0.96);
+          spawnFurlongPole("200", true); // 残り200m 赤い勝負所ハロン棒
           setupFixedGoalBoard(currentTrackConfig.goal_position);
-        }, 5800);
 
-        // 僅差（スコア差 < 0.6）なら直前でスローモーション判定
-        const isVeryClose = (calculatedResults.length >= 2) && Math.abs((calculatedResults[0].finalScore || 0) - (calculatedResults[1].finalScore || 0)) < 0.6;
-        if (isVeryClose) {
-          setTimeout(() => {
-            if (trackContainer) trackContainer.style.setProperty('--scroll-speed', '0.95s');
-          }, 6400);
-        }
-             
+          // 最終スコアに基づくゴール板突き抜けX座標
+          let finalX = new Array(activeHorses.length);
+          calculatedResults.forEach((item, rank) => {
+            let horseIdx = (typeof item.index === 'number') ? item.index : rank;
+            // 1着馬はゴール板を力強く突き抜ける（X: 96%）、後続はスコア差に応じて入線
+            let posVal = 96 - (rank * 4.4);
+            finalX[horseIdx] = Math.max(4, posVal);
+          });
+
+          // 先頭集団へカメラ再ズーム
+          updateCameraZoom(0.95);
+
+          // Phase 5 の加速スパート（外差しがグングン伸びてくる）
+          setPhaseCoords(finalX, straightY, 4.4, "cubic-bezier(0.2, 0.6, 0.35, 1)", currentTrackConfig.phase4_dir);
+        }, 3800);
+
         setTimeout(() => {
           updateLog(`<strong>【最後の直線】</strong> ${comm.phase4}`);
           showTelop(`【展開】 ${currentRaceBranch}`, 3500);
@@ -1545,14 +1538,11 @@ async function startRace() {
         setTimeout(() => {
           triggerFinishFlash();
           updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>${comm.finish}</b></span>`);
-        }, 7500); 
+        }, 7600); 
 
         // レース終了・リザルト確定
         setTimeout(() => {
-          if (trackContainer) {
-            trackContainer.classList.remove('running');
-            trackContainer.style.removeProperty('--scroll-speed');
-          }
+          if (trackContainer) trackContainer.classList.remove('running');
           updateCameraZoom(1.0);
           hideTelop();
           renderResults(calculatedResults);
