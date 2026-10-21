@@ -77,7 +77,6 @@
     animation-play-state: paused !important;
   }
 
-  /* 背景：全幅100%固定。余白や黒帯を一切出さない */
   .track-backdrop {
     position: absolute;
     top: 0; left: 0; right: 0; width: 100%;
@@ -160,7 +159,6 @@
     to   { background-position: -180px 0; }
   }
 
-  /* スタートゲート */
   #start-gate {
     position: absolute;
     top: 65px;
@@ -172,7 +170,6 @@
     display: none;
   }
 
-  /* ハロン棒 ＆ ゴール板レイヤー */
   #furlong-layer {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
@@ -221,7 +218,6 @@
     box-shadow: 1px 0 4px rgba(0,0,0,0.5);
   }
 
-  /* 前方から流れてくる移動式ゴールポスト（通過型） */
   .moving-goal-pole {
     position: absolute;
     top: 18px;
@@ -252,7 +248,6 @@
     box-shadow: 0 0 16px rgba(255, 204, 0, 1);
   }
 
-  /* 入線フラッシュ */
   #flash-overlay {
     position: absolute; top: 0; left: 0; right: 0; bottom: 0;
     background: #ffffff; opacity: 0; z-index: 70; pointer-events: none;
@@ -302,10 +297,10 @@
     100% { transform: scaleX(0.86); opacity: 0.28; }
   }
 
-  /* ★馬番を削除し、名前5文字をスッキリ表示するマーカー */
+  /* ★馬番を削除し、名前のみ5〜6文字でスッキリ大きく表示 */
   .owner-marker {
     position: absolute; top: -16px; left: 48%; transform: translateX(-50%);
-    padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 900;
+    padding: 1px 7px; border-radius: 4px; font-size: 10.5px; font-weight: 900;
     white-space: nowrap; z-index: 30; box-shadow: 0 2px 5px rgba(0,0,0,0.7); letter-spacing: -0.3px;
   }
   .owner-marker.p1-marker { background: rgba(10, 35, 70, 0.95); color: #60a5fa; border: 1.5px solid var(--player-color); }
@@ -452,12 +447,10 @@
   </div>
 
   <div id="track-container">
-    <!-- 背景：画面全幅100%に固定表示（余白ゼロ） -->
     <div class="track-backdrop"></div>
     <div class="track-rail-posts"></div>
     <div class="track-surface"></div>
 
-    <!-- スタートゲート -->
     <div id="start-gate">
       <svg width="100%" height="100%" viewBox="0 0 90 235">
         <rect x="5" y="0" width="80" height="24" rx="3" fill="#15803d" stroke="#0f172a" stroke-width="2"/>
@@ -479,12 +472,9 @@
       </svg>
     </div>
 
-    <!-- ハロン棒 ＆ ゴール板レイヤー -->
     <div id="furlong-layer"></div>
-
     <div id="lanes"></div>
 
-    <!-- ワイプ ＆ フラッシュ -->
     <div id="wipe-overlay">
       <div class="wipe-text">第4コーナーをカーブして<br>いよいよ最後の直線！！</div>
     </div>
@@ -590,15 +580,22 @@ const TRACK_DIRECTION_MASTER = {
   "直線":   { phase1_3_dir: "none",          phase4_dir: "left_to_right", goal_position: "right" }
 };
 
+// 毛色カラーパレット
 const COAT_PALETTE = {
-  bay:          { main: '#8c3b14', dark: '#4d1e07', light: '#b35524', sock: '#1a1310', mane: '#18110e' },
-  dark_bay:     { main: '#3d2214', dark: '#1f1008', light: '#5c3622', sock: '#140c08', mane: '#110a07' },
-  black:        { main: '#241c19', dark: '#110c0a', light: '#423530', sock: '#110c0a', mane: '#0a0706' },
-  chestnut:     { main: '#b85216', dark: '#783006', light: '#de7131', sock: '#8f3908', mane: '#d97706' },
-  dark_chestnut:{ main: '#6e2c11', dark: '#421807', light: '#913f1d', sock: '#421807', mane: '#b45309' },
-  gray:         { main: '#94a3b8', dark: '#526277', light: '#cbd5e1', sock: '#cbd5e1', mane: '#334155' },
-  white:        { main: '#f1f5f9', dark: '#cbd5e1', light: '#ffffff', sock: '#e2e8f0', mane: '#e2e8f0' }
+  '鹿毛':   { main: '#8c3b14', dark: '#4d1e07', light: '#b35524', sock: '#1a1310', mane: '#18110e' },
+  '黒鹿毛': { main: '#3d2214', dark: '#1f1008', light: '#5c3622', sock: '#140c08', mane: '#110a07' },
+  '青鹿毛': { main: '#2e1c14', dark: '#150c08', light: '#4a2c1c', sock: '#110c0a', mane: '#0a0706' },
+  '青毛':   { main: '#241c19', dark: '#110c0a', light: '#423530', sock: '#110c0a', mane: '#0a0706' },
+  '栗毛':   { main: '#b85216', dark: '#783006', light: '#de7131', sock: '#8f3908', mane: '#d97706' },
+  '栃栗毛': { main: '#8c360c', dark: '#521f04', light: '#ad4817', sock: '#521f04', mane: '#b45309' },
+  '芦毛':   { main: '#94a3b8', dark: '#526277', light: '#cbd5e1', sock: '#cbd5e1', mane: '#334155' },
+  '白毛':   { main: '#f1f5f9', dark: '#cbd5e1', light: '#ffffff', sock: '#e2e8f0', mane: '#e2e8f0' }
 };
+
+function getCoatPalette(hairColor) {
+  const key = String(hairColor || "").trim();
+  return COAT_PALETTE[key] || COAT_PALETTE['鹿毛'];
+}
 
 function getGateColors(gateNum) {
   const g = Number(gateNum) || 1;
@@ -616,24 +613,92 @@ function getGateColors(gateNum) {
   return map[frame] || map[1];
 }
 
-const SILK_PRESETS = [
-  { base: '#f8fafc', bodyPat: 'vertical', patCol: '#dc2626', sleeve: '#18181b', sleevePat: 'none', sleeveCol: '#ffffff' },
-  { base: '#f8fafc', bodyPat: 'band2', patCol: '#15803d', sleeve: '#f8fafc', sleevePat: 'band1', sleeveCol: '#dc2626' },
-  { base: '#facc15', bodyPat: 'sawtooth', patCol: '#18181b', sleeve: '#18181b', sleevePat: 'band1', sleeveCol: '#facc15' },
-  { base: '#facc15', bodyPat: 'chevron', patCol: '#18181b', sleeve: '#1d4ed8', sleevePat: 'none', sleeveCol: '#ffffff' },
-  { base: '#15803d', bodyPat: 'sash', patCol: '#facc15', sleeve: '#f8fafc', sleevePat: 'band1', sleeveCol: '#dc2626' },
-  { base: '#18181b', bodyPat: 'vertical', patCol: '#dc2626', sleeve: '#1d4ed8', sleevePat: 'band1', sleeveCol: '#ffffff' },
-  { base: '#15803d', bodyPat: 'band2', patCol: '#f8fafc', sleeve: '#f8fafc', sleevePat: 'band1', sleeveCol: '#dc2626' },
-  { base: '#38bdf8', bodyPat: 'diamond', patCol: '#dc2626', sleeve: '#dc2626', sleevePat: 'band1', sleeveCol: '#ffffff' },
-  { base: '#facc15', bodyPat: 'band1', patCol: '#18181b', sleeve: '#1d4ed8', sleevePat: 'none', sleeveCol: '#ffffff' },
-  { base: '#581c87', bodyPat: 'sawtooth', patCol: '#f8fafc', sleeve: '#581c87', sleevePat: 'band2', sleeveCol: '#f8fafc' },
-  { base: '#1e3a8a', bodyPat: 'diamond', patCol: '#f472b6', sleeve: '#f8fafc', sleevePat: 'band1', sleeveCol: '#1e3a8a' },
-  { base: '#18181b', bodyPat: 'sash', patCol: '#9a3412', sleeve: '#18181b', sleevePat: 'band1', sleeveCol: '#f8fafc' },
-  { base: '#f472b6', bodyPat: 'chevron', patCol: '#18181b', sleeve: '#f472b6', sleevePat: 'band1', sleeveCol: '#18181b' },
-  { base: '#1d4ed8', bodyPat: 'sawtooth', patCol: '#facc15', sleeve: '#facc15', sleevePat: 'band1', sleeveCol: '#1d4ed8' },
-  { base: '#f8fafc', bodyPat: 'vertical', patCol: '#16a34a', sleeve: '#16a34a', sleevePat: 'band1', sleeveCol: '#f8fafc' },
-  { base: '#ea580c', bodyPat: 'band2', patCol: '#18181b', sleeve: '#18181b', sleevePat: 'stripe', sleeveCol: '#ea580c' }
-];
+// 日本語の勝負服データ（silk_colors）をパースしてSVG構成へ変換する関数
+function parseSilkColors(silkText, gateNum) {
+  const fallback = getGateColors(gateNum);
+  if (!silkText || typeof silkText !== 'string' || silkText.trim() === '' || silkText.trim() === '-') {
+    return {
+      base: fallback.cap,
+      bodyPat: 'none',
+      patCol: fallback.clothText,
+      sleeve: fallback.cap,
+      sleevePat: 'none',
+      sleeveCol: fallback.clothText,
+      cap: fallback.cap
+    };
+  }
+
+  const parts = silkText.split(/[,，]/).map(s => s.trim());
+  const baseColorName = parts[0] || "白";
+  const bodyPatternText = parts[1] || "";
+  const sleevePatternText = parts[2] || "";
+
+  const colorMap = {
+    "白": "#f8fafc", "黒": "#18181b", "赤": "#dc2626", "青": "#1d4ed8",
+    "黄": "#facc15", "緑": "#15803d", "桃": "#f472b6", "橙": "#ea580c",
+    "水": "#38bdf8", "紫": "#581c87", "海老": "#881337", "鼠": "#64748b", "茶": "#78350f"
+  };
+
+  const baseCol = colorMap[baseColorName.replace(/袖|胴/g, '')] || "#f8fafc";
+  
+  let bodyPat = 'none';
+  let patCol = baseCol === "#18181b" ? "#f8fafc" : "#18181b";
+
+  if (bodyPatternText.includes("縦縞")) { bodyPat = 'vertical'; }
+  else if (bodyPatternText.includes("二本輪")) { bodyPat = 'band2'; }
+  else if (bodyPatternText.includes("一本輪")) { bodyPat = 'band1'; }
+  else if (bodyPatternText.includes("鋸歯形") || bodyPatternText.includes("鋸歯")) { bodyPat = 'sawtooth'; }
+  else if (bodyPatternText.includes("山形")) { bodyPat = 'chevron'; }
+  else if (bodyPatternText.includes("襷") || bodyPatternText.includes("たすき")) { bodyPat = 'sash'; }
+  else if (bodyPatternText.includes("ダイヤモンド") || bodyPatternText.includes("菱")) { bodyPat = 'diamond'; }
+  else if (bodyPatternText.includes("元禄")) { bodyPat = 'sawtooth'; }
+
+  for (const [cName, hex] of Object.entries(colorMap)) {
+    if (bodyPatternText.includes(cName) && cName !== baseColorName) {
+      patCol = hex;
+      break;
+    }
+  }
+
+  let sleeveCol = baseCol;
+  let sleevePat = 'none';
+
+  if (sleevePatternText.includes("赤")) sleeveCol = colorMap["赤"];
+  else if (sleevePatternText.includes("青")) sleeveCol = colorMap["青"];
+  else if (sleevePatternText.includes("黄")) sleeveCol = colorMap["黄"];
+  else if (sleevePatternText.includes("緑")) sleeveCol = colorMap["緑"];
+  else if (sleevePatternText.includes("白")) sleeveCol = colorMap["白"];
+  else if (sleevePatternText.includes("黒")) sleeveCol = colorMap["黒"];
+  else if (sleevePatternText.includes("桃")) sleeveCol = colorMap["桃"];
+
+  if (sleevePatternText.includes("三本輪")) { sleevePat = 'band2'; }
+  else if (sleevePatternText.includes("二本輪")) { sleevePat = 'band2'; }
+  else if (sleevePatternText.includes("一本輪")) { sleevePat = 'band1'; }
+  else if (sleevePatternText.includes("縦縞")) { sleevePat = 'stripe'; }
+
+  return {
+    base: baseCol,
+    bodyPat: bodyPat,
+    patCol: patCol,
+    sleeve: sleeveCol,
+    sleevePat: sleevePat,
+    sleeveCol: patCol,
+    cap: baseCol
+  };
+}
+
+function resolveHorseVisuals(horse, index) {
+  const hairColor = horse.hair_color || "鹿毛";
+  const coat = getCoatPalette(hairColor);
+  const hash = getStringHash(horse.horse_id || horse.name || index);
+  const hasBlaze = (hairColor !== '白毛') && ((hash % 3 === 0) || String(horse.name || "").includes("テイオー"));
+  
+  const gateNum = horse.gate_number || (index + 1);
+  const silk = parseSilkColors(horse.silk_colors, gateNum);
+  const gateColors = getGateColors(gateNum);
+
+  return { coat, hasBlaze, silk, gateColors };
+}
 
 function getStringHash(str) {
   const s = String(str || "0000");
@@ -643,42 +708,6 @@ function getStringHash(str) {
     hash |= 0;
   }
   return Math.abs(hash);
-}
-
-function resolveHorseVisuals(horse, index) {
-  const hash = getStringHash(horse.horse_id || horse.name || index);
-  const name = String(horse.name || "");
-
-  let coatKey = 'bay';
-  const rawCoat = String(horse.coat || horse.coat_color || horse.hair_color || "");
-  if (rawCoat.includes("白毛") || name.includes("ソダシ") || name.includes("シラユキ")) {
-    coatKey = 'white';
-  } else if (rawCoat.includes("芦") || name.includes("オグリ") || name.includes("クロフネ") || name.includes("ゴールドシップ") || name.includes("マックイーン") || name.includes("ビワハヤヒデ") || name.includes("タマモ")) {
-    coatKey = 'gray';
-  } else if (rawCoat.includes("栗") || name.includes("スズカ") || name.includes("グラス") || name.includes("タイキ") || name.includes("オルフェ") || name.includes("テンポイント") || name.includes("バクシン")) {
-    coatKey = (hash % 4 === 0) ? 'dark_chestnut' : 'chestnut';
-  } else if (rawCoat.includes("青") || rawCoat.includes("黒") || name.includes("ディープ") || name.includes("キタサン") || name.includes("ブライアン") || name.includes("カフェ") || name.includes("クリスエス")) {
-    coatKey = (hash % 2 === 0) ? 'black' : 'dark_bay';
-  } else {
-    const coatPool = ['bay', 'bay', 'dark_bay', 'chestnut', 'black', 'gray', 'dark_chestnut'];
-    coatKey = coatPool[hash % coatPool.length];
-  }
-
-  const coat = COAT_PALETTE[coatKey] || COAT_PALETTE.bay;
-  const hasBlaze = (coatKey !== 'white') && ((hash % 3 === 0) || name.includes("テイオー") || name.includes("ウオッカ"));
-  let silk = SILK_PRESETS[hash % SILK_PRESETS.length];
-  if (horse.jockey_silk && typeof horse.jockey_silk === 'object') {
-    silk = {
-      base: horse.jockey_silk.base_color || silk.base,
-      bodyPat: horse.jockey_silk.pattern_type || silk.bodyPat,
-      patCol: horse.jockey_silk.pattern_color || silk.patCol,
-      sleeve: horse.jockey_silk.sleeve_color || silk.sleeve,
-      sleevePat: horse.jockey_silk.sleeve_pattern || silk.sleevePat,
-      sleeveCol: horse.jockey_silk.sleeve_pattern_color || silk.sleeveCol
-    };
-  }
-  const gateColors = getGateColors(horse.gate_number || (index + 1));
-  return { coat, hasBlaze, silk, gateColors };
 }
 
 function renderBodyPatternSVG(bodyPat, patCol) {
@@ -732,8 +761,6 @@ function renderSleevePatternSVG(sleevePat, sleeveCol) {
       `;
     case 'stripe':
       return `<path d="M 151 56 L 160 79 L 142 84" stroke="${sleeveCol}" stroke-width="3.5" fill="none" stroke-linejoin="round"/>`;
-    case 'sawtooth':
-      return `<polygon points="146,60 160,66 146,72 160,78 142,84 139,78 152,72 142,66" fill="${sleeveCol}"/>`;
     default:
       return '';
   }
@@ -957,6 +984,8 @@ function setupRace(rIdx) {
     h.strat_name = matchedStrat ? matchedStrat.name : (h.tactic || "通常");
     const master = HORSES_MASTER[h.horse_id] || {};
     if (master.ability) h.ability = master.ability;
+    if (master.silk_colors) h.silk_colors = master.silk_colors;
+    if (master.hair_color) h.hair_color = master.hair_color;
     ensureStats(h);
   });
 
@@ -1002,18 +1031,16 @@ function getKana3(name) {
   return kanaOnly.length >= 3 ? kanaOnly.substring(0, 3) : name.substring(0, 3);
 }
 
-// ★名前5文字取得関数
-function getName5(name) {
+// ★記号なし、最大6文字の馬名表示
+function getName6(name) {
   if (!name) return 'ダミーバ';
-  return name.length >= 5 ? name.substring(0, 5) : name;
+  return name.length >= 6 ? name.substring(0, 6) : name;
 }
 
 function buildHorseActorSVG(h, i) {
   const vis = resolveHorseVisuals(h, i);
   const { coat, hasBlaze, silk, gateColors } = vis;
-  const gateNum = h.gate_number || (i + 1);
-  const kana3 = getKana3(h.name);
-  const name5 = getName5(h.name);
+  const name6 = getName6(h.name);
   const uid = `r_${currentRaceIndex}_${i}`;
 
   const blazeSVG = hasBlaze
@@ -1023,12 +1050,12 @@ function buildHorseActorSVG(h, i) {
   const bodyPatSVG = renderBodyPatternSVG(silk.bodyPat, silk.patCol);
   const sleevePatSVG = renderSleevePatternSVG(silk.sleevePat, silk.sleeveCol);
 
-  // ★馬番を削除し、名前を5文字で表示
+  // ★記号（★や◆）および馬番を完全撤廃し、名前を大きく表示
   let markerHTML = '';
   if (h.isPlayer) {
-    markerHTML = `<div class="owner-marker p1-marker">★${ name5 }</div>`;
+    markerHTML = `<div class="owner-marker p1-marker">${ name6 }</div>`;
   } else if (h.isCpu) {
-    markerHTML = `<div class="owner-marker p2-marker">◆${ name5 }</div>`;
+    markerHTML = `<div class="owner-marker p2-marker">${ name6 }</div>`;
   }
 
   const delay = ((i % 7) * -0.04).toFixed(2);
@@ -1077,23 +1104,21 @@ function buildHorseActorSVG(h, i) {
         <path d="M 42 95 L 55 115 M 86 58 L 50 110 M 70 64 L 86 72 M 86 64 L 86 104" stroke="#18181b" stroke-width="2.8" fill="none" stroke-linecap="round"/>
         <circle cx="49" cy="112" r="4" fill="none" stroke="#e2e8f0" stroke-width="2"/>
 
-        <!-- ゼッケン（数字小・3文字馬名大） -->
         <path d="M 170 92 L 260 90 L 270 156 L 180 160 Z" fill="${gateColors.clothBg}" stroke="#111827" stroke-width="2.5" stroke-linejoin="round"/>
         <g id="saddle-txt-${i}">
-          <text x="224" y="114" text-anchor="middle" fill="${gateColors.clothText}" font-size="18" font-weight="900" font-family="Arial Black, Impact, sans-serif">${gateNum}</text>
-          <text x="224" y="145" text-anchor="middle" fill="${gateColors.clothText}" stroke="${gateColors.stroke}" stroke-width="3.5" paint-order="stroke fill" font-size="25" font-weight="900" font-family="'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif" letter-spacing="-1px">${kana3}</text>
+          <text x="224" y="114" text-anchor="middle" fill="${gateColors.clothText}" font-size="18" font-weight="900" font-family="Arial Black, Impact, sans-serif">${h.gate_number || (i+1)}</text>
+          <text x="224" y="145" text-anchor="middle" fill="${gateColors.clothText}" stroke="${gateColors.stroke}" stroke-width="3.5" paint-order="stroke fill" font-size="25" font-weight="900" font-family="'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif" letter-spacing="-1px">${getKana3(h.name)}</text>
         </g>
 
         <path d="M 192 156 L 190 180 L 202 180 L 204 156 Z" fill="#18181b" stroke="#f8fafc" stroke-width="1.6"/>
         <path d="M 180 88 C 200 84, 224 84, 236 92 C 228 104, 192 106, 180 88 Z" fill="#18181b" stroke="#090d16" stroke-width="2"/>
 
-        <!-- 騎手 ＆ 体幹軸（傾斜10.5度）対応勝負服 -->
+        <!-- 騎手 ＆ 勝負服 -->
         <g class="jockey-group">
           <path d="M 212 58 C 228 64, 236 78, 226 92 C 216 102, 196 110, 180 110 C 174 110, 172 102, 180 96 C 192 86, 204 74, 212 58 Z" fill="#f8fafc" stroke="#18181b" stroke-width="2.2" stroke-linejoin="round"/>
           <path d="M 178 104 L 202 130 L 192 140 L 178 138 L 188 128 L 172 110 Z" fill="#18181b" stroke="#090d16" stroke-width="2" stroke-linejoin="round"/>
           <path d="M 182 130 L 178 142 L 190 142 L 186 130" fill="none" stroke="#e2e8f0" stroke-width="2.2" stroke-linejoin="round"/>
 
-          <!-- 勝負服：胴体（体幹ローカル座標系） -->
           <g clip-path="url(#sc_${uid})">
             <rect x="135" y="28" width="100" height="65" fill="${silk.base}" />
             <g transform="translate(182, 60) rotate(10.5) translate(-182, -60)">
@@ -1104,10 +1129,9 @@ function buildHorseActorSVG(h, i) {
 
           <circle cx="136" cy="54" r="10.5" fill="#fde68a" stroke="#18181b" stroke-width="2"/>
           <rect x="124" y="50" width="11" height="6" rx="2" fill="#18181b" stroke="#e2e8f0" stroke-width="1.2"/>
-          <path d="M 122 48 C 122 33, 136 25, 153 31 C 161 35, 163 45, 156 52 Z" fill="${gateColors.cap}" stroke="#18181b" stroke-width="2.2" stroke-linejoin="round"/>
+          <path d="M 122 48 C 122 33, 136 25, 153 31 C 161 35, 163 45, 156 52 Z" fill="${silk.cap}" stroke="#18181b" stroke-width="2.2" stroke-linejoin="round"/>
           <polygon points="122,48 111,51 126,52" fill="#18181b"/>
 
-          <!-- 勝負服：袖 -->
           <g clip-path="url(#slc_${uid})">
             <rect x="132" y="52" width="40" height="40" fill="${silk.sleeve}" />
             ${sleevePatSVG}
@@ -1221,7 +1245,7 @@ function spawnFurlongPole(label, isRed = false) {
   }, 2000);
 }
 
-// ★ハロン棒と同様に画面前方から出現し、1着馬とジャストで交差して通過するゴールポスト
+// ★ゴール板の出現タイミングを7.03秒に精密調整（7.5秒で1着馬の鼻先とドンピシャ交差）
 function spawnMovingGoalPost(moveDir = "left_to_right") {
   const layer = document.getElementById('furlong-layer');
   const trackContainer = document.getElementById('track-container');
@@ -1238,15 +1262,12 @@ function spawnMovingGoalPost(moveDir = "left_to_right") {
   const w = trackContainer.clientWidth || 600;
   const isLTR = (moveDir === "left_to_right");
   
-  // 出現位置：前方の画面外
   const startX = isLTR ? (w + 40) : -50;
-  // 通過完了位置：後方の画面外
-  const endX   = isLTR ? -60 : (w + 50);
+  const endX   = isLTR ? -60 : (w + 40);
 
   pole.style.left = `${startX}px`;
   layer.appendChild(pole);
 
-  // 2.2秒の一定速度で画面を横断（出現から約0.47秒で82%の鼻先とドンピシャ交差）
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       pole.style.transition = `left 2.2s linear`;
@@ -1328,7 +1349,6 @@ function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear",
   });
 }
 
-// 現在の座標を取得してその場にピタッと静止させる
 function freezeAllHorsesInPlace() {
   activeHorses.forEach((_, i) => {
     const el = document.getElementById(`horse-icon-${i}`);
@@ -1442,9 +1462,6 @@ async function startRace() {
   const phase1Dir = (currentTrackConfig.phase1_3_dir === "none") ? currentTrackConfig.phase4_dir : currentTrackConfig.phase1_3_dir;
   const isRTL = (phase1Dir === "right_to_left");
 
-  // --------------------------------------------------------------------------
-  // Phase 1 (0.0s〜): ゲート開放 ＆ スタート！（画面外から飛び込む）
-  // --------------------------------------------------------------------------
   updateLog(`<strong>【スタート】</strong> ${comm.phase1}`);
   
   const gateEl = document.getElementById('start-gate');
@@ -1458,9 +1475,6 @@ async function startRace() {
   setPhasePositions(p1Pos, 4.0, "linear", phase1Dir); 
   setTimeout(() => spawnFurlongPole("1000", false), 1500);
 
-  // --------------------------------------------------------------------------
-  // Phase 2 (4.0s〜): 向正面（★団子状態を完全解消！先頭80%〜最後方5%の大縦長）
-  // --------------------------------------------------------------------------
   setTimeout(() => {
     const p1Horses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.phase1_abilities && h.phase1_abilities.length > 0);
     if (p1Horses.length > 0) {
@@ -1481,27 +1495,19 @@ async function startRace() {
     }
 
     spawnFurlongPole("800", false);
-    // 先頭80% 〜 最後方5%（前後差75%の大縦長）
     let p2Pos = getPosPointsMap(calculatedResults, 80, 5);
     setPhasePositions(p2Pos, 4.3, "linear", phase1Dir); 
   }, 4000);
 
-  // --------------------------------------------------------------------------
-  // Phase 3 (8.3s〜): 3コーナー〜展開（★縦長を維持しつつ第4コーナーへ）
-  // --------------------------------------------------------------------------
   setTimeout(() => {
     updateLog(`<strong>【3コーナー〜展開】</strong> ${comm.phase3}`);
     showTelop(`【ペース】 ${currentRacePace}`, 3000);
     spawnFurlongPole("600", false);
 
-    // 先頭85% 〜 最後方25%（前後差60%の縦長をしっかり維持）
     let p3Pos = getPosPointsMap(calculatedResults, 85, 25);
     setPhasePositions(p3Pos, 4.3, "linear", phase1Dir); 
   }, 8300); 
 
-  // --------------------------------------------------------------------------
-  // Phase 4 (12.6s〜): 第4コーナーワイプ ＆ 直線大縦長配置
-  // --------------------------------------------------------------------------
   setTimeout(() => {
     const wipe = document.getElementById('wipe-overlay');
     const wipeTextEl = wipe.querySelector('.wipe-text');
@@ -1515,11 +1521,9 @@ async function startRace() {
     wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
     wipe.style.left = "0";
     
-    // ワイプ裏（800ms後）で、直線入口の大縦長初期位置へセット
     setTimeout(() => {
       setHorseDirection(currentTrackConfig.phase4_dir);
 
-      // 初期位置：先頭42% 〜 最後方-15%（画面後方見切れ）の大縦長配置
       let p4StartPos = getPosPointsMap(calculatedResults, 42, -15);
       setPhasePositions(p4StartPos, 0, "linear", currentTrackConfig.phase4_dir);
     }, 800);
@@ -1528,8 +1532,6 @@ async function startRace() {
       wipe.style.left = "100%"; 
 
       setTimeout(() => {
-        // ★ 直線スパート：1着馬は85%（ゴール板クロス地点）を目指して疾走
-        // 脱落馬は 85 - (15 * 3.8) = 28% 付近までしか進まず、後方へ大きく引き離される
         let finalPositions = new Array(activeHorses.length);
         calculatedResults.forEach((item, rank) => {
           let posVal = 85 - (rank * 3.8);
@@ -1537,14 +1539,12 @@ async function startRace() {
           finalPositions[horseIdx] = posVal;
         });
 
-        // 7.5秒かけて1着馬がゴールライン（85%）へ到達
         setPhasePositions(finalPositions, 7.5, "linear", currentTrackConfig.phase4_dir);
 
         setTimeout(() => spawnFurlongPole("400", false), 1400);
         setTimeout(() => spawnFurlongPole("200", true), 4400);
 
-        // ★ ゴール板の出現タイミングを7.03秒に精密調整！
-        // 7.5秒（出現から0.47秒後）で1着馬の鼻先とドンピシャで重なる！
+        // ★7.03秒：ゴール板が出現して7.5秒で1着馬とジャスト交差
         setTimeout(() => {
           spawnMovingGoalPost(currentTrackConfig.phase4_dir);
         }, 7030);
@@ -1583,23 +1583,19 @@ async function startRace() {
 
         // ====================================================================
         // ★ 7.5秒ジャスト：1着馬ゴールイン！
-        // 0.35秒ヒットストップ ＆ パシャッと閃光フラッシュ！
-        // ➔ そのままスローモーションで1.5秒全体を動かす ➔ 完全静止（フリーズ）！
+        // 0.35秒ヒットストップ ＆ パシャッと閃光フラッシュ
+        // ➔ スローモーション1.5秒前進 ➔ 全馬ピタッと完全停止！
         // ====================================================================
         setTimeout(() => {
-          // 1. パシャッと閃光フラッシュ ＆ 0.35秒ヒットストップ（一旦停止）
           triggerFinishFlash();
           triggerHitStop(350);
           updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>${comm.finish}</b></span>`);
 
-          // 2. ヒットストップ解除直後（350ms後）：そのまま1.5秒間スローモーションで前進！
           setTimeout(() => {
-            // 背景スクロールを1/3の速度へ減速
             if (trackContainer) {
               trackContainer.style.setProperty('--scroll-speed', '1.2s');
             }
 
-            // 全馬をスローモーションで少しだけ前進（手綱を引いて減速する美しい余韻）
             let slowPositions = new Array(activeHorses.length);
             calculatedResults.forEach((item, rank) => {
               let horseIdx = (typeof item.index === 'number') ? item.index : rank;
@@ -1607,7 +1603,6 @@ async function startRace() {
             });
             setPhasePositions(slowPositions, 1.5, "ease-out", currentTrackConfig.phase4_dir);
 
-            // 3. 1.5秒後：★全馬・全画面がピタッとその場で完全停止（フリーズ）！
             setTimeout(() => {
               freezeAllHorsesInPlace();
               if (trackContainer) {
@@ -1615,7 +1610,6 @@ async function startRace() {
                 trackContainer.classList.add('hit-stop');
               }
 
-              // 4. 完全静止のままリザルト確定
               setTimeout(() => {
                 hideTelop();
                 renderResults(calculatedResults);
