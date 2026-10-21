@@ -72,6 +72,11 @@
     margin-bottom: 10px;
   }
 
+  /* ゴール時ヒットストップ（完全静止） */
+  #track-container.hit-stop * {
+    animation-play-state: paused !important;
+  }
+
   #track-camera-viewport {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
@@ -161,7 +166,19 @@
     to   { background-position: -180px 0; }
   }
 
-  /* ハロン棒（JRA仕様：白地×青文字、白地×赤文字） */
+  /* スタートゲート（発馬機） */
+  #start-gate {
+    position: absolute;
+    top: 65px;
+    width: 90px;
+    height: 235px;
+    z-index: 8;
+    pointer-events: none;
+    transition: left 3.2s cubic-bezier(0.25, 1, 0.5, 1), opacity 1.2s ease-in;
+    display: none;
+  }
+
+  /* ハロン棒（JRA公式仕様） */
   #furlong-layer {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
@@ -192,18 +209,16 @@
     box-shadow: 0 3px 8px rgba(0,0,0,0.6);
     letter-spacing: -0.5px;
   }
-  /* 白地×青文字（JRA通常ハロン棒） */
   .furlong-sign.jra-blue {
     background: #ffffff;
     color: #1d4ed8;
     border: 3.5px solid #1d4ed8;
   }
-  /* 白地×赤文字（残り200m 勝負所ハロン棒） */
   .furlong-sign.jra-red {
     background: #ffffff;
     color: #dc2626;
     border: 3.5px solid #dc2626;
-    box-shadow: 0 0 12px rgba(220,38,38,0.7);
+    box-shadow: 0 0 14px rgba(220,38,38,0.85);
   }
   .furlong-stick {
     width: 5px;
@@ -235,7 +250,7 @@
     transition: opacity 0.08s ease-out;
   }
   #flash-overlay.flash {
-    opacity: 0.85;
+    opacity: 0.90;
     transition: none;
   }
 
@@ -431,6 +446,34 @@
       <div class="track-backdrop"></div>
       <div class="track-rail-posts"></div>
       <div class="track-surface"></div>
+      
+      <!-- スタートゲート（発馬機） -->
+      <div id="start-gate">
+        <svg width="100%" height="100%" viewBox="0 0 90 235">
+          <!-- 上部トラス・屋根（JRAグリーン） -->
+          <rect x="5" y="0" width="80" height="24" rx="3" fill="#15803d" stroke="#0f172a" stroke-width="2"/>
+          <line x1="8" y1="12" x2="82" y2="12" stroke="#facc15" stroke-width="2"/>
+          <rect x="25" y="4" width="40" height="15" rx="2" fill="#0f172a"/>
+          <text x="45" y="16" fill="#facc15" font-size="10" font-weight="900" font-family="Arial" text-anchor="middle">START</text>
+          <!-- 支柱フレーム（シルバー） -->
+          <line x1="15" y1="24" x2="15" y2="235" stroke="#cbd5e1" stroke-width="4.5"/>
+          <line x1="75" y1="24" x2="75" y2="235" stroke="#cbd5e1" stroke-width="4.5"/>
+          <!-- ブレース斜交 -->
+          <line x1="15" y1="60" x2="75" y2="100" stroke="#94a3b8" stroke-width="2"/>
+          <line x1="75" y1="60" x2="15" y2="100" stroke="#94a3b8" stroke-width="2"/>
+          <line x1="15" y1="140" x2="75" y2="180" stroke="#94a3b8" stroke-width="2"/>
+          <line x1="75" y1="140" x2="15" y2="180" stroke="#94a3b8" stroke-width="2"/>
+          <!-- 前方へ開かれたゲート扉（イエロー/グリーン） -->
+          <polygon points="15,45 3,55 3,120 15,115" fill="#eab308" stroke="#1e293b" stroke-width="1.5" opacity="0.9"/>
+          <polygon points="75,45 87,55 87,120 75,115" fill="#eab308" stroke="#1e293b" stroke-width="1.5" opacity="0.9"/>
+          <polygon points="15,135 3,145 3,210 15,205" fill="#15803d" stroke="#1e293b" stroke-width="1.5" opacity="0.9"/>
+          <polygon points="75,135 87,145 87,210 75,205" fill="#15803d" stroke="#1e293b" stroke-width="1.5" opacity="0.9"/>
+          <!-- クッションパッド（赤白） -->
+          <rect x="12" y="105" width="6" height="35" rx="2" fill="#ef4444"/>
+          <rect x="72" y="105" width="6" height="35" rx="2" fill="#ef4444"/>
+        </svg>
+      </div>
+
       <div id="furlong-layer"></div>
 
       <div id="wipe-overlay">
@@ -441,8 +484,10 @@
       <div id="lanes"></div>
     </div>
 
+    <!-- 閃光フラッシュ -->
     <div id="flash-overlay"></div>
 
+    <!-- アビリティ発動カットイン -->
     <div id="ability-popup-container">
       <div class="ability-popup-box" id="ability-popup-box">
         <div class="ability-pop-header" id="ability-pop-header">ABILITY ACTIVATED!</div>
@@ -634,6 +679,7 @@ function resolveHorseVisuals(horse, index) {
   return { coat, hasBlaze, silk, gateColors };
 }
 
+// 体幹軸（傾斜10.5度）対応幾何学パターンのSVG生成
 function renderBodyPatternSVG(bodyPat, patCol) {
   switch (bodyPat) {
     case 'vertical':
@@ -855,7 +901,9 @@ function setupRace(rIdx) {
   activeHorses = fullRaceGrids[rIdx] || [];
 
   const trackContainer = document.getElementById('track-container');
-  if (trackContainer) trackContainer.classList.remove('running');
+  if (trackContainer) {
+    trackContainer.classList.remove('running', 'hit-stop');
+  }
   const flLayer = document.getElementById('furlong-layer');
   if (flLayer) flLayer.innerHTML = '';
 
@@ -1028,6 +1076,7 @@ function buildHorseActorSVG(h, i) {
         <path d="M 42 95 L 55 115 M 86 58 L 50 110 M 70 64 L 86 72 M 86 64 L 86 104" stroke="#18181b" stroke-width="2.8" fill="none" stroke-linecap="round"/>
         <circle cx="49" cy="112" r="4" fill="none" stroke="#e2e8f0" stroke-width="2"/>
 
+        <!-- ゼッケン（数字小・3文字馬名大） -->
         <path d="M 170 92 L 260 90 L 270 156 L 180 160 Z" fill="${gateColors.clothBg}" stroke="#111827" stroke-width="2.5" stroke-linejoin="round"/>
         <g id="saddle-txt-${i}">
           <text x="224" y="114" text-anchor="middle" fill="${gateColors.clothText}" font-size="18" font-weight="900" font-family="Arial Black, Impact, sans-serif">${gateNum}</text>
@@ -1043,6 +1092,7 @@ function buildHorseActorSVG(h, i) {
           <path d="M 178 104 L 202 130 L 192 140 L 178 138 L 188 128 L 172 110 Z" fill="#18181b" stroke="#090d16" stroke-width="2" stroke-linejoin="round"/>
           <path d="M 182 130 L 178 142 L 190 142 L 186 130" fill="none" stroke="#e2e8f0" stroke-width="2.2" stroke-linejoin="round"/>
 
+          <!-- 勝負服：胴体（体幹ローカル座標系） -->
           <g clip-path="url(#sc_${uid})">
             <rect x="135" y="28" width="100" height="65" fill="${silk.base}" />
             <g transform="translate(182, 60) rotate(10.5) translate(-182, -60)">
@@ -1056,6 +1106,7 @@ function buildHorseActorSVG(h, i) {
           <path d="M 122 48 C 122 33, 136 25, 153 31 C 161 35, 163 45, 156 52 Z" fill="${gateColors.cap}" stroke="#18181b" stroke-width="2.2" stroke-linejoin="round"/>
           <polygon points="122,48 111,51 126,52" fill="#18181b"/>
 
+          <!-- 勝負服：袖 -->
           <g clip-path="url(#slc_${uid})">
             <rect x="132" y="52" width="40" height="40" fill="${silk.sleeve}" />
             ${sleevePatSVG}
@@ -1070,9 +1121,10 @@ function buildHorseActorSVG(h, i) {
   `;
 }
 
-// 初期配置：スタート前は馬を「画面外」に完全退避させておく
+// 初期配置：スタート前は馬を「画面外」に完全退避、ゲートを端に配置
 function renderLanes() {
   const lanes = document.getElementById('lanes');
+  const gateEl = document.getElementById('start-gate');
   const initialDir = (currentTrackConfig.phase1_3_dir === "none") ? currentTrackConfig.phase4_dir : currentTrackConfig.phase1_3_dir;
   const isRightToLeft = (initialDir === "right_to_left");
 
@@ -1082,11 +1134,24 @@ function renderLanes() {
   const stepY = fieldCount > 1 ? (maxTop - minTop) / (fieldCount - 1) : 14;
 
   // 走る方向と逆側の画面外に配置
-  const offscreenLeftPx = isRightToLeft ? 680 : -150;
+  const offscreenLeftPx = isRightToLeft ? 680 : -160;
+
+  // スタートゲートの初期配置（画面の端に少し見えている状態）
+  if (gateEl) {
+    gateEl.style.display = "block";
+    gateEl.style.opacity = "1";
+    gateEl.style.transition = "none";
+    if (isRightToLeft) {
+      gateEl.style.left = "580px";
+      gateEl.style.transform = "scaleX(-1)";
+    } else {
+      gateEl.style.left = "-20px";
+      gateEl.style.transform = "scaleX(1)";
+    }
+  }
 
   let htmlBuffer = "";
   activeHorses.forEach((h, i) => {
-    // 枠番ごとの初期Y座標（1〜4枠は奥、5〜8枠は手前）
     const initialTopPx = Math.round(minTop + (i * stepY));
     const zIdx = Math.floor(initialTopPx) + (h.isPlayer ? 5 : (h.isCpu ? 3 : 0));
 
@@ -1125,7 +1190,6 @@ function setHorseDirection(direction) {
   });
 }
 
-// ハロン棒（JRAカラー：白地×青文字、白地×赤文字）
 function spawnFurlongPole(label, isRed = false) {
   const layer = document.getElementById('furlong-layer');
   const trackContainer = document.getElementById('track-container');
@@ -1158,7 +1222,6 @@ function spawnFurlongPole(label, isRed = false) {
   }, 2200);
 }
 
-// ゴール板を画面端に固定配置
 function setupFixedGoalBoard(goalPosition) {
   const gl = document.getElementById('goal-line');
   const gf = document.getElementById('goal-flag');
@@ -1184,6 +1247,16 @@ function triggerFinishFlash() {
   setTimeout(() => {
     fl.classList.remove('flash');
   }, 90);
+}
+
+// ゴール飛び込み時のヒットストップ（0.35秒完全フリーズ）
+function triggerHitStop(durationMs = 350) {
+  const tc = document.getElementById('track-container');
+  if (!tc) return;
+  tc.classList.add('hit-stop');
+  setTimeout(() => {
+    tc.classList.remove('hit-stop');
+  }, durationMs);
 }
 
 function getPosPointsMap(horses, leadPos, trailPos) {
@@ -1325,14 +1398,24 @@ async function startRace() {
   }
 
   const phase1Dir = (currentTrackConfig.phase1_3_dir === "none") ? currentTrackConfig.phase4_dir : currentTrackConfig.phase1_3_dir;
+  const isRTL = (phase1Dir === "right_to_left");
 
   // --------------------------------------------------------------------------
-  // Phase 1 (0.0s〜): 画面外からの飛び出し ＆ 5〜8枠のみ内へ切れ込む
+  // Phase 1 (0.0s〜): ゲート開放！画面外からの飛び出し ＆ 5〜8枠のみ内へ切れ込む
   // --------------------------------------------------------------------------
   updateLog(`<strong>【スタート】</strong> ${comm.phase1}`);
+  
+  // スタートゲートが走路スクロールとともに画面外へ自然にフェードアウト
+  const gateEl = document.getElementById('start-gate');
+  if (gateEl) {
+    gateEl.style.transition = "left 2.5s linear, opacity 1.2s ease-in 1.2s";
+    gateEl.style.left = isRTL ? "720px" : "-160px";
+    gateEl.style.opacity = "0";
+  }
+
   let p1X = getPosPointsMap(calculatedResults, 88, -10);
 
-  // Y座標制御：1〜4枠はそのまま内〜中目をキープ、5〜8枠（gate >= 9）のみ内ラチ側へ切れ込み
+  // 5〜8枠のみ内ラチ側へ切れ込み、1〜4枠は内〜中目キープ
   let p1Y = new Array(activeHorses.length);
   activeHorses.forEach((h, i) => {
     const gate = h.gate_number || (i + 1);
@@ -1340,15 +1423,14 @@ async function startRace() {
     const isFront = (style === "逃げ" || style === "先行");
 
     if (gate <= 8) {
-      // 1〜4枠：内〜中目キープ（Y: 95〜135px）
+      // 1〜4枠（Y: 95〜135px）
       p1Y[i] = 95 + (gate * 5);
     } else {
-      // 5〜8枠：先行・逃げ馬のみ内側（Y: 105〜135px）へ切れ込み、差し馬は中目（Y: 150〜180px）へ収束
+      // 5〜8枠（先行・逃げ馬のみ内 Y: 105〜135px へ切れ込み、差しは中目 Y: 150〜180px へ）
       p1Y[i] = isFront ? (105 + (i % 3) * 12) : (150 + (i % 4) * 12);
     }
   });
 
-  // 画面外から一気に飛び込む
   setPhaseCoords(p1X, p1Y, 4.0, "ease-out", phase1Dir);
   setTimeout(() => spawnFurlongPole("1000", false), 1500);
 
@@ -1385,25 +1467,25 @@ async function startRace() {
   }, 4000);
 
   // --------------------------------------------------------------------------
-  // Phase 3 (8.3s〜): 3〜4コーナー（馬群凝縮・タメ）
+  // Phase 3 (8.3s〜): 3〜4コーナー（★馬群がギュッと一団に凝縮！タメを作る）
   // --------------------------------------------------------------------------
   setTimeout(() => {
     updateLog(`<strong>【3コーナー〜展開】</strong> ${comm.phase3}`);
     showTelop(`【ペース】 ${currentRacePace}`, 3000);
     spawnFurlongPole("600", false);
 
-    // 隊列がギュッと縮まる
-    let p3X = getPosPointsMap(calculatedResults, 80, 15);
+    // 隊列がギュッと縮まる（先頭80% 〜 最後方45% の約35%幅の一団）
+    let p3X = getPosPointsMap(calculatedResults, 80, 45);
     let p3Y = new Array(activeHorses.length);
     activeHorses.forEach((_, i) => {
-      p3Y[i] = 105 + ((i % 6) * 14);
+      p3Y[i] = 105 + ((i % 6) * 12);
     });
 
     setPhaseCoords(p3X, p3Y, 4.3, "ease-in-out", phase1Dir);
   }, 8300); 
 
   // --------------------------------------------------------------------------
-  // Phase 4 ＆ Phase 5 (12.6s〜): 直線2分割展開
+  // Phase 4 ＆ Phase 5 (12.6s〜): 第4コーナーワイプ ＆ 直線2分割展開
   // --------------------------------------------------------------------------
   setTimeout(() => {
     const wipe = document.getElementById('wipe-overlay');
@@ -1418,50 +1500,80 @@ async function startRace() {
     wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
     wipe.style.left = "0";
     
+    // ★ ワイプで画面が完全に隠れている裏（13.4s地点）で瞬間セットアップ！
     setTimeout(() => {
       setHorseDirection(currentTrackConfig.phase4_dir);
 
-      // 直線入口の初期座標
-      let p4StartX = getPosPointsMap(calculatedResults, 70, 8);
-      let p4StartY = new Array(activeHorses.length);
-      activeHorses.forEach((_, i) => { p4StartY[i] = 110 + ((i % 5) * 14); });
-      setPhaseCoords(p4StartX, p4StartY, 0, "linear", currentTrackConfig.phase4_dir);
+      // ====================================================================
+      // 【進路の裏セットアップ】
+      // 先頭10頭：中目（Y: 115〜155px）に留まる。最内（Y: 92〜105px）は空けておく。
+      // 後方6頭：
+      //   - 内枠（1〜4枠）の差し追込 1〜2頭：最内ラチ沿い（Y: 92〜102px）のイン強襲ポケット
+      //   - 残りの差し追込：大外ラチ沿い（Y: 220〜275px）
+      // ====================================================================
+      const posSortedHorses = [...calculatedResults].sort((a, b) => (b.positionPoint || 0) - (a.positionPoint || 0));
+      const front10Ids = new Set(posSortedHorses.slice(0, 10).map(h => (typeof h.index === 'number') ? h.index : h.horse_id));
+
+      let straightY = new Array(activeHorses.length);
+      let insideChaserAssigned = 0;
+
+      calculatedResults.forEach((h, rank) => {
+        const horseIdx = (typeof h.index === 'number') ? h.index : rank;
+        const isFront10 = front10Ids.has(horseIdx);
+        const gate = h.gate_number || (horseIdx + 1);
+
+        if (isFront10) {
+          straightY[horseIdx] = 115 + ((horseIdx * 7) % 40);
+        } else {
+          // 後方6頭の進路選択
+          if (gate <= 8 && insideChaserAssigned < 2) {
+            straightY[horseIdx] = 92 + (insideChaserAssigned * 10); // イン強襲ポケット
+            insideChaserAssigned++;
+          } else {
+            straightY[horseIdx] = 220 + ((horseIdx * 11) % 55); // 大外一気
+          }
+        }
+      });
+
+      // ★ 凝縮から一転して「超・縦長隊列（X: 2% 〜 82% の約80%差！）」で直線を迎える
+      let p4StartX = getPosPointsMap(calculatedResults, 82, 2);
+      setPhaseCoords(p4StartX, straightY, 0, "linear", currentTrackConfig.phase4_dir);
+
+      // 直線用超広角パノラマズームアウト！
+      updateCameraZoom(0.70);
     }, 800);
 
     setTimeout(() => {
       wipe.style.left = "100%"; 
 
       setTimeout(() => {
-        // ★ 超広角パノラマズームアウト開始
-        updateCameraZoom(0.70);
-
         // ====================================================================
-        // 【進路の割り振り】
-        // 位置ポイント上位10頭：内〜中目（Y: 95〜155px）をキープ（内外移動なし）
-        // 位置ポイント下位6頭：外ラチ寄り（Y: 215〜275px）へ持ち出して強襲
+        // 【直線前半 Phase 4（残り400m〜200m / 3.8秒間）】
+        // 逃げ・先行：伸び率 1.25倍（前が止まらない！）
+        // 差し・追込：伸び率 0.95倍（まだ大差のまま）
+        // 各自のレーンを真っ直ぐ疾走
         // ====================================================================
         const posSortedHorses = [...calculatedResults].sort((a, b) => (b.positionPoint || 0) - (a.positionPoint || 0));
         const front10Ids = new Set(posSortedHorses.slice(0, 10).map(h => (typeof h.index === 'number') ? h.index : h.horse_id));
 
         let straightY = new Array(activeHorses.length);
+        let insideChaserAssigned = 0;
         calculatedResults.forEach((h, rank) => {
           const horseIdx = (typeof h.index === 'number') ? h.index : rank;
           const isFront10 = front10Ids.has(horseIdx);
-
+          const gate = h.gate_number || (horseIdx + 1);
           if (isFront10) {
-            // 先頭から10頭：内〜中目に留まる（斜め一直線にならないよう自然な揺らぎ）
-            straightY[horseIdx] = 95 + ((horseIdx * 7) % 55);
+            straightY[horseIdx] = 115 + ((horseIdx * 7) % 40);
           } else {
-            // 残り6頭：外ラチ側へ大きく持ち出してスパート
-            straightY[horseIdx] = 215 + ((horseIdx * 11) % 60);
+            if (gate <= 8 && insideChaserAssigned < 2) {
+              straightY[horseIdx] = 92 + (insideChaserAssigned * 10);
+              insideChaserAssigned++;
+            } else {
+              straightY[horseIdx] = 220 + ((horseIdx * 11) % 55);
+            }
           }
         });
 
-        // ====================================================================
-        // 【直線前半 Phase 4（残り400m〜200m / 3.8秒間）】
-        // 逃げ・先行：伸び率 1.25倍（リードを広げる）
-        // 差し・追込：伸び率 0.95倍（まだ届かない）
-        // ====================================================================
         let p4MidX = new Array(activeHorses.length);
         calculatedResults.forEach((h, rank) => {
           const horseIdx = (typeof h.index === 'number') ? h.index : rank;
@@ -1470,8 +1582,8 @@ async function startRace() {
           
           let baseRatio = (16 - (h.positionRank || (rank + 1))) / 16;
           let multiplier = isFrontType ? 1.25 : 0.95;
-          let posX = 15 + (baseRatio * 60 * multiplier);
-          p4MidX[horseIdx] = Math.max(5, Math.min(84, posX));
+          let posX = 10 + (baseRatio * 64 * multiplier);
+          p4MidX[horseIdx] = Math.max(4, Math.min(84, posX));
         });
 
         setPhaseCoords(p4MidX, straightY, 3.8, "ease-out", currentTrackConfig.phase4_dir);
@@ -1479,26 +1591,24 @@ async function startRace() {
 
         // ====================================================================
         // 【直線後半 Phase 5（残り200m〜ゴール / 4.4秒間）】
+        // JRA赤ハロン棒通過、固定ゴール板設置
         // 逃げ・先行：伸び率 0.88倍（脚が鈍る）
-        // 差し・追込：伸び率 1.35倍（外から猛然と差し込む）
+        // 差し・追込：伸び率 1.38倍（大外＆インから怒涛の強襲！）
+        // 先頭集団へカメラ再ズーム
         // ====================================================================
         setTimeout(() => {
-          spawnFurlongPole("200", true); // 残り200m 赤い勝負所ハロン棒
+          spawnFurlongPole("200", true);
           setupFixedGoalBoard(currentTrackConfig.goal_position);
 
-          // 最終スコアに基づくゴール板突き抜けX座標
           let finalX = new Array(activeHorses.length);
           calculatedResults.forEach((item, rank) => {
             let horseIdx = (typeof item.index === 'number') ? item.index : rank;
-            // 1着馬はゴール板を力強く突き抜ける（X: 96%）、後続はスコア差に応じて入線
-            let posVal = 96 - (rank * 4.4);
+            let posVal = 96 - (rank * 4.4); // 1着馬はゴール板を突き抜ける
             finalX[horseIdx] = Math.max(4, posVal);
           });
 
-          // 先頭集団へカメラ再ズーム
-          updateCameraZoom(0.95);
+          updateCameraZoom(0.96);
 
-          // Phase 5 の加速スパート（外差しがグングン伸びてくる）
           setPhaseCoords(finalX, straightY, 4.4, "cubic-bezier(0.2, 0.6, 0.35, 1)", currentTrackConfig.phase4_dir);
         }, 3800);
 
@@ -1534,8 +1644,9 @@ async function startRace() {
           }
         }, 6800);
 
-        // ★ ゴール板通過・フラッシュ閃光演出！
+        // ★ ゴール板通過：0.35秒ヒットストップ ＆ 閃光フラッシュ！
         setTimeout(() => {
+          triggerHitStop(350);
           triggerFinishFlash();
           updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>${comm.finish}</b></span>`);
         }, 7600); 
