@@ -224,9 +224,9 @@
   /* 前方から流れてくる移動式ゴールポスト（通過型） */
   .moving-goal-pole {
     position: absolute;
-    top: 14px;
+    top: 18px;
     bottom: 0;
-    width: 28px;
+    width: 24px;
     z-index: 6;
     pointer-events: none;
     display: flex;
@@ -239,14 +239,14 @@
     border: 2px solid #fff;
     font-weight: 900;
     font-size: 11px;
-    padding: 3px 10px;
+    padding: 2px 9px;
     border-radius: 12px;
     box-shadow: 0 3px 8px rgba(0,0,0,0.6);
     white-space: nowrap;
     margin-bottom: 2px;
   }
   .moving-goal-line {
-    width: 5px;
+    width: 4px;
     flex: 1;
     background: linear-gradient(to bottom, #ffffff, #ffcc00);
     box-shadow: 0 0 16px rgba(255, 204, 0, 1);
@@ -302,9 +302,10 @@
     100% { transform: scaleX(0.86); opacity: 0.28; }
   }
 
+  /* ★馬番を削除し、名前5文字をスッキリ表示するマーカー */
   .owner-marker {
-    position: absolute; top: -15px; left: 48%; transform: translateX(-50%);
-    padding: 1px 6px; border-radius: 4px; font-size: 9.5px; font-weight: 900;
+    position: absolute; top: -16px; left: 48%; transform: translateX(-50%);
+    padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 900;
     white-space: nowrap; z-index: 30; box-shadow: 0 2px 5px rgba(0,0,0,0.7); letter-spacing: -0.3px;
   }
   .owner-marker.p1-marker { background: rgba(10, 35, 70, 0.95); color: #60a5fa; border: 1.5px solid var(--player-color); }
@@ -1001,11 +1002,18 @@ function getKana3(name) {
   return kanaOnly.length >= 3 ? kanaOnly.substring(0, 3) : name.substring(0, 3);
 }
 
+// ★名前5文字取得関数
+function getName5(name) {
+  if (!name) return 'ダミーバ';
+  return name.length >= 5 ? name.substring(0, 5) : name;
+}
+
 function buildHorseActorSVG(h, i) {
   const vis = resolveHorseVisuals(h, i);
   const { coat, hasBlaze, silk, gateColors } = vis;
   const gateNum = h.gate_number || (i + 1);
   const kana3 = getKana3(h.name);
+  const name5 = getName5(h.name);
   const uid = `r_${currentRaceIndex}_${i}`;
 
   const blazeSVG = hasBlaze
@@ -1015,11 +1023,12 @@ function buildHorseActorSVG(h, i) {
   const bodyPatSVG = renderBodyPatternSVG(silk.bodyPat, silk.patCol);
   const sleevePatSVG = renderSleevePatternSVG(silk.sleevePat, silk.sleeveCol);
 
+  // ★馬番を削除し、名前を5文字で表示
   let markerHTML = '';
   if (h.isPlayer) {
-    markerHTML = `<div class="owner-marker p1-marker">★${ gateNum } ${ kana3 }</div>`;
+    markerHTML = `<div class="owner-marker p1-marker">★${ name5 }</div>`;
   } else if (h.isCpu) {
-    markerHTML = `<div class="owner-marker p2-marker">◆${ gateNum } ${ kana3 }</div>`;
+    markerHTML = `<div class="owner-marker p2-marker">◆${ name5 }</div>`;
   }
 
   const delay = ((i % 7) * -0.04).toFixed(2);
@@ -1212,7 +1221,7 @@ function spawnFurlongPole(label, isRed = false) {
   }, 2000);
 }
 
-// ハロン棒と同様に画面前方から流れてきて画面外へ通過する移動式ゴールポスト
+// ★ハロン棒と同様に画面前方から出現し、1着馬とジャストで交差して通過するゴールポスト
 function spawnMovingGoalPost(moveDir = "left_to_right") {
   const layer = document.getElementById('furlong-layer');
   const trackContainer = document.getElementById('track-container');
@@ -1229,25 +1238,25 @@ function spawnMovingGoalPost(moveDir = "left_to_right") {
   const w = trackContainer.clientWidth || 600;
   const isLTR = (moveDir === "left_to_right");
   
-  // 出現位置：前方画面外
-  const startX = isLTR ? (w + 40) : -60;
-  // 終了位置：後方画面外
-  const endX   = isLTR ? -60 : (w + 40);
+  // 出現位置：前方の画面外
+  const startX = isLTR ? (w + 40) : -50;
+  // 通過完了位置：後方の画面外
+  const endX   = isLTR ? -60 : (w + 50);
 
   pole.style.left = `${startX}px`;
   layer.appendChild(pole);
 
-  // 1着馬が7.5秒（出現から2.2秒後）で目標クロス地点（82%または18%）に達する速度に設定
+  // 2.2秒の一定速度で画面を横断（出現から約0.47秒で82%の鼻先とドンピシャ交差）
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      pole.style.transition = `left 4.0s linear`;
+      pole.style.transition = `left 2.2s linear`;
       pole.style.left = `${endX}px`;
     });
   });
 
   setTimeout(() => {
     if (pole.parentNode) pole.remove();
-  }, 4200);
+  }, 2400);
 }
 
 function triggerFinishFlash() {
@@ -1286,13 +1295,12 @@ function getPosPointsMap(horses, leadPos, trailPos) {
   return positions;
 }
 
-// 馬の水平位置計算（鼻先が画面82%でゴール板と完全に重なるよう幾何オフセットを精密同期）
+// 馬の水平位置計算（鼻先が画面82%でゴール板ラインと1ミリの狂いもなく完全合致）
 function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear", moveDir = "left_to_right") {
   const trackContainer = document.getElementById('track-container');
   if (!trackContainer) return;
   const trackWidth = trackContainer.clientWidth || 600;
 
-  // ゴール交差の目標地点（右向き時82%、左向き時18%）
   const goalMeetXRight = Math.round(trackWidth * 0.82);
   const goalMeetXLeft  = Math.round(trackWidth * 0.18);
 
@@ -1304,13 +1312,11 @@ function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear",
 
       let leftPx = 0;
       if (moveDir === "left_to_right") {
-        // 右向き：鼻先は leftPx + 110。pos=85 で鼻先が目標ゴールXに完全一致
         const startNose = -10;
         const targetNose = goalMeetXRight;
         const currentNose = startNose + ((targetNose - startNose) * (validPos / 85));
         leftPx = Math.round(currentNose - 110);
       } else {
-        // 左向き：鼻先は leftPx + 8。pos=85 で鼻先が目標ゴールXに完全一致
         const startNose = trackWidth + 10;
         const targetNose = goalMeetXLeft;
         const currentNose = startNose - ((startNose - targetNose) * (validPos / 85));
@@ -1537,10 +1543,11 @@ async function startRace() {
         setTimeout(() => spawnFurlongPole("400", false), 1400);
         setTimeout(() => spawnFurlongPole("200", true), 4400);
 
-        // ★ ゴール板がハロン棒のように前方から出現（7.5秒のゴールクロスに向けて5.3秒地点で出現）
+        // ★ ゴール板の出現タイミングを7.03秒に精密調整！
+        // 7.5秒（出現から0.47秒後）で1着馬の鼻先とドンピシャで重なる！
         setTimeout(() => {
           spawnMovingGoalPost(currentTrackConfig.phase4_dir);
-        }, 5300);
+        }, 7030);
              
         setTimeout(() => {
           updateLog(`<strong>【最後の直線】</strong> ${comm.phase4}`);
@@ -1575,7 +1582,7 @@ async function startRace() {
         }, 6200);
 
         // ====================================================================
-        // ★ 7.5秒：1着馬ゴールイン！
+        // ★ 7.5秒ジャスト：1着馬ゴールイン！
         // 0.35秒ヒットストップ ＆ パシャッと閃光フラッシュ！
         // ➔ そのままスローモーションで1.5秒全体を動かす ➔ 完全静止（フリーズ）！
         // ====================================================================
