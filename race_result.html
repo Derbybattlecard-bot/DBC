@@ -59,7 +59,7 @@
   }
 
   /* =========================================================
-     レーストラック ＆ 背景
+     レーストラック ＆ カメラワーク
   ========================================================= */
   #track-container { 
     background: #4d9e59; 
@@ -80,6 +80,7 @@
   #track-camera-viewport {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
+    transition: transform 1.2s cubic-bezier(0.22, 1, 0.36, 1);
     transform-origin: center center;
   }
 
@@ -165,7 +166,7 @@
     to   { background-position: -180px 0; }
   }
 
-  /* スタートゲート（発馬機） */
+  /* スタートゲート */
   #start-gate {
     position: absolute;
     top: 65px;
@@ -177,7 +178,7 @@
     display: none;
   }
 
-  /* ハロン棒（JRA公式仕様） */
+  /* ハロン棒（JRA仕様） */
   #furlong-layer {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
@@ -226,7 +227,7 @@
     box-shadow: 1px 0 4px rgba(0,0,0,0.5);
   }
 
-  /* ゴールライン ＆ フラッグ */
+  /* 固定ゴール板（画面端から内側に見える位置） */
   #goal-line {
     position: absolute;
     top: 24px; bottom: 0; width: 5px;
@@ -903,6 +904,9 @@ function setupRace(rIdx) {
   if (gl) { gl.style.display = "none"; }
   if (gf) { gf.style.display = "none"; }
 
+  const cam = document.getElementById('track-camera-viewport');
+  if (cam) cam.style.transform = "scale(1)";
+
   const racesTrackConditions = globalUserData?.cpu_battle_status?.current_match?.races_track_conditions || [];
   trackCondition = racesTrackConditions[rIdx] || "良";
 
@@ -1064,6 +1068,7 @@ function buildHorseActorSVG(h, i) {
         <path d="M 42 95 L 55 115 M 86 58 L 50 110 M 70 64 L 86 72 M 86 64 L 86 104" stroke="#18181b" stroke-width="2.8" fill="none" stroke-linecap="round"/>
         <circle cx="49" cy="112" r="4" fill="none" stroke="#e2e8f0" stroke-width="2"/>
 
+        <!-- ゼッケン（数字小・3文字馬名大） -->
         <path d="M 170 92 L 260 90 L 270 156 L 180 160 Z" fill="${gateColors.clothBg}" stroke="#111827" stroke-width="2.5" stroke-linejoin="round"/>
         <g id="saddle-txt-${i}">
           <text x="224" y="114" text-anchor="middle" fill="${gateColors.clothText}" font-size="18" font-weight="900" font-family="Arial Black, Impact, sans-serif">${gateNum}</text>
@@ -1079,6 +1084,7 @@ function buildHorseActorSVG(h, i) {
           <path d="M 178 104 L 202 130 L 192 140 L 178 138 L 188 128 L 172 110 Z" fill="#18181b" stroke="#090d16" stroke-width="2" stroke-linejoin="round"/>
           <path d="M 182 130 L 178 142 L 190 142 L 186 130" fill="none" stroke="#e2e8f0" stroke-width="2.2" stroke-linejoin="round"/>
 
+          <!-- 勝負服：胴体（体幹ローカル座標系） -->
           <g clip-path="url(#sc_${uid})">
             <rect x="135" y="28" width="100" height="65" fill="${silk.base}" />
             <g transform="translate(182, 60) rotate(10.5) translate(-182, -60)">
@@ -1092,6 +1098,7 @@ function buildHorseActorSVG(h, i) {
           <path d="M 122 48 C 122 33, 136 25, 153 31 C 161 35, 163 45, 156 52 Z" fill="${gateColors.cap}" stroke="#18181b" stroke-width="2.2" stroke-linejoin="round"/>
           <polygon points="122,48 111,51 126,52" fill="#18181b"/>
 
+          <!-- 勝負服：袖 -->
           <g clip-path="url(#slc_${uid})">
             <rect x="132" y="52" width="40" height="40" fill="${silk.sleeve}" />
             ${sleevePatSVG}
@@ -1106,7 +1113,7 @@ function buildHorseActorSVG(h, i) {
   `;
 }
 
-// 初期配置：途中の不自然な横移動を排除するため、最初から全16頭固有の安定したYレーンを確定
+// 初期配置：急な横移動を完全に排除し、枠番順に固定のYレーンを確定
 function renderLanes() {
   const lanes = document.getElementById('lanes');
   const gateEl = document.getElementById('start-gate');
@@ -1118,10 +1125,8 @@ function renderLanes() {
   const maxTop = 275;
   const stepY = fieldCount > 1 ? (maxTop - minTop) / (fieldCount - 1) : 12;
 
-  // 走る方向と逆側の画面外に配置
   const offscreenLeftPx = isRightToLeft ? 680 : -160;
 
-  // スタートゲート配置
   if (gateEl) {
     gateEl.style.display = "block";
     gateEl.style.opacity = "1";
@@ -1137,7 +1142,6 @@ function renderLanes() {
 
   let htmlBuffer = "";
   activeHorses.forEach((h, i) => {
-    // 枠番順に内ラチ（上）から外ラチ（下）へ一定間隔で安定配置。最後までこのレーンを走る
     const laneTopPx = Math.round(minTop + (i * stepY));
     const zIdx = Math.floor(laneTopPx) + (h.isPlayer ? 5 : (h.isCpu ? 3 : 0));
 
@@ -1208,6 +1212,25 @@ function spawnFurlongPole(label, isRed = false) {
   }, 2000);
 }
 
+// ゴール板を画面内（右向き時88%、左向き時12%）に固定配置
+function setupFixedGoalBoard(goalPosition) {
+  const gl = document.getElementById('goal-line');
+  const gf = document.getElementById('goal-flag');
+  const trackContainer = document.getElementById('track-container');
+  if (!gl || !gf || !trackContainer) return;
+
+  const w = trackContainer.clientWidth || 600;
+  const isGoalRight = (goalPosition === "right");
+  const boardX = isGoalRight ? Math.round(w * 0.88) : Math.round(w * 0.12);
+
+  gl.style.transition = 'none';
+  gf.style.transition = 'none';
+  gl.style.display = 'block';
+  gf.style.display = 'block';
+  gl.style.left = `${boardX}px`;
+  gf.style.left = `${boardX}px`;
+}
+
 function triggerFinishFlash() {
   const fl = document.getElementById('flash-overlay');
   if (!fl) return;
@@ -1226,7 +1249,6 @@ function triggerHitStop(durationMs = 350) {
   }, durationMs);
 }
 
-// 元コード通りの相対比率計算（0%〜100%スケール）
 function getPosPointsMap(horses, leadPos, trailPos) {
   const positions = new Array(horses.length);
   const sorted = [...horses].sort((a, b) => (b.positionPoint || 0) - (a.positionPoint || 0));
@@ -1245,21 +1267,43 @@ function getPosPointsMap(horses, leadPos, trailPos) {
   return positions;
 }
 
-// 元コード通りの水平移動関数（Y座標は固定して急な横移動を一切行わない）
+// 水平座標の更新（馬の頭の位置とゴールラインを正しく一致させるオフセット補正付き）
 function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear", moveDir = "left_to_right") {
   const trackContainer = document.getElementById('track-container');
   if (!trackContainer) return;
-  const trackWidth = trackContainer.clientWidth - 30;
-  
+  const trackWidth = trackContainer.clientWidth || 600;
+
+  // ゴールライン位置（右向き時88%、左向き時12%）
+  const goalXRight = Math.round(trackWidth * 0.88);
+  const goalXLeft = Math.round(trackWidth * 0.12);
+
   positionsArray.forEach((pos, i) => {
     const el = document.getElementById(`horse-icon-${i}`);
     if (el) {
       let validPos = (typeof pos === 'number' && !isNaN(pos)) ? pos : 0;
       el.style.transition = durationSec > 0 ? `left ${durationSec}s ${timing}` : 'none';
-      let actualPos = (moveDir === "right_to_left") ? (100 - validPos) : validPos;
-      el.style.left = (10 + (trackWidth * (actualPos / 100))) + "px";
+
+      let leftPx = 0;
+      if (moveDir === "left_to_right") {
+        // 右向き：馬アイコン（幅118px）の右端（鼻先）がゴールラインに触れる位置が100%
+        const zeroX = -120;
+        const targetGoalX = goalXRight - 110;
+        leftPx = Math.round(zeroX + ((targetGoalX - zeroX) * (validPos / 100)));
+      } else {
+        // 左向き：馬アイコンの左端（鼻先）がゴールラインに触れる位置が100%
+        const zeroX = trackWidth + 20;
+        const targetGoalX = goalXLeft;
+        leftPx = Math.round(zeroX - ((zeroX - targetGoalX) * (validPos / 100)));
+      }
+
+      el.style.left = `${leftPx}px`;
     }
   });
+}
+
+function updateCameraZoom(scaleVal = 1.0) {
+  const cam = document.getElementById('track-camera-viewport');
+  if (cam) cam.style.transform = `scale(${scaleVal})`;
 }
 
 window.handleButtonClick = function() {
@@ -1354,7 +1398,7 @@ async function startRace() {
   const isRTL = (phase1Dir === "right_to_left");
 
   // --------------------------------------------------------------------------
-  // Phase 1 (0.0s〜): ゲート開放 ＆ スタート！（元コード準拠：X:22%〜40%へ一気に進出）
+  // Phase 1 (0.0s〜): ゲート開放 ＆ スタート！（画面外から勢いよく飛び込む）
   // --------------------------------------------------------------------------
   updateLog(`<strong>【スタート】</strong> ${comm.phase1}`);
   
@@ -1365,12 +1409,12 @@ async function startRace() {
     gateEl.style.opacity = "0";
   }
 
-  let p1Pos = getPosPointsMap(calculatedResults, 40, 22);
+  let p1Pos = getPosPointsMap(calculatedResults, 42, 20);
   setPhasePositions(p1Pos, 4.0, "linear", phase1Dir); 
   setTimeout(() => spawnFurlongPole("1000", false), 1500);
 
   // --------------------------------------------------------------------------
-  // Phase 2 (4.0s〜): 向正面（元コード準拠：X:40%〜70%へ進出）
+  // Phase 2 (4.0s〜): 向正面（隊列が落ち着き、前後差がつく）
   // --------------------------------------------------------------------------
   setTimeout(() => {
     const p1Horses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.phase1_abilities && h.phase1_abilities.length > 0);
@@ -1392,24 +1436,24 @@ async function startRace() {
     }
 
     spawnFurlongPole("800", false);
-    let p2Pos = getPosPointsMap(calculatedResults, 70, 40);
+    let p2Pos = getPosPointsMap(calculatedResults, 72, 38);
     setPhasePositions(p2Pos, 4.3, "linear", phase1Dir); 
   }, 4000);
 
   // --------------------------------------------------------------------------
-  // Phase 3 (8.3s〜): 3コーナー〜展開（元コード準拠：X:55%〜100%へ到達）
+  // Phase 3 (8.3s〜): 3コーナー〜展開（馬群が前後に進出しつつ第4コーナーへ）
   // --------------------------------------------------------------------------
   setTimeout(() => {
     updateLog(`<strong>【3コーナー〜展開】</strong> ${comm.phase3}`);
     showTelop(`【ペース】 ${currentRacePace}`, 3000);
     spawnFurlongPole("600", false);
 
-    let p3Pos = getPosPointsMap(calculatedResults, 100, 55);
+    let p3Pos = getPosPointsMap(calculatedResults, 98, 52);
     setPhasePositions(p3Pos, 4.3, "linear", phase1Dir); 
   }, 8300); 
 
   // --------------------------------------------------------------------------
-  // Phase 4 (12.6s〜): 第4コーナーワイプ ＆ 直線の攻防（元コードのスピード感を完全再現！）
+  // Phase 4 (12.6s〜): 第4コーナーワイプ ＆ 直線大縦長配置 ＆ ズームアウト
   // --------------------------------------------------------------------------
   setTimeout(() => {
     const wipe = document.getElementById('wipe-overlay');
@@ -1424,41 +1468,38 @@ async function startRace() {
     wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
     wipe.style.left = "0";
     
-    // ワイプで画面が隠れている裏（800ms後）で、元コード通りの初期位置（X: 2%〜27%）へ瞬間セット
+    // ワイプで画面が隠れている裏（800ms後）で、直線入口の大縦長初期位置へセット ＆ ズームアウト
     setTimeout(() => {
-      const gl = document.getElementById('goal-line');
-      const gf = document.getElementById('goal-flag');
-      gl.style.display = "block";
-      gf.style.display = "block";
-      gl.style.left = currentTrackConfig.goal_position === "right" ? "calc(100% - 2px)" : "2px";
-      gf.style.left = currentTrackConfig.goal_position === "right" ? "calc(100% - 2px)" : "2px";
+      setupFixedGoalBoard(currentTrackConfig.goal_position);
       setHorseDirection(currentTrackConfig.phase4_dir);
 
-      // ★ 元コードの直線入口初期位置（先頭27%、最後方2%）
-      let p4StartPos = getPosPointsMap(calculatedResults, 27, 2);
+      // ★ 初期位置をゴールから遠ざけ、先頭42% 〜 後方-15%（画面後方見切れ）の大縦長に配置
+      let p4StartPos = getPosPointsMap(calculatedResults, 42, -15);
       setPhasePositions(p4StartPos, 0, "linear", currentTrackConfig.phase4_dir);
+
+      // ★ 直線超広角ズームアウト（カメラ引き）
+      updateCameraZoom(0.78);
     }, 800);
 
     setTimeout(() => {
       wipe.style.left = "100%"; 
 
       setTimeout(() => {
-        // ★ 元コード通りの直線疾走計算！
-        // 1着馬は105%まで突き抜け、後続は2.5%刻みで続く
-        // 入口2%にいた差し馬が105%まで画面全体を一気に駆け抜けるため、他馬を猛スピードでごぼう抜きする！
+        // ★ 1着馬は102%（ゴール板を力強く突き抜ける位置）まで到達
+        // 差し馬は初期位置-15%から102%まで画面全体を爆走し、先行馬（42%→75%程度）を一気に抜き去る！
         let finalPositions = new Array(activeHorses.length);
         calculatedResults.forEach((item, rank) => {
-          let posVal = 105 - (rank * 2.5);
+          let posVal = 102 - (rank * 3.4);
           let horseIdx = (typeof item.index === 'number') ? item.index : rank;
           finalPositions[horseIdx] = posVal;
         });
 
-        // 元コード通りの 10.0秒リニア直進で圧倒的な疾走感
+        // 10.0秒リニア直進で圧倒的なスピード差を表現
         setPhasePositions(finalPositions, 10.0, "linear", currentTrackConfig.phase4_dir);
 
         // ハロン棒の通過
-        setTimeout(() => spawnFurlongPole("400", false), 1500);
-        setTimeout(() => spawnFurlongPole("200", true), 4800);
+        setTimeout(() => spawnFurlongPole("400", false), 1400);
+        setTimeout(() => spawnFurlongPole("200", true), 4600);
              
         setTimeout(() => {
           updateLog(`<strong>【最後の直線】</strong> ${comm.phase4}`);
@@ -1490,17 +1531,18 @@ async function startRace() {
             });
             processAbilityQueue();
           }
-        }, 7000);
+        }, 6800);
 
-        // ★ ゴール飛び込み時のヒットストップ（0.35秒一瞬停止 ＆ 閃光フラッシュ）
+        // ★ 1着馬の鼻先がゴール板に触れた瞬間のヒットストップ（0.35秒完全静止 ＆ 閃光フラッシュ）
         setTimeout(() => {
           triggerHitStop(350);
           triggerFinishFlash();
           updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>${comm.finish}</b></span>`);
-        }, 7500); 
+        }, 7600); 
 
         setTimeout(() => {
           if (trackContainer) trackContainer.classList.remove('running');
+          updateCameraZoom(1.0);
           hideTelop();
           renderResults(calculatedResults);
           raceState = 'finished';
