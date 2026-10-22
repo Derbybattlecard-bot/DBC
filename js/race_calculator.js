@@ -79,7 +79,7 @@ function getTacticPaceBonus(tacticStyleInput, racePace) {
     if (pace === "スローペース") return 1;
   } else if (tacticStyle === "差し") {
     if (pace === "ミドルペース" || pace === "ハイペース" || pace === "超ハイペース") return 1;
-  } else if (pace === "追込") {
+  } else if (tacticStyle === "追込" || pace === "追込") {
     if (pace === "超ハイペース") return 2;
     if (pace === "ハイペース") return 1;
   }
@@ -89,9 +89,6 @@ function getTacticPaceBonus(tacticStyleInput, racePace) {
 
 /**
  * 実況テキストの生成（フェーズ1〜4バランス調整版）
- * - phase3（3枚目）：ペースとポジション情報のみにしてスッキリさせる
- * - phase4（4枚目・写メのタイミング）：展開名と重要パラメータの解説を分かりやすく喋らせる
- * - finish（5枚目・ゴールイン時）：1着〜3着の着順と自馬の状態描写に特化
  */
 function generateRaceCommentary(raceData) {
   const { results, pace, branch, posSorted } = raceData;
@@ -142,7 +139,7 @@ function generateRaceCommentary(raceData) {
     phase3Text += `${player.name}は現在${player.positionRank}番手の位置！手応え十分で直線を迎えます！`;
   }
 
-  // フェーズ4（4枚目・写メのタイミング）：展開名と重要パラメータの解説をしっかり行う（文法ブラッシュアップ）
+  // フェーズ4（4枚目・写メのタイミング）：展開名と重要パラメータの解説
   const branchName = branch?.name || "勝負所";
   let branchDesc = `このレースは『${branchName}』！`;
 
@@ -176,7 +173,7 @@ function generateRaceCommentary(raceData) {
 
   let phase4Text = `さあ各馬直線に向いた！ ${branchDesc}`;
 
-  // フィニッシュ（5枚目・ゴールイン時）：1着〜3着の着順と自馬の状態実況のみ
+  // フィニッシュ（5枚目・ゴールイン時）：1着〜3着の着順と自馬の状態実況
   let finishText = `大混戦のゴール前！ `;
 
   if (results && results.length >= 3) {
@@ -189,7 +186,7 @@ function generateRaceCommentary(raceData) {
 
     const playerRank = player ? results.findIndex(h => h.index === player.index) + 1 : 0;
     const scoreDiff = Math.abs((rank1.finalScore || 0) - (rank2.finalScore || 0));
-    const isVeryClose = scoreDiff < 0.6; // 僅差の判定
+    const isVeryClose = scoreDiff < 0.6;
 
     const rand = Math.random();
 
@@ -219,8 +216,8 @@ function generateRaceCommentary(raceData) {
     phase1: phase1Text,
     phase2: phase2Text,
     phase3: phase3Text,
-    phase4: phase4Text, // 4枚目の写メのタイミング用
-    finish: finishText       // 5枚目のゴール用
+    phase4: phase4Text,
+    finish: finishText
   };
 }
 
@@ -471,7 +468,7 @@ function processMarkStrategy(resultList) {
 }
 
 /**
- * フェーズ1: 登録/準備段階のアビリティ判定（芝・ダート双方向のポテンシャル差分補正対応 v2.4）
+ * フェーズ1: 登録/準備段階のアビリティ判定
  */
 function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilityMasterData) {
   horse.calc_speed = horse.speed || 0;
@@ -829,10 +826,17 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     }
 
     const horseStyle = getHorseStyleFromMaster(h);
+    const tacticName = (typeof h.tactic === "object" && h.tactic !== null)
+      ? (h.tactic.name || h.tactic.style || "")
+      : String(h.tactic || "");
+
+    // ★特例判定: 馬脚質「逃追」× 作戦「ハイラップ逃げ」は大逃化
+    const isNigetuiHighLap = (horseStyle === "逃追" && tacticName === "ハイラップ逃げ");
+
     let styleCalcPt = 0;
 
-    if (horseStyle === "大逃") {
-      styleCalcPt = 120;
+    if (horseStyle === "大逃" || isNigetuiHighLap) {
+      styleCalcPt = 120; // 大逃と同値
     } else if (horseStyle === "逃げ") {
       styleCalcPt = tacticStylePt + 20;
     } else if (horseStyle === "自在" || horseStyle === "逃追") {
@@ -939,13 +943,30 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     }
 
     const currentTacticStyle = getTacticStyleFromMaster(h);
-    styleBonusPt = getTacticPaceBonus(currentTacticStyle, selectedPace);
-
     const rawHorseStyle = getHorseStyleFromMaster(h);
+    const tacticName = (typeof h.tactic === "object" && h.tactic !== null)
+      ? (h.tactic.name || h.tactic.style || "")
+      : String(h.tactic || "");
+
+    // ★特例判定: 馬脚質「逃追」× 作戦「ハイラップ逃げ」は大逃化
+    const isNigetuiHighLap = (rawHorseStyle === "逃追" && tacticName === "ハイラップ逃げ");
+
+    if (isNigetuiHighLap) {
+      if (selectedPace === "超ハイペース") {
+        styleBonusPt = 2;
+      } else if (selectedPace === "ハイペース") {
+        styleBonusPt = 1;
+      } else {
+        styleBonusPt = 0;
+      }
+    } else {
+      styleBonusPt = getTacticPaceBonus(currentTacticStyle, selectedPace);
+    }
+
     horseStyleBonusPt = getHorseStylePaceBonus(rawHorseStyle, selectedPace);
 
     h.original_horse_style = rawHorseStyle;
-    h.display_tactic_name = (typeof h.tactic === "object" && h.tactic !== null) ? (h.tactic.name || h.tactic.style || "") : String(h.tactic || "");
+    h.display_tactic_name = tacticName;
 
     if (selectedBranch.position_bonus_type === "direct_asc") {
       posAddPt = h.positionRank;
@@ -1006,7 +1027,9 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     }
 
     let devDetails = [];
-    if (styleBonusPt > 0) devDetails.push(`作戦脚質+${styleBonusPt}`);
+    if (styleBonusPt > 0) {
+      devDetails.push(isNigetuiHighLap ? `作戦脚質(大逃)+${styleBonusPt}` : `作戦脚質+${styleBonusPt}`);
+    }
     if (horseStyleBonusPt > 0) devDetails.push(`馬脚質+${horseStyleBonusPt}`);
     if (posAddPt > 0) devDetails.push(`位置+${posAddPt}`);
     if (extraScore > 0) devDetails.push(`展開アビ+${extraScore}`);
