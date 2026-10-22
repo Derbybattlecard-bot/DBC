@@ -723,7 +723,7 @@
           </g>
         </svg>
 
-        <!-- マップ上のピン一覧（太平洋中心の座標系に完全適合） -->
+        <!-- マップ上のピン一覧 -->
         <div class="loc-pin" id="pin_france" style="top: 35%; left: 11%;" onclick="openCountryGuide('france')">
           <div class="pin-icon"></div>
           <div class="pin-label">🇫🇷 欧州</div>
@@ -850,7 +850,7 @@
   let isTributeUnlocked = false;
   let currentDetailRaceId = null;
 
-  // 地域メタデータ定義
+  // 地域メタデータ定義（レース名や競馬場名でマッチングするキーワード）
   const REGION_DEFINITIONS = [
     {
       key: 'hongkong',
@@ -859,7 +859,7 @@
       title: '香港 (沙田競馬場)',
       desc: 'アジア屈指の近代競馬の祭典。沙田競馬場で開催される国際G1競走。',
       pinId: 'pin_hongkong',
-      keywords: ['香港', '沙田', 'シャティン', 'SHA TIN', 'HK']
+      keywords: ['香港', '沙田', 'シャティン', 'SHA TIN', 'HK', 'HAPPY VALLEY', 'ハッピーバレー', 'QE2', 'クイーンエリザベス']
     },
     {
       key: 'dubai',
@@ -868,7 +868,7 @@
       title: 'UAE (メイダン競馬場)',
       desc: '世界最高峰の競馬の祭典、ドバイワールドカップデー。',
       pinId: 'pin_dubai',
-      keywords: ['ドバイ', 'メイダン', 'MEYDAN', 'UAE']
+      keywords: ['ドバイ', 'メイダン', 'MEYDAN', 'UAE', 'ナドアルシバ', 'シーマクラシック', 'ワールドカップ', 'ドバイターフ', 'ゴールデンシャヒーン', 'アルクオーツ']
     },
     {
       key: 'france',
@@ -877,7 +877,7 @@
       title: '欧州 (フランス・ロンシャン等)',
       desc: '欧州競馬の最高峰・凱旋門賞をはじめとする伝統と格式の舞台。',
       pinId: 'pin_france',
-      keywords: ['ロンシャン', 'フランス', '欧州', 'パリ', 'ドーヴィル', 'アスコット', 'イギリス', '凱旋門', 'LONGCHAMP']
+      keywords: ['ロンシャン', 'LONGCHAMP', 'フランス', '欧州', 'パリ', 'ドーヴィル', 'DEAUVILLE', 'アスコット', 'ASCOT', 'イギリス', '凱旋門', 'ARC', 'イスパーン', 'マロワ', 'キングジョージ', 'プリンスオブウェールズ']
     },
     {
       key: 'usa',
@@ -886,7 +886,7 @@
       title: 'アメリカ (ブリーダーズカップ等)',
       desc: 'アメリカ競馬の頂点、ブリーダーズカップや米クラシック。',
       pinId: 'pin_usa',
-      keywords: ['米国', 'アメリカ', 'USA', 'デルマー', 'サンタアニタ', 'チャーチルダウンズ', 'ブリーダーズカップ', 'BC']
+      keywords: ['米国', 'アメリカ', 'USA', 'デルマー', 'DEL MAR', 'サンタアニタ', 'SANTA ANITA', 'チャーチルダウンズ', 'ベルモント', 'BELMONT', 'ピムリコ', 'ブリーダーズカップ', 'BC', 'ケンタッキーダービー']
     },
     {
       key: 'saudi',
@@ -985,28 +985,25 @@
 
     const seriesList = Array.isArray(seriesData) ? seriesData : Object.values(seriesData);
 
-    // ★ 改善：unlock_master.json と勝利数から解放カテゴリを動的判定
-    const unlockedCategories = new Set();
-    const unlockedSeriesFromMaster = new Set(userUnlockedSeries);
+    // 日本国内の競馬場・G1競走名リスト（海外シリーズ内のステップレース等を除外するための判定用）
+    const JAPAN_TRACKS = ['東京', '中山', '京都', '阪神', '中京', '小倉', '新潟', '福島', '札幌', '函館', '大井', '船橋', '川崎', '浦和', '盛岡', '門別', '園田', '高知', '佐賀', '名古屋', '笠松', '金沢'];
+    const JAPAN_RACE_NAMES = [
+      '天皇賞', '宝塚記念', '有馬記念', 'ジャパンカップ', '日本ダービー', '東京優駿', '皐月賞', '菊花賞', 
+      '桜花賞', '優駿牝馬', 'オークス', '安田記念', 'マイルチャンピオンシップ', 'スプリンターズ', 
+      '高松宮記念', '大阪杯', 'フェブラリー', 'チャンピオンズカップ', 'ホープフル', '朝日杯', 
+      '阪神ジュベナイル', 'ヴィクトリアマイル', 'NHKマイル', 'エリザベス女王杯', '帝王賞', '東京大賞典', 
+      '川崎記念', 'かしわ記念', 'JBC', '南部杯'
+    ];
 
+    // UNLOCK_MASTER から海外・トリビュート解放条件（Wins）を取得
     const overseasItem = UNLOCK_MASTER.find(u => (u.cat || u.category || "").includes("海外"));
     const tributeItem = UNLOCK_MASTER.find(u => (u.cat || u.category || "").includes("トリビュート"));
 
     const overseasReq = overseasItem ? (overseasItem.wins ?? overseasItem.win_req ?? overseasItem.req_wins ?? 10) : 10;
     const tributeReq = tributeItem ? (tributeItem.wins ?? tributeItem.win_req ?? tributeItem.req_wins ?? 20) : 20;
 
-    UNLOCK_MASTER.forEach(u => {
-      const catName = u.cat || u.category || "";
-      const req = u.wins ?? u.win_req ?? u.req_wins ?? 0;
-      if (totalWins >= req) {
-        if (catName) unlockedCategories.add(catName);
-        if (u.series_id) unlockedSeriesFromMaster.add(u.series_id);
-      }
-    });
-
-    // 勝利数判定
-    isOverseasUnlocked = (totalWins >= overseasReq) || unlockedCategories.has("海外チャレンジ") || unlockedCategories.has("海外チャレンジシリーズ");
-    isTributeUnlocked = (totalWins >= tributeReq) || unlockedCategories.has("トリビュート");
+    isOverseasUnlocked = totalWins >= overseasReq;
+    isTributeUnlocked = totalWins >= tributeReq;
 
     const lockTextEl = document.getElementById('lockRequirementText');
     if (lockTextEl) {
@@ -1014,17 +1011,22 @@
     }
 
     seriesList.forEach(series => {
-      const groupName = series.group || series.category || "";
       const sId = series.series_id || series.id || "";
       const seriesTitle = series.series_name || series.name || "";
+      const groupName = series.group || series.category || "";
 
-      // ★ シリーズが解放されているか判定（明示リスト OR カテゴリ勝利数達成 OR 各シリーズの勝利条件）
-      const isSeriesUnlocked = 
-        unlockedSeriesFromMaster.has(sId) ||
-        unlockedSeriesFromMaster.has(seriesTitle) ||
-        Array.from(unlockedCategories).some(c => groupName.includes(c)) ||
-        (series.unlock_wins != null && totalWins >= series.unlock_wins) ||
-        (series.req_wins != null && totalWins >= series.req_wins);
+      // ★ 修正：シリーズ個別のアンロック判定（未解放の米国シリーズを一括で解放しないよう厳密にチェック）
+      let isSeriesUnlocked = false;
+      if (userUnlockedSeries && userUnlockedSeries.length > 0) {
+        isSeriesUnlocked = userUnlockedSeries.includes(sId) || userUnlockedSeries.includes(seriesTitle);
+      } else {
+        const reqWins = series.unlock_wins ?? series.req_wins;
+        if (reqWins != null) {
+          isSeriesUnlocked = totalWins >= reqWins;
+        } else {
+          isSeriesUnlocked = ["SERIES_001", "SERIES_006", "SERIES_016", "SERIES_021"].includes(sId);
+        }
+      }
 
       if (!isSeriesUnlocked) return;
 
@@ -1048,24 +1050,32 @@
         
         if (isG1) {
           const raceId = race.race_id || race.id || rName;
+          const trackStr = race.track || race.course || race.course_name || "";
           const isDirt = (race.surface && race.surface.includes('ダ')) || groupName.includes('ダート');
           const cleanName = rName.replace(/【.*?】/g, '').replace(/\[.*?\]/g, '').trim();
           
           const raceData = {
             id: raceId,
             name: cleanName,
-            track: race.track || race.course || race.course_name || "不明",
+            track: trackStr || "不明",
             surface: isDirt ? 'dirt' : 'turf',
             group: groupName,
             seriesName: seriesTitle
           };
 
-          if (groupName.includes('地方') || gradeStr.includes('JPN')) {
-             if (!extractedLocal.has(raceId)) extractedLocal.set(raceId, raceData);
-          } else if (groupName.includes('海外') || seriesTitle.includes('海外') || raceData.track.includes('沙田') || raceData.track.includes('ロンシャン') || raceData.track.includes('メイダン')) {
-             if (!extractedOverseas.has(raceId)) extractedOverseas.set(raceId, raceData);
+          // ★ 修正：国内レース（宝塚記念、天皇賞春など）かどうかの厳密判定
+          const isDomesticRace = JAPAN_TRACKS.some(t => trackStr.includes(t)) || JAPAN_RACE_NAMES.some(n => cleanName.includes(n));
+
+          if (isDomesticRace) {
+            // 日本国内競馬場のレースは、たとえ海外シリーズに含まれていても「海外Map」には含めず、国内または地方交流へ
+            if (groupName.includes('地方') || gradeStr.includes('JPN')) {
+              if (!extractedLocal.has(raceId)) extractedLocal.set(raceId, raceData);
+            } else {
+              if (!extractedDomestic.has(raceId)) extractedDomestic.set(raceId, raceData);
+            }
           } else {
-             if (!extractedDomestic.has(raceId)) extractedDomestic.set(raceId, raceData);
+            // ★ 海外現地（沙田、メイダン、ロンシャン等）で開催されるG1レースのみ海外Mapの対象
+            if (!extractedOverseas.has(raceId)) extractedOverseas.set(raceId, raceData);
           }
         }
       };
@@ -1090,14 +1100,22 @@
     groupOverseasRaces();
   }
 
+  // ★ 修正：レース自体の競馬場やレース名で香港・ドバイ・欧州・米国・サウジに正確に振り分け
   function groupOverseasRaces() {
     ACTIVE_OVERSEAS_REGIONS = {};
 
     OVERSEAS_G1.forEach(race => {
-      const fullText = (race.group + " " + race.seriesName + " " + race.track + " " + race.name).toUpperCase();
+      const raceText = (race.track + " " + race.name).toUpperCase();
       let matchedRegion = REGION_DEFINITIONS.find(reg => 
-        reg.keywords.some(kw => fullText.includes(kw.toUpperCase()))
+        reg.keywords.some(kw => raceText.includes(kw.toUpperCase()))
       );
+
+      if (!matchedRegion) {
+        const fullText = (race.group + " " + race.seriesName + " " + race.track + " " + race.name).toUpperCase();
+        matchedRegion = REGION_DEFINITIONS.find(reg => 
+          reg.keywords.some(kw => fullText.includes(kw.toUpperCase()))
+        );
+      }
 
       if (!matchedRegion) {
         matchedRegion = {
@@ -1215,7 +1233,7 @@
     const cardGrid = document.getElementById('countryCardGrid');
     if (cardGrid) cardGrid.innerHTML = '';
 
-    // 全地域のピン表示制御（アンロックされたレースが1件以上ある地域のみ表示）
+    // 全地域のピン表示制御（アンロックされた海外現地レースが1件以上ある地域のみ表示）
     REGION_DEFINITIONS.forEach(reg => {
       const pinEl = document.getElementById(reg.pinId);
       if (!pinEl) return;
@@ -1232,6 +1250,7 @@
           pinEl.classList.remove('cleared');
         }
       } else {
+        // 未解放の地域（米国・サウジなど）は完全に非表示
         pinEl.style.display = 'none';
         pinEl.classList.remove('unlocked');
         pinEl.classList.remove('cleared');
@@ -1285,6 +1304,7 @@
     const listEl = document.getElementById('guideRacesList');
     listEl.innerHTML = '';
 
+    // 現地G1レースのみ一覧表示
     data.races.forEach(race => {
       const record = userG1Records[race.id];
       const isCleared = !!record?.slot1;
