@@ -163,7 +163,7 @@
     height: 235px;
     z-index: 8;
     pointer-events: none;
-    transition: left 1.8s cubic-bezier(0.4, 0, 0.8, 1), opacity 0.8s ease-in 0.8s;
+    transition: left 2.0s cubic-bezier(0.4, 0, 0.8, 1), opacity 0.8s ease-in 0.8s;
     display: none;
   }
 
@@ -279,48 +279,48 @@
 
   .horse-bounce-wrap { width: 100%; height: 100%; position: relative; }
   #track-container.running .horse-bounce-wrap {
-    animation: gallopBounce 0.28s ease-in-out infinite alternate;
+    animation: gallopBounce 0.32s ease-in-out infinite alternate;
   }
   #track-container.running .horse-shadow {
-    animation: shadowScale 0.28s ease-in-out infinite alternate;
+    animation: shadowScale 0.32s ease-in-out infinite alternate;
   }
 
   @keyframes gallopBounce {
-    0%   { transform: translateY(2px) rotate(-0.8deg); }
-    100% { transform: translateY(-3.5px) rotate(1.1deg); }
+    0%   { transform: translateY(2.5px) rotate(-1.0deg); }
+    100% { transform: translateY(-4.0px) rotate(1.2deg); }
   }
   @keyframes shadowScale {
-    0%   { transform: scaleX(1.03); opacity: 0.55; }
-    100% { transform: scaleX(0.86); opacity: 0.28; }
+    0%   { transform: scaleX(1.04); opacity: 0.58; }
+    100% { transform: scaleX(0.84); opacity: 0.25; }
   }
 
-  /* ★馬の脚 4本すべてが同時に連動する両脚3コマアニメーション（GPU処理） */
+  /* ★馬の脚 4本連動 3コマ×4拍リズム（0-25%伸展, 25-50%接地, 50-100%滞空収縮ホールド） */
   .leg-frame-1 { opacity: 1; }
   .leg-frame-2 { opacity: 0; }
   .leg-frame-3 { opacity: 0; }
 
   #track-container.running .leg-frame-1 {
-    animation: animLegF1 0.28s steps(1) infinite;
+    animation: animLegF1 0.32s steps(1) infinite;
   }
   #track-container.running .leg-frame-2 {
-    animation: animLegF2 0.28s steps(1) infinite;
+    animation: animLegF2 0.32s steps(1) infinite;
   }
   #track-container.running .leg-frame-3 {
-    animation: animLegF3 0.28s steps(1) infinite;
+    animation: animLegF3 0.32s steps(1) infinite;
   }
 
   @keyframes animLegF1 {
-    0%, 33.2% { opacity: 1; }
-    33.3%, 100% { opacity: 0; }
+    0%, 24.9% { opacity: 1; }
+    25%, 100% { opacity: 0; }
   }
   @keyframes animLegF2 {
-    0%, 33.2% { opacity: 0; }
-    33.3%, 66.5% { opacity: 1; }
-    66.6%, 100% { opacity: 0; }
+    0%, 24.9% { opacity: 0; }
+    25%, 49.9% { opacity: 1; }
+    50%, 100% { opacity: 0; }
   }
   @keyframes animLegF3 {
-    0%, 66.5% { opacity: 0; }
-    66.6%, 100% { opacity: 1; }
+    0%, 49.9% { opacity: 0; }
+    50%, 100% { opacity: 1; }
   }
 
   /* 足元の砂埃・蹴り土エフェクト */
@@ -358,10 +358,10 @@
   }
 
   #track-container.running .dust-puff.p1 {
-    animation: puffDrift1 0.28s ease-out infinite;
+    animation: puffDrift1 0.32s ease-out infinite;
   }
   #track-container.running .dust-puff.p2 {
-    animation: puffDrift2 0.28s ease-out infinite 0.14s;
+    animation: puffDrift2 0.32s ease-out infinite 0.16s;
   }
 
   @keyframes puffDrift1 {
@@ -388,13 +388,13 @@
   }
 
   .horse-icon.aura-player .horse-bounce-wrap {
-    animation: gallopBounce 0.28s ease-in-out infinite alternate, auraPulsePlayer 0.5s ease-in-out infinite alternate !important;
+    animation: gallopBounce 0.32s ease-in-out infinite alternate, auraPulsePlayer 0.5s ease-in-out infinite alternate !important;
   }
   .horse-icon.aura-cpu .horse-bounce-wrap {
-    animation: gallopBounce 0.28s ease-in-out infinite alternate, auraPulseCpu 0.5s ease-in-out infinite alternate !important;
+    animation: gallopBounce 0.32s ease-in-out infinite alternate, auraPulseCpu 0.5s ease-in-out infinite alternate !important;
   }
   .horse-icon.aura-debuff .horse-bounce-wrap {
-    animation: gallopBounce 0.28s ease-in-out infinite alternate, auraPulseDebuff 0.5s ease-in-out infinite alternate !important;
+    animation: gallopBounce 0.32s ease-in-out infinite alternate, auraPulseDebuff 0.5s ease-in-out infinite alternate !important;
   }
 
   .owner-marker {
@@ -961,7 +961,7 @@ function renderBodyPatternSVG(bodyPat, patCol) {
       `;
     case 'sawtooth':
       return `
-        <polygon points="135,20 235,20 235,55 212,74 195,54 177,75 160,54 142,75 135,58" fill="${patCol}"/>
+        <polygon points="135,20 235,20 235,55 212,75 196,52 178,76 160,52 142,76 135,55" fill="${patCol}"/>
       `;
     case 'chevron':
       return `
@@ -1333,7 +1333,7 @@ function buildHorseActorSVG(h, i) {
     markerHTML = `<div class="owner-marker p2-marker">${ name6 }</div>`;
   }
 
-  const delay = ((i % 7) * -0.04).toFixed(2);
+  const delay = ((i % 7) * -0.045).toFixed(3);
 
   return `
     <div class="horse-shadow" style="animation-delay: ${delay}s;"></div>
@@ -1359,7 +1359,7 @@ function buildHorseActorSVG(h, i) {
           </clipPath>
         </defs>
 
-        <!-- ★奥側の脚 3コマ（伸展・収縮・接地） -->
+        <!-- ★奥側の脚 3コマ（伸展・接地・収縮滞空） -->
         <g class="leg-frame-1" style="animation-delay: ${delay}s;">
           <path d="M 142 162 C 132 178, 122 192, 116 202 C 113 207, 115 212, 122 214 L 148 222 L 152 215 L 128 205 L 156 168 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="148,222 162,222 160,215 151,215" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
@@ -1367,26 +1367,26 @@ function buildHorseActorSVG(h, i) {
           <polygon points="276,235 264,242 278,244 285,239" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
         </g>
         <g class="leg-frame-2" style="animation-delay: ${delay}s;">
-          <path d="M 144 160 C 136 174, 134 186, 140 196 C 144 200, 150 202, 158 198 L 176 188 L 172 180 L 152 190 L 156 165 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
-          <polygon points="176,188 184,182 180,175 172,180" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
-          <path d="M 275 158 C 270 174, 260 188, 252 198 L 235 220 L 243 224 L 262 200 C 274 185, 282 170, 285 156 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
-          <polygon points="235,220 225,226 232,230 243,224" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
-        </g>
-        <g class="leg-frame-3" style="animation-delay: ${delay}s;">
           <path d="M 144 162 C 142 180, 140 198, 142 212 C 143 218, 148 222, 156 222 L 180 222 L 180 214 L 158 214 L 158 165 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="180,222 192,222 192,214 180,214" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
           <path d="M 276 158 C 285 172, 292 186, 295 198 L 265 228 L 273 232 L 305 200 C 302 185, 295 170, 286 156 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="265,228 255,234 266,238 273,232" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
         </g>
+        <g class="leg-frame-3" style="animation-delay: ${delay}s;">
+          <path d="M 144 160 C 136 174, 134 186, 140 196 C 144 200, 150 202, 158 198 L 176 188 L 172 180 L 152 190 L 156 165 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <polygon points="176,188 184,182 180,175 172,180" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
+          <path d="M 275 158 C 270 174, 260 188, 252 198 L 235 220 L 243 224 L 262 200 C 274 185, 282 170, 285 156 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <polygon points="235,220 225,226 232,230 243,224" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
+        </g>
 
-        <!-- 尾・鬣・胴体ベース（手前脚を切り離して独立化） -->
+        <!-- 尾・鬣・胴体ベース（手前脚を切り離して完全独立化） -->
         <path d="M 326 106 C 356 108, 388 122, 414 142 C 392 140, 374 135, 358 128 C 380 140, 398 152, 410 162 C 380 156, 354 144, 336 128 C 352 144, 364 158, 372 170 C 346 156, 330 136, 320 118 Z" fill="${coat.mane}" stroke="#140d0a" stroke-width="2" stroke-linejoin="round"/>
         <path d="M 88 56 C 118 66, 148 80, 174 96 L 168 105 C 142 88, 114 74, 84 64 Z" fill="${coat.mane}" stroke="#140d0a" stroke-width="1.6"/>
         <path d="M 76 58 C 72 44, 73 36, 77 32 C 82 38, 84 48, 84 56 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
 
         <path d="M 74 56 C 58 72, 44 88, 31 104 C 26 110, 28 118, 35 122 C 42 125, 49 122, 54 116 C 68 120, 82 115, 88 104 C 102 122, 116 142, 126 158 C 140 168, 175 174, 215 174 C 255 174, 290 166, 316 156 C 334 142, 340 116, 326 100 C 312 86, 286 88, 258 94 C 225 100, 192 100, 164 90 C 138 76, 112 64, 84 54 Z" fill="url(#bg_${uid})" stroke="#1c130e" stroke-width="2.5" stroke-linejoin="round"/>
 
-        <!-- ★手前側の脚 3コマ（伸展・収縮・接地） -->
+        <!-- ★手前側の脚 3コマ（伸展・接地・収縮滞空） -->
         <g class="leg-frame-1" style="animation-delay: ${delay}s;">
           <path d="M 124 158 C 114 172, 102 188, 88 204 L 50 234 L 58 241 L 98 210 C 114 196, 130 182, 142 170 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="50,234 38,238 42,245 59,241" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
@@ -1394,16 +1394,16 @@ function buildHorseActorSVG(h, i) {
           <polygon points="360,238 368,246 376,239 368,232" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
         </g>
         <g class="leg-frame-2" style="animation-delay: ${delay}s;">
-          <path d="M 124 158 C 116 170, 110 184, 118 198 C 122 204, 130 206, 140 202 L 162 190 L 158 182 L 134 192 L 138 166 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
-          <polygon points="162,190 170,184 166,177 158,182" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
-          <path d="M 270 162 C 264 176, 252 190, 242 202 L 222 224 L 230 228 L 254 204 C 266 188, 276 174, 278 160 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
-          <polygon points="222,224 212,230 220,234 230,228" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
-        </g>
-        <g class="leg-frame-3" style="animation-delay: ${delay}s;">
           <path d="M 124 158 C 120 178, 116 198, 118 214 C 120 220, 126 224, 136 224 L 160 224 L 160 216 L 136 216 L 138 164 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="160,224 172,224 172,216 160,216" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
           <path d="M 270 162 C 280 176, 288 190, 290 202 L 258 232 L 266 236 L 298 204 C 296 188, 288 174, 278 160 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="258,232 248,238 258,242 266,236" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
+        </g>
+        <g class="leg-frame-3" style="animation-delay: ${delay}s;">
+          <path d="M 124 158 C 116 170, 110 184, 118 198 C 122 204, 130 206, 140 202 L 162 190 L 158 182 L 134 192 L 138 166 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <polygon points="162,190 170,184 166,177 158,182" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
+          <path d="M 270 162 C 264 176, 252 190, 242 202 L 222 224 L 230 228 L 254 204 C 266 188, 276 174, 278 160 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <polygon points="222,224 212,230 220,234 230,228" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
         </g>
 
         <!-- 馬体陰影 ＆ 顔 -->
@@ -1483,10 +1483,12 @@ function applyLaneLayout(isStraight = false) {
   });
 }
 
-// フェーズ1初期配置：馬がゲート枠内（扉直前）に収まる
+// ★フェーズ1初期配置：左右20%地点にゲートと馬をセット
 function renderLanes() {
   const lanes = document.getElementById('lanes');
   const gateEl = document.getElementById('start-gate');
+  const trackContainer = document.getElementById('track-container');
+  const trackWidth = trackContainer?.clientWidth || 600;
   
   const initialDir = isDoubleCutin 
     ? currentTrackConfig.phase4_dir 
@@ -1498,11 +1500,13 @@ function renderLanes() {
   let horseStartWaitPx = 0;
 
   if (isRightToLeft) {
-    gateLeftPx = 520;
-    horseStartWaitPx = 525;
+    // 右端から20%（約480px付近）
+    gateLeftPx = Math.round(trackWidth * 0.80 - 80);
+    horseStartWaitPx = gateLeftPx + 5; // ゲート枠内
   } else {
-    gateLeftPx = 10;
-    horseStartWaitPx = -5;
+    // 左端から20%（約120px付近）
+    gateLeftPx = Math.round(trackWidth * 0.20);
+    horseStartWaitPx = gateLeftPx - 15; // ゲート枠内
   }
 
   if (gateEl) {
@@ -1715,6 +1719,34 @@ window.handleButtonClick = function() {
 let abilityQueue = [];
 let isShowingAbility = false;
 
+// ★アビリティがデバフ（能力低下）かどうか判定する汎用関数（雑草魂・気性難・出遅れ等すべてカバー）
+function isAbilityDebuff(abilityName, msg, horse) {
+  const text = `${abilityName || ""} ${msg || ""}`;
+  if (["荒ぶる魂", "ゲートバカラ", "気分屋", "出遅れ", "引っ掛かり"].some(n => text.includes(n))) {
+    if (text.includes("覚醒") || text.includes("パワー") || text.includes("突破")) return false;
+    return true;
+  }
+  if (text.includes("低下") || text.includes("ダウン") || text.includes("マイナス") || text.includes("暴走") || text.includes("減速") || text.includes("苦戦") || text.includes("失敗")) {
+    return true;
+  }
+  if (abilityMasterData) {
+    let master = null;
+    if (Array.isArray(abilityMasterData)) {
+      master = abilityMasterData.find(a => a.name === abilityName || a.ability_name === abilityName);
+    } else if (typeof abilityMasterData === 'object') {
+      master = abilityMasterData[abilityName];
+    }
+    if (master && master.effects) {
+      const hasNegative = master.effects.some(e => typeof e.value === 'number' && e.value < 0);
+      if (hasNegative) return true;
+    }
+  }
+  if (horse && horse.ability_buff !== undefined && horse.ability_buff < 0) {
+    return true;
+  }
+  return false;
+}
+
 // ポップアップキュー処理
 function processAbilityQueue() {
   if (isShowingAbility || abilityQueue.length === 0) return;
@@ -1740,14 +1772,12 @@ function processAbilityQueue() {
   }
 
   // デバフ判定
-  const textToCheck = `${item.abilityName || ""} ${item.popupMessage || ""}`;
-  const isDebuff = ["荒ぶる魂", "ゲートバカラ", "気分屋", "出遅れ", "引っ掛かり"].some(n => textToCheck.includes(n));
+  const isDebuff = item.isDebuff !== undefined ? item.isDebuff : isAbilityDebuff(item.abilityName, item.popupMessage, horseObj);
 
   if (horseObj) {
     if (isDebuff) {
       horseObj.abilityNetScore = (horseObj.abilityNetScore || 0) - 1;
     } else {
-      // 乾坤一擲（作戦MAX）も一段階のみアップ (+1)
       const addScore = 1;
       horseObj.abilityNetScore = (horseObj.abilityNetScore || 0) + addScore;
     }
@@ -1856,23 +1886,46 @@ async function startRace() {
   const isRTL = (phase1Dir === "right_to_left");
 
   const hasBigEscape = activeHorses.some(h => h.style === "大逃");
+  const trackWidth = trackContainer?.clientWidth || 600;
 
   // --------------------------------------------------------------------------
-  // Phase 1 (0.0s〜): ゲート開放 ＆ ロケットスタート！（先頭は2秒で画面中央へ到達）
+  // Phase 1 (0.0s〜): ゲート開放 ＆ スタート！（20%地点から発進、先頭は中央へ）
   // --------------------------------------------------------------------------
   updateLog(`<strong>【スタート】</strong> ${comm.phase1}`);
   
   const gateEl = document.getElementById('start-gate');
   if (gateEl) {
-    gateEl.style.transition = "left 1.8s cubic-bezier(0.4, 0, 0.8, 1), opacity 0.8s ease-in 0.8s";
-    gateEl.style.left = isRTL ? "750px" : "-180px";
+    gateEl.style.transition = "left 2.0s cubic-bezier(0.4, 0, 0.8, 1), opacity 0.8s ease-in 0.8s";
+    gateEl.style.left = isRTL ? `${trackWidth + 60}px` : "-180px";
     gateEl.style.opacity = "0";
   }
 
-  // ★先頭馬を68%（画面中央越え）までスパートさせ、イージングで2秒以内に中央到達
-  let p1Pos = getPosPointsMap(calculatedResults, 68, 5);
-  setPhasePositions(p1Pos, 6.0, "cubic-bezier(0.16, 0.84, 0.25, 1)", phase1Dir); 
+  // ★20%地点からの飛び出し：先頭はマイルドなイージングで画面中央（52%付近）へ展開
+  let p1Pos = getPosPointsMap(calculatedResults, 54, 18);
+  setPhasePositions(p1Pos, 6.0, "cubic-bezier(0.25, 0.8, 0.25, 1)", phase1Dir); 
   setTimeout(() => spawnFurlongPole("1000", false), 2500);
+
+  // ★ゲートバカラ・出遅れ系アビリティはスタート直後（Phase 1）に即時ポップアップ！
+  const gateAbilities = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.phase1_abilities && h.phase1_abilities.length > 0);
+  if (gateAbilities.length > 0) {
+    let gateLogs = [];
+    gateAbilities.forEach(h => {
+      const gAbs = h.phase1_abilities.filter(ab => ["ゲートバカラ", "出遅れ", "引っ掛かり", "ロケットスタート", "好スタート"].some(k => ab.includes(k)));
+      gAbs.forEach(abName => {
+        const msg = (h.popup_messages && h.popup_messages[abName]) || abName;
+        const isDebuff = isAbilityDebuff(abName, msg, h);
+        abilityQueue.push({ horse: h, abilityName: abName, popupMessage: msg, isDebuff: isDebuff });
+        const label = h.isPlayer ? '<span style="color:var(--player-color); font-weight:bold;">[YOUR]</span>' : '<span style="color:var(--cpu-color); font-weight:bold;">[CPU]</span>';
+        gateLogs.push(`${label} ${h.name}の能力 【${abName}】 が発動！`);
+      });
+    });
+    if (gateLogs.length > 0) {
+      setTimeout(() => {
+        updateLog(document.getElementById('log-content').innerHTML + `<br><span style="color:var(--gold-color);">${gateLogs.join("<br>")}</span>`);
+        processAbilityQueue();
+      }, 500);
+    }
+  }
 
   // --------------------------------------------------------------------------
   // ★ 2回カットイン対象レース（ダービー等）：第1ワイプ（第1・第2コーナー旋回）
@@ -1902,24 +1955,7 @@ async function startRace() {
   // Phase 2 (6.0s〜): 向正面（先頭95% / 大逃げ時103%ハミ出し、6.3秒間）
   // --------------------------------------------------------------------------
   setTimeout(() => {
-    const p1Horses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.phase1_abilities && h.phase1_abilities.length > 0);
-    if (p1Horses.length > 0) {
-      let abilityLogs = [];
-      p1Horses.forEach(h => {
-        const abs = h.phase1_abilities.map(a => `【${a}】`).join("");
-        const label = h.isPlayer ? '<span style="color:var(--player-color); font-weight:bold;">[YOUR]</span>' : '<span style="color:var(--cpu-color); font-weight:bold;">[CPU]</span>';
-        abilityLogs.push(`${label} ${h.name}の能力 ${abs} が発動！`);
-        h.phase1_abilities.forEach(abName => {
-          const msg = (h.popup_messages && h.popup_messages[abName]) || abName;
-          abilityQueue.push({ horse: h, abilityName: abName, popupMessage: msg });
-        });
-      });
-      updateLog(`<strong>【向正面】</strong> ${comm.phase2}<br><span style="color:var(--gold-color);">${abilityLogs.join("<br>")}</span>`);
-      processAbilityQueue();
-    } else {
-      updateLog(`<strong>【向正面】</strong> ${comm.phase2}`);
-    }
-
+    updateLog(`<strong>【向正面】</strong> ${comm.phase2}`);
     spawnFurlongPole("800", false);
 
     const leadP2 = hasBigEscape ? 103 : 95;
@@ -1928,16 +1964,36 @@ async function startRace() {
   }, 6000);
 
   // --------------------------------------------------------------------------
-  // Phase 3 (12.3s〜): 3コーナー〜展開（ペース上部バッジ、6.3秒間）
+  // Phase 3 (12.3s〜): 3コーナー〜展開（★道中アビリティをここで発動！画面中央で確実に映る）
   // --------------------------------------------------------------------------
   setTimeout(() => {
     updateLog(`<strong>【3コーナー〜展開】</strong> ${comm.phase3}`);
     
+    // ペースバッジ
     abilityQueue.push({
       isSystem: true,
       header: "RACE PACE",
       popupMessage: `【ペース】 ${currentRacePace}`
     });
+
+    // ★道中アビリティ（ゲート系以外）をPhase 3突入直後にポップアップ
+    const midAbilities = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.phase1_abilities && h.phase1_abilities.length > 0);
+    if (midAbilities.length > 0) {
+      let midLogs = [];
+      midAbilities.forEach(h => {
+        const otherAbs = h.phase1_abilities.filter(ab => !["ゲートバカラ", "出遅れ", "引っ掛かり", "ロケットスタート", "好スタート"].some(k => ab.includes(k)));
+        otherAbs.forEach(abName => {
+          const msg = (h.popup_messages && h.popup_messages[abName]) || abName;
+          const isDebuff = isAbilityDebuff(abName, msg, h);
+          abilityQueue.push({ horse: h, abilityName: abName, popupMessage: msg, isDebuff: isDebuff });
+          const label = h.isPlayer ? '<span style="color:var(--player-color); font-weight:bold;">[YOUR]</span>' : '<span style="color:var(--cpu-color); font-weight:bold;">[CPU]</span>';
+          midLogs.push(`${label} ${h.name}の能力 【${abName}】 が発動！`);
+        });
+      });
+      if (midLogs.length > 0) {
+        updateLog(document.getElementById('log-content').innerHTML + `<br><span style="color:var(--gold-color);">${midLogs.join("<br>")}</span>`);
+      }
+    }
     processAbilityQueue();
 
     spawnFurlongPole("600", false);
@@ -2021,7 +2077,8 @@ async function startRace() {
             p4Horses.forEach(h => {
               h.phase4_abilities.forEach(abName => {
                 const msg = (h.popup_messages && h.popup_messages[abName]) || abName;
-                abilityQueue.push({ horse: h, abilityName: abName, popupMessage: `${msg}！` });
+                const isDebuff = isAbilityDebuff(abName, msg, h);
+                abilityQueue.push({ horse: h, abilityName: abName, popupMessage: `${msg}！`, isDebuff: isDebuff });
               });
             });
           }
