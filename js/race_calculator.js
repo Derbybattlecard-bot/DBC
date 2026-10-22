@@ -1,6 +1,6 @@
 // ============================================================================
 // js/race_calculator.js
-// 競馬シミュレーション・計算エンジン ＆ 実況生成統合モジュール（マスターデータ駆動完全版 v2.5）
+// 競馬シミュレーション・計算エンジン ＆ 実況生成統合モジュール（マスターデータ駆動完全版 v2.6）
 // ============================================================================
 
 // 海外競馬場フルリスト（欧州・米国・アジア・中東・豪州 全競馬場網羅）
@@ -519,6 +519,24 @@ function applyPhase1Abilities(horse, raceInfo, trackCondition, allHorses, abilit
     }
   }
 
+  // ★特殊仕様: 脚質「逃追」の馬が「追込」作戦を選択した場合、基礎能力を反転
+  // スピード ⇄ スタミナ、持続 ⇄ 瞬発
+  const rawHorseStyle = getHorseStyleFromMaster(horse);
+  const tacticCategory = getTacticStyleFromMaster(horse);
+  if (rawHorseStyle === "逃追" && tacticCategory === "追込") {
+    const tmpSpd = horse.calc_speed;
+    horse.calc_speed = horse.calc_stamina;
+    horse.calc_stamina = tmpSpd;
+
+    const tmpSharp = horse.calc_sharp;
+    horse.calc_sharp = horse.calc_jizoku;
+    horse.calc_jizoku = tmpSharp;
+
+    horse.is_nigetui_swapped = true;
+  } else {
+    horse.is_nigetui_swapped = false;
+  }
+
   if (!isEligibleForAbility(horse)) return;
   if (!horse.ability || !Array.isArray(horse.ability)) return;
 
@@ -780,7 +798,7 @@ function applyRankSwapAbilities(resultList) {
 }
 
 // ============================================================================
-// メイン処理エクスポート関数: runRaceLogic (v2.5)
+// メイン処理エクスポート関数: runRaceLogic (v2.6)
 // ============================================================================
 export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInfo = null, abilityMasterData = null) {
   const resultList = horses.map((h, i) => {
@@ -808,7 +826,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
   // STEP 0: ペース事前判定
   const selectedPace = determinePace(resultList, raceMaster, trackCondition);
 
-  // フェーズ1アビリティ適用
+  // フェーズ1アビリティ適用（芝・ダート補正および逃追の追込選択時パラメータ反転を含む）
   resultList.forEach(copy => {
     applyPhase1Abilities(copy, raceInfo, trackCondition, resultList, abilityMasterData);
   });
@@ -850,6 +868,7 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
       styleCalcPt = tacticStylePt;
     }
 
+    // 追込反転時は、反転後のcalc_speed（元のスタミナ）が反映される
     const horseSpeed = h.calc_speed || 0;
     const randomVal = Math.floor(Math.random() * 5);
 
@@ -993,8 +1012,11 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
     
     let detailPartsList = [];
 
+    // ★案A: 逃追の追込選択時に反転注記を追加
+    const swapNotice = h.is_nigetui_swapped ? "(逃追・追込反転) " : "";
+
     if (selectedBranch.formula) {
-      detailPartsList.push(`【能力算定】${formulaFormulaDetail} = ${statScore}pt`);
+      detailPartsList.push(`【能力算定】${swapNotice}${formulaFormulaDetail} = ${statScore}pt`);
     } else if (selectedBranch.key_stats && selectedBranch.key_stats.length > 0) {
       let statDetails = [];
       selectedBranch.key_stats.forEach(key => {
@@ -1019,14 +1041,14 @@ export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInf
           statDetails.push(`${statNameJa}:${totalVal}(${horseBase}+${stratVal})`);
         }
       });
-      detailPartsList.push(`【能力算定】${statDetails.join(" + ")} = ${statScore}pt`);
+      detailPartsList.push(`【能力算定】${swapNotice}${statDetails.join(" + ")} = ${statScore}pt`);
     } else {
       const spdBase = h.calc_speed || 0;
       const spdStrat = h.strat_speed || 0;
       const stmBase = h.calc_stamina || 0;
       const stmStrat = h.strat_stamina || 0;
 
-      detailPartsList.push(`【能力算定】SPD:${spdBase + spdStrat}(${spdBase}+${spdStrat}) + STM:${stmBase + stmStrat}(${stmBase}+${stmStrat}) = ${statScore}pt`);
+      detailPartsList.push(`【能力算定】${swapNotice}SPD:${spdBase + spdStrat}(${spdBase}+${spdStrat}) + STM:${stmBase + stmStrat}(${stmBase}+${stmStrat}) = ${statScore}pt`);
     }
 
     let devDetails = [];
