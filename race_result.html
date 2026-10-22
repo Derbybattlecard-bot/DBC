@@ -264,7 +264,6 @@
     pointer-events: none;
   }
 
-  /* 馬のサイズをコンパクト化（約80%サイズ） */
   .horse-icon {
     position: absolute;
     width: 94px;
@@ -722,20 +721,8 @@ function extractSilkColor(str) {
   return null;
 }
 
-function parseSilkColors(silkText, gateNum, horseName = "") {
-  if (horseName.includes("エイシン") && (!silkText || silkText.trim() === '' || silkText.trim() === '-')) {
-    silkText = "赤，黒縦縞，黒袖";
-  }
-  if (horseName.includes("ヒシ") && (!silkText || silkText.trim() === '' || silkText.trim() === '-')) {
-    silkText = "水色，赤袖";
-  }
-  if (horseName.includes("メイショウ") && (!silkText || silkText.trim() === '' || silkText.trim() === '-')) {
-    silkText = "青，桃襷，袖桃一本輪";
-  }
-  if (horseName.includes("ベガ") && (!silkText || silkText.trim() === '' || silkText.trim() === '-')) {
-    silkText = "黄，黒縦縞，赤袖黄一本輪";
-  }
-
+// あらゆる表記揺れ・語順・区切り文字に対応する汎用パーサー
+function parseSilkColors(silkText, gateNum) {
   const fallback = getGateColors(gateNum);
   if (!silkText || typeof silkText !== 'string' || silkText.trim() === '' || silkText.trim() === '-') {
     return {
@@ -873,7 +860,7 @@ function resolveHorseVisuals(horse, index) {
   const hasBlaze = (hairColor !== '白毛') && ((hash % 3 === 0) || String(horse.name || "").includes("テイオー") || String(horse.name || "").includes("ウオッカ"));
   
   const gateNum = horse.gate_number || (index + 1);
-  const silk = parseSilkColors(horse.silk_colors, gateNum, String(horse.name || ""));
+  const silk = parseSilkColors(horse.silk_colors, gateNum);
   const gateColors = getGateColors(gateNum);
 
   return { coat, hasBlaze, silk, gateColors };
@@ -889,6 +876,7 @@ function getStringHash(str) {
   return Math.abs(hash);
 }
 
+// 胴柄SVG描画（縦縞2本、散らし系マルチドット、★上部が柄色で下部境界がV字になる正しい鋸歯形）
 function renderBodyPatternSVG(bodyPat, patCol) {
   switch (bodyPat) {
     case 'cross_sash':
@@ -909,9 +897,9 @@ function renderBodyPatternSVG(bodyPat, patCol) {
         <rect x="186" y="20" width="8.5" height="75" fill="${patCol}"/>
       `;
     case 'sawtooth':
+      // 上部全体（肩・胸）をpatColで覆い、下端境界線をギザギザ（V字）にする
       return `
-        <polygon points="152,24 170,40 152,56 170,72 152,88 166,88 184,72 166,56 184,40 166,24" fill="${patCol}"/>
-        <polygon points="184,24 202,40 184,56 202,72 184,88 198,88 216,72 198,56 216,40 198,24" fill="${patCol}"/>
+        <polygon points="130,20 240,20 240,54 220,67 202,54 184,67 166,54 148,67 130,55" fill="${patCol}"/>
       `;
     case 'chevron':
       return `
@@ -1632,8 +1620,8 @@ function processAbilityQueue() {
     if (isDebuff) {
       horseObj.abilityNetScore = (horseObj.abilityNetScore || 0) - 1;
     } else {
-      // 乾坤一擲の勝負手（作戦MAX）の場合は大きくプラスする（即時オーラ発火）
-      const addScore = (item.abilityName === "乾坤一擲の勝負手") ? 2 : 1;
+      // 乾坤一擲の勝負手（作戦MAX）も一段階のみアップ (+1)
+      const addScore = 1;
       horseObj.abilityNetScore = (horseObj.abilityNetScore || 0) + addScore;
     }
 
@@ -1856,17 +1844,16 @@ async function startRace() {
             popupMessage: `【展開】 ${currentRaceBranch}`
           });
           
-          // ★作戦レベル5(MAX)の「乾坤一擲の勝負手」演出判定
+          // ★作戦レベル5(MAX)の「乾坤一擲の勝負手（案2のセリフ）」演出
           calculatedResults.forEach(h => {
             if ((h.isPlayer || h.isCpu) && h.level === 5) {
-              const tacticName = h.strat_name || h.tactic || "戦術";
               abilityQueue.push({
                 horse: h,
                 abilityName: "乾坤一擲の勝負手",
-                popupMessage: `乾坤一擲の勝負手（作戦Lv.MAX）`
+                popupMessage: `乾坤一擲の勝負手`
               });
               const lLabel = h.isPlayer ? '<span style="color:var(--player-color); font-weight:bold;">[YOUR]</span>' : '<span style="color:var(--cpu-color); font-weight:bold;">[CPU]</span>';
-              updateLog(document.getElementById('log-content').innerHTML + `<br><span style="color:var(--gold-color);">${lLabel} 軍師がすべてを託した乾坤一擲の勝負手！背負った最大級の期待に応え炸裂するか！？</span>`);
+              updateLog(document.getElementById('log-content').innerHTML + `<br><span style="color:var(--gold-color);">${lLabel} 勝負の命運を賭けた乾坤一擲の一手（作戦Lv.MAX）！背負った全信頼に応え、ここから突き抜けるか！？</span>`);
             }
           });
 
@@ -1902,7 +1889,7 @@ async function startRace() {
 
         // ====================================================================
         // ★ 7.5秒ジャスト：1着馬ゴールイン！
-        // 0.5秒ヒットストップ ＆ パシャッと閃光フラッシュ
+        // 0.5秒ヒットストップ（完全静止） ＆ 閃光フラッシュ
         // ➔ スローモーション1.5秒前進 ➔ 全馬ピタッと完全停止！
         // ====================================================================
         setTimeout(() => {
