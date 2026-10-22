@@ -457,6 +457,24 @@
      タブ1: 出走表 & 条件設定
 ========================================== -->
 <div id="tab-editor" class="view-panel active">
+  <!-- 外部マスター（sim/フォルダ）読み込みパネル -->
+  <div class="card-box" style="background: linear-gradient(135deg, #181824, #101018); border-color: #3f3f5a;">
+    <div class="section-title" style="color: var(--accent-green); font-size: 0.95em;">
+      <span>📁 外部マスター読込 (sim/ フォルダ管理)</span>
+      <span style="font-size:0.75em; color:#aaa; font-weight:normal;">使い切り用のJSONを直接指定して読み込めます</span>
+    </div>
+    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 220px; display: flex; align-items: center; gap: 4px;">
+        <span style="color:#aaa; font-size:0.85em; font-family: monospace;">sim/</span>
+        <input type="text" id="sim-filename-input" value="24kikkasho.json" placeholder="例: 24kikkasho.json">
+      </div>
+      <button class="btn-sub" style="background:#2563eb; color:#fff; border-color:#3b82f6;" onclick="loadCustomSimMaster()">📂 ファイル読込</button>
+      <button class="btn-sub" onclick="setPresetSimPath('24kikkasho.json')">菊花賞(2024)</button>
+      <button class="btn-sub" onclick="setPresetSimPath('sim_horses_master.json')">標準マスター</button>
+    </div>
+    <div id="sim-load-status" style="font-size: 0.78em; color: #888; margin-top: 5px;"></div>
+  </div>
+
   <div class="card-box">
     <div class="section-title">
       <span>🏁 レース条件設定</span>
@@ -467,6 +485,7 @@
         <option value="niigata_1000">アイビスサマーダッシュ (新潟 芝1000m直線)</option>
         <option value="tokyo_1600">安田記念 (東京 芝1600m)</option>
         <option value="hanshin_2000">大阪杯 (阪神 芝2000m)</option>
+        <option value="kyoto_3000">菊花賞 (京都 芝3000m)</option>
         <option value="kyoto_3200">天皇賞・春 (京都 芝3200m)</option>
         <option value="chukyo_1800">チャンピオンズC (中京 ダ1800m)</option>
         <option value="longchamp_1000">アベイユドロンシャン (ロンシャン 芝1000m直線)</option>
@@ -539,9 +558,9 @@
     <button class="btn-sub" onclick="loadSimPreset()">📂 ブラウザから復元</button>
     <button class="btn-sub" onclick="exportJsonFile()">📥 JSON保存</button>
     <label class="btn-sub" style="display:inline-flex; align-items:center; margin-bottom:0; cursor:pointer;">
-      📤 JSON読込<input type="file" id="json-file-input" accept=".json" style="display:none;" onchange="importJsonFile(event)">
+      📤 手動ファイル選択<input type="file" id="json-file-input" accept=".json" style="display:none;" onchange="importJsonFile(event)">
     </label>
-    <button class="btn-sub" onclick="resetToMasterOrSample()">🔄 大元マスターに戻す</button>
+    <button class="btn-sub" onclick="resetToMasterOrSample()">🔄 初期18頭に戻す</button>
   </div>
 
   <div class="card-box" style="overflow-x: auto;">
@@ -687,7 +706,7 @@
 import { runRaceLogic } from "./js/race_calculator.js";
 
 const VENUE_DIRECTION_MASTER = {
-  "中京": "左回り", "福島": "右回り", "新潟": "左回り", "小仓": "右回り",
+  "中京": "左回り", "福島": "右回り", "新潟": "左回り", "小倉": "右回り",
   "札幌": "右回り", "京都": "右回り", "東京": "左回り", "中山": "右回り",
   "阪神": "右回り", "函館": "右回り", "ロンシャン": "右回り"
 };
@@ -886,7 +905,7 @@ function buildHorseActorSVG(h, i) {
   const gateColors = getGateColors(h.gate_number || (i + 1));
   const silk = parseSilkColors(h.silk_colors, h.gate_number || (i + 1));
   const uid = `sim_${i}`;
-  const kana = (h.name || "").replace(/[^゠-ヿ]/g, '').substring(0, 3) || "ウマ";
+  const kana = (h.name || "").replace(/[^\u30A0-\u30FF]/g, '').substring(0, 3) || "ウマ";
 
   const bodyPatSVG = renderBodyPatternSVG(silk.bodyPat, silk.patCol);
   const sleevePatSVG = renderSleevePatternSVG(silk.sleevePat, silk.sleeveCol);
@@ -966,30 +985,84 @@ let horsesData = JSON.parse(JSON.stringify(DEFAULT_18_HORSES));
 let masterRaces = null;
 let masterStrategies = null;
 
-// 専用マスターファイル（data/sim_horses_master.json）の読み込み試行
-async function loadSimMasterFiles() {
-  try {
-    const res = await fetch('./data/sim_horses_master.json').catch(() => null);
-    if (res && res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        masterHorsesData = data;
-        horsesData = JSON.parse(JSON.stringify(data));
-        console.log("専用馬マスター（sim_horses_master.json）を読み込みました。");
-      }
-    }
-  } catch (e) {
-    console.warn("sim_horses_master.json 未検出。デフォルト18頭データを使用します。");
+// 専用マスターファイル読込
+window.setPresetSimPath = function(filename) {
+  document.getElementById('sim-filename-input').value = filename;
+  loadCustomSimMaster();
+};
+
+window.loadCustomSimMaster = async function() {
+  const statusEl = document.getElementById('sim-load-status');
+  let filename = document.getElementById('sim-filename-input').value.trim();
+  if (!filename) {
+    statusEl.innerHTML = `<span style="color:var(--accent-red)">ファイル名を入力してください</span>`;
+    return;
   }
 
-  try {
-    const [racesRes, stratsRes] = await Promise.all([
-      fetch('./data/race_master.json').catch(() => null),
-      fetch('./data/strategy_master.json').catch(() => null)
-    ]);
-    if (racesRes && racesRes.ok) masterRaces = await racesRes.json();
-    if (stratsRes && stratsRes.ok) masterStrategies = await stratsRes.json();
-  } catch (e) {}
+  // パス解決：入力が "sim/" で始まっていない場合は "sim/" を付加して試行
+  const pathsToTry = [];
+  if (filename.startsWith('sim/') || filename.startsWith('./sim/')) {
+    pathsToTry.push(filename);
+  } else {
+    pathsToTry.push(`sim/${filename}`);
+    pathsToTry.push(`./sim/${filename}`);
+    pathsToTry.push(`data/sim/${filename}`);
+    pathsToTry.push(filename);
+  }
+
+  statusEl.innerHTML = `<span style="color:#aaa">読込試行中... (${pathsToTry[0]})</span>`;
+
+  let loadedData = null;
+  let successPath = "";
+
+  for (const path of pathsToTry) {
+    try {
+      const res = await fetch(path);
+      if (res.ok) {
+        loadedData = await res.json();
+        successPath = path;
+        break;
+      }
+    } catch (e) {}
+  }
+
+  if (loadedData) {
+    applyImportedMaster(loadedData);
+    statusEl.innerHTML = `<span style="color:var(--accent-green)">✔ 読込成功: <strong>${successPath}</strong> (${horsesData.length}頭)</span>`;
+  } else {
+    statusEl.innerHTML = `<span style="color:var(--accent-red)">✖ 読み込みに失敗しました。ファイルが <code>${pathsToTry[0]}</code> に配置されているか確認してください。</span>`;
+  }
+};
+
+function applyImportedMaster(data) {
+  if (Array.isArray(data)) {
+    horsesData = data;
+    document.getElementById('cfg-field-count').value = String(Math.min(18, Math.max(8, data.length)));
+  } else if (data && typeof data === 'object') {
+    if (data.race) {
+      document.getElementById('cfg-race-name').value = data.race.race_name || "外部指定レース";
+      document.getElementById('cfg-track').value = data.race.track || "中山";
+      document.getElementById('cfg-surface').value = data.race.surface || "芝";
+      document.getElementById('cfg-distance').value = data.race.distance || 2000;
+      document.getElementById('cfg-condition').value = data.race.condition || "良";
+    }
+    if (Array.isArray(data.horses)) {
+      horsesData = data.horses;
+      document.getElementById('cfg-field-count').value = String(Math.min(18, Math.max(8, data.horses.length)));
+    }
+  }
+
+  // 24kikkasho 等の特定名なら条件を自動アジャスト
+  const rawInput = document.getElementById('sim-filename-input').value.toLowerCase();
+  if (rawInput.includes('kikka') || rawInput.includes('菊花')) {
+    document.getElementById('cfg-race-name').value = "菊花賞 (GI)";
+    document.getElementById('cfg-track').value = "京都";
+    document.getElementById('cfg-surface').value = "芝";
+    document.getElementById('cfg-distance').value = 3000;
+    document.getElementById('cfg-field-count').value = String(Math.min(18, horsesData.length));
+  }
+
+  renderEditorTable();
 }
 
 function renderEditorTable() {
@@ -1012,7 +1085,7 @@ function renderEditorTable() {
             ${h.gate_number}
           </span>
         </td>
-        <td><input type="text" value="${h.name}" onchange="updateHorse(${i}, 'name', this.value)"></td>
+        <td><input type="text" value="${h.name || ''}" onchange="updateHorse(${i}, 'name', this.value)"></td>
         <td>
           <select onchange="updateHorse(${i}, 'hair_color', this.value)">
             ${Object.keys(COAT_PALETTE).map(c => `<option value="${c}" ${h.hair_color === c ? 'selected' : ''}>${c}</option>`).join('')}
@@ -1054,8 +1127,9 @@ window.changeFieldCount = function(count) {
 };
 
 window.resetToMasterOrSample = function() {
-  if (confirm("大元のマスターデータ（または初期設定）に戻しますか？（現在の編集は破棄されます）")) {
-    horsesData = JSON.parse(JSON.stringify(masterHorsesData));
+  if (confirm("初期の18頭マスターデータに戻しますか？（現在の編集は破棄されます）")) {
+    horsesData = JSON.parse(JSON.stringify(DEFAULT_18_HORSES));
+    document.getElementById('cfg-field-count').value = "18";
     renderEditorTable();
   }
 };
@@ -1074,18 +1148,7 @@ window.loadSimPreset = function() {
   if (!saved) { alert("保存されたデータがありません。"); return; }
   try {
     const data = JSON.parse(saved);
-    if (data.race) {
-      document.getElementById('cfg-race-name').value = data.race.race_name || "保存レース";
-      document.getElementById('cfg-track').value = data.race.track || "中山";
-      document.getElementById('cfg-surface').value = data.race.surface || "芝";
-      document.getElementById('cfg-distance').value = data.race.distance || 2000;
-      document.getElementById('cfg-condition').value = data.race.condition || "良";
-    }
-    if (data.horses && Array.isArray(data.horses)) {
-      horsesData = data.horses;
-      document.getElementById('cfg-field-count').value = String(data.horses.length);
-    }
-    renderEditorTable();
+    applyImportedMaster(data);
     alert("保存された出走表データを復元しました！");
   } catch(e) {
     alert("読込に失敗しました。");
@@ -1102,7 +1165,7 @@ window.exportJsonFile = function() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `sim_race_${document.getElementById('cfg-race-name').value || 'export'}.json`;
+  a.download = `sim_${document.getElementById('cfg-race-name').value || 'race'}.json`;
   a.click();
   URL.revokeObjectURL(url);
 };
@@ -1114,21 +1177,7 @@ window.importJsonFile = function(event) {
   reader.onload = function(e) {
     try {
       const data = JSON.parse(e.target.result);
-      if (data.race) {
-        document.getElementById('cfg-race-name').value = data.race.race_name || "インポートレース";
-        document.getElementById('cfg-track').value = data.race.track || "中山";
-        document.getElementById('cfg-surface').value = data.race.surface || "芝";
-        document.getElementById('cfg-distance').value = data.race.distance || 2000;
-        document.getElementById('cfg-condition').value = data.race.condition || "良";
-      }
-      if (Array.isArray(data.horses)) {
-        horsesData = data.horses;
-        document.getElementById('cfg-field-count').value = String(data.horses.length);
-      } else if (Array.isArray(data)) {
-        horsesData = data;
-        document.getElementById('cfg-field-count').value = String(data.length);
-      }
-      renderEditorTable();
+      applyImportedMaster(data);
       alert("JSONファイルを正常に読み込みました！");
     } catch (err) {
       alert("JSONの読み込みに失敗しました。ファイル形式を確認してください。");
@@ -1145,6 +1194,7 @@ window.loadPresetRace = function(val) {
     niigata_1000: { name: "アイビスサマーダッシュ", track: "新潟", surface: "芝", dist: 1000 },
     tokyo_1600: { name: "安田記念", track: "東京", surface: "芝", dist: 1600 },
     hanshin_2000: { name: "大阪杯", track: "阪神", surface: "芝", dist: 2000 },
+    kyoto_3000: { name: "菊花賞", track: "京都", surface: "芝", dist: 3000 },
     kyoto_3200: { name: "天皇賞・春", track: "京都", surface: "芝", dist: 3200 },
     chukyo_1800: { name: "チャンピオンズC", track: "中京", surface: "ダート", dist: 1800 },
     longchamp_1000: { name: "アベイユドロンシャン賞", track: "ロンシャン", surface: "芝", dist: 1000 }
@@ -1243,7 +1293,6 @@ function startLiveRaceSimulation() {
   playLiveRaceAnimation(calcResult, raceCfg);
 }
 
-// 18頭立てまで美しく収まる等間隔スケーリング
 function applySimLaneLayout(isStraight = false) {
   const fieldCount = liveActiveHorses.length || 16;
   const minTop = 85;
@@ -1442,6 +1491,7 @@ function playLiveRaceAnimation(calcResult, raceCfg) {
         setTimeout(() => spawnLiveFurlong("400", false), 1400);
         setTimeout(() => spawnLiveFurlong("200", true), 4400);
 
+        // ゴール板
         setTimeout(() => {
           const layer = document.getElementById('furlong-layer');
           const pole = document.createElement('div');
@@ -1458,6 +1508,7 @@ function playLiveRaceAnimation(calcResult, raceCfg) {
           setTimeout(() => pole.remove(), 2400);
         }, 7030);
 
+        // 実況 & 作戦Lv5「乾坤一擲の勝負手」
         setTimeout(() => {
           document.getElementById('log-content').innerHTML = `<strong>【最後の直線】</strong> ${comm.phase4}`;
           res.forEach((h, idx) => {
@@ -1472,6 +1523,7 @@ function playLiveRaceAnimation(calcResult, raceCfg) {
           processSimAbilityQueue();
         }, 1500);
 
+        // 7.5秒：ゴールイン & ヒットストップ
         setTimeout(() => {
           const fl = document.getElementById('flash-overlay');
           if (fl) { fl.classList.add('flash'); setTimeout(() => fl.classList.remove('flash'), 90); }
@@ -1610,9 +1662,7 @@ function runBatchSimulation(iterations) {
 }
 
 // 初期起動
-loadSimMasterFiles().then(() => {
-  renderEditorTable();
-});
+renderEditorTable();
 </script>
 </body>
 </html>
