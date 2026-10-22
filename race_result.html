@@ -373,7 +373,7 @@
     100% { opacity: 0; transform: translate(26px, -12px) scale(1.8); }
   }
 
-  /* オーラ演出（青・赤・漆黒デバフ） */
+  /* オーラ演出（青・赤・控えめなスモーキーデバフ） */
   @keyframes auraPulsePlayer {
     0% { filter: drop-shadow(0 0 4px #60a5fa) drop-shadow(0 0 10px #2563eb) brightness(1.25); }
     100% { filter: drop-shadow(0 0 10px #93c5fd) drop-shadow(0 0 20px #3b82f6) brightness(1.5); }
@@ -382,9 +382,10 @@
     0% { filter: drop-shadow(0 0 4px #f87171) drop-shadow(0 0 10px #dc2626) brightness(1.25); }
     100% { filter: drop-shadow(0 0 10px #fca5a5) drop-shadow(0 0 20px #ef4444) brightness(1.5); }
   }
+  /* ★デバフオーラ：他馬を邪魔しない上品なスモーキーグレー・ダークオーラ */
   @keyframes auraPulseDebuff {
-    0% { filter: drop-shadow(0 0 6px #000000) drop-shadow(0 0 14px #000000) drop-shadow(0 0 22px #09090b) brightness(0.65) contrast(1.2); }
-    100% { filter: drop-shadow(0 0 12px #000000) drop-shadow(0 0 26px #000000) drop-shadow(0 0 38px #000000) brightness(0.38) contrast(1.4); }
+    0% { filter: drop-shadow(0 0 3px #475569) drop-shadow(0 0 6px #1e293b) brightness(0.9); }
+    100% { filter: drop-shadow(0 0 5px #64748b) drop-shadow(0 0 11px #334155) brightness(0.82); }
   }
 
   .horse-icon.aura-player .horse-bounce-wrap {
@@ -605,7 +606,7 @@
         <rect x="5" y="0" width="80" height="24" rx="3" fill="#15803d" stroke="#0f172a" stroke-width="2"/>
         <line x1="8" y1="12" x2="82" y2="12" stroke="#facc15" stroke-width="2"/>
         <rect x="25" y="4" width="40" height="15" rx="2" fill="#0f172a"/>
-        <text x="45" y="16" fill="#facc15" font-size="10" font-weight="900" font-family="Arial" text-anchor="middle">START</text>
+        <text id="gate-start-text" x="45" y="16" fill="#facc15" font-size="10" font-weight="900" font-family="Arial" text-anchor="middle">START</text>
         <line x1="15" y1="24" x2="15" y2="235" stroke="#cbd5e1" stroke-width="4.5"/>
         <line x1="75" y1="24" x2="75" y2="235" stroke="#cbd5e1" stroke-width="4.5"/>
         <line x1="15" y1="60" x2="75" y2="100" stroke="#94a3b8" stroke-width="2"/>
@@ -1304,7 +1305,7 @@ function setupRace(rIdx) {
 
 function getKana3(name) {
   if (!name) return 'ダミ';
-  const kanaOnly = name.replace(/[^\u30A0-\u30FF]/g, '');
+  const kanaOnly = name.replace(/[^゠-ヿ]/g, '');
   return kanaOnly.length >= 3 ? kanaOnly.substring(0, 3) : name.substring(0, 3);
 }
 
@@ -1515,6 +1516,16 @@ function renderLanes() {
     gateEl.style.transition = "none";
     gateEl.style.left = `${gateLeftPx}px`;
     gateEl.style.transform = isRightToLeft ? "scaleX(-1)" : "scaleX(1)";
+
+    // ゲート反転時でも「START」文字が鏡文字にならないよう打ち消し補正
+    const gateText = document.getElementById('gate-start-text');
+    if (gateText) {
+      if (isRightToLeft) {
+        gateText.setAttribute("transform", "translate(90, 0) scale(-1, 1)");
+      } else {
+        gateText.removeAttribute("transform");
+      }
+    }
   }
 
   let htmlBuffer = "";
