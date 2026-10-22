@@ -129,7 +129,7 @@
   .cond-重 { background-color: #ea580c; }
   .cond-不良 { background-color: #dc2626; }
 
-  /* 新3カラムレイアウト */
+  /* 3カラムレイアウト */
   .versus-container {
     display: grid;
     grid-template-columns: 1fr 1.3fr 1fr;
@@ -436,9 +436,26 @@
     return horse.running_style || horse.leg_style || horse.style || horse.strategy || '先行';
   }
 
+  function isValidStrategyForNigetui(stratNameOrId) {
+    if (!stratNameOrId) return false;
+    const match = STRATEGY_MASTER.find(s => s.strategy_id === stratNameOrId || s.name === stratNameOrId);
+    if (!match) return false;
+    const isLead = (match.strategy_id?.startsWith('NIGE_') || match.category === '逃げ' || match.style === '逃げ');
+    const isOikomi = (match.strategy_id?.startsWith('OIKOMI_') || match.category === '追込' || match.style === '追込');
+    return isLead || isOikomi;
+  }
+
   function getDefaultStrategyForStyle(style) {
     if (!style) return "先行して粘り込み";
     const s = String(style);
+    
+    // 逃追はハイラップ逃げをデフォルトに設定
+    if (s.includes('逃追')) {
+      const highLap = STRATEGY_MASTER.find(item => item.name === 'ハイラップ逃げ' || item.strategy_id === 'NIGE_04');
+      if (highLap) return highLap.name;
+      return "ハイラップ逃げ";
+    }
+
     let catName = '先行';
     if (s.includes('大逃') || s.includes('逃')) catName = '逃げ';
     else if (s.includes('差')) catName = '差し';
@@ -569,11 +586,21 @@
     const savedStrategies = isHost ? (roomData.player1_strategies || []) : (roomData.player2_strategies || []);
     playerEntries.forEach((hId, rIdx) => {
       if (rIdx < 5) {
+        const horse = HORSES_MASTER[normalizeHorseId(hId)];
+        const style = getHorseStyle(horse);
+        const isNigetui = (style === '逃追');
+
         if (savedStrategies[rIdx] && savedStrategies[rIdx].strategy) {
-          myStrategies[rIdx] = savedStrategies[rIdx];
+          // 逃追馬で先行・差しが設定されていた場合は自動で安全にフォールバック
+          if (isNigetui && !isValidStrategyForNigetui(savedStrategies[rIdx].strategy)) {
+            myStrategies[rIdx] = {
+              strategy: getDefaultStrategyForStyle(style),
+              strategy_level: savedStrategies[rIdx].strategy_level || 3
+            };
+          } else {
+            myStrategies[rIdx] = savedStrategies[rIdx];
+          }
         } else {
-          const horse = HORSES_MASTER[normalizeHorseId(hId)];
-          const style = getHorseStyle(horse);
           myStrategies[rIdx].strategy = getDefaultStrategyForStyle(style);
           myStrategies[rIdx].strategy_level = 3;
         }
@@ -600,7 +627,6 @@
         return;
       }
 
-      // ★追加：相手がすでに完了してレース画面へ移行していた場合の強制追従フェイルセーフ
       if (data.status === "racing" || data.status === "race_running" || data.status === "finished") {
         if (!isNavigatingAway) {
           isNavigatingAway = true;
@@ -621,7 +647,6 @@
         renderRaceCards();
       }
 
-      // ★修正：残留フラグ（player_ready）を含めず、厳密に作戦完了フラグだけを監視する
       const p1Ready = !!data.player1_strategy_ready;
       const p2Ready = !!data.player2_strategy_ready;
       const myReady = isHost ? p1Ready : p2Ready;
@@ -643,9 +668,7 @@
 
       updateTotalStatus();
 
-      // 双方が作戦指示を完了した時のみレース画面へ移行
       if ((isMyStrategySubmitted || myReady) && opponentStrategyReady) {
-        // ★修正箇所: isHost (ホスト) の場合のみ status 更新と画面遷移を行う
         if (isHost) {
           isNavigatingAway = true;
           if (roomUnsubscribe) roomUnsubscribe();
@@ -659,8 +682,6 @@
           const modeQuery = matchMode ? `&mode=${matchMode}` : '';
           window.location.href = `onrace_result.html?roomId=${roomId}&role=${role}${modeQuery}`;
         }
-        // ゲスト(isHost === false) の場合はここで何もしない。
-        // 上部にある if (data.status === "racing" ...) のフェイルセーフによって安全に遷移する。
       }
     });
   }
@@ -674,12 +695,19 @@
       const myHorse = HORSES_MASTER[myHorseId] || {};
       const myPt = getHorsePt(myHorse, race.surface);
       const myStyle = getHorseStyle(myHorse);
+      const isMyNigetui = (myStyle === '逃追');
+
+      // 逃追馬で不正な作戦が選ばれていた場合の保険フォールバック
+      if (isMyNigetui && !isValidStrategyForNigetui(myStrategies[rIdx].strategy)) {
+        myStrategies[rIdx].strategy = getDefaultStrategyForStyle(myStyle) || "ハイラップ逃げ";
+      }
 
       const oppHorseId = normalizeHorseId(opponentEntries[rIdx]);
       const oppHorse = isOpponentMatchupReady ? (HORSES_MASTER[oppHorseId] || {}) : null;
       const oppPt = oppHorse ? getHorsePt(oppHorse, race.surface) : '-';
       const oppStyle = oppHorse ? getHorseStyle(oppHorse) : '-';
       const oppNameStr = oppHorse ? (oppHorse.name || '対戦相手') : '選定中… ⏳';
+      const isOppNigetui = (oppStyle === '逃追');
 
       const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
       const trackCond = loadedTrackConditions[rIdx] || '良';
@@ -700,12 +728,17 @@
       const surfaceClass = (race.surface && race.surface.includes('芝')) ? 'surface-turf' : 'surface-dirt';
 
       let stratOptionsHtml = '';
-      const categories = [
+      const allCategories = [
         { prefix: 'NIGE_',   catName: '逃げ', title: '【逃げ系】' },
         { prefix: 'SENKO_',  catName: '先行', title: '【先行系】' },
         { prefix: 'SASHI_',  catName: '差し', title: '【差し系】' },
         { prefix: 'OIKOMI_', catName: '追込', title: '【追込系】' }
       ];
+
+      // ★逃追脚質の場合は「逃げ」と「追込」のみに選択肢を限定
+      const categories = isMyNigetui
+        ? allCategories.filter(cat => cat.catName === '逃げ' || cat.catName === '追込')
+        : allCategories;
 
       categories.forEach(cat => {
         stratOptionsHtml += `<optgroup label="${cat.title}">`;
@@ -773,7 +806,7 @@
             <div><span class="horse-role-tag">YOUR HORSE</span></div>
             <div class="side-horse-name">${myHorse.name || '未設定'}</div>
             <div class="side-horse-stats">Pt: <b>${myPt}</b></div>
-            <div class="side-horse-stats">得意: <b>${myStyle}</b></div>
+            <div class="side-horse-stats">得意: <b>${myStyle}</b>${isMyNigetui ? ' <span style="font-size:9px; color:#c62828; font-weight:bold;">(逃げ/追込限定)</span>' : ''}</div>
           </div>
 
           <!-- 中央：作戦設定＆モブ脚質統計 -->
@@ -803,7 +836,7 @@
             <div><span class="horse-role-tag">OPPONENT</span></div>
             <div class="side-horse-name">${oppNameStr}</div>
             <div class="side-horse-stats">Pt: <b>${oppPt}</b></div>
-            <div class="side-horse-stats">得意: <b>${oppStyle}</b></div>
+            <div class="side-horse-stats">得意: <b>${oppStyle}</b>${isOppNigetui ? ' <span style="font-size:9px; color:#c62828; font-weight:bold;">(逃げ/追込限定)</span>' : ''}</div>
           </div>
         </div>
 
@@ -906,7 +939,6 @@
 
     const normalizedMyEntries = playerEntries.map(id => normalizeHorseId(id));
 
-    // playerX_ready フラグをここで更新しないことで残留フラグの誤認を防止
     const updateData = isHost ? {
       player1_entries: normalizedMyEntries,
       player1_strategies: myStrategies,
