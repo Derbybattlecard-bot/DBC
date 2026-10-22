@@ -106,7 +106,7 @@
   .cond-重 { background-color: #e65100; }
   .cond-不良 { background-color: #c62828; }
 
-  /* 新3カラムレイアウト */
+  /* 3カラムレイアウト */
   .versus-container {
     display: grid;
     grid-template-columns: 1fr 1.3fr 1fr;
@@ -380,7 +380,8 @@
     let catName = '先行';
     let prefix = 'SENKO_';
 
-    if (s.includes('逃')) { catName = '逃げ'; prefix = 'NIGE_'; }
+    if (s.includes('逃追')) { catName = '逃げ'; prefix = 'NIGE_'; }
+    else if (s.includes('逃')) { catName = '逃げ'; prefix = 'NIGE_'; }
     else if (s.includes('差')) { catName = '差し'; prefix = 'SASHI_'; }
     else if (s.includes('追')) { catName = '追込'; prefix = 'OIKOMI_'; }
     else if (s.includes('先')) { catName = '先行'; prefix = 'SENKO_'; }
@@ -395,12 +396,27 @@
     return match ? (match.name || match.strategy_name || match.strategy) : null;
   }
 
+  function isValidStrategyForNigetui(stratNameOrId) {
+    if (!stratNameOrId) return false;
+    const match = STRATEGY_MASTER.find(s => s.strategy_id === stratNameOrId || s.name === stratNameOrId);
+    if (!match) return false;
+    const isLead = (match.strategy_id?.startsWith('NIGE_') || match.category === '逃げ' || match.style === '逃げ');
+    const isOikomi = (match.strategy_id?.startsWith('OIKOMI_') || match.category === '追込' || match.style === '追込');
+    return isLead || isOikomi;
+  }
+
   function getInitialStrategyForHorse(pEntry, rIdx) {
     if (!pEntry) return null;
 
+    const pHorse = HORSES_MASTER[String(pEntry.horse_id)];
+    const pStyle = getHorseStyle(pHorse);
+    const isNigetui = (pStyle === '逃追');
+
     if (pEntry.isCustomized && pEntry.strategy) {
-      const match = STRATEGY_MASTER.find(s => s.strategy_id === pEntry.strategy || s.name === pEntry.strategy);
-      return match ? (match.name || match.strategy_name || match.strategy) : pEntry.strategy;
+      if (!isNigetui || isValidStrategyForNigetui(pEntry.strategy)) {
+        const match = STRATEGY_MASTER.find(s => s.strategy_id === pEntry.strategy || s.name === pEntry.strategy);
+        return match ? (match.name || match.strategy_name || match.strategy) : pEntry.strategy;
+      }
     }
 
     let targetDeck = null;
@@ -437,14 +453,14 @@
       }
 
       if (defaultStratId) {
-        const match = STRATEGY_MASTER.find(s => s.strategy_id === defaultStratId || s.name === defaultStratId);
-        if (match) return match.name || match.strategy_name || match.strategy;
+        if (!isNigetui || isValidStrategyForNigetui(defaultStratId)) {
+          const match = STRATEGY_MASTER.find(s => s.strategy_id === defaultStratId || s.name === defaultStratId);
+          if (match) return match.name || match.strategy_name || match.strategy;
+        }
       }
     }
 
-    const pHorse = HORSES_MASTER[String(pEntry.horse_id)];
-    const pStyle = getHorseStyle(pHorse);
-    return getDefaultStrategyForStyle(pStyle) || "先行して粘り込み";
+    return getDefaultStrategyForStyle(pStyle) || (isNigetui ? "ハイラップ逃げ" : "先行して粘り込み");
   }
 
   function initStrategyPage() {
@@ -480,10 +496,16 @@
       const pHorse = HORSES_MASTER[String(pEntry.horse_id)] || {};
       const pPt = getHorsePt(pHorse, race.surface);
       const pStyle = getHorseStyle(pHorse);
+      const isNigetui = (pStyle === '逃追');
 
       if (!pEntry.isCustomized) {
         const initStrat = getInitialStrategyForHorse(pEntry, rIdx);
         pEntry.strategy = initStrat;
+      } else if (isNigetui) {
+        // 逃追馬で先行・差しが残っていた場合の安全フォールバック
+        if (!isValidStrategyForNigetui(pEntry.strategy)) {
+          pEntry.strategy = getDefaultStrategyForStyle(pStyle) || "ハイラップ逃げ";
+        }
       }
 
       const cpuEntry = cpuEntries[rIdx] || {};
@@ -512,12 +534,17 @@
       const surfaceClass = race.surface === '芝' ? 'surface-turf' : 'surface-dirt';
 
       let stratOptionsHtml = '';
-      const categories = [
+      const allCategories = [
         { prefix: 'NIGE_',   catName: '逃げ', title: '【逃げ系】' },
         { prefix: 'SENKO_',  catName: '先行', title: '【先行系】' },
         { prefix: 'SASHI_',  catName: '差し', title: '【差し系】' },
         { prefix: 'OIKOMI_', catName: '追込', title: '【追込系】' }
       ];
+
+      // ★逃追脚質の場合は「逃げ」と「追込」のみをカテゴリとして許可
+      const categories = isNigetui 
+        ? allCategories.filter(cat => cat.catName === '逃げ' || cat.catName === '追込')
+        : allCategories;
 
       categories.forEach(cat => {
         stratOptionsHtml += `<optgroup label="${cat.title}">`;
@@ -589,7 +616,7 @@
             <div><span class="horse-role-tag">YOUR HORSE</span></div>
             <div class="side-horse-name">${pHorse.name || '未設定'}</div>
             <div class="side-horse-stats">Pt: <b>${pPt}</b></div>
-            <div class="side-horse-stats">得意: <b>${pStyle}</b></div>
+            <div class="side-horse-stats">得意: <b>${pStyle}</b>${isNigetui ? ' <span style="font-size:9px; color:#c62828; font-weight:bold;">(逃げ/追込限定)</span>' : ''}</div>
           </div>
 
           <!-- 中央：作戦設定＆モブ脚質統計 -->
