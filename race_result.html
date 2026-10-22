@@ -163,7 +163,7 @@
     height: 235px;
     z-index: 8;
     pointer-events: none;
-    transition: left 2.8s linear, opacity 1.2s ease-in 1.2s;
+    transition: left 1.8s cubic-bezier(0.4, 0, 0.8, 1), opacity 0.8s ease-in 0.8s;
     display: none;
   }
 
@@ -294,7 +294,7 @@
     100% { transform: scaleX(0.86); opacity: 0.28; }
   }
 
-  /* ★馬の脚 3コマ（ギャロップ）アニメーション（完全GPU処理・超軽量） */
+  /* ★馬の脚 4本すべてが同時に連動する両脚3コマアニメーション（GPU処理） */
   .leg-frame-1 { opacity: 1; }
   .leg-frame-2 { opacity: 0; }
   .leg-frame-3 { opacity: 0; }
@@ -323,7 +323,7 @@
     66.6%, 100% { opacity: 1; }
   }
 
-  /* ★足元の砂埃・蹴り土エフェクト（GPU合成で超軽量） */
+  /* 足元の砂埃・蹴り土エフェクト */
   .horse-dust-wrap {
     position: absolute;
     bottom: 2px;
@@ -365,24 +365,12 @@
   }
 
   @keyframes puffDrift1 {
-    0% {
-      opacity: 0.85;
-      transform: translate(0, 0) scale(0.6);
-    }
-    100% {
-      opacity: 0;
-      transform: translate(22px, -8px) scale(1.6);
-    }
+    0% { opacity: 0.85; transform: translate(0, 0) scale(0.6); }
+    100% { opacity: 0; transform: translate(22px, -8px) scale(1.6); }
   }
   @keyframes puffDrift2 {
-    0% {
-      opacity: 0.85;
-      transform: translate(2px, 2px) scale(0.7);
-    }
-    100% {
-      opacity: 0;
-      transform: translate(26px, -12px) scale(1.8);
-    }
+    0% { opacity: 0.85; transform: translate(2px, 2px) scale(0.7); }
+    100% { opacity: 0; transform: translate(26px, -12px) scale(1.8); }
   }
 
   /* オーラ演出（青・赤・漆黒デバフ） */
@@ -797,7 +785,6 @@ function extractSilkColor(str) {
   return null;
 }
 
-// 汎用パーサー（読点・語順対応・ハードコード完全撤廃）
 function parseSilkColors(silkText, gateNum) {
   const fallback = getGateColors(gateNum);
   if (!silkText || typeof silkText !== 'string' || silkText.trim() === '' || silkText.trim() === '-') {
@@ -952,7 +939,7 @@ function getStringHash(str) {
   return Math.abs(hash);
 }
 
-// 胴柄SVG描画（★赤線画像準拠：首〜肩〜胸の上半分が黄色、腹側へ3つの大きなV字歯が深く食い込む）
+// 胴柄SVG描画（★赤線画像準拠：首胸上が黄色、腹側へ大きく食い込むV字鋸歯）
 function renderBodyPatternSVG(bodyPat, patCol) {
   switch (bodyPat) {
     case 'cross_sash':
@@ -1372,43 +1359,54 @@ function buildHorseActorSVG(h, i) {
           </clipPath>
         </defs>
 
-        <!-- ★脚の3コマ切替グループ（Frame 1: 伸展、Frame 2: 収縮、Frame 3: 接地） -->
+        <!-- ★奥側の脚 3コマ（伸展・収縮・接地） -->
         <g class="leg-frame-1" style="animation-delay: ${delay}s;">
-          <!-- 前脚・伸展 -->
-          <path d="M 142 162 C 132 178, 122 192, 116 202 C 113 207, 115 212, 122 214 L 152 222 L 156 215 L 128 205 L 156 168 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
-          <polygon points="152,222 166,222 164,215 155,215" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
-          <!-- 後脚・伸展 -->
+          <path d="M 142 162 C 132 178, 122 192, 116 202 C 113 207, 115 212, 122 214 L 148 222 L 152 215 L 128 205 L 156 168 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <polygon points="148,222 162,222 160,215 151,215" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
           <path d="M 278 158 C 292 176, 304 192, 310 202 L 276 235 L 284 239 L 322 204 C 316 188, 306 170, 294 154 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="276,235 264,242 278,244 285,239" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
         </g>
-
         <g class="leg-frame-2" style="animation-delay: ${delay}s;">
-          <!-- 前脚・収縮（キュッと腹下に引き込む） -->
-          <path d="M 146 160 C 138 174, 134 186, 140 196 C 144 200, 150 202, 158 198 L 176 188 L 172 180 L 152 190 L 156 165 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M 144 160 C 136 174, 134 186, 140 196 C 144 200, 150 202, 158 198 L 176 188 L 172 180 L 152 190 L 156 165 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="176,188 184,182 180,175 172,180" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
-          <!-- 後脚・収縮（腹下へ曲げて前進） -->
           <path d="M 275 158 C 270 174, 260 188, 252 198 L 235 220 L 243 224 L 262 200 C 274 185, 282 170, 285 156 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="235,220 225,226 232,230 243,224" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
         </g>
-
         <g class="leg-frame-3" style="animation-delay: ${delay}s;">
-          <!-- 前脚・接地（下へ直立踏み込み） -->
           <path d="M 144 162 C 142 180, 140 198, 142 212 C 143 218, 148 222, 156 222 L 180 222 L 180 214 L 158 214 L 158 165 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="180,222 192,222 192,214 180,214" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
-          <!-- 後脚・蹴り出し（前方に鋭く踏み出す） -->
           <path d="M 276 158 C 285 172, 292 186, 295 198 L 265 228 L 273 232 L 305 200 C 302 185, 295 170, 286 156 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="265,228 255,234 266,238 273,232" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
         </g>
 
-        <!-- 尾・鬣・胴体 -->
+        <!-- 尾・鬣・胴体ベース（手前脚を切り離して独立化） -->
         <path d="M 326 106 C 356 108, 388 122, 414 142 C 392 140, 374 135, 358 128 C 380 140, 398 152, 410 162 C 380 156, 354 144, 336 128 C 352 144, 364 158, 372 170 C 346 156, 330 136, 320 118 Z" fill="${coat.mane}" stroke="#140d0a" stroke-width="2" stroke-linejoin="round"/>
         <path d="M 88 56 C 118 66, 148 80, 174 96 L 168 105 C 142 88, 114 74, 84 64 Z" fill="${coat.mane}" stroke="#140d0a" stroke-width="1.6"/>
         <path d="M 76 58 C 72 44, 73 36, 77 32 C 82 38, 84 48, 84 56 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
 
-        <path d="M 74 56 C 58 72, 44 88, 31 104 C 26 110, 28 118, 35 122 C 42 125, 49 122, 54 116 C 68 120, 82 115, 88 104 C 102 122, 116 142, 124 158 C 120 172, 108 188, 92 204 L 54 234 L 60 241 L 102 210 C 118 196, 134 182, 146 172 C 178 184, 222 182, 258 164 C 278 182, 298 196, 318 206 L 358 238 L 365 232 L 330 198 C 322 184, 316 170, 316 158 C 334 142, 340 116, 326 100 C 312 86, 286 88, 258 94 C 225 100, 192 100, 164 90 C 138 76, 112 64, 84 54 Z" fill="url(#bg_${uid})" stroke="#1c130e" stroke-width="2.5" stroke-linejoin="round"/>
-        <polygon points="54,234 40,238 44,245 61,241" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
-        <polygon points="358,238 366,246 375,239 365,232" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
+        <path d="M 74 56 C 58 72, 44 88, 31 104 C 26 110, 28 118, 35 122 C 42 125, 49 122, 54 116 C 68 120, 82 115, 88 104 C 102 122, 116 142, 126 158 C 140 168, 175 174, 215 174 C 255 174, 290 166, 316 156 C 334 142, 340 116, 326 100 C 312 86, 286 88, 258 94 C 225 100, 192 100, 164 90 C 138 76, 112 64, 84 54 Z" fill="url(#bg_${uid})" stroke="#1c130e" stroke-width="2.5" stroke-linejoin="round"/>
 
+        <!-- ★手前側の脚 3コマ（伸展・収縮・接地） -->
+        <g class="leg-frame-1" style="animation-delay: ${delay}s;">
+          <path d="M 124 158 C 114 172, 102 188, 88 204 L 50 234 L 58 241 L 98 210 C 114 196, 130 182, 142 170 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <polygon points="50,234 38,238 42,245 59,241" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
+          <path d="M 270 162 C 284 180, 302 196, 320 206 L 360 238 L 368 232 L 332 198 C 320 184, 312 170, 310 156 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <polygon points="360,238 368,246 376,239 368,232" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
+        </g>
+        <g class="leg-frame-2" style="animation-delay: ${delay}s;">
+          <path d="M 124 158 C 116 170, 110 184, 118 198 C 122 204, 130 206, 140 202 L 162 190 L 158 182 L 134 192 L 138 166 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <polygon points="162,190 170,184 166,177 158,182" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
+          <path d="M 270 162 C 264 176, 252 190, 242 202 L 222 224 L 230 228 L 254 204 C 266 188, 276 174, 278 160 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <polygon points="222,224 212,230 220,234 230,228" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
+        </g>
+        <g class="leg-frame-3" style="animation-delay: ${delay}s;">
+          <path d="M 124 158 C 120 178, 116 198, 118 214 C 120 220, 126 224, 136 224 L 160 224 L 160 216 L 136 216 L 138 164 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <polygon points="160,224 172,224 172,216 160,216" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
+          <path d="M 270 162 C 280 176, 288 190, 290 202 L 258 232 L 266 236 L 298 204 C 296 188, 288 174, 278 160 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <polygon points="258,232 248,238 258,242 266,236" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
+        </g>
+
+        <!-- 馬体陰影 ＆ 顔 -->
         <path d="M 266 98 C 292 92, 316 96, 324 114 C 310 112, 286 110, 266 98 Z" fill="${coat.light}" opacity="0.65"/>
         <path d="M 94 82 C 118 98, 138 118, 152 138 C 138 134, 114 112, 94 82 Z" fill="${coat.light}" opacity="0.55"/>
         ${blazeSVG}
@@ -1860,19 +1858,20 @@ async function startRace() {
   const hasBigEscape = activeHorses.some(h => h.style === "大逃");
 
   // --------------------------------------------------------------------------
-  // Phase 1 (0.0s〜): ゲート開放 ＆ ロケット飛び出しスタート！（6.0秒間）
+  // Phase 1 (0.0s〜): ゲート開放 ＆ ロケットスタート！（先頭は2秒で画面中央へ到達）
   // --------------------------------------------------------------------------
   updateLog(`<strong>【スタート】</strong> ${comm.phase1}`);
   
   const gateEl = document.getElementById('start-gate');
   if (gateEl) {
-    gateEl.style.transition = "left 2.8s linear, opacity 1.2s ease-in 1.4s";
-    gateEl.style.left = isRTL ? "720px" : "-160px";
+    gateEl.style.transition = "left 1.8s cubic-bezier(0.4, 0, 0.8, 1), opacity 0.8s ease-in 0.8s";
+    gateEl.style.left = isRTL ? "750px" : "-180px";
     gateEl.style.opacity = "0";
   }
 
-  let p1Pos = getPosPointsMap(calculatedResults, 40, -15);
-  setPhasePositions(p1Pos, 6.0, "linear", phase1Dir); 
+  // ★先頭馬を68%（画面中央越え）までスパートさせ、イージングで2秒以内に中央到達
+  let p1Pos = getPosPointsMap(calculatedResults, 68, 5);
+  setPhasePositions(p1Pos, 6.0, "cubic-bezier(0.16, 0.84, 0.25, 1)", phase1Dir); 
   setTimeout(() => spawnFurlongPole("1000", false), 2500);
 
   // --------------------------------------------------------------------------
