@@ -316,7 +316,7 @@
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
         <div>
           <div style="font-weight: bold; color: var(--accent-color); font-size: 13px;">デック内18頭の初期作戦割り当て</div>
-          <div style="font-size: 11px; color: var(--text-sub);">出走表の各枠番に対応する初期作戦を設定します。</div>
+          <div style="font-size: 11px; color: var(--text-sub);">出走表の各枠番に対応する初期作戦を設定します。（※逃追馬は逃げ・追込のみ選択可能）</div>
         </div>
       </div>
       <div class="deck-subtabs">
@@ -328,8 +328,8 @@
           <tr>
             <th style="width: 8%; text-align: center;">枠</th>
             <th style="width: 28%;">馬名</th>
-            <th style="width: 12%;">脚質</th>
-            <th style="width: 22%;">適性/距離/PT</th>
+            <th style="width: 14%;">脚質</th>
+            <th style="width: 20%;">適性/距離/PT</th>
             <th style="width: 30%;">初期作戦</th>
           </tr>
         </thead>
@@ -405,7 +405,7 @@
       best: 'ミドルペース、平均ペース、ペース乱れのない展開'
     },
     'NIGE_04': {
-      comment: 'スピードと持続力が圧倒的。序盤から一気に引き離して後続の脚を削り取り、追いすがる隙を与えない超高ラップの大逃げ仕様。',
+      comment: 'スピードと持続力が圧倒的。序盤から一気に引き離して後続の脚を削り取り、追いすがる隙を与えない超高ラップの大逃げ仕様。（※脚質「逃追」の馬が選択すると大逃げとして発動）',
       position: '大逃げ（後続を引き離す単騎先頭）',
       best: 'ハイペース、縦長展開、後続の消耗戦'
     },
@@ -591,6 +591,7 @@
   }
   function getDistanceText(h) { return (h.min_distance && h.max_distance) ? `${h.min_distance}-${h.max_distance}m` : (h.distance || '-'); }
   function getHorsePotential(h) { return Number(h.total_potential ?? h.potential ?? Math.max(getTurfVal(h), getDirtVal(h))); }
+  function getHorseStyle(h) { return h ? (h.running_style || h.leg_style || h.style || h.strategy || '-') : '-'; }
 
   async function fetchJsonSafe(filename) {
     for (const path of [`./data/${filename}`, `data/${filename}`, `/data/${filename}`]) {
@@ -816,20 +817,55 @@
     if (displayedCount === 0) container.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--text-sub); font-weight: bold;">該当するアビリティはありません。</div>`;
   }
 
+  // --- デック内初期作戦設定 描画ロジック ---
   function renderDeckHorseSettings() {
     const tbody = document.getElementById('deckSettingBody');
     tbody.innerHTML = '';
     const currentDeck = globalUserData.decks[activeDeckIdx];
+
     for (let slotIdx = 0; slotIdx < 18; slotIdx++) {
       const horse = currentDeck.horse_ids[slotIdx] ? HORSES_MASTER[String(currentDeck.horse_ids[slotIdx])] : null;
-      const currentStratId = currentDeck.default_strategies[slotIdx] || "";
+      let currentStratId = currentDeck.default_strategies[slotIdx] || "";
+      const rawStyle = getHorseStyle(horse);
+      const isNigetui = (rawStyle === '逃追');
+
+      // ★逃追馬の場合は「逃げ」と「追込」のみに選択肢を絞り込む
+      const availableStrats = isNigetui
+        ? STRATEGY_MASTER.filter(s => s.style === '逃げ' || s.style === '追込' || s.category === '逃げ' || s.category === '追込')
+        : STRATEGY_MASTER;
+
+      // もし既に逃追馬に不整合な先行・差しが設定されていた場合はクリア
+      if (isNigetui && currentStratId) {
+        const isMatched = availableStrats.some(s => s.strategy_id === currentStratId);
+        if (!isMatched) currentStratId = "";
+      }
+
       let selectOptionsHtml = '<option value="">(未設定 - 自動判定)</option>';
-      STRATEGY_MASTER.forEach(s => { selectOptionsHtml += `<option value="${s.strategy_id}" ${currentStratId === s.strategy_id ? 'selected' : ''}>[${s.style}] ${s.name}</option>`; });
+      availableStrats.forEach(s => {
+        selectOptionsHtml += `<option value="${s.strategy_id}" ${currentStratId === s.strategy_id ? 'selected' : ''}>[${s.style}] ${s.name}</option>`;
+      });
+
       const tr = document.createElement('tr');
       if (horse) {
-        tr.innerHTML = `<td style="text-align: center;"><span class="gate-num">${slotIdx + 1}</span></td><td style="font-weight:bold;">${horse.name}</td><td>${horse.style || horse.running_style || '-'}</td><td style="font-size: 10.5px; color: var(--text-sub);">${getSurfaceText(horse)} ${getDistanceText(horse)} / PT:${getHorsePotential(horse)}</td><td><select class="select-strat-def" id="slotStratSelect_${slotIdx}">${selectOptionsHtml}</select></td>`;
+        const styleDisplay = isNigetui
+          ? `<span style="color:#c62828; font-weight:bold;">逃追</span><br><span style="font-size:9px; color:#c62828;">(逃げ/追込限定)</span>`
+          : rawStyle;
+
+        tr.innerHTML = `
+          <td style="text-align: center;"><span class="gate-num">${slotIdx + 1}</span></td>
+          <td style="font-weight:bold;">${horse.name}</td>
+          <td>${styleDisplay}</td>
+          <td style="font-size: 10.5px; color: var(--text-sub);">${getSurfaceText(horse)} ${getDistanceText(horse)} / PT:${getHorsePotential(horse)}</td>
+          <td><select class="select-strat-def" id="slotStratSelect_${slotIdx}">${selectOptionsHtml}</select></td>
+        `;
       } else {
-        tr.innerHTML = `<td style="text-align: center;"><span class="gate-num" style="background:#bbb;">${slotIdx + 1}</span></td><td class="empty-slot">(未編成)</td><td class="empty-slot">-</td><td class="empty-slot">-</td><td><select class="select-strat-def" disabled style="opacity: 0.5;"><option value="">-</option></select></td>`;
+        tr.innerHTML = `
+          <td style="text-align: center;"><span class="gate-num" style="background:#bbb;">${slotIdx + 1}</span></td>
+          <td class="empty-slot">(未編成)</td>
+          <td class="empty-slot">-</td>
+          <td class="empty-slot">-</td>
+          <td><select class="select-strat-def" disabled style="opacity: 0.5;"><option value="">-</option></select></td>
+        `;
       }
       tbody.appendChild(tr);
     }
@@ -837,12 +873,28 @@
 
   window.saveDefaultStrategies = async function() {
     if (!currentUser || !globalUserData) return;
+    const currentDeck = globalUserData.decks[activeDeckIdx];
     const updatedStrats = [];
+
     for (let slotIdx = 0; slotIdx < 18; slotIdx++) {
       const select = document.getElementById(`slotStratSelect_${slotIdx}`);
-      updatedStrats.push(select && !select.disabled ? select.value || null : null);
+      let val = select && !select.disabled ? select.value || null : null;
+
+      // 保存前の安全バリデーション（逃追馬に先行・差しが入り込まないよう確認）
+      const horse = currentDeck.horse_ids[slotIdx] ? HORSES_MASTER[String(currentDeck.horse_ids[slotIdx])] : null;
+      if (horse && getHorseStyle(horse) === '逃追' && val) {
+        const stratObj = STRATEGY_MASTER.find(s => s.strategy_id === val);
+        const isLeadOrOikomi = stratObj && (stratObj.style === '逃げ' || stratObj.style === '追込' || stratObj.category === '逃げ' || stratObj.category === '追込');
+        if (!isLeadOrOikomi) {
+          val = null; // 不正な場合は未設定に戻す
+        }
+      }
+
+      updatedStrats.push(val);
     }
-    globalUserData.decks[activeDeckIdx].default_strategies = updatedStrats;
+
+    currentDeck.default_strategies = updatedStrats;
+
     try {
       document.getElementById('syncStatus').textContent = "☁ 保存中...";
       await updateDoc(doc(db, "users", currentUser.uid), { decks: globalUserData.decks });
