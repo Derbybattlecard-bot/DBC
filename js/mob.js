@@ -36,6 +36,13 @@ export function determineStrategy(horseId, style, gateNum, strategyMaster, isCpu
     strategyLevel = 3;
   }
 
+  // ★特殊仕様: 脚質「逃追」の場合は馬番の奇数/偶数で決定
+  // 奇数番: 「ハイラップ逃げ」 / 偶数番: 「限界まで脚をためる」
+  if (style === "逃追") {
+    const selectedTactic = (validGateNum % 2 !== 0) ? "ハイラップ逃げ" : "限界まで脚をためる";
+    return { tactic: selectedTactic, level: strategyLevel };
+  }
+
   const stratList = Array.isArray(strategyMaster) ? strategyMaster : Object.values(strategyMaster || {});
   let styleStrategies = stratList.filter(s => s.category === style || s.style === style);
 
