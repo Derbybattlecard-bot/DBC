@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DERBY BATTLE CARD - デッキ構築</title>
+<title>DERBY BATTLE CARD - デッキ構築 & 科学解析</title>
 <style>
   :root {
     --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%);
@@ -15,6 +15,16 @@
     --border-color: #b2d4b6;
     --slot-empty: #f2f8f3;
     --gold: #c29b1d;
+
+    /* サイバーモードカラー */
+    --cyber-bg: #061109;
+    --cyber-panel: #0a1b10;
+    --cyber-neon: #00ff88;
+    --cyber-cyan: #00e5ff;
+    --cyber-warn: #ffb700;
+    --cyber-danger: #ff3366;
+    --cyber-text: #c9f5d7;
+    --cyber-border: #154724;
   }
   body {
     font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
@@ -88,13 +98,34 @@
     color: white;
     border-color: var(--accent-color);
   }
-  .deck-info { display: flex; gap: 12px; font-weight: bold; font-size: 13px; }
-  
-  .deck-name-container {
+
+  /* 科捜研サイバー解析トリガーボタン */
+  .btn-cyber-scan {
+    background: linear-gradient(135deg, #072212 0%, #0c381c 100%);
+    color: var(--cyber-neon);
+    border: 1.5px solid var(--cyber-neon);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 900;
+    font-size: 12px;
+    font-family: 'Consolas', 'Courier New', monospace, sans-serif;
+    letter-spacing: 0.5px;
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.35);
+    transition: all 0.2s;
     display: flex;
     align-items: center;
     gap: 6px;
   }
+  .btn-cyber-scan:hover {
+    background: #00ff88;
+    color: #061109;
+    box-shadow: 0 0 18px rgba(0, 255, 136, 0.7);
+    transform: translateY(-1px);
+  }
+  .btn-cyber-scan:active { transform: translateY(1px); }
+
+  .deck-name-container { display: flex; align-items: center; gap: 6px; }
   .deck-name-input {
     background: #ffffff; border: 1px solid var(--border-color);
     color: var(--text-main); padding: 4px 8px; border-radius: 4px; font-size: 13px;
@@ -112,6 +143,7 @@
     white-space: nowrap;
   }
   .btn-change-name:hover { background: var(--accent-hover); }
+
   .save-load-panel {
     background-color: var(--panel-bg);
     padding: 8px 12px;
@@ -185,7 +217,6 @@
     overflow-y: auto;
   }
   
-  /* スロットカードCSS最適化 */
   .slot-card {
     background-color: var(--slot-empty);
     border: 1px dashed var(--border-color);
@@ -203,170 +234,180 @@
   }
   .slot-card.filled { border-style: solid; border-color: #a0ca33; background-color: #ffffff; }
   .slot-card.selected { border-color: var(--gold); box-shadow: 0 0 5px rgba(194, 155, 29, 0.6); }
-  
-  .card-header-slot {
-    width: 100%;
-    margin-bottom: 2px;
-  }
-
-  /* スロット枠内の馬名 */
+  .card-header-slot { width: 100%; margin-bottom: 2px; }
   .card-name-slot {
-    font-weight: bold;
-    font-size: 11px;
-    letter-spacing: -0.3px;
-    color: var(--text-main);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    line-height: 1.2;
+    font-weight: bold; font-size: 11px; letter-spacing: -0.3px;
+    color: var(--text-main); white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; line-height: 1.2;
   }
-
-  .card-body-slot {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 4px;
-    margin: 2px 0;
-  }
-
+  .card-body-slot { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin: 2px 0; }
   .card-details-slot {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    color: var(--text-sub);
-    font-size: 10px;
-    font-weight: bold;
-    line-height: 1.2;
-    flex: 1;
+    display: flex; flex-direction: column; gap: 1px; color: var(--text-sub);
+    font-size: 10px; font-weight: bold; line-height: 1.2; flex: 1;
   }
-  .card-details-slot div {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  
-  /* レーダーチャート領域（65px確保） */
-  .slot-radar-box {
-    width: 65px;
-    height: 65px;
-    flex-shrink: 0;
-  }
+  .card-details-slot div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .slot-radar-box { width: 65px; height: 65px; flex-shrink: 0; }
 
   .empty-text { color: var(--text-sub); text-align: center; margin: auto; font-size: 11px; }
   .filter-box { display: flex; flex-direction: column; gap: 6px; background: #f2f8f3; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 12px; }
   .filter-row { display: flex; gap: 5px; flex-wrap: wrap; }
   .filter-input, .filter-select {
-    background-color: #ffffff;
-    border: 1px solid var(--border-color);
-    color: var(--text-main);
-    padding: 5px 8px;
-    border-radius: 4px;
-    flex: 1;
-    font-size: 12px;
+    background-color: #ffffff; border: 1px solid var(--border-color);
+    color: var(--text-main); padding: 5px 8px; border-radius: 4px; flex: 1; font-size: 12px;
   }
   .kana-chips { display: flex; flex-wrap: wrap; gap: 3px; }
   .kana-chip {
-    background: #ffffff;
-    border: 1px solid var(--border-color);
-    color: var(--text-sub);
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 11px;
-    cursor: pointer;
-    font-weight: bold;
+    background: #ffffff; border: 1px solid var(--border-color);
+    color: var(--text-sub); padding: 2px 6px; border-radius: 4px; font-size: 11px;
+    cursor: pointer; font-weight: bold;
   }
-  .kana-chip:hover, .kana-chip.active {
-    background: var(--accent-color);
-    color: white;
-    border-color: var(--accent-color);
-  }
-  .pool-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px;
-    max-height: 480px;
-    overflow-y: auto;
-  }
+  .kana-chip:hover, .kana-chip.active { background: var(--accent-color); color: white; border-color: var(--accent-color); }
+  
+  .pool-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; max-height: 480px; overflow-y: auto; }
   .pool-card {
-    background-color: #ffffff;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    padding: 6px 8px;
-    cursor: pointer;
-    font-size: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
+    background-color: #ffffff; border: 1px solid var(--border-color); border-radius: 6px;
+    padding: 6px 8px; cursor: pointer; font-size: 12px; display: flex; flex-direction: column; gap: 3px; min-width: 0;
   }
   .pool-card:hover { border-color: var(--accent-color); background-color: #f7fbf7; }
-  
-  /* プール枠内の馬名 */
   .pool-name {
-    font-weight: bold;
-    font-size: 11.5px;
-    letter-spacing: -0.3px;
-    color: var(--text-main);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-weight: bold; font-size: 11.5px; letter-spacing: -0.3px; color: var(--text-main);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .pool-surface-dist {
-    font-size: 10px;
-    color: var(--text-sub);
-    font-weight: bold;
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    line-height: 1.2;
-    flex: 1;
+    font-size: 10px; color: var(--text-sub); font-weight: bold; display: flex;
+    flex-direction: column; gap: 1px; line-height: 1.2; flex: 1;
   }
-
-  /* プール枠内のレーダーチャート行 */
   .pool-radar-row {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    background: #f8faf8;
-    border: 1px solid #e2efe3;
-    border-radius: 4px;
-    padding: 4px 8px;
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    background: #f8faf8; border: 1px solid #e2efe3; border-radius: 4px; padding: 4px 8px;
   }
-  .pool-radar-box {
-    width: 65px;
-    height: 65px;
-    flex-shrink: 0;
-  }
+  .pool-radar-box { width: 65px; height: 65px; flex-shrink: 0; }
 
   .card-abilities-row {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1.5px;
-    margin-top: 4px;
-    width: 100%;
-    box-sizing: border-box;
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.5px;
+    margin-top: 4px; width: 100%; box-sizing: border-box;
   }
   .ability-btn {
-    background: #e2efe3;
-    border: 1px solid var(--accent-color);
-    color: var(--accent-color);
-    border-radius: 3px;
-    padding: 1px 0px;
-    font-size: 8.5px;
-    font-weight: bold;
-    text-align: center;
-    line-height: 1.2;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    letter-spacing: -0.5px;
+    background: #e2efe3; border: 1px solid var(--accent-color); color: var(--accent-color);
+    border-radius: 3px; padding: 1px 0px; font-size: 8.5px; font-weight: bold;
+    text-align: center; line-height: 1.2; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; letter-spacing: -0.5px;
   }
-  .ability-btn.empty {
-    visibility: hidden;
-    border-color: transparent;
-    background: transparent;
+  .ability-btn.empty { visibility: hidden; border-color: transparent; background: transparent; }
+
+  /* ========================================================
+     科捜研サイバー解析モーダルスタイル (CYBER FORENSIC UI)
+     ======================================================== */
+  .cyber-modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(4, 10, 6, 0.88); backdrop-filter: blur(5px);
+    z-index: 3000; display: none; justify-content: center; align-items: center;
+    padding: 10px; box-sizing: border-box;
   }
+  .cyber-modal-overlay.active { display: flex; }
+  
+  .cyber-modal {
+    background: var(--cyber-bg);
+    border: 1.5px solid var(--cyber-neon);
+    box-shadow: 0 0 30px rgba(0, 255, 136, 0.3), inset 0 0 15px rgba(0, 255, 136, 0.08);
+    border-radius: 10px; width: 100%; max-width: 680px; max-height: 94vh;
+    display: flex; flex-direction: column; color: var(--cyber-text);
+    font-family: 'Consolas', 'Courier New', monospace, 'Hiragino Kaku Gothic ProN', sans-serif;
+    overflow: hidden; position: relative;
+  }
+
+  /* 走査線アニメーション */
+  .cyber-modal::before {
+    content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 255, 136, 0.04) 50%);
+    background-size: 100% 4px; z-index: 10; pointer-events: none; opacity: 0.6;
+  }
+
+  .cyber-header {
+    background: var(--cyber-panel);
+    border-bottom: 1.5px solid var(--cyber-border);
+    padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;
+  }
+  .cyber-title {
+    font-size: 13.5px; font-weight: 900; color: var(--cyber-neon);
+    letter-spacing: 1px; display: flex; align-items: center; gap: 8px;
+  }
+  .cyber-close-btn {
+    background: transparent; border: 1px solid var(--cyber-neon);
+    color: var(--cyber-neon); padding: 4px 10px; border-radius: 4px;
+    font-size: 11px; cursor: pointer; font-weight: bold;
+    font-family: monospace; transition: all 0.2s;
+  }
+  .cyber-close-btn:hover { background: var(--cyber-neon); color: var(--cyber-bg); }
+
+  .cyber-tabs {
+    display: flex; background: #08160e; border-bottom: 1px solid var(--cyber-border);
+  }
+  .cyber-tab-btn {
+    flex: 1; background: transparent; border: none; border-bottom: 2px solid transparent;
+    color: #6da77f; padding: 8px 10px; font-size: 11.5px; font-weight: bold;
+    cursor: pointer; font-family: monospace; transition: all 0.2s; text-align: center;
+  }
+  .cyber-tab-btn.active {
+    color: var(--cyber-neon); border-bottom-color: var(--cyber-neon);
+    background: rgba(0, 255, 136, 0.08); text-shadow: 0 0 8px rgba(0,255,136,0.6);
+  }
+
+  .cyber-body {
+    padding: 12px 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
+  }
+
+  /* 総合スコア・サマリーカード */
+  .cyber-score-card {
+    background: var(--cyber-panel); border: 1px solid var(--cyber-border);
+    border-radius: 6px; padding: 10px 12px; display: flex;
+    justify-content: space-between; align-items: center;
+  }
+  .cyber-rank-box { display: flex; align-items: baseline; gap: 8px; }
+  .cyber-rank-label { font-size: 11px; color: var(--cyber-cyan); letter-spacing: 1px; }
+  .cyber-rank-val {
+    font-size: 32px; font-weight: 900; line-height: 1;
+    color: var(--cyber-neon); text-shadow: 0 0 10px rgba(0,255,136,0.5);
+  }
+  .cyber-score-val { font-size: 14px; color: #8ec39e; }
+  .cyber-spec-summary { font-size: 11px; color: #a9deb9; line-height: 1.4; text-align: right; }
+
+  /* レーダーチャート & パラメータメーターエリア */
+  .cyber-radar-section {
+    display: grid; grid-template-columns: 190px 1fr; gap: 10px; align-items: center;
+    background: var(--cyber-panel); border: 1px solid var(--cyber-border);
+    border-radius: 6px; padding: 8px 10px;
+  }
+  @media (max-width: 580px) {
+    .cyber-radar-section { grid-template-columns: 1fr; justify-items: center; }
+  }
+
+  .cyber-metrics-list { display: flex; flex-direction: column; gap: 5px; width: 100%; }
+  .metric-item { display: flex; flex-direction: column; gap: 2px; font-size: 11px; }
+  .metric-label-row { display: flex; justify-content: space-between; color: #8ec39e; }
+  .metric-bar-bg { width: 100%; height: 5px; background: #0e2b18; border-radius: 3px; overflow: hidden; }
+  .metric-bar-fill { height: 100%; background: var(--cyber-neon); border-radius: 3px; transition: width 0.5s; }
+
+  /* 脆弱性・診断ログターミナル */
+  .cyber-terminal-card {
+    background: #040c06; border: 1px solid var(--cyber-border);
+    border-radius: 6px; padding: 10px; font-size: 11px;
+  }
+  .cyber-terminal-header {
+    font-size: 11.5px; font-weight: bold; color: var(--cyber-cyan);
+    margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px dashed var(--cyber-border); padding-bottom: 4px;
+  }
+  .anomaly-list { display: flex; flex-direction: column; gap: 5px; }
+  .anomaly-item {
+    display: flex; gap: 6px; align-items: flex-start; line-height: 1.4;
+  }
+  .anomaly-badge {
+    padding: 1px 5px; border-radius: 3px; font-size: 9.5px; font-weight: bold; white-space: nowrap;
+  }
+  .badge-danger { background: rgba(255, 51, 102, 0.2); color: var(--cyber-danger); border: 1px solid var(--cyber-danger); }
+  .badge-warn { background: rgba(255, 183, 0, 0.2); color: var(--cyber-warn); border: 1px solid var(--cyber-warn); }
+  .badge-ok { background: rgba(0, 255, 136, 0.2); color: var(--cyber-neon); border: 1px solid var(--cyber-neon); }
 </style>
 </head>
 <body>
@@ -384,6 +425,11 @@
       </div>
     </div>
     
+    <!-- 科捜研サイバー解析ボタン -->
+    <button id="btnOpenDiagnosis" class="btn-cyber-scan" onclick="openCyberDiagnosisModal()">
+      🔬 DECK FORENSIC LAB 科学解析
+    </button>
+
     <div class="deck-name-container">
       デッキ名: 
       <input type="text" id="deckNameInput" class="deck-name-input" value="読み込み中...">
@@ -393,6 +439,7 @@
       <span>編成: <span id="countDisplay">0</span> / 18</span>
     </div>
   </div>
+
   <div class="save-load-panel">
     <div class="sync-status-row">
       <span class="sync-status" id="syncStatus">☁️ Cloud Status: 準備中</span>
@@ -402,6 +449,7 @@
       <div id="deckStorageContainer" style="display: flex; gap: 5px; flex-wrap: wrap;"></div>
     </div>
   </div>
+
   <div class="main-layout">
     <div class="panel">
       <h3>18枚スロット （タップで外す/選択）</h3>
@@ -476,6 +524,31 @@
   </div>
 </div>
 
+<!-- ========================================================
+     科捜研サイバー解析モーダル (CYBER FORENSIC MODAL)
+     ======================================================== -->
+<div class="cyber-modal-overlay" id="cyberDiagnosisModal">
+  <div class="cyber-modal">
+    <div class="cyber-header">
+      <div class="cyber-title">
+        <span>⚡ DECK FORENSIC LAB v4.2</span>
+        <span style="font-size:10px; color:#5c946e; font-weight:normal;">[SYSTEM: ACTIVE]</span>
+      </div>
+      <button class="cyber-close-btn" onclick="closeCyberDiagnosisModal()">[ ABORT / 閉じる ]</button>
+    </div>
+
+    <div class="cyber-tabs">
+      <button class="cyber-tab-btn active" id="diagTab0" onclick="switchDiagTab(0)">🔬 MAIN DECK 1</button>
+      <button class="cyber-tab-btn" id="diagTab1" onclick="switchDiagTab(1)">🔬 MAIN DECK 2</button>
+      <button class="cyber-tab-btn" id="diagTabSyn" onclick="switchDiagTab('synergy')">🧬 2デック相互補完分析</button>
+    </div>
+
+    <div class="cyber-body" id="cyberModalBody">
+      <!-- スクリプトにより動的展開 -->
+    </div>
+  </div>
+</div>
+
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { cardRenderer } from './js/card_renderer.js';
@@ -484,12 +557,14 @@
 
   let HORSES_MASTER = {};
   let HORSES_ARRAY = [];
+  let SERIES_MASTER = [];
   let currentUser = null;
   let globalUserData = null;
   let activeDeckIdx = 0;
   let selectedSlotIndex = null;
   let selectedKana = "ALL";
   let isLocked = false;
+  let currentDiagTarget = 0; // 0: Main1, 1: Main2, 'synergy'
 
   const RARITY_WEIGHT = { 
     "INF": 11, "SER": 10, "ULR": 9, "LGR": 8, "CLR": 7, 
@@ -610,13 +685,22 @@
     try {
       await cardRenderer.init();
 
-      const res = await fetch('./data/horses_master.json');
-      if (res.ok) {
-        HORSES_ARRAY = await res.json();
+      // 馬マスターとシリーズマスターの並行読込
+      const [resH, resS] = await Promise.all([
+        fetch('./data/horses_master.json'),
+        fetch('./data/series_master.json')
+      ]);
+
+      if (resH.ok) {
+        HORSES_ARRAY = await resH.json();
         HORSES_MASTER = {};
         HORSES_ARRAY.forEach(h => {
           HORSES_MASTER[String(h.horse_id)] = h;
         });
+      }
+
+      if (resS.ok) {
+        SERIES_MASTER = await resS.json();
       }
 
       const userDoc = await getDoc(doc(db, "users", user.uid));
@@ -648,12 +732,8 @@
       globalUserData.decks.forEach(deck => {
         if (!deck.horse_ids) deck.horse_ids = new Array(18).fill(null);
         if (!deck.default_strategies) deck.default_strategies = new Array(18).fill(null);
-        while (deck.horse_ids.length < 18) {
-          deck.horse_ids.push(null);
-        }
-        while (deck.default_strategies.length < 18) {
-          deck.default_strategies.push(null);
-        }
+        while (deck.horse_ids.length < 18) deck.horse_ids.push(null);
+        while (deck.default_strategies.length < 18) deck.default_strategies.push(null);
       });
       if (!globalUserData.saved_deck_slots || !Array.isArray(globalUserData.saved_deck_slots)) {
         globalUserData.saved_deck_slots = new Array(5).fill(null);
@@ -778,7 +858,6 @@
     let missingCount = 0;
     let duplicateCount = 0;
     
-    // 馬IDのバリデーションと同時に作戦設定も同期調整
     const cleanedIds = [];
     const cleanedStrats = [];
 
@@ -794,13 +873,13 @@
       if (!cardInfo || count <= 0) {
         missingCount++;
         cleanedIds.push(null);
-        cleanedStrats.push(null); // 馬がない場合は作戦もクリア
+        cleanedStrats.push(null);
         return;
       }
       if (otherDeckAssigned.has(strId)) {
         duplicateCount++;
         cleanedIds.push(null);
-        cleanedStrats.push(null); // 馬が重複して外れる場合は作戦もクリア
+        cleanedStrats.push(null);
         return;
       }
       otherDeckAssigned.add(strId);
@@ -829,7 +908,6 @@
     alert(msg);
   }
   
-  // デック一覧（スロット）の描画
   function renderDeck() {
     const grid = document.getElementById('slotsGrid');
     grid.innerHTML = '';
@@ -884,7 +962,6 @@
     renderDeck();
   }
 
-  // ★ 馬を外す処理（プランC: 作戦もnullにクリア）
   function removeCardFromSlot(idx) {
     if (isLocked) {
       alert("CPU対戦中はデックを変更できません。");
@@ -896,7 +973,7 @@
     }
     
     currentDeck.horse_ids[idx] = null;
-    currentDeck.default_strategies[idx] = null; // 作戦クリア
+    currentDeck.default_strategies[idx] = null;
 
     selectedSlotIndex = idx;
     syncSave();
@@ -922,9 +999,7 @@
     for (const [groupKey, chars] of Object.entries(groups)) {
       if (chars.includes(firstChar)) return groupKey;
     }
-    if (/^[A-Za-z]/.test(firstChar)) {
-      return "AZ";
-    }
+    if (/^[A-Za-z]/.test(firstChar)) return "AZ";
     return "その他";
   }
   
@@ -1039,7 +1114,6 @@
     }
   }
   
-  // ★ 馬を追加・入れ替える処理（プランC: 馬が変わった枠の作戦をnullにクリア）
   function addCardToDeck(horseId) {
     if (isLocked) {
       alert("CPU対戦中はデックを変更できません。");
@@ -1057,10 +1131,7 @@
 
     if (targetIdx !== -1 && targetIdx !== null) {
       currentDeck.horse_ids[targetIdx] = horseId;
-      
-      // 馬が新しく配置・入れ替えられたため、該当枠の作戦を未設定（null）にクリアする
       currentDeck.default_strategies[targetIdx] = null;
-      
       selectedSlotIndex = null;
     } else {
       alert("18スロット満杯です。");
@@ -1088,6 +1159,430 @@
       renderPool();
     });
   });
+
+  /* ========================================================
+     科捜研サイバー解析エンジン (CYBER FORENSIC ENGINE)
+     ======================================================== */
+  window.openCyberDiagnosisModal = function() {
+    document.getElementById('cyberDiagnosisModal').classList.add('active');
+    currentDiagTarget = activeDeckIdx;
+    updateDiagTabButtons();
+    executeForensicScan();
+  };
+
+  window.closeCyberDiagnosisModal = function() {
+    document.getElementById('cyberDiagnosisModal').classList.remove('active');
+  };
+
+  window.switchDiagTab = function(target) {
+    currentDiagTarget = target;
+    updateDiagTabButtons();
+    executeForensicScan();
+  };
+
+  function updateDiagTabButtons() {
+    document.getElementById('diagTab0').classList.toggle('active', currentDiagTarget === 0);
+    document.getElementById('diagTab1').classList.toggle('active', currentDiagTarget === 1);
+    document.getElementById('diagTabSyn').classList.toggle('active', currentDiagTarget === 'synergy');
+  }
+
+  function getDeckHorsesList(deckIndex) {
+    const deck = globalUserData?.decks?.[deckIndex] || { horse_ids: [] };
+    return (deck.horse_ids || [])
+      .map(id => id ? HORSES_MASTER[String(id)] : null)
+      .filter(Boolean);
+  }
+
+  // 1つのデッキの各種スペックを科学解析
+  function analyzeSingleDeckMetrics(horses) {
+    const totalCount = horses.length;
+    if (totalCount === 0) {
+      return {
+        totalCount: 0,
+        distScore: 0, surfScore: 0, femaleScore: 0, costScore: 0, survScore: 0,
+        overallScore: 0, rank: 'E',
+        turfCount: 0, dirtCount: 0, femaleCount: 0,
+        distCover: { s: 0, m: 0, i: 0, l: 0, xl: 0 },
+        anomalies: [{ type: 'danger', msg: '未編成: カードがスロットに配置されていません。' }]
+      };
+    }
+
+    let turfCount = 0;
+    let dirtCount = 0;
+    let femaleCount = 0;
+    let continuousCount = 0; // 鉄女・連闘
+    let ptSum = 0;
+    let lowPtCount = 0; // 14未満
+
+    // 距離区分: S(〜1400), M(1600), I(1800〜2200), L(2400〜2500), XL(3000〜)
+    const distMap = { S: 0, M: 0, I: 0, L: 0, XL: 0 };
+
+    horses.forEach(h => {
+      const t = getTurfVal(h);
+      const d = getDirtVal(h);
+      if (t > 0) turfCount++;
+      if (d > 0) dirtCount++;
+
+      const isFem = (h.sex && h.sex.includes('牝'));
+      if (isFem) femaleCount++;
+
+      const hasContinuous = Array.isArray(h.ability) && (h.ability.includes("鉄女") || h.ability.includes("連闘"));
+      if (hasContinuous) continuousCount++;
+
+      const pt = getHorsePotential(h);
+      ptSum += pt;
+      if (pt < 14) lowPtCount++;
+
+      // 距離適性パース
+      let minD = h.min_distance;
+      let maxD = h.max_distance;
+      if (!minD && !maxD && h.distance) {
+        const parts = String(h.distance).split('-').map(v => parseInt(v, 10));
+        minD = parts[0];
+        maxD = parts[1] || parts[0];
+      }
+      minD = Number(minD) || 1600;
+      maxD = Number(maxD) || minD;
+
+      if (minD <= 1400) distMap.S++;
+      if (minD <= 1600 && maxD >= 1600) distMap.M++;
+      if (minD <= 2200 && maxD >= 1800) distMap.I++;
+      if (minD <= 2500 && maxD >= 2400) distMap.L++;
+      if (maxD >= 3000) distMap.XL++;
+    });
+
+    // 1. 距離網羅スコア (0-100)
+    let distScore = 0;
+    if (distMap.S >= 2) distScore += 20; else if (distMap.S >= 1) distScore += 10;
+    if (distMap.M >= 3) distScore += 20; else if (distMap.M >= 1) distScore += 12;
+    if (distMap.I >= 4) distScore += 25; else if (distMap.I >= 2) distScore += 15;
+    if (distMap.L >= 3) distScore += 20; else if (distMap.L >= 1) distScore += 12;
+    if (distMap.XL >= 1) distScore += 15;
+    distScore = Math.min(100, Math.round(distScore * (totalCount / 18)));
+
+    // 2. 馬場対応力スコア (芝ダート両立度)
+    // 理想: 芝14頭前後、ダート4〜6頭程度
+    let surfScore = 0;
+    if (turfCount >= 12 && dirtCount >= 3) surfScore = 100;
+    else if (turfCount >= 10 && dirtCount >= 2) surfScore = 80;
+    else if (dirtCount === 0) surfScore = 40; // 地方ダートで壊滅
+    else surfScore = 60;
+
+    // 3. 牝馬戦適性スコア (0-100)
+    let femaleScore = 0;
+    if (femaleCount >= 3) femaleScore = 100;
+    else if (femaleCount === 2) femaleScore = 75;
+    else if (femaleCount === 1) femaleScore = 45;
+    else femaleScore = 15; // 牝馬重賞不可
+
+    // 4. コスト・ポテンシャル効率スコア (平均16〜18Ptが理想帯)
+    const avgPt = totalCount > 0 ? (ptSum / totalCount) : 0;
+    let costScore = 85;
+    if (avgPt >= 16 && avgPt <= 18) costScore = 95;
+    else if (avgPt > 18.5) costScore = 65; // 上限オーバー多発リスク
+    else if (avgPt < 15) costScore = 60; // 火力不足
+    if (lowPtCount > 2) costScore -= (lowPtCount * 5);
+    costScore = Math.max(20, Math.min(100, costScore));
+
+    // 5. サバイバル持久スコア (18頭で使い潰さずに3戦15頭を回せるか)
+    let survScore = 0;
+    if (totalCount === 18) {
+      survScore = 75 + (continuousCount * 12);
+      if (dirtCount < 2) survScore -= 15;
+      if (distMap.XL === 0) survScore -= 10;
+    } else {
+      survScore = Math.round((totalCount / 18) * 60);
+    }
+    survScore = Math.max(10, Math.min(100, survScore));
+
+    // 総合スコア & ランク
+    const overallScore = Math.round((distScore * 0.25) + (surfScore * 0.25) + (femaleScore * 0.15) + (costScore * 0.15) + (survScore * 0.20));
+    let rank = 'D';
+    if (overallScore >= 90) rank = 'S';
+    else if (overallScore >= 80) rank = 'A';
+    else if (overallScore >= 68) rank = 'B';
+    else if (overallScore >= 50) rank = 'C';
+
+    // 異常値・脆弱性インシデント検知 (ANOMALY DETECTION)
+    const anomalies = [];
+    if (totalCount < 18) {
+      anomalies.push({ type: 'danger', msg: `未充足スロット検知: 現在 ${totalCount}/18頭。サバイバル完走率が著しく低下しています。` });
+    }
+    if (dirtCount === 0) {
+      anomalies.push({ type: 'danger', msg: 'ダート適性馬 ゼロ: 地方交流・盛岡ダート戦を引いた場合、出走不能による不戦敗が確定します。' });
+    } else if (dirtCount < 2) {
+      anomalies.push({ type: 'warn', msg: 'ダート兵站脆弱: ダート馬が1頭のみ。交流ダート重賞で頭数不足の懸念があります。' });
+    }
+    if (femaleCount === 0) {
+      anomalies.push({ type: 'danger', msg: '牝馬アロケーション不全: 牝馬が0頭。エリザベス女王杯・ヴィクトリアM等で出走不可となります。' });
+    } else if (femaleCount === 1) {
+      anomalies.push({ type: 'warn', msg: '牝馬枠警戒: 牝馬が1頭のみ。牝馬指定レースが複数あるシリーズで編成困難が予想されます。' });
+    }
+    if (distMap.XL === 0) {
+      anomalies.push({ type: 'warn', msg: '超長距離(3000m〜)の死角: 天皇賞春・菊花賞・阪神大賞典でのスタミナ適性馬が欠落しています。' });
+    }
+    if (avgPt > 18.5) {
+      anomalies.push({ type: 'warn', msg: `ポテンシャル過密 (平均${avgPt.toFixed(1)}Pt): ローカルシリーズ等の上限82Pt制で合計オーバーを起こすリスクがあります。` });
+    }
+    if (lowPtCount > 0) {
+      anomalies.push({ type: 'warn', msg: `足切り該当札: ポテンシャル14Pt未満の馬が ${lowPtCount}頭 存在します。下限制限付きレースで出走制限を受けます。` });
+    }
+    if (anomalies.length === 0) {
+      anomalies.push({ type: 'ok', msg: 'インシデント未検知: 芝・ダート・各距離帯ともに極めてバランスの良い陣形が維持されています。' });
+    }
+
+    return {
+      totalCount, distScore, surfScore, femaleScore, costScore, survScore,
+      overallScore, rank, turfCount, dirtCount, femaleCount, avgPt,
+      distMap, anomalies
+    };
+  }
+
+  // 科学的サイバーレーダーチャートのSVG描画
+  function generateCyberRadarSVG(metrics) {
+    const size = 190;
+    const center = size / 2;
+    const radius = 68;
+    const values = [
+      metrics.distScore / 100,
+      metrics.surfScore / 100,
+      metrics.femaleScore / 100,
+      metrics.costScore / 100,
+      metrics.survScore / 100
+    ];
+    const labels = ["距離", "馬場", "牝馬", "Pt効率", "生存力"];
+
+    // 5軸の頂点計算
+    const getCoords = (idx, factor) => {
+      const angle = (Math.PI * 2 / 5) * idx - (Math.PI / 2);
+      return {
+        x: center + radius * factor * Math.cos(angle),
+        y: center + radius * factor * Math.sin(angle)
+      };
+    };
+
+    // グリッド多角形
+    let gridSvg = "";
+    [0.25, 0.5, 0.75, 1.0].forEach(f => {
+      const pts = [0, 1, 2, 3, 4].map(i => {
+        const c = getCoords(i, f);
+        return `${c.x.toFixed(1)},${c.y.toFixed(1)}`;
+      }).join(' ');
+      gridSvg += `<polygon points="${pts}" fill="none" stroke="#154724" stroke-width="1" stroke-dasharray="${f===1.0?'none':'2,2'}"/>`;
+    });
+
+    // 軸線とラベル
+    let axisSvg = "";
+    labels.forEach((lbl, i) => {
+      const end = getCoords(i, 1.0);
+      const textPos = getCoords(i, 1.25);
+      axisSvg += `
+        <line x1="${center}" y1="${center}" x2="${end.x}" y2="${end.y}" stroke="#154724" stroke-width="1"/>
+        <text x="${textPos.x}" y="${textPos.y + 3}" fill="#6da77f" font-size="9" font-family="monospace" text-anchor="middle" font-weight="bold">${lbl}</text>
+      `;
+    });
+
+    // データ多角形
+    const dataPts = values.map((val, i) => {
+      const c = getCoords(i, Math.max(0.1, val));
+      return `${c.x.toFixed(1)},${c.y.toFixed(1)}`;
+    }).join(' ');
+
+    return `
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+        <circle cx="${center}" cy="${center}" r="${radius + 20}" fill="none" stroke="rgba(0,255,136,0.1)" stroke-width="1"/>
+        ${gridSvg}
+        ${axisSvg}
+        <polygon points="${dataPts}" fill="rgba(0, 255, 136, 0.28)" stroke="#00ff88" stroke-width="2"/>
+        ${values.map((v, i) => {
+          const c = getCoords(i, Math.max(0.1, v));
+          return `<circle cx="${c.x}" cy="${c.y}" r="3" fill="#00e5ff" stroke="#00ff88" stroke-width="1"/>`;
+        }).join('')}
+      </svg>
+    `;
+  }
+
+  // 科学捜査モーダルの描画実行
+  function executeForensicScan() {
+    const body = document.getElementById('cyberModalBody');
+    body.innerHTML = '';
+
+    if (currentDiagTarget === 'synergy') {
+      renderSynergyView(body);
+      return;
+    }
+
+    const deckIdx = currentDiagTarget;
+    const currentDeck = globalUserData.decks[deckIdx] || {};
+    const deckName = currentDeck.deck_name || `メインデッキ ${deckIdx + 1}`;
+    const horses = getDeckHorsesList(deckIdx);
+    const m = analyzeSingleDeckMetrics(horses);
+    const radarSvg = generateCyberRadarSVG(m);
+
+    body.innerHTML = `
+      <!-- 総合評価スコア -->
+      <div class="cyber-score-card">
+        <div class="cyber-rank-box">
+          <div>
+            <div class="cyber-rank-label">OVERALL RANK</div>
+            <div class="cyber-rank-val">${m.rank}</div>
+          </div>
+          <div class="cyber-score-val">/ 評価指数: <strong style="color:#00ff88;">${m.overallScore}</strong> PT</div>
+        </div>
+        <div class="cyber-spec-summary">
+          <div>ターゲット: <strong>${escapeHtml(deckName)}</strong></div>
+          <div>配備数: <strong style="color:#00ff88;">${m.totalCount}</strong>/18頭 (平均: ${m.avgPt ? m.avgPt.toFixed(1) : 0}Pt)</div>
+          <div>適性構成: 芝${m.turfCount} / ダ${m.dirtCount} / 牝${m.femaleCount}</div>
+        </div>
+      </div>
+
+      <!-- レーダー & メーター -->
+      <div class="cyber-radar-section">
+        <div style="display:flex; justify-content:center; align-items:center;">
+          ${radarSvg}
+        </div>
+        <div class="cyber-metrics-list">
+          <div class="metric-item">
+            <div class="metric-label-row">
+              <span>距離網羅性 (短〜超長距離)</span>
+              <span><strong>${m.distScore}</strong>%</span>
+            </div>
+            <div class="metric-bar-bg"><div class="metric-bar-fill" style="width:${m.distScore}%;"></div></div>
+          </div>
+
+          <div class="metric-item">
+            <div class="metric-label-row">
+              <span>馬場適応力 (芝・ダート両立)</span>
+              <span><strong>${m.surfScore}</strong>%</span>
+            </div>
+            <div class="metric-bar-bg"><div class="metric-bar-fill" style="width:${m.surfScore}%;"></div></div>
+          </div>
+
+          <div class="metric-item">
+            <div class="metric-label-row">
+              <span>牝馬限定戦適格性</span>
+              <span><strong>${m.femaleScore}</strong>%</span>
+            </div>
+            <div class="metric-bar-bg"><div class="metric-bar-fill" style="width:${m.femaleScore}%;"></div></div>
+          </div>
+
+          <div class="metric-item">
+            <div class="metric-label-row">
+              <span>ポテンシャル配分効率</span>
+              <span><strong>${m.costScore}</strong>%</span>
+            </div>
+            <div class="metric-bar-bg"><div class="metric-bar-fill" style="width:${m.costScore}%;"></div></div>
+          </div>
+
+          <div class="metric-item">
+            <div class="metric-label-row">
+              <span>サバイバル完走生存指数</span>
+              <span><strong>${m.survScore}</strong>%</span>
+            </div>
+            <div class="metric-bar-bg"><div class="metric-bar-fill" style="width:${m.survScore}%;"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 脆弱性・科学解析レポート -->
+      <div class="cyber-terminal-card">
+        <div class="cyber-terminal-header">
+          <span>⚠️ 脆弱性・インシデント検知レポート</span>
+          <span style="font-size:10px; color:#6da77f;">ANOMALY LOGS</span>
+        </div>
+        <div class="anomaly-list">
+          ${m.anomalies.map(a => `
+            <div class="anomaly-item">
+              <span class="anomaly-badge ${a.type==='danger'?'badge-danger':(a.type==='warn'?'badge-warn':'badge-ok')}">
+                ${a.type==='danger'?'CRITICAL':(a.type==='warn'?'WARNING':'PASSED')}
+              </span>
+              <span>${a.msg}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  // 2デック相互補完分析（MAIN 1 × MAIN 2 シナジー）の描画
+  function renderSynergyView(body) {
+    const h1 = getDeckHorsesList(0);
+    const h2 = getDeckHorsesList(1);
+    const m1 = analyzeSingleDeckMetrics(h1);
+    const m2 = analyzeSingleDeckMetrics(h2);
+
+    // 役割分担の判定
+    let role1 = "バランス型";
+    if (m1.dirtCount >= 4) role1 = "ダート・交流特化";
+    else if (m1.distMap.XL >= 1 && m1.distMap.L >= 3) role1 = "王道・中長距離型";
+    else if (m1.distMap.S >= 3) role1 = "短距離・スプリント型";
+
+    let role2 = "バランス型";
+    if (m2.dirtCount >= 4) role2 = "ダート・交流特化";
+    else if (m2.distMap.XL >= 1 && m2.distMap.L >= 3) role2 = "王道・中長距離型";
+    else if (m2.distMap.S >= 3) role2 = "短距離・スプリント型";
+
+    // 相互補完スコア（両方で全距離・全馬場をカバーできているか）
+    let synergyScore = 60;
+    const combinedDirt = m1.dirtCount + m2.dirtCount;
+    const combinedFemale = m1.femaleCount + m2.femaleCount;
+    const combinedXL = m1.distMap.XL + m2.distMap.XL;
+
+    if (combinedDirt >= 5) synergyScore += 15;
+    if (combinedFemale >= 4) synergyScore += 15;
+    if (combinedXL >= 2) synergyScore += 10;
+    if (role1 !== role2 && role1 !== "バランス型" && role2 !== "バランス型") synergyScore += 10;
+    synergyScore = Math.min(100, synergyScore);
+
+    body.innerHTML = `
+      <div class="cyber-score-card">
+        <div class="cyber-rank-box">
+          <div>
+            <div class="cyber-rank-label">SYNERGY RATING</div>
+            <div class="cyber-rank-val" style="color:#00e5ff;">${synergyScore >= 80 ? 'EX' : (synergyScore >= 65 ? 'GOOD' : 'POOR')}</div>
+          </div>
+          <div class="cyber-score-val">/ 補完シナジー指数: <strong style="color:#00e5ff;">${synergyScore}</strong> PT</div>
+        </div>
+        <div class="cyber-spec-summary">
+          <div>MAIN 1 役割: <strong style="color:#00ff88;">${role1}</strong></div>
+          <div>MAIN 2 役割: <strong style="color:#00e5ff;">${role2}</strong></div>
+          <div>クロスエントリー不可制約 適合確認済</div>
+        </div>
+      </div>
+
+      <div class="cyber-terminal-card">
+        <div class="cyber-terminal-header">
+          <span>🧬 2デック相互補完マトリクス (栖み分け評価)</span>
+          <span style="font-size:10px; color:#00e5ff;">TACTICAL MATRIX</span>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px; font-size:11.5px; line-height:1.5;">
+          <div style="background:#0a1b10; padding:8px; border-radius:4px; border:1px solid #154724;">
+            <strong style="color:#00ff88;">MAIN 1 (${m1.totalCount}頭):</strong>
+            芝 ${m1.turfCount} / ダート ${m1.dirtCount} / 牝馬 ${m1.femaleCount} (総合:${m1.overallScore}pt)
+          </div>
+          <div style="background:#071c24; padding:8px; border-radius:4px; border:1px solid #005a73;">
+            <strong style="color:#00e5ff;">MAIN 2 (${m2.totalCount}頭):</strong>
+            芝 ${m2.turfCount} / ダート ${m2.dirtCount} / 牝馬 ${m2.femaleCount} (総合:${m2.overallScore}pt)
+          </div>
+          
+          <div style="margin-top:4px; color:#a9deb9;">
+            💡 <strong>AI作戦参謀のアドバイス:</strong><br>
+            ${role1 === role2 
+              ? '⚠️ <strong>役割の重複を検知:</strong> MAIN 1とMAIN 2が似た適性になっています。チャレンジシリーズ（2デック制）を制覇するには、片方を「芝・古馬王道特化」、もう片方を「ダート＆短距離特化」と明確に分担させることで、どのシリーズを引いても死角がなくなります。'
+              : '✅ <strong>美しい棲み分けを形成中:</strong> 両デックの役割が明確に差別化されています。シリーズのコース条件（芝・ダート・距離・牝馬）に応じて適切なデックを投入してください。'}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
 </script>
 </body>
 </html>
