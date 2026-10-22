@@ -1,6 +1,6 @@
 import { cardRenderer } from './card_renderer.js';
 
-// 仕様書 Ver3.0 準拠のレアリティ定義（全12種類）
+// 仕様書準拠のレアリティ定義（全17種類）
 export const RARITY_CONFIG = {
   'SER': { name: 'シークレットレア', rank: 'SSS', bg: 'linear-gradient(45deg, #2c3e50, #000000, #8a2be2)', shadow: '0 0 30px rgba(138, 43, 226, 0.9)' },
   'MTR': { name: 'マジェスティックレア', rank: 'SSS', bg: 'linear-gradient(45deg, #8b0000, #4a0000, #ffd700)', shadow: '0 0 30px rgba(255, 215, 0, 0.9)' },
@@ -16,11 +16,13 @@ export const RARITY_CONFIG = {
   'ANR': { name: 'アンティークレア', rank: 'B', bg: 'linear-gradient(45deg, #2e8b57, #3cb371, #8fbc8f)', shadow: '0 0 18px rgba(46, 139, 87, 0.7)' },
   'VIR': { name: 'ビンテージレア', rank: 'B', bg: 'linear-gradient(45deg, #1e90ff, #00bfff, #87cefa)', shadow: '0 0 18px rgba(30, 144, 255, 0.7)' },
   'PRR': { name: 'プレミアレア', rank: 'B', bg: 'linear-gradient(45deg, #9370db, #ba55d3, #ee82ee)', shadow: '0 0 18px rgba(186, 85, 211, 0.7)' },
+  'FRR': { name: 'フロンティアレア', rank: 'B', bg: 'linear-gradient(45deg, #8b4513, #cd853f, #d2691e)', shadow: '0 0 18px rgba(205, 133, 63, 0.7)' },
   'SPR': { name: 'スペシャルレア', rank: 'C', bg: 'linear-gradient(45deg, #32cd32, #00ff7f, #98fb98)', shadow: '0 0 15px rgba(50, 205, 50, 0.6)' },
   'NOR': { name: 'ノーマル', rank: 'NOR', bg: 'linear-gradient(45deg, #555555, #888888, #aaaaaa)', shadow: '0 0 12px rgba(136, 136, 136, 0.5)' }
 };
 
 // 通常時の確率テーブル (合計 100%)
+// Bランク5種類（RER, ANR, VIR, PRR, FRR）を各1.6%（計8.0%）で均等割り
 const NORMAL_PROBABILITY_TABLE = [
   { code: 'SER', prob: 0.005 },
   { code: 'MTR', prob: 0.005 },
@@ -32,10 +34,11 @@ const NORMAL_PROBABILITY_TABLE = [
   { code: 'LGR', prob: 0.010 },
   { code: 'CLR', prob: 0.010 },
   { code: 'TRR', prob: 0.010 },
-  { code: 'RER', prob: 0.020 },
-  { code: 'ANR', prob: 0.020 },
-  { code: 'VIR', prob: 0.020 },
-  { code: 'PRR', prob: 0.020 },
+  { code: 'RER', prob: 0.016 },
+  { code: 'ANR', prob: 0.016 },
+  { code: 'VIR', prob: 0.016 },
+  { code: 'PRR', prob: 0.016 },
+  { code: 'FRR', prob: 0.016 },
   { code: 'SPR', prob: 0.030 },
   { code: 'NOR', prob: 0.820 }
 ];
@@ -196,7 +199,6 @@ export function getHorsePotentials(horse) {
   if (turf >= 14) pots.includes(turf) || pots.push(turf);
   if (dirt >= 14) pots.includes(dirt) || pots.push(dirt);
   if (pots.length === 0) {
-    // フォールバック
     const single = Number(horse.potential ?? 0);
     if (single > 0) pots.push(single);
   }
@@ -237,7 +239,6 @@ export function evaluateSlotMatch(cards) {
   let matches = { gen: false, category: false, style: false, potential: false };
 
   if (hasThree) {
-    // 3枚全ての一致判定
     const genDigit0 = getGenYearLastDigit(cards[0]);
     const cat0 = (cards[0].rarity || 'NOR').toUpperCase();
     const style0 = cards[0].style || '';
@@ -246,10 +247,8 @@ export function evaluateSlotMatch(cards) {
     matches.gen = cards.every(c => getGenYearLastDigit(c) === genDigit0);
     matches.category = cards.every(c => (c.rarity || 'NOR').toUpperCase() === cat0);
     matches.style = cards.every(c => (c.style || '') === style0);
-    // 3枚の中に共通するポテンシャル数値が含まれているか
     matches.potential = pots0.some(p => cards.every(c => getHorsePotentials(c).includes(p)));
   } else {
-    // 2枚の場合のリーチ判定
     const gen0 = getGenYearLastDigit(cards[0]);
     const gen1 = getGenYearLastDigit(cards[1]);
     matches.gen = (gen0 === gen1);
@@ -264,7 +263,6 @@ export function evaluateSlotMatch(cards) {
 
     const pots0 = getHorsePotentials(cards[0]);
     const pots1 = getHorsePotentials(cards[1]);
-    // 1枚目と2枚目の間でポテンシャル数値に重複（共通項）があるか
     matches.potential = pots0.some(p => pots1.includes(p));
   }
 
@@ -293,7 +291,6 @@ export function evaluateSlotMatch(cards) {
     reachTypes.push('potential');
   }
 
-  // リーチ表示の組み立て（1〜2個はダブルまで個別表示、3個はトリプル、4個はクワドラプル）
   let reachText = '';
   const count = reachLabels.length;
 
@@ -309,7 +306,6 @@ export function evaluateSlotMatch(cards) {
     reachText = `${reachLabels[0]}リーチ！`;
   }
 
-  // 3枚すべて揃った場合の確変判定（4要素のいずれかが完全一致していれば有効など定義に応じるが、ここではポイント合算や全一致判定を活用）
   const isFever = hasThree && (matches.gen && matches.category && matches.style && matches.potential);
 
   return {
@@ -326,11 +322,10 @@ export function evaluateSlotMatch(cards) {
  * @returns {Array} [{ code, prob }]
  */
 export function buildFeverProbabilityTable(points) {
-  let allowedRanks = POINT_RANK_POOLS[12]; // デフォルトSSS
+  let allowedRanks = POINT_RANK_POOLS[12];
   if (points <= 2) allowedRanks = POINT_RANK_POOLS[2];
   else if (points <= 10) allowedRanks = POINT_RANK_POOLS[points] || POINT_RANK_POOLS[2];
 
-  // 対象プールに属するレアコードを抽出
   const eligibleCodes = Object.keys(RARITY_CONFIG).filter(code => {
     const config = RARITY_CONFIG[code];
     return config.rank !== 'NOR' && allowedRanks.includes(config.rank);
@@ -408,7 +403,6 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
     <!-- カード＆レア表示コンテナ -->
     <div id="card-box" class="cutin-card-box">
       <div class="card-render-inner">${cardHtml}</div>
-      <!-- カードの直下に分離して配置 -->
       <div id="rare-slot" class="rare-banner-slot"></div>
     </div>
   `;
@@ -467,7 +461,7 @@ export async function playFourthCornerCutIn(chosenHorse, customRenderer = cardRe
   dynamicBanners.style.opacity = '0';
   await wait(300);
 
-  // 6. 中央にカードをバチッと表示
+  // 6. 中央にカード表示
   cardBox.classList.add('in');
 
   if (isRare) {
