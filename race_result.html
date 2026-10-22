@@ -279,10 +279,10 @@
 
   .horse-bounce-wrap { width: 100%; height: 100%; position: relative; }
   #track-container.running .horse-bounce-wrap {
-    animation: gallopBounce 0.27s ease-in-out infinite alternate;
+    animation: gallopBounce 0.28s ease-in-out infinite alternate;
   }
   #track-container.running .horse-shadow {
-    animation: shadowScale 0.27s ease-in-out infinite alternate;
+    animation: shadowScale 0.28s ease-in-out infinite alternate;
   }
 
   @keyframes gallopBounce {
@@ -294,40 +294,119 @@
     100% { transform: scaleX(0.86); opacity: 0.28; }
   }
 
-  /* ★オーラ演出（青・赤・漆黒デバフ） */
-  @keyframes auraPulsePlayer {
+  /* ★馬の脚 3コマ（ギャロップ）アニメーション（完全GPU処理・超軽量） */
+  .leg-frame-1 { opacity: 1; }
+  .leg-frame-2 { opacity: 0; }
+  .leg-frame-3 { opacity: 0; }
+
+  #track-container.running .leg-frame-1 {
+    animation: animLegF1 0.28s steps(1) infinite;
+  }
+  #track-container.running .leg-frame-2 {
+    animation: animLegF2 0.28s steps(1) infinite;
+  }
+  #track-container.running .leg-frame-3 {
+    animation: animLegF3 0.28s steps(1) infinite;
+  }
+
+  @keyframes animLegF1 {
+    0%, 33.2% { opacity: 1; }
+    33.3%, 100% { opacity: 0; }
+  }
+  @keyframes animLegF2 {
+    0%, 33.2% { opacity: 0; }
+    33.3%, 66.5% { opacity: 1; }
+    66.6%, 100% { opacity: 0; }
+  }
+  @keyframes animLegF3 {
+    0%, 66.5% { opacity: 0; }
+    66.6%, 100% { opacity: 1; }
+  }
+
+  /* ★足元の砂埃・蹴り土エフェクト（GPU合成で超軽量） */
+  .horse-dust-wrap {
+    position: absolute;
+    bottom: 2px;
+    right: 8px;
+    width: 20px;
+    height: 14px;
+    pointer-events: none;
+  }
+  .dust-puff {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0;
+    transform-origin: center;
+  }
+  /* 芝コース用（緑片 ＆ 白飛沫） */
+  .dust-puff.p1 {
+    width: 6px; height: 6px; background: #e2e8f0;
+    box-shadow: 2px -2px 0 1px #22c55e;
+  }
+  .dust-puff.p2 {
+    width: 8px; height: 5px; background: rgba(240, 253, 244, 0.85);
+    box-shadow: -1px -3px 0 1px #16a34a;
+  }
+  /* ダートコース用（土煙） */
+  #track-container.dirt-track .dust-puff.p1 {
+    width: 9px; height: 7px; background: rgba(160, 110, 75, 0.7);
+    box-shadow: 2px -2px 0 1px #78350f;
+  }
+  #track-container.dirt-track .dust-puff.p2 {
+    width: 11px; height: 9px; background: rgba(180, 125, 85, 0.6);
+    box-shadow: -1px -3px 0 1px #92400e;
+  }
+
+  #track-container.running .dust-puff.p1 {
+    animation: puffDrift1 0.28s ease-out infinite;
+  }
+  #track-container.running .dust-puff.p2 {
+    animation: puffDrift2 0.28s ease-out infinite 0.14s;
+  }
+
+  @keyframes puffDrift1 {
     0% {
-      filter: drop-shadow(0 0 4px #60a5fa) drop-shadow(0 0 10px #2563eb) brightness(1.25);
+      opacity: 0.85;
+      transform: translate(0, 0) scale(0.6);
     }
     100% {
-      filter: drop-shadow(0 0 10px #93c5fd) drop-shadow(0 0 20px #3b82f6) brightness(1.5);
+      opacity: 0;
+      transform: translate(22px, -8px) scale(1.6);
     }
   }
-  @keyframes auraPulseCpu {
+  @keyframes puffDrift2 {
     0% {
-      filter: drop-shadow(0 0 4px #f87171) drop-shadow(0 0 10px #dc2626) brightness(1.25);
+      opacity: 0.85;
+      transform: translate(2px, 2px) scale(0.7);
     }
     100% {
-      filter: drop-shadow(0 0 10px #fca5a5) drop-shadow(0 0 20px #ef4444) brightness(1.5);
-    }
-  }
-  @keyframes auraPulseDebuff {
-    0% {
-      filter: drop-shadow(0 0 6px #000000) drop-shadow(0 0 14px #000000) drop-shadow(0 0 22px #09090b) brightness(0.65) contrast(1.2);
-    }
-    100% {
-      filter: drop-shadow(0 0 12px #000000) drop-shadow(0 0 26px #000000) drop-shadow(0 0 38px #000000) brightness(0.38) contrast(1.4);
+      opacity: 0;
+      transform: translate(26px, -12px) scale(1.8);
     }
   }
 
+  /* オーラ演出（青・赤・漆黒デバフ） */
+  @keyframes auraPulsePlayer {
+    0% { filter: drop-shadow(0 0 4px #60a5fa) drop-shadow(0 0 10px #2563eb) brightness(1.25); }
+    100% { filter: drop-shadow(0 0 10px #93c5fd) drop-shadow(0 0 20px #3b82f6) brightness(1.5); }
+  }
+  @keyframes auraPulseCpu {
+    0% { filter: drop-shadow(0 0 4px #f87171) drop-shadow(0 0 10px #dc2626) brightness(1.25); }
+    100% { filter: drop-shadow(0 0 10px #fca5a5) drop-shadow(0 0 20px #ef4444) brightness(1.5); }
+  }
+  @keyframes auraPulseDebuff {
+    0% { filter: drop-shadow(0 0 6px #000000) drop-shadow(0 0 14px #000000) drop-shadow(0 0 22px #09090b) brightness(0.65) contrast(1.2); }
+    100% { filter: drop-shadow(0 0 12px #000000) drop-shadow(0 0 26px #000000) drop-shadow(0 0 38px #000000) brightness(0.38) contrast(1.4); }
+  }
+
   .horse-icon.aura-player .horse-bounce-wrap {
-    animation: gallopBounce 0.27s ease-in-out infinite alternate, auraPulsePlayer 0.5s ease-in-out infinite alternate !important;
+    animation: gallopBounce 0.28s ease-in-out infinite alternate, auraPulsePlayer 0.5s ease-in-out infinite alternate !important;
   }
   .horse-icon.aura-cpu .horse-bounce-wrap {
-    animation: gallopBounce 0.27s ease-in-out infinite alternate, auraPulseCpu 0.5s ease-in-out infinite alternate !important;
+    animation: gallopBounce 0.28s ease-in-out infinite alternate, auraPulseCpu 0.5s ease-in-out infinite alternate !important;
   }
   .horse-icon.aura-debuff .horse-bounce-wrap {
-    animation: gallopBounce 0.27s ease-in-out infinite alternate, auraPulseDebuff 0.5s ease-in-out infinite alternate !important;
+    animation: gallopBounce 0.28s ease-in-out infinite alternate, auraPulseDebuff 0.5s ease-in-out infinite alternate !important;
   }
 
   .owner-marker {
@@ -718,7 +797,7 @@ function extractSilkColor(str) {
   return null;
 }
 
-// 汎用パーサー（読点・語順対応）
+// 汎用パーサー（読点・語順対応・ハードコード完全撤廃）
 function parseSilkColors(silkText, gateNum) {
   const fallback = getGateColors(gateNum);
   if (!silkText || typeof silkText !== 'string' || silkText.trim() === '' || silkText.trim() === '-') {
@@ -873,7 +952,7 @@ function getStringHash(str) {
   return Math.abs(hash);
 }
 
-// 胴柄SVG描画（縦縞2本、散らし系マルチドット、★上部が柄色で下部境界がV字になる正しい鋸歯形）
+// 胴柄SVG描画（★赤線画像準拠：首〜肩〜胸の上半分が黄色、腹側へ3つの大きなV字歯が深く食い込む）
 function renderBodyPatternSVG(bodyPat, patCol) {
   switch (bodyPat) {
     case 'cross_sash':
@@ -895,7 +974,7 @@ function renderBodyPatternSVG(bodyPat, patCol) {
       `;
     case 'sawtooth':
       return `
-        <polygon points="130,20 240,20 240,54 220,67 202,54 184,67 166,54 148,67 130,55" fill="${patCol}"/>
+        <polygon points="135,20 235,20 235,55 212,74 195,54 177,75 160,54 142,75 135,58" fill="${patCol}"/>
       `;
     case 'chevron':
       return `
@@ -1121,7 +1200,6 @@ function ensureStats(h) {
   h.style = h.style || master.style || master.running_style || "自在";
 }
 
-// race_master.json の double_cutin_courses に該当するか判定
 function checkIsDoubleCutinCourse(info) {
   if (!raceMasterData?.double_cutin_courses || !info) return false;
   return raceMasterData.double_cutin_courses.some(c => 
@@ -1165,7 +1243,6 @@ function setupRace(rIdx) {
   if (isStraightOnly) turnDir = "直線"; 
   currentTrackConfig = TRACK_DIRECTION_MASTER[turnDir] || TRACK_DIRECTION_MASTER["右回り"];
 
-  // 2回カットイン対象レースかどうかの判定
   isDoubleCutin = checkIsDoubleCutinCourse(currentRaceInfo);
 
   let allyStreak = 0;
@@ -1273,6 +1350,10 @@ function buildHorseActorSVG(h, i) {
 
   return `
     <div class="horse-shadow" style="animation-delay: ${delay}s;"></div>
+    <div class="horse-dust-wrap">
+      <div class="dust-puff p1" style="animation-delay: ${delay}s;"></div>
+      <div class="dust-puff p2" style="animation-delay: ${delay}s;"></div>
+    </div>
     <div class="horse-bounce-wrap" style="animation-delay: ${delay}s;">
       ${markerHTML}
       <svg width="100%" height="100%" viewBox="0 0 420 270" style="overflow: visible;">
@@ -1291,11 +1372,35 @@ function buildHorseActorSVG(h, i) {
           </clipPath>
         </defs>
 
-        <path d="M 142 162 C 132 178, 122 192, 116 202 C 113 207, 115 212, 122 214 L 152 222 L 156 215 L 128 205 L 156 168 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
-        <polygon points="152,222 166,222 164,215 155,215" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
-        <path d="M 278 158 C 292 176, 304 192, 310 202 L 276 235 L 284 239 L 322 204 C 316 188, 306 170, 294 154 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
-        <polygon points="276,235 264,242 278,244 285,239" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
+        <!-- ★脚の3コマ切替グループ（Frame 1: 伸展、Frame 2: 収縮、Frame 3: 接地） -->
+        <g class="leg-frame-1" style="animation-delay: ${delay}s;">
+          <!-- 前脚・伸展 -->
+          <path d="M 142 162 C 132 178, 122 192, 116 202 C 113 207, 115 212, 122 214 L 152 222 L 156 215 L 128 205 L 156 168 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <polygon points="152,222 166,222 164,215 155,215" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
+          <!-- 後脚・伸展 -->
+          <path d="M 278 158 C 292 176, 304 192, 310 202 L 276 235 L 284 239 L 322 204 C 316 188, 306 170, 294 154 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <polygon points="276,235 264,242 278,244 285,239" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
+        </g>
 
+        <g class="leg-frame-2" style="animation-delay: ${delay}s;">
+          <!-- 前脚・収縮（キュッと腹下に引き込む） -->
+          <path d="M 146 160 C 138 174, 134 186, 140 196 C 144 200, 150 202, 158 198 L 176 188 L 172 180 L 152 190 L 156 165 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <polygon points="176,188 184,182 180,175 172,180" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
+          <!-- 後脚・収縮（腹下へ曲げて前進） -->
+          <path d="M 275 158 C 270 174, 260 188, 252 198 L 235 220 L 243 224 L 262 200 C 274 185, 282 170, 285 156 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <polygon points="235,220 225,226 232,230 243,224" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
+        </g>
+
+        <g class="leg-frame-3" style="animation-delay: ${delay}s;">
+          <!-- 前脚・接地（下へ直立踏み込み） -->
+          <path d="M 144 162 C 142 180, 140 198, 142 212 C 143 218, 148 222, 156 222 L 180 222 L 180 214 L 158 214 L 158 165 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <polygon points="180,222 192,222 192,214 180,214" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
+          <!-- 後脚・蹴り出し（前方に鋭く踏み出す） -->
+          <path d="M 276 158 C 285 172, 292 186, 295 198 L 265 228 L 273 232 L 305 200 C 302 185, 295 170, 286 156 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <polygon points="265,228 255,234 266,238 273,232" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
+        </g>
+
+        <!-- 尾・鬣・胴体 -->
         <path d="M 326 106 C 356 108, 388 122, 414 142 C 392 140, 374 135, 358 128 C 380 140, 398 152, 410 162 C 380 156, 354 144, 336 128 C 352 144, 364 158, 372 170 C 346 156, 330 136, 320 118 Z" fill="${coat.mane}" stroke="#140d0a" stroke-width="2" stroke-linejoin="round"/>
         <path d="M 88 56 C 118 66, 148 80, 174 96 L 168 105 C 142 88, 114 74, 84 64 Z" fill="${coat.mane}" stroke="#140d0a" stroke-width="1.6"/>
         <path d="M 76 58 C 72 44, 73 36, 77 32 C 82 38, 84 48, 84 56 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
@@ -1357,14 +1462,13 @@ function buildHorseActorSVG(h, i) {
   `;
 }
 
-// ★直線のみのレースは上から1枠固定。通常レースは道中が下から1枠、直線が上から1枠
+// 直線のみのレースは上から1枠固定。通常レースは道中が下から1枠、直線が上から1枠
 function applyLaneLayout(isStraight = false) {
   const fieldCount = activeHorses.length || 16;
   const minTop = 85;
   const maxTop = 275;
   const stepY = fieldCount > 1 ? (maxTop - minTop) / (fieldCount - 1) : 12;
 
-  // 直線のみのレース（新潟1000m等）は常に上から1枠固定
   const effectiveIsStraight = isStraightOnly ? true : isStraight;
 
   activeHorses.forEach((h, i) => {
@@ -1381,28 +1485,26 @@ function applyLaneLayout(isStraight = false) {
   });
 }
 
-// ★フェーズ1の初期配置：馬がゲート枠内（扉直前）に収まるように配置
+// フェーズ1初期配置：馬がゲート枠内（扉直前）に収まる
 function renderLanes() {
   const lanes = document.getElementById('lanes');
   const gateEl = document.getElementById('start-gate');
   
-  // 2回カットインのレースは、Phase1は直線と同じ向きでスタート
   const initialDir = isDoubleCutin 
     ? currentTrackConfig.phase4_dir 
     : ((currentTrackConfig.phase1_3_dir === "none") ? currentTrackConfig.phase4_dir : currentTrackConfig.phase1_3_dir);
   
   const isRightToLeft = (initialDir === "right_to_left");
 
-  // ゲート配置と、馬の初期待機位置（ゲート内）
   let gateLeftPx = 0;
   let horseStartWaitPx = 0;
 
   if (isRightToLeft) {
     gateLeftPx = 520;
-    horseStartWaitPx = 525; // ゲート枠内
+    horseStartWaitPx = 525;
   } else {
     gateLeftPx = 10;
-    horseStartWaitPx = -5;  // ゲート枠内
+    horseStartWaitPx = -5;
   }
 
   if (gateEl) {
@@ -1647,7 +1749,7 @@ function processAbilityQueue() {
     if (isDebuff) {
       horseObj.abilityNetScore = (horseObj.abilityNetScore || 0) - 1;
     } else {
-      // 乾坤一擲も一段階のみアップ (+1)
+      // 乾坤一擲（作戦MAX）も一段階のみアップ (+1)
       const addScore = 1;
       horseObj.abilityNetScore = (horseObj.abilityNetScore || 0) + addScore;
     }
@@ -1748,7 +1850,6 @@ async function startRace() {
     } catch (err) { console.error("進捗保存エラー:", err); }
   }
 
-  // 進行方向の決定（2回カットイン時はPhase1は直線と同じ向き）
   const phase1Dir = isDoubleCutin 
     ? currentTrackConfig.phase4_dir 
     : ((currentTrackConfig.phase1_3_dir === "none") ? currentTrackConfig.phase4_dir : currentTrackConfig.phase1_3_dir);
@@ -1770,7 +1871,6 @@ async function startRace() {
     gateEl.style.opacity = "0";
   }
 
-  // 馬がゲートから飛び出して隊列を形成
   let p1Pos = getPosPointsMap(calculatedResults, 40, -15);
   setPhasePositions(p1Pos, 6.0, "linear", phase1Dir); 
   setTimeout(() => spawnFurlongPole("1000", false), 2500);
@@ -1786,7 +1886,6 @@ async function startRace() {
       wipe.style.transition = "left 0.5s cubic-bezier(0.8, 0, 0.2, 1)";
       wipe.style.left = "0";
 
-      // ワイプ裏で進行方向を向正面（midPhaseDir）へ転換
       setTimeout(() => {
         applyLaneLayout(false);
         setHorseDirection(midPhaseDir);
@@ -1866,7 +1965,6 @@ async function startRace() {
     wipe.style.left = "0";
     
     setTimeout(() => {
-      // 直線は上から1枠にセット
       applyLaneLayout(true);
       setHorseDirection(currentTrackConfig.phase4_dir);
 
@@ -1894,14 +1992,13 @@ async function startRace() {
           spawnMovingGoalPost(currentTrackConfig.phase4_dir);
         }, 7030);
              
-        // ★直線に入った直後（最優先で乾坤一擲を発動）
+        // 直線突入直後：最優先で乾坤一擲を発動
         setTimeout(() => {
           updateLog(`<strong>【最後の直線】</strong> ${comm.phase4}`);
           
-          abilityQueue = []; // 前のキューが残っていればクリアして最優先割り込み
+          abilityQueue = [];
           isShowingAbility = false;
 
-          // 作戦Lv5の「乾坤一擲」を最前列に投入
           calculatedResults.forEach(h => {
             if ((h.isPlayer || h.isCpu) && h.level === 5) {
               abilityQueue.push({
@@ -1914,14 +2011,12 @@ async function startRace() {
             }
           });
 
-          // 展開バッジ
           abilityQueue.push({
             isSystem: true,
             header: "DEVELOPMENT",
             popupMessage: `【展開】 ${currentRaceBranch}`
           });
 
-          // 直線アビリティ
           const p4Horses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.phase4_abilities && h.phase4_abilities.length > 0);
           if (p4Horses.length > 0) {
             p4Horses.forEach(h => {
@@ -1933,7 +2028,7 @@ async function startRace() {
           }
 
           processAbilityQueue();
-        }, 300); // 直線突入直後に即時発火
+        }, 300);
 
         setTimeout(() => {
           const swapTriggerHorses = calculatedResults.filter(
@@ -1953,7 +2048,7 @@ async function startRace() {
 
         // ====================================================================
         // ★ 7.5秒ジャスト：1着馬ゴールイン！
-        // 0.5秒ヒットストップ（完全静止） ＆ パシャッと閃光フラッシュ
+        // 0.5秒ヒットストップ（完全静止） ＆ 閃光フラッシュ
         // ➔ スローモーション1.5秒前進 ➔ 全馬ピタッと完全停止！
         // ====================================================================
         setTimeout(() => {
