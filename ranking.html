@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DERBY BATTLE CARD - ランキング</title>
+<style>
+  :root {
+    --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%);
+    --panel-bg: rgba(255, 255, 255, 0.94);
+    --accent-color: #2d6a37;
+    --accent-hover: #1b4d23;
+    --text-main: #1a2e1d;
+    --text-sub: #4e6b52;
+    --border-color: #b2d4b6;
+    --gold: #d4af37;
+    --silver: #a0a0a0;
+    --bronze: #cd7f32;
+  }
+  body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg-gradient);
+    color: var(--text-main);
+    margin: 0;
+    padding: 15px;
+    font-size: 13px;
+    display: flex;
+    justify-content: center;
+  }
+  .container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    max-width: 650px;
+    padding-bottom: 40px;
+  }
+  .header-panel {
+    background-color: var(--panel-bg);
+    padding: 10px 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .btn-back {
+    background: #ffffff;
+    color: var(--accent-color);
+    border: 1px solid var(--accent-color);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 12px;
+    text-decoration: none;
+  }
+  .header-title {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--accent-color);
+  }
+
+  /* タブ切り替え */
+  .tab-group {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+  .tab-btn {
+    flex: 1;
+    min-width: 90px;
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px 6px;
+    font-size: 11.5px;
+    font-weight: bold;
+    color: var(--text-sub);
+    cursor: pointer;
+    text-align: center;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+  .tab-btn.active {
+    background: var(--accent-color);
+    color: #ffffff;
+    border-color: var(--accent-color);
+    box-shadow: 0 2px 4px rgba(45, 106, 55, 0.2);
+  }
+
+  /* 自分の順位カード */
+  .my-rank-card {
+    background: #fffdf0;
+    border: 2px solid var(--gold);
+    border-radius: 8px;
+    padding: 12px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 6px rgba(212, 175, 55, 0.2);
+  }
+  .my-rank-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .my-rank-badge {
+    background: var(--gold);
+    color: #ffffff;
+    font-weight: 900;
+    font-size: 14px;
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+  .my-rank-name {
+    font-size: 13px;
+    font-weight: bold;
+  }
+  .my-rank-val {
+    font-size: 16px;
+    font-weight: 800;
+    color: #d32f2f;
+  }
+
+  /* ランキングリスト */
+  .ranking-panel {
+    background: var(--panel-bg);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    padding: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  }
+  .ranking-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .ranking-table th {
+    background: #f0f7f1;
+    color: var(--accent-color);
+    padding: 8px 6px;
+    border-bottom: 2px solid var(--border-color);
+    text-align: center;
+    font-weight: bold;
+  }
+  .ranking-table td {
+    padding: 9px 6px;
+    border-bottom: 1px solid #ebf4ec;
+    text-align: center;
+  }
+  .rank-num {
+    font-weight: 900;
+    font-size: 13px;
+    width: 45px;
+  }
+  .rank-1 { color: #b8860b; font-size: 16px; }
+  .rank-2 { color: #7f8c8d; font-size: 15px; }
+  .rank-3 { color: #a0522d; font-size: 15px; }
+
+  .user-cell {
+    text-align: left !important;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-left: 8px !important;
+  }
+  .user-badge-tag {
+    font-size: 9.5px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: normal;
+  }
+  .val-cell {
+    font-family: monospace;
+    font-size: 13px;
+    font-weight: 800;
+    color: #d32f2f;
+    text-align: right !important;
+    padding-right: 12px !important;
+    width: 80px;
+  }
+  .row-me {
+    background-color: #fffde7 !important;
+    font-weight: bold;
+  }
+  .empty-msg {
+    text-align: center;
+    color: #888;
+    padding: 30px 10px;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header-panel">
+    <a href="index.html" class="btn-back">← 戻る</a>
+    <div class="header-title">🏆 プレイヤーランキング</div>
+    <div id="syncStatus" style="font-size: 11px; font-weight: bold;">☁️</div>
+  </div>
+
+  <!-- ランキング項目切り替えタブ -->
+  <div class="tab-group">
+    <button class="tab-btn active" onclick="switchCategory('total_wins')">通算勝利数</button>
+    <button class="tab-btn" onclick="switchCategory('survival_wins')">サバイバル制覇</button>
+    <button class="tab-btn" onclick="switchCategory('max_1st_places')">最多1着回数</button>
+    <button class="tab-btn" onclick="switchCategory('challenge_max_streak')">チャレンジ連勝</button>
+    <button class="tab-btn" onclick="switchCategory('survival_max_streak')">サバイバル連勝</button>
+  </div>
+
+  <!-- 自分の順位カード -->
+  <div class="my-rank-card" id="myRankPanel">
+    <div class="my-rank-left">
+      <span class="my-rank-badge" id="myRankBadge">- 位</span>
+      <div>
+        <div style="font-size: 10px; color: #888;">あなたの現在順位</div>
+        <div class="my-rank-name" id="myRankName">読込中...</div>
+      </div>
+    </div>
+    <div class="my-rank-val" id="myRankVal">-</div>
+  </div>
+
+  <!-- ランキング一覧テーブル -->
+  <div class="ranking-panel">
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th style="width: 50px;">順位</th>
+          <th style="text-align: left; padding-left: 8px;">プレイヤー名</th>
+          <th style="width: 90px; text-align: right; padding-right: 12px;" id="metricHeaderTitle">記録</th>
+        </tr>
+      </thead>
+      <tbody id="rankingListBody">
+        <tr>
+          <td colspan="3" class="empty-msg">データを集計中...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  let currentUser = null;
+  let allUsersData = [];
+  let currentMetric = 'total_wins';
+
+  const METRIC_CONFIGS = {
+    'total_wins': { label: '通算勝利数', unit: '勝' },
+    'survival_wins': { label: 'サバイバル制覇', unit: '勝' },
+    'max_1st_places': { label: '最多1着回数', unit: '回' },
+    'challenge_max_streak': { label: 'チャレンジ最高連勝', unit: '連勝' },
+    'survival_max_streak': { label: 'サバイバル最高連勝', unit: '連勝' }
+  };
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.href = 'auth.html';
+      return;
+    }
+    currentUser = user;
+
+    try {
+      document.getElementById('syncStatus').textContent = "☁️ 読込中";
+      
+      // Firestoreからユーザー全データを取得（※初期・中規模向け）
+      const snapshot = await getDocs(collection(db, "users"));
+      allUsersData = [];
+
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        allUsersData.push({
+          uid: docSnap.id,
+          name: data.nickname || data.display_name || data.name || `プレイヤー_${docSnap.id.substring(0, 4)}`,
+          total_wins: data.total_wins || 0,
+          survival_wins: data.survival_wins || 0,
+          max_1st_places: data.max_1st_places || 0,
+          challenge_max_streak: data.challenge_max_streak || 0,
+          survival_max_streak: data.survival_max_streak || 0,
+          survival_badges: data.survival_badges || {}
+        });
+      });
+
+      document.getElementById('syncStatus').textContent = "✅";
+      renderRanking();
+    } catch (err) {
+      console.error("ランキング取得エラー:", err);
+      document.getElementById('syncStatus').textContent = "❌";
+      document.getElementById('rankingListBody').innerHTML = `
+        <tr><td colspan="3" class="empty-msg" style="color:red;">データの取得に失敗しました。</td></tr>
+      `;
+    }
+  });
+
+  window.switchCategory = function(metricKey) {
+    currentMetric = metricKey;
+    
+    // タブのアクティブスタイル更新
+    const buttons = document.querySelectorAll('.tab-btn');
+    buttons.forEach(btn => {
+      const match = btn.getAttribute('onclick').includes(metricKey);
+      btn.classList.toggle('active', match);
+    });
+
+    renderRanking();
+  };
+
+  function renderRanking() {
+    const config = METRIC_CONFIGS[currentMetric];
+    document.getElementById('metricHeaderTitle').textContent = config.label;
+
+    // 指定された指標で降順ソート
+    const sorted = [...allUsersData].sort((a, b) => (b[currentMetric] || 0) - (a[currentMetric] || 0));
+
+    const tbody = document.getElementById('rankingListBody');
+    tbody.innerHTML = '';
+
+    let myRank = -1;
+    let myVal = 0;
+    let myName = "";
+
+    sorted.forEach((u, index) => {
+      const rank = index + 1;
+      const isMe = currentUser && (u.uid === currentUser.uid);
+      const val = u[currentMetric] || 0;
+
+      if (isMe) {
+        myRank = rank;
+        myVal = val;
+        myName = u.name;
+      }
+
+      // 上位50位までを表示
+      if (rank <= 50) {
+        const tr = document.createElement('tr');
+        if (isMe) tr.className = 'row-me';
+
+        let rankDisplay = `${rank}`;
+        let rankClass = "rank-num";
+        if (rank === 1) { rankDisplay = '🥇 1'; rankClass += ' rank-1'; }
+        else if (rank === 2) { rankDisplay = '🥈 2'; rankClass += ' rank-2'; }
+        else if (rank === 3) { rankDisplay = '🥉 3'; rankClass += ' rank-3'; }
+
+        // サバイバル制覇バッジ等の装飾（任意）
+        let badgeHtml = '';
+        if (u.survival_badges?.clear) {
+          badgeHtml = `<span class="user-badge-tag" style="background:#efebe9; color:#5d4037; border:1px solid #d7ccc8;">🛡️Sv制覇</span>`;
+        }
+
+        tr.innerHTML = `
+          <td class="${rankClass}">${rankDisplay}</td>
+          <td class="user-cell">
+            <span>${escapeHtml(u.name)}</span>
+            ${isMe ? '<span style="font-size:10px; color:#2d6a37; font-weight:bold;">(あなた)</span>' : ''}
+            ${badgeHtml}
+          </td>
+          <td class="val-cell">${val.toLocaleString()} <span style="font-size:10px; color:#666; font-weight:normal;">${config.unit}</span></td>
+        `;
+        tbody.appendChild(tr);
+      }
+    });
+
+    if (sorted.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="3" class="empty-msg">記録がありません</td></tr>`;
+    }
+
+    // 自分の順位カードの更新
+    const myRankBadgeEl = document.getElementById('myRankBadge');
+    const myRankNameEl = document.getElementById('myRankName');
+    const myRankValEl = document.getElementById('myRankVal');
+
+    if (myRank > 0) {
+      myRankBadgeEl.textContent = `${myRank} 位`;
+      myRankNameEl.textContent = myName || "あなた";
+      myRankValEl.textContent = `${myVal.toLocaleString()} ${config.unit}`;
+    } else {
+      myRankBadgeEl.textContent = `- 位`;
+      myRankNameEl.textContent = "記録なし";
+      myRankValEl.textContent = `-`;
+    }
+  }
+
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+</script>
+
+</body>
+</html>
