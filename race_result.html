@@ -58,9 +58,7 @@
     border: 1px solid var(--accent-green); padding: 1px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold;
   }
 
-  /* =========================================================
-     レーストラック ＆ 背景（左右の余白・黒帯を完全排除）
-  ========================================================= */
+  /* レーストラック ＆ 背景 */
   #track-container { 
     background: #4d9e59; 
     border: 3px solid #e2e8f0; 
@@ -165,7 +163,7 @@
     height: 235px;
     z-index: 8;
     pointer-events: none;
-    transition: left 3.0s cubic-bezier(0.25, 1, 0.5, 1), opacity 1.2s ease-in;
+    transition: left 2.8s linear, opacity 1.2s ease-in 1.2s;
     display: none;
   }
 
@@ -313,7 +311,6 @@
       filter: drop-shadow(0 0 10px #fca5a5) drop-shadow(0 0 20px #ef4444) brightness(1.5);
     }
   }
-  /* ★黒を限界まで強めた漆黒のデバフオーラ */
   @keyframes auraPulseDebuff {
     0% {
       filter: drop-shadow(0 0 6px #000000) drop-shadow(0 0 14px #000000) drop-shadow(0 0 22px #09090b) brightness(0.65) contrast(1.2);
@@ -561,11 +558,11 @@
     <div id="lanes"></div>
 
     <div id="wipe-overlay">
-      <div class="wipe-text">第4コーナーをカーブして<br>いよいよ最後の直線！！</div>
+      <div class="wipe-text" id="wipe-text">第4コーナーをカーブして<br>いよいよ最後の直線！！</div>
     </div>
     <div id="flash-overlay"></div>
 
-    <!-- 画面上部スマートバッジ（馬名復元・長め表示） -->
+    <!-- 画面上部スマートバッジ -->
     <div id="ability-popup-container">
       <div class="ability-popup-box" id="ability-popup-box">
         <div class="ability-pop-header-row">
@@ -721,7 +718,7 @@ function extractSilkColor(str) {
   return null;
 }
 
-// あらゆる表記揺れ・語順・区切り文字に対応する汎用パーサー
+// 汎用パーサー（読点・語順対応）
 function parseSilkColors(silkText, gateNum) {
   const fallback = getGateColors(gateNum);
   if (!silkText || typeof silkText !== 'string' || silkText.trim() === '' || silkText.trim() === '-') {
@@ -897,7 +894,6 @@ function renderBodyPatternSVG(bodyPat, patCol) {
         <rect x="186" y="20" width="8.5" height="75" fill="${patCol}"/>
       `;
     case 'sawtooth':
-      // 上部全体（肩・胸）をpatColで覆い、下端境界線をギザギザ（V字）にする
       return `
         <polygon points="130,20 240,20 240,54 220,67 202,54 184,67 166,54 148,67 130,55" fill="${patCol}"/>
       `;
@@ -966,6 +962,8 @@ let currentRaceInfo = null;
 let raceInfo = null;
 let currentVisualDir = "left_to_right";
 let g1Records = {};
+let isDoubleCutin = false;
+let isStraightOnly = false;
 
 window.showErrorModal = function(msg) {
   const msgEl = document.getElementById('error-modal-msg');
@@ -1123,6 +1121,16 @@ function ensureStats(h) {
   h.style = h.style || master.style || master.running_style || "自在";
 }
 
+// race_master.json の double_cutin_courses に該当するか判定
+function checkIsDoubleCutinCourse(info) {
+  if (!raceMasterData?.double_cutin_courses || !info) return false;
+  return raceMasterData.double_cutin_courses.some(c => 
+    c.track === info.track &&
+    c.distance === info.distance &&
+    (!c.surface || c.surface === info.surface)
+  );
+}
+
 function setupRace(rIdx) {
   if (!raceMasterData || !seriesMasterData) return;
   raceState = 'ready';
@@ -1153,8 +1161,12 @@ function setupRace(rIdx) {
 
   let trackName = currentRaceInfo.track || "中山";
   let turnDir = VENUE_DIRECTION_MASTER[trackName] || "右回り";
-  if (currentRaceInfo.distance === 1000 && trackName === "新潟") turnDir = "直線"; 
+  isStraightOnly = (currentRaceInfo.distance === 1000);
+  if (isStraightOnly) turnDir = "直線"; 
   currentTrackConfig = TRACK_DIRECTION_MASTER[turnDir] || TRACK_DIRECTION_MASTER["右回り"];
+
+  // 2回カットイン対象レースかどうかの判定
+  isDoubleCutin = checkIsDoubleCutinCourse(currentRaceInfo);
 
   let allyStreak = 0;
   let prevAllyLost = false;
@@ -1345,16 +1357,20 @@ function buildHorseActorSVG(h, i) {
   `;
 }
 
+// ★直線のみのレースは上から1枠固定。通常レースは道中が下から1枠、直線が上から1枠
 function applyLaneLayout(isStraight = false) {
   const fieldCount = activeHorses.length || 16;
   const minTop = 85;
   const maxTop = 275;
   const stepY = fieldCount > 1 ? (maxTop - minTop) / (fieldCount - 1) : 12;
 
+  // 直線のみのレース（新潟1000m等）は常に上から1枠固定
+  const effectiveIsStraight = isStraightOnly ? true : isStraight;
+
   activeHorses.forEach((h, i) => {
     const el = document.getElementById(`horse-icon-${i}`);
     if (el) {
-      const laneTopPx = isStraight 
+      const laneTopPx = effectiveIsStraight 
         ? Math.round(minTop + (i * stepY)) 
         : Math.round(maxTop - (i * stepY));
       
@@ -1365,31 +1381,42 @@ function applyLaneLayout(isStraight = false) {
   });
 }
 
+// ★フェーズ1の初期配置：馬がゲート枠内（扉直前）に収まるように配置
 function renderLanes() {
   const lanes = document.getElementById('lanes');
   const gateEl = document.getElementById('start-gate');
-  const initialDir = (currentTrackConfig.phase1_3_dir === "none") ? currentTrackConfig.phase4_dir : currentTrackConfig.phase1_3_dir;
+  
+  // 2回カットインのレースは、Phase1は直線と同じ向きでスタート
+  const initialDir = isDoubleCutin 
+    ? currentTrackConfig.phase4_dir 
+    : ((currentTrackConfig.phase1_3_dir === "none") ? currentTrackConfig.phase4_dir : currentTrackConfig.phase1_3_dir);
+  
   const isRightToLeft = (initialDir === "right_to_left");
 
-  const offscreenLeftPx = isRightToLeft ? 750 : -200;
+  // ゲート配置と、馬の初期待機位置（ゲート内）
+  let gateLeftPx = 0;
+  let horseStartWaitPx = 0;
+
+  if (isRightToLeft) {
+    gateLeftPx = 520;
+    horseStartWaitPx = 525; // ゲート枠内
+  } else {
+    gateLeftPx = 10;
+    horseStartWaitPx = -5;  // ゲート枠内
+  }
 
   if (gateEl) {
     gateEl.style.display = "block";
     gateEl.style.opacity = "1";
     gateEl.style.transition = "none";
-    if (isRightToLeft) {
-      gateEl.style.left = "580px";
-      gateEl.style.transform = "scaleX(-1)";
-    } else {
-      gateEl.style.left = "-20px";
-      gateEl.style.transform = "scaleX(1)";
-    }
+    gateEl.style.left = `${gateLeftPx}px`;
+    gateEl.style.transform = isRightToLeft ? "scaleX(-1)" : "scaleX(1)";
   }
 
   let htmlBuffer = "";
   activeHorses.forEach((h, i) => {
     htmlBuffer += `
-      <div class="horse-icon" id="horse-icon-${i}" style="left: ${offscreenLeftPx}px;">
+      <div class="horse-icon" id="horse-icon-${i}" style="left: ${horseStartWaitPx}px;">
         ${buildHorseActorSVG(h, i)}
       </div>`;
   });
@@ -1620,7 +1647,7 @@ function processAbilityQueue() {
     if (isDebuff) {
       horseObj.abilityNetScore = (horseObj.abilityNetScore || 0) - 1;
     } else {
-      // 乾坤一擲の勝負手（作戦MAX）も一段階のみアップ (+1)
+      // 乾坤一擲も一段階のみアップ (+1)
       const addScore = 1;
       horseObj.abilityNetScore = (horseObj.abilityNetScore || 0) + addScore;
     }
@@ -1721,13 +1748,18 @@ async function startRace() {
     } catch (err) { console.error("進捗保存エラー:", err); }
   }
 
-  const phase1Dir = (currentTrackConfig.phase1_3_dir === "none") ? currentTrackConfig.phase4_dir : currentTrackConfig.phase1_3_dir;
+  // 進行方向の決定（2回カットイン時はPhase1は直線と同じ向き）
+  const phase1Dir = isDoubleCutin 
+    ? currentTrackConfig.phase4_dir 
+    : ((currentTrackConfig.phase1_3_dir === "none") ? currentTrackConfig.phase4_dir : currentTrackConfig.phase1_3_dir);
+  
+  const midPhaseDir = (currentTrackConfig.phase1_3_dir === "none") ? currentTrackConfig.phase4_dir : currentTrackConfig.phase1_3_dir;
   const isRTL = (phase1Dir === "right_to_left");
 
   const hasBigEscape = activeHorses.some(h => h.style === "大逃");
 
   // --------------------------------------------------------------------------
-  // Phase 1 (0.0s〜): ゲート開放 ＆ スタート！（6.0秒間）
+  // Phase 1 (0.0s〜): ゲート開放 ＆ ロケット飛び出しスタート！（6.0秒間）
   // --------------------------------------------------------------------------
   updateLog(`<strong>【スタート】</strong> ${comm.phase1}`);
   
@@ -1738,9 +1770,35 @@ async function startRace() {
     gateEl.style.opacity = "0";
   }
 
+  // 馬がゲートから飛び出して隊列を形成
   let p1Pos = getPosPointsMap(calculatedResults, 40, -15);
   setPhasePositions(p1Pos, 6.0, "linear", phase1Dir); 
   setTimeout(() => spawnFurlongPole("1000", false), 2500);
+
+  // --------------------------------------------------------------------------
+  // ★ 2回カットイン対象レース（ダービー等）：第1ワイプ（第1・第2コーナー旋回）
+  // --------------------------------------------------------------------------
+  if (isDoubleCutin) {
+    setTimeout(() => {
+      const wipe = document.getElementById('wipe-overlay');
+      const wipeTextEl = document.getElementById('wipe-text');
+      wipeTextEl.innerHTML = "第1・第2コーナーをカーブして<br>向こう正面へ！";
+      wipe.style.transition = "left 0.5s cubic-bezier(0.8, 0, 0.2, 1)";
+      wipe.style.left = "0";
+
+      // ワイプ裏で進行方向を向正面（midPhaseDir）へ転換
+      setTimeout(() => {
+        applyLaneLayout(false);
+        setHorseDirection(midPhaseDir);
+        let p1MidStart = getPosPointsMap(calculatedResults, 40, -15);
+        setPhasePositions(p1MidStart, 0, "linear", midPhaseDir);
+      }, 550);
+
+      setTimeout(() => {
+        wipe.style.left = "100%";
+      }, 1000);
+    }, 5400);
+  }
 
   // --------------------------------------------------------------------------
   // Phase 2 (6.0s〜): 向正面（先頭95% / 大逃げ時103%ハミ出し、6.3秒間）
@@ -1768,7 +1826,7 @@ async function startRace() {
 
     const leadP2 = hasBigEscape ? 103 : 95;
     let p2Pos = getPosPointsMap(calculatedResults, leadP2, 18);
-    setPhasePositions(p2Pos, 6.3, "linear", phase1Dir); 
+    setPhasePositions(p2Pos, 6.3, "linear", midPhaseDir); 
   }, 6000);
 
   // --------------------------------------------------------------------------
@@ -1788,17 +1846,17 @@ async function startRace() {
 
     const leadP3 = hasBigEscape ? 104 : 96;
     let p3Pos = getPosPointsMap(calculatedResults, leadP3, 22);
-    setPhasePositions(p3Pos, 6.3, "linear", phase1Dir); 
+    setPhasePositions(p3Pos, 6.3, "linear", midPhaseDir); 
   }, 12300); 
 
   // --------------------------------------------------------------------------
-  // Phase 4 (18.6s〜): 第4コーナーワイプ ＆ 直線レイアウト切替 ＆ 作戦MAX判定
+  // Phase 4 (18.6s〜): 第4コーナーワイプ ＆ 直線レイアウト切替 ＆ 乾坤一擲即時発動
   // --------------------------------------------------------------------------
   setTimeout(() => {
     const wipe = document.getElementById('wipe-overlay');
-    const wipeTextEl = wipe.querySelector('.wipe-text');
+    const wipeTextEl = document.getElementById('wipe-text');
     
-    if (currentRaceInfo.distance === 1000 && (currentRaceInfo.track === "新潟" || currentRaceInfo.track === "ロンシャン")) {
+    if (isStraightOnly) {
       wipeTextEl.innerHTML = "さあ、直線残り400ｍ！！<br>ここからが本当の勝負だ！！";
     } else {
       wipeTextEl.innerHTML = "第4コーナーをカーブして<br>いよいよ最後の直線！！";
@@ -1808,6 +1866,7 @@ async function startRace() {
     wipe.style.left = "0";
     
     setTimeout(() => {
+      // 直線は上から1枠にセット
       applyLaneLayout(true);
       setHorseDirection(currentTrackConfig.phase4_dir);
 
@@ -1835,16 +1894,14 @@ async function startRace() {
           spawnMovingGoalPost(currentTrackConfig.phase4_dir);
         }, 7030);
              
+        // ★直線に入った直後（最優先で乾坤一擲を発動）
         setTimeout(() => {
           updateLog(`<strong>【最後の直線】</strong> ${comm.phase4}`);
           
-          abilityQueue.push({
-            isSystem: true,
-            header: "DEVELOPMENT",
-            popupMessage: `【展開】 ${currentRaceBranch}`
-          });
-          
-          // ★作戦レベル5(MAX)の「乾坤一擲の勝負手（案2のセリフ）」演出
+          abilityQueue = []; // 前のキューが残っていればクリアして最優先割り込み
+          isShowingAbility = false;
+
+          // 作戦Lv5の「乾坤一擲」を最前列に投入
           calculatedResults.forEach(h => {
             if ((h.isPlayer || h.isCpu) && h.level === 5) {
               abilityQueue.push({
@@ -1857,8 +1914,14 @@ async function startRace() {
             }
           });
 
-          processAbilityQueue();
+          // 展開バッジ
+          abilityQueue.push({
+            isSystem: true,
+            header: "DEVELOPMENT",
+            popupMessage: `【展開】 ${currentRaceBranch}`
+          });
 
+          // 直線アビリティ
           const p4Horses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.phase4_abilities && h.phase4_abilities.length > 0);
           if (p4Horses.length > 0) {
             p4Horses.forEach(h => {
@@ -1867,9 +1930,10 @@ async function startRace() {
                 abilityQueue.push({ horse: h, abilityName: abName, popupMessage: `${msg}！` });
               });
             });
-            processAbilityQueue();
           }
-        }, 1500);
+
+          processAbilityQueue();
+        }, 300); // 直線突入直後に即時発火
 
         setTimeout(() => {
           const swapTriggerHorses = calculatedResults.filter(
@@ -1889,7 +1953,7 @@ async function startRace() {
 
         // ====================================================================
         // ★ 7.5秒ジャスト：1着馬ゴールイン！
-        // 0.5秒ヒットストップ（完全静止） ＆ 閃光フラッシュ
+        // 0.5秒ヒットストップ（完全静止） ＆ パシャッと閃光フラッシュ
         // ➔ スローモーション1.5秒前進 ➔ 全馬ピタッと完全停止！
         // ====================================================================
         setTimeout(() => {
