@@ -14,6 +14,7 @@
     --player-color: #3b82f6;
     --opponent-color: #ef4444;
     --gold-color: #ffcc00;
+    --scroll-speed: 0.38s;
   }
   
   body { 
@@ -58,1964 +59,291 @@
     border: 1px solid var(--accent-green); padding: 1px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold;
   }
 
+  /* レーストラック ＆ 背景 */
   #track-container { 
-    background: linear-gradient(90deg, #004400 0%, #006600 50%, #005500 100%); 
-    border: 3px solid #fff; border-radius: 6px; padding: 6px 4px; 
-    position: relative; height: 380px; overflow: hidden; 
-    box-shadow: inset 0 0 20px rgba(0,0,0,0.6); margin-bottom: 10px;
-  }
-  #track-container.dirt-track {
-    background: linear-gradient(90deg, #3d2512 0%, #633e1d 50%, #4a2d14 100%);
+    background: #4d9e59; 
+    border: 3px solid #e2e8f0; 
+    border-radius: 8px; 
+    position: relative; 
+    height: 380px; 
+    overflow: hidden; 
+    box-shadow: inset 0 0 24px rgba(0,0,0,0.65), 0 6px 16px rgba(0,0,0,0.5); 
+    margin-bottom: 10px;
   }
 
-  #ability-popup-container {
+  #track-container.hit-stop * {
+    animation-play-state: paused !important;
+  }
+
+  .track-backdrop {
     position: absolute;
-    left: 50%; 
-    transform: translate(-50%, -50%) scale(0.7);
-    z-index: 60; 
-    pointer-events: none; 
-    opacity: 0;
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    width: 85%; 
-    max-width: 420px;
+    top: 0; left: 0; right: 0; width: 100%;
+    height: 96px;
+    background: linear-gradient(to bottom,
+      #3b8246 0px, #3b8246 14px,
+      #e2e8f0 14px, #cbd5e1 18px,
+      #9a7b69 18px, #856756 50px,
+      #235c34 50px, #194526 74px,
+      #f8fafc 74px, #cbd5e1 81px,
+      transparent 81px
+    );
+    z-index: 1;
+    pointer-events: none;
+  }
+  #track-container.dirt-track .track-backdrop {
+    background: linear-gradient(to bottom,
+      #7c5d4b 0px, #7c5d4b 14px,
+      #e2e8f0 14px, #cbd5e1 18px,
+      #478c4f 18px, #3b7642 50px,
+      #2c4c32 50px, #1e3623 74px,
+      #f8fafc 74px, #cbd5e1 81px,
+      transparent 81px
+    );
   }
 
-  #ability-popup-container.p1-pos { top: 25%; }
-  #ability-popup-container.p2-pos { top: 55%; }
-
-  #ability-popup-container.show {
-    opacity: 1; transform: translate(-50%, -50%) scale(1);
-  }
-  .ability-popup-box {
-    background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(20,20,35,0.95));
-    border: 2px solid var(--gold-color);
-    box-shadow: 0 0 20px rgba(255, 204, 0, 0.6), inset 0 0 10px rgba(255, 204, 0, 0.3);
-    border-radius: 10px; padding: 12px; text-align: center;
-  }
-  .ability-popup-box.p1-ability { border-color: var(--player-color); box-shadow: 0 0 20px rgba(59,130,246,0.7); }
-  .ability-popup-box.p2-ability { border-color: var(--opponent-color); box-shadow: 0 0 20px rgba(239,68,68,0.7); }
-  
-  .ability-pop-header { font-size: 0.85em; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; }
-  .ability-pop-horse { font-size: 1.1em; font-weight: bold; color: #fff; margin: 3px 0; }
-  .ability-pop-name { font-size: 1.4em; font-weight: bold; color: var(--gold-color); text-shadow: 0 0 8px #000; }
-
-  #wipe-overlay {
-    position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
-    background: linear-gradient(90deg, #1e1035, #000000, #1e1035);
-    z-index: 50; display: flex; justify-content: center; align-items: center;
-    transition: left 0.6s cubic-bezier(0.8, 0, 0.2, 1);
-  }
-  .wipe-text { color: var(--gold-color); font-size: 1.5em; font-weight: bold; text-align: center; text-shadow: 2px 2px 10px #000; }
-  
-  #race-telop {
-    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%) scale(0.8);
-    background: rgba(0, 0, 0, 0.85); border: 2px solid var(--gold-color); color: var(--gold-color);
-    padding: 6px 16px; border-radius: 30px; font-size: 1em; font-weight: bold;
-    z-index: 40; opacity: 0; transition: all 0.4s; pointer-events: none; white-space: nowrap;
-  }
-  #race-telop.show { opacity: 1; transform: translateX(-50%) scale(1); }
-  
-  #goal-line { position: absolute; top: 0; bottom: 0; width: 4px; background: var(--gold-color); box-shadow: 0 0 15px var(--gold-color); z-index: 20; display: none; }
-  #goal-flag { position: absolute; top: 2px; background: var(--gold-color); color: #000; font-weight: bold; font-size: 10px; padding: 2px 6px; border-radius: 2px; z-index: 21; display: none; }
-  .horse-lane { position: relative; height: 22px; border-bottom: 1px dashed rgba(255,255,255,0.15); }
-  .horse-icon { 
-    position: absolute; left: 10px; top: -2px; font-size: 11px; white-space: nowrap; 
-    background: rgba(0, 0, 0, 0.85); border: 1px solid #777; padding: 1px 5px; 
-    color: #fff; line-height: 1.1; border-radius: 4px; z-index: 10; 
-  }
-  .horse-emoji { font-size: 13px; vertical-align: middle; margin-right: 2px; display: inline-block; }
-  .horse-emoji.flipped { transform: scaleX(-1); margin-right: 0; margin-left: 2px; }
-  .p1-name { color: var(--player-color) !important; font-weight: bold; }
-  .p2-name { color: var(--opponent-color) !important; font-weight: bold; }
-
-  #commentary-box { 
-    background: #090611; 
-    color: #ffffff; 
-    border: 2px double var(--accent-purple); 
-    padding: 10px 12px; 
-    border-radius: 6px; 
-    min-height: 50px; 
-    font-size: 0.85em; 
-    margin-bottom: 10px; 
-    line-height: 1.4; 
+  .track-rail-posts {
+    position: absolute;
+    top: 76px; left: 0; right: 0; width: 100%;
+    height: 22px;
+    background: repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 64px,
+      #e2e8f0 64px,
+      #94a3b8 70px
+    );
+    z-index: 2;
+    pointer-events: none;
   }
 
-  #commentary-box .btn-next {
-    margin-top: 8px;
-    padding: 10px;
-    font-size: 1em;
+  .track-surface {
+    position: absolute;
+    top: 94px; bottom: 0; left: 0; right: 0; width: 100%;
+    background: repeating-linear-gradient(
+      90deg,
+      #4ea84a 0px,
+      #4ea84a 90px,
+      #5cb857 90px,
+      #5cb857 180px
+    );
+    z-index: 1;
+    pointer-events: none;
+  }
+  #track-container.dirt-track .track-surface {
+    background: repeating-linear-gradient(
+      90deg,
+      #8c6244 0px,
+      #8c6244 90px,
+      #996d4e 90px,
+      #996d4e 180px
+    );
   }
 
-  .vs-container { display: flex; justify-content: center; align-items: center; gap: 12px; margin-bottom: 12px; }
-  .mini-card { 
-    flex: 1; 
-    background: linear-gradient(145deg, #1c152b, #130d1f); 
-    border: 2px solid var(--border-color); 
-    border-radius: 15px; 
-    padding: 10px; 
-    text-align: center; 
-    box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+  #track-container.running.dir-rtl .track-rail-posts,
+  #track-container.running.dir-rtl .track-surface {
+    animation: scrollGroundLTR var(--scroll-speed) linear infinite;
   }
-  .mini-card.p1 { border-color: var(--player-color); background: rgba(59, 130, 246, 0.1); }
-  .mini-card.p2 { border-color: var(--opponent-color); background: rgba(239, 68, 68, 0.1); }
-  
-  .card-label-row {
+  #track-container.running.dir-ltr .track-rail-posts,
+  #track-container.running.dir-ltr .track-surface {
+    animation: scrollGroundRTL var(--scroll-speed) linear infinite;
+  }
+
+  @keyframes scrollGroundLTR {
+    from { background-position: 0 0; }
+    to   { background-position: 180px 0; }
+  }
+  @keyframes scrollGroundRTL {
+    from { background-position: 0 0; }
+    to   { background-position: -180px 0; }
+  }
+
+  #start-gate {
+    position: absolute;
+    top: 65px;
+    width: 90px;
+    height: 235px;
+    z-index: 8;
+    pointer-events: none;
+    transition: left 2.0s cubic-bezier(0.4, 0, 0.8, 1), opacity 0.8s ease-in 0.8s;
+    display: none;
+  }
+
+  #furlong-layer {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 3;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .furlong-pole {
+    position: absolute;
+    top: 22px;
+    width: 46px;
+    height: 80px;
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
     align-items: center;
-    border-bottom: 1px dashed #555;
-    padding-bottom: 4px;
-    margin-bottom: 4px;
+    transition: left 1.8s linear;
+  }
+  .furlong-sign {
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 900;
+    font-family: Arial, sans-serif;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.6);
+    letter-spacing: -0.5px;
+  }
+  .furlong-sign.jra-blue {
+    background: #ffffff;
+    color: #1d4ed8;
+    border: 3.5px solid #1d4ed8;
+  }
+  .furlong-sign.jra-red {
+    background: #ffffff;
+    color: #dc2626;
+    border: 3.5px solid #dc2626;
+    box-shadow: 0 0 14px rgba(220,38,38,0.85);
+  }
+  .furlong-stick {
+    width: 5px;
+    height: 36px;
+    background: repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff 7px, #dc2626 7px, #dc2626 14px);
+    box-shadow: 1px 0 4px rgba(0,0,0,0.5);
+  }
+
+  .moving-goal-pole {
+    position: absolute;
+    top: 18px;
+    bottom: 0;
+    width: 24px;
+    z-index: 6;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .moving-goal-flag {
+    background: linear-gradient(135deg, #d97706, #facc15);
+    color: #000;
+    border: 2px solid #fff;
+    font-weight: 900;
+    font-size: 11px;
+    padding: 2px 9px;
+    border-radius: 12px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.6);
+    white-space: nowrap;
+    margin-bottom: 2px;
+  }
+  .moving-goal-line {
+    width: 4px;
+    flex: 1;
+    background: linear-gradient(to bottom, #ffffff, #ffcc00);
+    box-shadow: 0 0 16px rgba(255, 204, 0, 1);
+  }
+
+  #flash-overlay {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: #ffffff; opacity: 0; z-index: 70; pointer-events: none;
+    transition: opacity 0.08s ease-out;
+  }
+  #flash-overlay.flash {
+    opacity: 0.92;
+    transition: none;
+  }
+
+  #lanes {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .horse-icon {
+    position: absolute;
+    width: 94px;
+    height: 61px;
+    transform-origin: center center;
+    will-change: left, top;
+  }
+  .horse-icon.dir-ltr { transform: scaleX(-1); }
+
+  .horse-shadow {
+    position: absolute;
+    bottom: 3px; left: 12px; width: 68px; height: 8px;
+    background: rgba(0, 0, 0, 0.45); border-radius: 50%;
+  }
+
+  .horse-bounce-wrap { width: 100%; height: 100%; position: relative; }
+  #track-container.running .horse-bounce-wrap {
+    animation: gallopBounce 0.32s ease-in-out infinite alternate;
+  }
+  #track-container.running .horse-shadow {
+    animation: shadowScale 0.32s ease-in-out infinite alternate;
   }
 
-  .card-label { font-size: 11px; font-weight: bold; }
-  .card-label.p1 { color: var(--player-color); }
-  .card-label.p2 { color: var(--opponent-color); }
-  
-  .status-badge {
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 10px;
-    font-weight: bold;
+  @keyframes gallopBounce {
+    0%   { transform: translateY(2.5px) rotate(-1.0deg); }
+    100% { transform: translateY(-4.0px) rotate(1.2deg); }
   }
-  .status-badge.waiting {
-    background: rgba(249, 115, 22, 0.2);
-    border: 1px solid #f97316;
-    color: #fdba74;
+  @keyframes shadowScale {
+    0%   { transform: scaleX(1.04); opacity: 0.58; }
+    100% { transform: scaleX(0.84); opacity: 0.25; }
   }
-  .status-badge.ready {
-    background: rgba(0, 255, 102, 0.2);
-    border: 1px solid var(--accent-green);
-    color: var(--accent-green);
-  }
-
-  .card-horse-img { width: 148px; height: auto; margin: 5px 0; image-rendering: pixelated; }
-  .card-horse-name { font-weight: bold; font-size: 13px; color: #fff; margin: 4px 0; }
-  .card-strat-info { font-size: 11px; color: var(--gold-color); font-weight: bold; }
-  .vs-badge { font-weight: bold; color: #aaa; font-size: 14px; }
-
-  .btn-next {
-    background: linear-gradient(135deg, #6d28d9, #8b5cf6); color: #ffffff; font-weight: bold; 
-    font-size: 1.1em; cursor: pointer; border: 2px solid var(--gold-color); width: 100%; padding: 12px; 
-    border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-  }
-  .btn-next:disabled { background: #222; color: #666; border-color: #444; cursor: not-allowed; }
-  
-  .data-table { width: 100%; border-collapse: collapse; background: #111; font-size: 0.75em; border: 1px solid #333; margin-top: 8px; }
-  .data-table th, .data-table td { border: 1px solid #222; padding: 5px 4px; text-align: center; vertical-align: middle; }
-  .data-table th { background: #1a1528; color: var(--accent-green); white-space: nowrap; }
-  
-  .detail-text { font-family: monospace; font-size: 0.8em; color: #ffcc00; word-break: break-all; line-height: 1.3; text-align: left; }
-  .horse-sub-info { font-size: 0.85em; color: #aaa; display: block; margin-top: 2px; }
-  .pos-info { font-size: 0.85em; color: #888; display: block; }
-  
-  .result-summary-panel {
-    background: #151022; border: 1px solid #3b2d54; border-radius: 6px;
-    padding: 8px 12px; margin-top: 8px; font-size: 0.8em; line-height: 1.5;
-  }
-  .summary-label { color: var(--gold-color); font-weight: bold; }
-
-  #final-series-modal, #error-modal {
-    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.92); z-index: 100; padding: 20px 10px; box-sizing: border-box; overflow-y: auto;
-  }
-  .modal-content {
-    background: var(--panel-bg); border: 2px solid var(--gold-color); border-radius: 8px;
-    padding: 15px; max-width: 550px; margin: 20px auto; text-align: center;
-  }
-  .series-winner-title { font-size: 1.6em; font-weight: bold; color: var(--gold-color); margin-bottom: 10px; }
-  .series-score-box { font-size: 1.2em; font-weight: bold; background: #000; border: 1px solid #444; padding: 10px; margin: 10px 0; border-radius: 6px; }
-
-  .error-modal-content {
-    background: var(--panel-bg); border: 2px solid var(--opponent-color); border-radius: 8px;
-    padding: 20px; max-width: 450px; margin: 80px auto; text-align: center;
-    box-shadow: 0 0 25px rgba(239, 68, 68, 0.6);
-  }
-  .error-title { color: var(--opponent-color); font-size: 1.3em; font-weight: bold; margin-bottom: 10px; }
-  .error-msg { font-size: 0.9em; margin-bottom: 20px; line-height: 1.5; color: #ddd; }
-  .btn-secondary {
-    background: #333; color: #ccc; font-weight: bold; font-size: 0.9em; cursor: pointer;
-    border: 1px solid #555; width: 100%; padding: 10px; border-radius: 6px;
-  }
-</style>
-</head>
-<body>
-<div id="race-view">
-  <div class="race-title-panel">
-    <div class="race-header-top">
-      <div class="race-num-badge" id="display-race-num">RACE 1 / 5</div>
-      <button class="btn-header-reset" onclick="quitOnlineMatch()">⚠️ 退室する</button>
-    </div>
-    <div class="race-venue-dist" id="display-race-title">---</div>
-    <span class="race-condition-badge" id="display-race-cond">馬場: ---</span>
-  </div>
-
-  <div id="track-container">
-    <div id="ability-popup-container">
-      <div class="ability-popup-box" id="ability-popup-box">
-        <div class="ability-pop-header" id="ability-pop-header">ABILITY ACTIVATED!</div>
-        <div class="ability-pop-horse" id="ability-pop-horse">馬名</div>
-        <div class="ability-pop-name" id="ability-pop-name">【アビリティ名】</div>
-      </div>
-    </div>
-
-    <div id="race-telop">【ペース】 ---</div>
-    <div id="wipe-overlay">
-      <div class="wipe-text">第4コーナーをカーブして<br>いよいよ最後の直線！！</div>
-    </div>
-    <div id="goal-line"></div>
-    <div id="goal-flag">GOAL</div>
-    <div id="lanes"></div>
-  </div>
-
-  <div id="commentary-box">
-    <div style="color: var(--accent-green); font-weight: bold; font-size: 0.8em;">【対戦実況中継】</div>
-    <div id="log-content">オンライン出走データを読み込み中...</div>
-    <button class="btn-next" id="nextBtn" onclick="handleButtonClick()" disabled>⏳ 出走準備中...</button>
-  </div>
-
-  <div class="vs-container">
-    <div class="mini-card p1">
-      <div class="card-label-row">
-        <div class="card-label p1" id="p1-card-label">★ YOU</div>
-        <span class="status-badge ready" id="p1-status-badge">READY ✅</span>
-      </div>
-      <img src="" alt="horse" class="card-horse-img" id="p1-card-img">
-      <div class="card-horse-name" id="p1-card-name">-</div>
-      <div class="card-strat-info" id="p1-card-strat">作戦: - (Lv.-)</div>
-    </div>
-    <div class="vs-badge">VS</div>
-    <div class="mini-card p2">
-      <div class="card-label-row">
-        <div class="card-label p2" id="p2-card-label">OPPONENT</div>
-        <span class="status-badge waiting" id="p2-status-badge">思案中 ⏳</span>
-      </div>
-      <img src="" alt="horse" class="card-horse-img" id="p2-card-img">
-      <div class="card-horse-name" id="p2-card-name">-</div>
-      <div class="card-strat-info" id="p2-card-strat">作戦: - (Lv.-)</div>
-    </div>
-  </div>
-  
-  <div id="result-container" style="display: none; margin-top: 10px; overflow-x: auto;">
-    <div style="color: var(--accent-green); font-weight: bold; font-size: 0.9em;">📊 レース着順結果 & パラメータ検証</div>
-    
-    <div class="result-summary-panel">
-      <div><span class="summary-label">レース展開:</span> <span id="summary-pace-branch">---</span></div>
-      <div><span class="summary-label">着順計算式:</span> <span id="summary-formula">---</span></div>
-    </div>
-
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th style="width: 12%;">着順</th>
-          <th style="width: 28%;">馬名 / 作戦</th>
-          <th style="width: 14%;">位置/隊列</th>
-          <th style="width: 12%;">評価Pt</th>
-          <th style="width: 34%;">加算詳細 (内訳)</th>
-        </tr>
-      </thead>
-      <tbody id="result-body"></tbody>
-    </table>
-  </div>
-</div>
-
-<!-- 最終結果モーダル -->
-<div id="final-series-modal">
-  <div class="modal-content">
-    <div class="series-winner-title" id="series-result-title">🏆 オンライン対戦 決定！</div>
-
-    <div class="series-score-box" id="series-score-detail">---</div>
-    
-    <div style="text-align: left; margin-top: 15px; font-weight: bold; color: var(--accent-green);">📜 対戦成績結果</div>
-    <table class="data-table">
-      <thead><tr><th>R</th><th>あなた (着順)</th><th>相手 (着順)</th><th>勝者</th></tr></thead>
-      <tbody id="series-history-body"></tbody>
-    </table>
-
-    <div id="modalHostStatusMsg" style="margin-top: 15px; font-size: 0.9em; font-weight: bold; color: var(--gold-color);"></div>
-    <button class="btn-next" id="modalNextBtn" style="margin-top: 10px;" onclick="finishMatchAndNextOrLobby()">回戦終了：対戦画面（onbattle.html）へ戻る</button>
-  </div>
-</div>
-
-<!-- エラーモーダル -->
-<div id="error-modal">
-  <div class="error-modal-content">
-    <div class="error-title">⚠ エラー発生 / データ異常</div>
-    <div class="error-msg" id="error-modal-msg">対戦データに問題が発生したか、正しく読み込めませんでした。</div>
-    <button class="btn-secondary" onclick="quitOnlineMatch()">🔙 オンラインロビー（online.html）に戻る</button>
-  </div>
-</div>
-
-<script type="module">
-import { auth, db } from './firebase-config.js';
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { doc, getDoc, updateDoc, onSnapshot, increment, deleteField, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-import { determineStrategy } from "./js/mob.js";
-import { runRaceLogic } from "./js/race_calculator.js";
-
-const VENUE_DIRECTION_MASTER = {
-  "中京": "左回り", "福島": "右回り", "新潟": "左回り", "小倉": "右回り",
-  "札幌": "右回り", "京都": "右回り", "東京": "左回り", "中山": "右回り",
-  "阪神": "右回り", "高知": "右回り", "川崎": "左回り", "船橋": "左回り",
-  "大井": "右回り", "盛岡": "右回り", "浦和": "左回り", "園田": "右回り",
-  "笠松": "右回り", "門別": "右回り", "サンクルー": "左回り", "ロンシャン": "右回り",
-  "クランジ": "左回り", "沙田": "右回り", "メイダン": "左回り", "レパーズタウン": "左回り",
-  "ニューマーケット": "右回り", "エプソム": "左回り", "アスコット": "右回り",
-  "米": "左回り", "サンタアニタ": "左回り", "チャーチルダウンズ": "左回り", "ベルモントパーク": "左回り"
-};
-
-const TRACK_DIRECTION_MASTER = {
-  "右回り": { phase1_3_dir: "left_to_right", phase4_dir: "right_to_left", goal_position: "left" },
-  "左回り": { phase1_3_dir: "right_to_left", phase4_dir: "left_to_right", goal_position: "right" },
-  "直線":   { phase1_3_dir: "none",          phase4_dir: "left_to_right", goal_position: "right" }
-};
-
-let currentUser = null;
-let globalUserData = null;
-let roomData = null;
-
-let currentRaceIndex = 0;
-let totalRounds = 5;
-let fullRaceGrids = [];
-let trackCondition = "良";
-let activeHorses = [];
-let raceState = 'loading';
-let calculatedResults = [];
-let seriesHistory = []; 
-
-let raceMasterData = null; 
-let seriesMasterData = {}; 
-let strategyMasterData = null;
-let abilityMasterData = null;
-let HORSES_MASTER = {};
-
-let currentRacePace = "";
-let currentRaceBranch = ""; 
-let currentRaceFormulaStr = "";
-let currentTrackConfig = TRACK_DIRECTION_MASTER["右回り"];
-let currentRaceInfo = null;
-
-let myNameStr = "あなた";
-let oppNameStr = "対戦相手";
-let roomUnsubscribe = null;
-let roomPollingInterval = null; 
-let isNavigatingAway = false;
-let isCalculating = false;
-let isGiveupMatch = false; 
-
-const urlParams = new URLSearchParams(window.location.search);
-const roomId = urlParams.get('roomId');
-const role = urlParams.get('role');
-
-function getCurrentProgressCode() {
-  const seriesNum = (roomData?.current_series_index || 0) + 1;
-  const raceNum = currentRaceIndex + 1;
-  return Number(`${seriesNum}${raceNum}`);
-}
-
-function normalizeHorseId(id) {
-  if (id === null || id === undefined || id === "") return "";
-  return String(id).padStart(4, '0');
-}
-
-function getSeedFromString(str) {
-  let hash = 0;
-  if (!str) return 12345;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-}
-
-function seededRandom(seed) {
-  const x = Math.sin(seed) * 10000;
-  return x - Math.floor(x);
-}
-
-function shuffleArrayWithSeed(array, seed) {
-  const arr = [...array];
-  let s = seed;
-  for (let i = arr.length - 1; i > 0; i--) {
-    s += 1;
-    const rand = seededRandom(s);
-    const j = Math.floor(rand * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
-function removeUndefinedFields(obj) {
-  if (obj === null || typeof obj !== 'object') return obj;
-  if (Array.isArray(obj)) {
-    return obj.map(removeUndefinedFields);
-  }
-  const cleanObj = {};
-  for (const key of Object.keys(obj)) {
-    if (obj[key] !== undefined) {
-      cleanObj[key] = removeUndefinedFields(obj[key]);
-    }
-  }
-  return cleanObj;
-}
-
-function stopRoomListening() {
-  if (roomUnsubscribe) {
-    roomUnsubscribe();
-    roomUnsubscribe = null;
-  }
-  if (roomPollingInterval) {
-    clearInterval(roomPollingInterval);
-    roomPollingInterval = null;
-  }
-}
-
-window.showErrorModal = function(msg) {
-  const msgEl = document.getElementById('error-modal-msg');
-  if (msgEl) msgEl.textContent = msg;
-  const modal = document.getElementById('error-modal');
-  if (modal) modal.style.display = "block";
-};
-
-window.quitOnlineMatch = async function() {
-  if (!confirm("対戦を途中で退室しますか？（対戦ロビーに戻ります）")) return;
-  isNavigatingAway = true;
-  stopRoomListening();
-
-  if (roomId && currentUser) {
-    try {
-      await updateDoc(doc(db, "online_matches", roomId), {
-        status: "cancelled",
-        cancelled_by: currentUser.uid
-      });
-    } catch (e) {}
-  }
-  window.location.href = 'online.html';
-};
-
-onAuthStateChanged(auth, async (user) => {
-  if (!user) { window.location.href = 'auth.html'; return; }
-  currentUser = user;
-
-  if (!roomId || !role) {
-    showErrorModal("対戦IDまたはプレイヤー役割が不正確です。ロビーへお戻りください。");
-    return;
-  }
-
-  updateLog("マスターデータおよび対戦データを読み込み中...");
-  try {
-    const userDoc = await getDoc(doc(db, "users", user.uid));
-    if (userDoc.exists()) globalUserData = userDoc.data();
-
-    const roomSnap = await getDoc(doc(db, "online_matches", roomId));
-    if (!roomSnap.exists()) {
-      showErrorModal("対戦ルームが存在しません。");
-      return;
-    }
-    roomData = roomSnap.data();
-
-    await loadMasterData();
-
-    const isHost = (role === 'host');
-    const oppUid = isHost ? roomData.player2_uid : roomData.player1_uid;
-
-    myNameStr = globalUserData?.nickname || globalUserData?.displayName || globalUserData?.name || (isHost ? roomData.player1_name : roomData.player2_name) || "あなた";
-    
-    if (oppUid) {
-      try {
-        const oppUserSnap = await getDoc(doc(db, "users", oppUid));
-        if (oppUserSnap.exists()) {
-          const u = oppUserSnap.data();
-          oppNameStr = u.nickname || u.displayName || u.name || oppNameStr;
-        }
-      } catch (e) {}
-    }
-    if (!oppNameStr || oppNameStr === "対戦相手") {
-      oppNameStr = isHost ? (roomData.player2_name || "対戦相手") : (roomData.player1_name || "対戦相手");
-    }
-
-    const p1Giveup = !!roomData.player1_giveup;
-    const p2Giveup = !!roomData.player2_giveup;
-
-    if (p1Giveup || p2Giveup) {
-      listenRoomStatus();
-      await checkAndUpdateReadyState();
-      return;
-    }
-
-    const cacheObj = roomData.race_results_cache;
-    const isCacheComplete = cacheObj && typeof cacheObj === 'object' && Object.keys(cacheObj).length >= 5;
-
-    if (isCacheComplete) {
-      const matchSeries = roomData?.match_series || roomData?.selected_series || ["series_01"];
-      const currentSeriesIndex = roomData?.current_series_index || 0;
-      const seriesId = Array.isArray(matchSeries) ? (matchSeries[currentSeriesIndex] || matchSeries[0]) : matchSeries;
-      const seriesInfo = seriesMasterData[seriesId] || Object.values(seriesMasterData)[0] || {};
-      const racesInSeries = seriesInfo.races || (seriesInfo.rounds && seriesInfo.rounds[0] ? seriesInfo.rounds[0].races : null);
-
-      seriesHistory = [];
-      for (let rIdx = 0; rIdx < 5; rIdx++) {
-        const seriesNum = currentSeriesIndex + 1;
-        const pKey = `${seriesNum}${rIdx + 1}`;
-        const raceRes = cacheObj[pKey]; 
-        if (!raceRes) continue;
-
-        const roundRace = (Array.isArray(racesInSeries) && racesInSeries[rIdx]) ? racesInSeries[rIdx] : null;
-        const raceName = roundRace?.race_name || `第${rIdx + 1}戦`;
-
-        const results = raceRes.results || [];
-        results.forEach(h => {
-          if (h.playerRole === 'host') {
-            h.isPlayer = isHost;
-            h.isOpponent = !isHost;
-          } else if (h.playerRole === 'guest') {
-            h.isPlayer = !isHost;
-            h.isOpponent = isHost;
-          } else {
-            h.isPlayer = false;
-            h.isOpponent = false;
-          }
-        });
-
-        const myHorse = results.find(h => h.isPlayer);
-        const oppHorse = results.find(h => h.isOpponent);
-
-        const myRank = myHorse ? (results.indexOf(myHorse) + 1) : 99;
-        const oppRank = oppHorse ? (results.indexOf(oppHorse) + 1) : 99;
-
-        let isWin = false;
-        let winnerText = "引き分け";
-        if (myRank < oppRank) {
-          isWin = true;
-          winnerText = myNameStr;
-        } else if (oppRank < myRank) {
-          isWin = false;
-          winnerText = oppNameStr;
-        }
-
-        seriesHistory.push({
-          raceNum: rIdx + 1,
-          raceName: raceName,
-          myRank: myRank,
-          oppRank: oppRank,
-          win: isWin,
-          winner: winnerText
-        });
-      }
-
-      const watchedKey = `watched_race_${roomId}_${currentSeriesIndex}`;
-      const hasWatchedAll = sessionStorage.getItem(watchedKey);
-      if (hasWatchedAll === "true") {
-        showFinalSeriesResult();
-        listenRoomStatus();
-        return; 
-      } else {
-        const isSuccess = buildRaceGridsFromOnlineData();
-        if (!isSuccess) return;
-        setupRace(currentRaceIndex);
-        listenRoomStatus();
-        return;
-      }
-    }
-
-    const isSuccess = buildRaceGridsFromOnlineData();
-    if (!isSuccess) return;
-
-    setupRace(currentRaceIndex);
-
-    try {
-      const roomRef = doc(db, "online_matches", roomId);
-      const readyPayload = isHost ? { player1_ready: true, p1_status: "racing" } : { player2_ready: true, p2_status: "racing" };
-      await updateDoc(roomRef, readyPayload);
-    } catch (readyErr) {
-      console.error("到着ステータス更新エラー:", readyErr);
-    }
-
-    listenRoomStatus();
-  } catch (err) {
-    console.error("初期化エラー:", err);
-    showErrorModal("データの読み込みに失敗しました。対戦データが正常でない可能性があります。");
-  }
-});
-
-function prepareHorseData(h) {
-  ensureStats(h);
-
-  let matchedStrat = null;
-  if (Array.isArray(strategyMasterData) && h.tactic) {
-    matchedStrat = strategyMasterData.find(s => s.name === h.tactic || s.tactic === h.tactic);
-  }
-
-  if (matchedStrat) {
-    h.stratObj = matchedStrat;
-    Object.keys(matchedStrat).forEach(key => {
-      if (typeof matchedStrat[key] === 'number') {
-        h[`strat_${key}`] = matchedStrat[key]; 
-      }
-    });
-  }
-
-  const lvl = h.level || 1;
-  h.strat_potential = lvl * 2;
-  h.strat_name = matchedStrat ? matchedStrat.name : (h.tactic || "通常");
-
-  const normId = normalizeHorseId(h.horse_id);
-  const master = HORSES_MASTER[normId] || HORSES_MASTER[String(h.horse_id)] || {};
-  if (master.ability) {
-    h.ability = master.ability;
-  }
-}
-
-async function ensureUsedHorsesUpdated() {
-  if (!roomData || !roomId) return;
-  const p1Entries = Array.isArray(roomData.player1_entries) ? roomData.player1_entries : [];
-  const p2Entries = Array.isArray(roomData.player2_entries) ? roomData.player2_entries : [];
-
-  const p1Norm = p1Entries.map(normalizeHorseId).filter(id => id !== "");
-  const p2Norm = p2Entries.map(normalizeHorseId).filter(id => id !== "");
-
-  const currentP1Used = (roomData.player1_used_horses || []).map(normalizeHorseId);
-  const currentP2Used = (roomData.player2_used_horses || []).map(normalizeHorseId);
-
-  const p1NeedAdd = p1Norm.filter(id => !currentP1Used.includes(id));
-  const p2NeedAdd = p2Norm.filter(id => !currentP2Used.includes(id));
-
-  if (p1NeedAdd.length > 0 || p2NeedAdd.length > 0) {
-    const roomRef = doc(db, "online_matches", roomId);
-    const updatePayload = {};
-    if (p1NeedAdd.length > 0) {
-      updatePayload.player1_used_horses = arrayUnion(...p1NeedAdd);
-    }
-    if (p2NeedAdd.length > 0) {
-      updatePayload.player2_used_horses = arrayUnion(...p2NeedAdd);
-    }
-    try {
-      await updateDoc(roomRef, updatePayload);
-    } catch (e) {
-      console.error("使用済み馬データの同期更新エラー:", e);
-    }
-  }
-}
-
-// ★充足率（合計ポテンシャル）の計算と記録を追加
-async function calculateAndUploadAllRaces() {
-  await ensureUsedHorsesUpdated();
-
-  const cacheObj = roomData.race_results_cache;
-  if (cacheObj && typeof cacheObj === 'object' && Object.keys(cacheObj).length >= 5) {
-    return;
-  }
-
-  const allRaceResults = {};
-  let p1RoundWins = 0;
-  let p2RoundWins = 0;
-  let p1_r1 = 0, p1_r2 = 0, p1_r3 = 0;
-  let p2_r1 = 0, p2_r2 = 0, p2_r3 = 0;
-
-  try {
-    const seriesNum = (roomData?.current_series_index || 0) + 1;
-    const matchSeries = roomData?.match_series || roomData?.selected_series || ["series_01"];
-    const currentSeriesIndex = roomData?.current_series_index || 0;
-    const seriesId = Array.isArray(matchSeries) ? (matchSeries[currentSeriesIndex] || matchSeries[0]) : matchSeries;
-    const seriesInfo = seriesMasterData[seriesId] || Object.values(seriesMasterData)[0] || {};
-    const racesInSeries = seriesInfo.races || (seriesInfo.rounds && seriesInfo.rounds[0] ? seriesInfo.rounds[0].races : null);
-
-    // ★ ポテンシャル上限の取得（充足率計算用）
-    let maxPotentialLimit = 85; 
-    if (seriesInfo?.potential_limit?.max_total_potential) {
-      maxPotentialLimit = parseInt(seriesInfo.potential_limit.max_total_potential, 10);
-    } else if (seriesInfo?.potential_limit?.total_limit) {
-      maxPotentialLimit = parseInt(seriesInfo.potential_limit.total_limit, 10);
-    } else if (seriesInfo?.potential_limit?.max_pt) {
-      maxPotentialLimit = parseInt(seriesInfo.potential_limit.max_pt, 10);
-    }
-
-    let p1TotalPt = 0;
-    let p2TotalPt = 0;
-
-    for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
-      const raceGrid = fullRaceGrids[rIdx];
-      raceGrid.forEach(h => prepareHorseData(h));
-
-      const racesTrackConditions = roomData?.races_track_conditions || [];
-      const tCond = racesTrackConditions[rIdx] || "良";
-      
-      const roundRace = (Array.isArray(racesInSeries) && racesInSeries[rIdx]) ? racesInSeries[rIdx] : null;
-
-      const rInfo = {
-        race_name: roundRace?.race_name || `第${rIdx + 1}戦`,
-        race_number: rIdx + 1,
-        surface: roundRace?.surface || "芝",
-        distance: roundRace?.distance || 2000,
-        track: roundRace?.track || "中山"
-      };
-
-      const result = runRaceLogic(raceGrid, raceMasterData, tCond, rInfo, abilityMasterData);
-      const cleanResult = removeUndefinedFields(JSON.parse(JSON.stringify(result)));
-      
-      const progressKey = String(`${seriesNum}${rIdx + 1}`);
-      allRaceResults[progressKey] = cleanResult;
-
-      const p1Horse = cleanResult.results.find(h => h.playerRole === 'host');
-      const p2Horse = cleanResult.results.find(h => h.playerRole === 'guest');
-      const p1Rank = p1Horse ? (cleanResult.results.indexOf(p1Horse) + 1) : 99;
-      const p2Rank = p2Horse ? (cleanResult.results.indexOf(p2Horse) + 1) : 99;
-
-      if (p1Rank < p2Rank) p1RoundWins++;
-      else if (p2Rank < p1Rank) p2RoundWins++;
-
-      if (p1Rank === 1) p1_r1++;
-      if (p1Rank === 2) p1_r2++;
-      if (p1Rank === 3) p1_r3++;
-      
-      if (p2Rank === 1) p2_r1++;
-      if (p2Rank === 2) p2_r2++;
-      if (p2Rank === 3) p2_r3++;
-
-      // ★ 充足率計算用のポテンシャル合算
-      const isDirt = rInfo.surface.includes('ダ');
-      if (p1Horse) {
-        const pt = isDirt ? (p1Horse.dirt_potential ?? p1Horse.potential ?? 0) : (p1Horse.turf_potential ?? p1Horse.potential ?? 0);
-        p1TotalPt += Number(pt);
-      }
-      if (p2Horse) {
-        const pt = isDirt ? (p2Horse.dirt_potential ?? p2Horse.potential ?? 0) : (p2Horse.turf_potential ?? p2Horse.potential ?? 0);
-        p2TotalPt += Number(pt);
-      }
-    }
-
-    const p1_r4Plus = Math.max(0, 5 - (p1_r1 + p1_r2 + p1_r3));
-    const p2_r4Plus = Math.max(0, 5 - (p2_r1 + p2_r2 + p2_r3));
-
-    // ★ 充足率の計算
-    const p1Fulfillment = parseFloat(((p1TotalPt / maxPotentialLimit) * 100).toFixed(1));
-    const p2Fulfillment = parseFloat(((p2TotalPt / maxPotentialLimit) * 100).toFixed(1));
-
-    const p1RoundResults = { ...(roomData.p1_round_results || {}) };
-    const p2RoundResults = { ...(roomData.p2_round_results || {}) };
-
-    p1RoundResults[String(seriesNum)] = {
-      isWin: (p1RoundWins > p2RoundWins),
-      myWins: p1RoundWins, oppWins: p2RoundWins,
-      r1: p1_r1, r2: p1_r2, r3: p1_r3, r4Plus: p1_r4Plus,
-      teamPotential: p1TotalPt,
-      fulfillment: p1Fulfillment
-    };
-
-    p2RoundResults[String(seriesNum)] = {
-      isWin: (p2RoundWins > p1RoundWins),
-      myWins: p2RoundWins, oppWins: p1RoundWins,
-      r1: p2_r1, r2: p2_r2, r3: p2_r3, r4Plus: p2_r4Plus,
-      teamPotential: p2TotalPt,
-      fulfillment: p2Fulfillment
-    };
-
-    const roomRef = doc(db, "online_matches", roomId);
-    await updateDoc(roomRef, {
-      race_results_cache: allRaceResults,
-      p1_round_results: p1RoundResults,
-      p2_round_results: p2RoundResults,
-      status: "race_running"
-    });
-  } catch (err) {
-    console.error("全レース計算結果の送信失敗:", err);
-    showErrorModal("レース計算データの作成・送信に失敗しました。");
-  }
-}
-
-async function checkAndUpdateReadyState() {
-  if (!roomData) return;
-
-  const data = roomData;
-  const isHost = (role === 'host');
-
-  const p1Giveup = !!data.player1_giveup;
-  const p2Giveup = !!data.player2_giveup;
-
-  const p1Ready = p1Giveup || !!(data.player1_strategy_ready || data.player1_ready || data.p1_status === "ready" || data.player1_strategies?.length >= 5);
-  const p2Ready = p2Giveup || !!(data.player2_strategy_ready || data.player2_ready || data.p2_status === "ready" || data.player2_strategies?.length >= 5);
-
-  const opponentReady = isHost ? p2Ready : p1Ready;
-
-  const oppBadgeEl = document.getElementById('p2-card-strat');
-  const oppStatusBadge = document.getElementById('p2-status-badge');
-  const startBtn = document.getElementById('nextBtn');
-
-  if (!p1Ready || !p2Ready) {
-    if (oppBadgeEl) {
-      oppBadgeEl.textContent = opponentReady ? "状態: 決定/退避完了！" : "状態: 相手思案中… ⏳";
-      oppBadgeEl.style.color = opponentReady ? "#00ff66" : "#f97316";
-    }
-    if (oppStatusBadge) {
-      oppStatusBadge.textContent = opponentReady ? "完了 ✅" : "待機中 ⏳";
-      oppStatusBadge.className = opponentReady ? "status-badge ready" : "status-badge waiting";
-    }
-    if (startBtn) {
-      startBtn.disabled = true;
-      startBtn.innerText = "⏳ 相手の到着・状態決定を待っています...";
-    }
-    updateLog("相手の準備完了またはギブアップ状態を待っています...");
-    return; 
-  }
-
-  if (p1Giveup || p2Giveup) {
-    isGiveupMatch = true;
-    if (startBtn) {
-      startBtn.disabled = false;
-      startBtn.innerText = "📋 判定結果を確認する";
-    }
-    
-    if (isHost && !data.giveup_processed) {
-      await processGiveupResultsAndUsedHorses(data, p1Giveup, p2Giveup);
-    }
-
-    if (p1Giveup && p2Giveup) {
-      updateLog("<strong>【判定結果】</strong> 双方ともにチーム編成不能（ダブルギブアップ）のため、<strong>引き分け（ダブルノックアウト）</strong>となります。");
-    } else if (p1Giveup && !p2Giveup) {
-      const p2Name = roomData.player2_name || "対戦相手";
-      updateLog(`<strong>【判定結果】</strong> P1（${myNameStr}）がギブアップしました。P2（${p2Name}）の<strong>不戦勝</strong>となります。`);
-    } else if (!p1Giveup && p2Giveup) {
-      const p1Name = roomData.player1_name || "対戦相手";
-      updateLog(`<strong>【判定結果】</strong> P2がギブアップしました。P1（${myNameStr}）の<strong>不戦勝</strong>となります。`);
-    }
-    return;
-  }
-
-  await ensureUsedHorsesUpdated();
-
-  buildRaceGridsFromOnlineData();
-  const oppObj = activeHorses.find(h => h.isOpponent);
-  if (oppBadgeEl) {
-    if (oppObj) {
-      oppBadgeEl.textContent = `作戦: ${oppObj.tactic} (Lv.${oppObj.level})`;
-    } else {
-      oppBadgeEl.textContent = "作戦: 決定完了！";
-    }
-    oppBadgeEl.style.color = "var(--gold-color)";
-  }
-  if (oppStatusBadge) {
-    oppStatusBadge.textContent = "準備完了 ✅";
-    oppStatusBadge.className = "status-badge ready";
-  }
-
-  const cacheObj = data.race_results_cache;
-  const hasAllCache = cacheObj && typeof cacheObj === 'object' && Object.keys(cacheObj).length >= 5;
-
-  if (isHost && !hasAllCache && !isCalculating) {
-    isCalculating = true;
-    if (startBtn && raceState === 'ready') {
-      startBtn.disabled = true;
-      startBtn.innerText = "⏳ レース結果を計算中...";
-    }
-    try {
-      await calculateAndUploadAllRaces();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      isCalculating = false;
-    }
-    return;
-  }
-
-  if (hasAllCache) {
-    if (startBtn && raceState === 'ready') {
-      startBtn.disabled = false;
-      startBtn.innerText = "🏁 レーススタート！";
-    }
-    if (raceState === 'ready') {
-      updateLog(`第${currentRaceIndex + 1}戦（${currentRaceInfo.race_name}）の出走準備が完了しました。`);
-    }
-  } else {
-    if (startBtn && raceState === 'ready') {
-      startBtn.disabled = true;
-      startBtn.innerText = "⏳ レース結果を計算中...";
-    }
-  }
-}
-
-async function processGiveupResultsAndUsedHorses(data, p1Giveup, p2Giveup) {
-  const roomRef = doc(db, "online_matches", roomId);
-  const updatePayload = { giveup_processed: true };
-
-  const seriesNum = (data?.current_series_index || 0) + 1;
-  const p1RoundResults = { ...(data.p1_round_results || {}) };
-  const p2RoundResults = { ...(data.p2_round_results || {}) };
-
-  let p1IsWin = false, p2IsWin = false;
-  let p1W = 0, p2W = 0;
-
-  if (p1Giveup && p2Giveup) {
-  } else if (p1Giveup && !p2Giveup) {
-    p2IsWin = true; p2W = 5;
-  } else if (!p1Giveup && p2Giveup) {
-    p1IsWin = true; p1W = 5;
-  }
-
-  // ★ ギブアップ時の充足率は0%として記録
-  p1RoundResults[String(seriesNum)] = {
-    isGiveUp: true, isWin: p1IsWin, myWins: p1W, oppWins: p2W, r1: 0, r2: 0, r3: 0, r4Plus: 5, teamPotential: 0, fulfillment: 0
-  };
-  p2RoundResults[String(seriesNum)] = {
-    isGiveUp: true, isWin: p2IsWin, myWins: p2W, oppWins: p1W, r1: 0, r2: 0, r3: 0, r4Plus: 5, teamPotential: 0, fulfillment: 0
-  };
-
-  updatePayload.p1_round_results = p1RoundResults;
-  updatePayload.p2_round_results = p2RoundResults;
-
-  if (p1Giveup) {
-    updatePayload.player1_entries = ["4999", "4999", "4999", "4999", "4999"];
-    updatePayload.player1_used_horses = arrayUnion("4999");
-  } else {
-    const p1Entries = (data.player1_entries || []).map(normalizeHorseId).filter(id => id !== "");
-    if (p1Entries.length > 0) {
-      updatePayload.player1_used_horses = arrayUnion(...p1Entries);
-    }
-  }
-
-  if (p2Giveup) {
-    updatePayload.player2_entries = ["4999", "4999", "4999", "4999", "4999"];
-    updatePayload.player2_used_horses = arrayUnion("4999");
-  } else {
-    const p2Entries = (data.player2_entries || []).map(normalizeHorseId).filter(id => id !== "");
-    if (p2Entries.length > 0) {
-      updatePayload.player2_used_horses = arrayUnion(...p2Entries);
-    }
-  }
-
-  try {
-    await updateDoc(roomRef, updatePayload);
-  } catch (e) {
-    console.error("ギブアップ時データ保存エラー:", e);
-  }
-}
-
-async function handleRoomDataUpdate(data) {
-  if (isNavigatingAway || !data) return;
-
-  if (data.status === "cancelled") {
-    isNavigatingAway = true;
-    stopRoomListening();
-    alert("対戦相手が切断・退室しました。");
-    window.location.href = 'online.html';
-    return;
-  }
-
-  if (data.status === "deck_selecting" || data.status === "deck_selected" || data.status === "finished") {
-    isNavigatingAway = true;
-    stopRoomListening();
-    const matchMode = urlParams.get('mode') || data.match_mode || 'online';
-    window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
-    return;
-  }
-  
-  if (data.status === "entry_selecting" || data.status === "matchup") {
-    // 【追加】両者が作戦完了している場合は、ホストのステータス更新遅延とみなし、編成画面に戻さない
-    if (data.player1_strategy_ready && data.player2_strategy_ready) {
-      return;
-    }
-
-    if (raceState === 'running' || raceState === 'finished') {
-      return; 
-    }
-    
-    isNavigatingAway = true;
-    stopRoomListening();
-    window.location.href = `onmatchup.html?roomId=${roomId}&role=${role}`;
-    return;
-  }
-
-  const isHost = (role === 'host');
-  const modalBtn = document.getElementById('modalNextBtn');
-  const statusMsgEl = document.getElementById('modalHostStatusMsg');
-
-  const myWatchedField = isHost ? 'player1_watched' : 'player2_watched';
-  const oppWatchedField = isHost ? 'player2_watched' : 'player1_watched';
-
-  if (data[myWatchedField]) {
-    if (data[oppWatchedField]) {
-      if (modalBtn) {
-        modalBtn.disabled = true;
-        modalBtn.textContent = "🔄 次の回戦へ移動しています...";
-      }
-      if (statusMsgEl) {
-        statusMsgEl.textContent = "✅ お互いの観戦が完了しました！自動で移動します。";
-        statusMsgEl.style.color = "var(--accent-green)";
-      }
-
-      if (!isNavigatingAway) {
-        isNavigatingAway = true;
-        stopRoomListening(); 
-        
-        if (isHost) {
-          try {
-            const roomRef = doc(db, "online_matches", roomId);
-            await updateDoc(roomRef, {
-              current_series_index: increment(1),
-              player1_giveup: false, player2_giveup: false,
-              player1_ready: false, player2_ready: false,
-              player1_strategy_ready: false, player2_strategy_ready: false,
-              player1_watched: deleteField(), player2_watched: deleteField(),
-              player1_entries: deleteField(), player2_entries: deleteField(),
-              player1_strategies: deleteField(), player2_strategies: deleteField(),
-              races_mob_ids: deleteField(), races_track_conditions: deleteField(),
-              race_results_cache: deleteField(), giveup_processed: deleteField(),
-              status: "deck_selecting",
-              p1_status: "deck_selecting",
-              p2_status: "deck_selecting"
-            });
-            const matchMode = urlParams.get('mode') || data.match_mode || 'online';
-            window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
-          } catch(e) {
-            console.error("次ラウンド更新エラー", e);
-            window.location.href = 'online.html';
-          }
-        } else {
-          setTimeout(() => {
-            const matchMode = urlParams.get('mode') || data.match_mode || 'online';
-            window.location.href = `onbattle.html?roomId=${roomId}&role=${role}&mode=${matchMode}`;
-          }, 1500);
-        }
-      }
-    } else {
-      if (modalBtn && modalBtn.textContent !== "⏳ 移動中...") {
-        modalBtn.disabled = true;
-        modalBtn.textContent = "⏳ 相手の観戦完了待ち...";
-      }
-      if (statusMsgEl) {
-        statusMsgEl.textContent = "⏳ 相手がレース結果を確認するまでお待ちください。";
-        statusMsgEl.style.color = "#aaa";
-      }
-    }
-  }
-
-  await checkAndUpdateReadyState();
-}
-
-async function fetchLatestRoomData() {
-  if (!roomId || isNavigatingAway) return;
-  try {
-    const roomSnap = await getDoc(doc(db, "online_matches", roomId));
-    if (roomSnap.exists()) {
-      roomData = roomSnap.data();
-      await handleRoomDataUpdate(roomData);
-    }
-  } catch (err) {
-    console.warn("定期データ同期エラー:", err);
-  }
-}
-
-function listenRoomStatus() {
-  const roomRef = doc(db, "online_matches", roomId);
-  
-  roomUnsubscribe = onSnapshot(roomRef, async (snapshot) => {
-    if (!snapshot.exists()) return;
-    roomData = snapshot.data();
-    await handleRoomDataUpdate(roomData);
-  });
-
-  if (roomPollingInterval) clearInterval(roomPollingInterval);
-  roomPollingInterval = setInterval(() => {
-    fetchLatestRoomData();
-  }, 5000);
-}
-
-async function fetchJsonWithFallback(filename) {
-  const paths = [
-    `./data/${filename}`,
-    `data/${filename}`,
-    `/data/${filename}`,
-    `../data/${filename}`
-  ];
-  for (const path of paths) {
-    try {
-      const res = await fetch(path);
-      if (res.ok) return await res.json();
-    } catch (e) { }
-  }
-  throw new Error(`Failed to load ${filename}`);
-}
-
-async function loadMasterData() {
-  try {
-    const [raceRes, seriesRes, stratRes, horseRes, abilityRes] = await Promise.all([
-      fetchJsonWithFallback('race_master.json'),
-      fetchJsonWithFallback('series_master.json'),
-      fetchJsonWithFallback('strategy_master.json'),
-      fetchJsonWithFallback('horses_master.json'),
-      fetchJsonWithFallback('ability_master.json') 
-    ]);
-    raceMasterData = raceRes;
-    
-    if (Array.isArray(seriesRes)) {
-      seriesRes.forEach(s => { seriesMasterData[s.series_id || s.id] = s; });
-    } else {
-      seriesMasterData = seriesRes;
-    }
-
-    strategyMasterData = stratRes;
-    abilityMasterData = abilityRes; 
-    
-    if (Array.isArray(horseRes)) {
-      horseRes.forEach(h => { 
-        const idStr = normalizeHorseId(h.horse_id);
-        HORSES_MASTER[idStr] = h;
-        HORSES_MASTER[String(h.horse_id)] = h;
-      });
-    } else if (typeof horseRes === 'object' && horseRes !== null) {
-      HORSES_MASTER = horseRes;
-    }
-  } catch (error) {
-    console.error("マスターデータの読み込み失敗:", error);
-    throw error;
-  }
-}
-
-function buildRaceGridsFromOnlineData() {
-  const isHost = (role === 'host');
-  
-  const p1Entries = Array.isArray(roomData.player1_entries) ? roomData.player1_entries : [];
-  const p2Entries = Array.isArray(roomData.player2_entries) ? roomData.player2_entries : [];
-  const p1Strats = roomData.player1_strategies || [];
-  const p2Strats = roomData.player2_strategies || [];
-
-  const p1Name = isHost ? myNameStr : oppNameStr;
-  const p2Name = isHost ? oppNameStr : myNameStr;
-
-  const racesMobIds = roomData.races_mob_ids || {};
-  
-  totalRounds = 5;
-
-  if (!p1Entries || p1Entries.length < totalRounds || !p2Entries || p2Entries.length < totalRounds) {
-    fullRaceGrids = [];
-    const baseSeed = getSeedFromString(roomId || "default_room");
-    for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
-      const rawGrid = [];
-      rawGrid.push({ name: "自馬", horse_id: "0001", playerRole: 'host', isPlayer: isHost, isOpponent: !isHost, tactic: "逃げ", level: 1 });
-      rawGrid.push({ name: "相手馬", horse_id: "0002", playerRole: 'guest', isPlayer: !isHost, isOpponent: isHost, tactic: "逃げ", level: 1 });
-      let shuffledGrid = shuffleArrayWithSeed(rawGrid, baseSeed);
-      shuffledGrid.forEach((h, idx) => h.gate_number = idx + 1);
-      fullRaceGrids.push(shuffledGrid);
-    }
-    return true;
-  }
-
-  fullRaceGrids = [];
-  const baseSeed = getSeedFromString(roomId || "default_room");
-
-  for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
-    const rawGrid = [];
-
-    const p1HorseId = normalizeHorseId(p1Entries[rIdx]);
-    const p1Master = HORSES_MASTER[p1HorseId] || HORSES_MASTER[String(p1Entries[rIdx])] || { name: "P1馬", horse_id: p1HorseId };
-    const p1StratObj = (p1Strats && p1Strats[rIdx]) ? p1Strats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
-
-    rawGrid.push({
-      ...p1Master,
-      playerRole: 'host',
-      isPlayer: isHost,
-      isOpponent: !isHost,
-      isCpu: false,
-      ownerName: p1Name,
-      tactic: p1StratObj.strategy || "先行して粘り込み",
-      level: p1StratObj.strategy_level || 3
-    });
-
-    const p2HorseId = normalizeHorseId(p2Entries[rIdx]);
-    const p2Master = HORSES_MASTER[p2HorseId] || HORSES_MASTER[String(p2Entries[rIdx])] || { name: "P2馬", horse_id: p2HorseId };
-    const p2StratObj = (p2Strats && p2Strats[rIdx]) ? p2Strats[rIdx] : { strategy: "先行して粘り込み", strategy_level: 3 };
-
-    rawGrid.push({
-      ...p2Master,
-      playerRole: 'guest',
-      isPlayer: !isHost,
-      isOpponent: isHost,
-      isCpu: false,
-      ownerName: p2Name,
-      tactic: p2StratObj.strategy || "先行して粘り込み",
-      level: p2StratObj.strategy_level || 3
-    });
-
-    const mobIds = racesMobIds[rIdx] || racesMobIds[String(rIdx)] || [];
-
-    mobIds.forEach((mobId) => {
-      const normalizedMobId = normalizeHorseId(mobId);
-      const mobMaster = HORSES_MASTER[normalizedMobId] || HORSES_MASTER[String(mobId)] || { name: "モブ馬", horse_id: mobId };
-      let mobStyle = mobMaster.style || mobMaster.running_style || "自在";
-      if (mobStyle === "大逃げ") mobStyle = "大逃";
-      
-      let mobStrat = { tactic: "先行して粘り込み", level: 1 };
-      try {
-        if (typeof determineStrategy === 'function') {
-          mobStrat = determineStrategy(mobId, mobStyle, 1, strategyMasterData, false);
-        }
-      } catch (e) {
-        console.warn("モブ作戦決定スキップ:", e);
-      }
-
-      rawGrid.push({
-        ...mobMaster,
-        playerRole: 'mob',
-        isPlayer: false,
-        isCpu: false,
-        isOpponent: false,
-        tactic: mobStrat.tactic || "先行して粘り込み",
-        level: mobStrat.level || 1
-      });
-    });
-
-    const raceSeed = baseSeed + (rIdx + 1) * 100;
-    const shuffledGrid = shuffleArrayWithSeed(rawGrid, raceSeed);
-
-    shuffledGrid.forEach((horse, idx) => {
-      horse.gate_number = idx + 1;
-    });
-
-    shuffledGrid.sort((a, b) => a.gate_number - b.gate_number);
-    fullRaceGrids.push(shuffledGrid);
-  }
-  return true;
-}
-
-function ensureStats(h) {
-  const normId = normalizeHorseId(h.horse_id);
-  const master = HORSES_MASTER[normId] || HORSES_MASTER[String(h.horse_id)] || {};
-  
-  h.turf_potential = h.turf_potential ?? master.turf_potential ?? 0;
-  h.dirt_potential = h.dirt_potential ?? master.dirt_potential ?? 0;
-  h.potential = h.potential ?? master.potential ?? 0;
-  
-  h.speed = h.speed ?? master.speed ?? 0;
-  h.stamina = h.stamina ?? master.stamina ?? 0;
-  h.sharp = h.sharp ?? master.sharp ?? 0;
-  h.jizoku = h.jizoku ?? master.jizoku ?? 0;
-  h.guts = h.guts ?? master.guts ?? 0;
-  h.power = h.power ?? master.power ?? 0;
-  
-  let styleVal = h.style || master.style || master.running_style || "自在";
-  if (styleVal === "大逃げ") styleVal = "大逃";
-  h.style = styleVal;
-}
-
-function setupRace(rIdx) {
-  raceState = 'ready';
-  activeHorses = fullRaceGrids[rIdx] || [];
-
-  const gl = document.getElementById('goal-line');
-  const gf = document.getElementById('goal-flag');
-  if (gl) gl.style.display = "none";
-  if (gf) gf.style.display = "none";
-
-  const racesTrackConditions = roomData?.races_track_conditions || [];
-  trackCondition = racesTrackConditions[rIdx] || "良";
-
-  const matchSeries = roomData?.match_series || roomData?.selected_series || ["series_01"];
-  const currentSeriesIndex = roomData?.current_series_index || 0;
-  const seriesId = Array.isArray(matchSeries) ? (matchSeries[currentSeriesIndex] || matchSeries[0]) : matchSeries;
-  const seriesInfo = seriesMasterData[seriesId] || Object.values(seriesMasterData)[0] || {};
-  
-  const racesInSeries = seriesInfo.races || (seriesInfo.rounds && seriesInfo.rounds[0] ? seriesInfo.rounds[0].races : null);
-  let roundRace = null;
-  if (Array.isArray(racesInSeries) && racesInSeries[rIdx]) {
-    roundRace = racesInSeries[rIdx];
-  }
-
-  currentRaceInfo = roundRace || {
-    race_name: seriesInfo.series_name || seriesInfo.name || `第${rIdx + 1}戦`,
-    track: seriesInfo.track || "中山",
-    surface: seriesInfo.surface || "芝",
-    distance: seriesInfo.distance || 2000
-  };
-    
-  const trackContainer = document.getElementById('track-container');
-  if (trackContainer) {
-    if (currentRaceInfo.surface === "ダート") {
-      trackContainer.classList.add('dirt-track');
-    } else {
-      trackContainer.classList.remove('dirt-track');
-    }
-  }
-
-  let trackName = currentRaceInfo.track || "中山";
-
-  let turnDir = VENUE_DIRECTION_MASTER[trackName] || "右回り";
-  if (currentRaceInfo.distance === 1000 && trackName === "新潟") {
-    turnDir = "直線"; 
-  }
-  currentTrackConfig = TRACK_DIRECTION_MASTER[turnDir] || TRACK_DIRECTION_MASTER["右回り"];
-
-  let allyStreak = 0;
-  let prevAllyLost = false;
-
-  for (let i = 0; i < seriesHistory.length; i++) {
-    if (seriesHistory[i].win) {
-      allyStreak++;
-      prevAllyLost = false;
-    } else {
-      allyStreak = 0;
-      prevAllyLost = true;
-    }
-  }
-
-  activeHorses.forEach(h => {
-    if (h.isPlayer) {
-      h.ally_win_streak = allyStreak;
-      h.prev_ally_race_lost = prevAllyLost;
-    }
-    prepareHorseData(h);
-  });
-
-  const playerObj = activeHorses.find(h => h.isPlayer) || { name: "自馬", tactic: "先行", level: 3, gate_number: 1 };
-  const oppObj = activeHorses.find(h => h.isOpponent) || { name: "相手馬", tactic: "逃げ", level: 3, gate_number: 2 };
-
-  document.getElementById('display-race-num').textContent = `RACE ${rIdx + 1} / 5`;
-  document.getElementById('display-race-title').textContent = `${currentRaceInfo.race_name}（${currentRaceInfo.track} ${currentRaceInfo.surface} ${currentRaceInfo.distance}m）`;
-  document.getElementById('display-race-cond').textContent = `馬場: ${trackCondition}`;
-  
-  document.getElementById('p1-card-label').textContent = `★ YOU (${myNameStr})`;
-  document.getElementById('p1-card-name').textContent = `${playerObj.gate_number}番 ${playerObj.name}`;
-  document.getElementById('p1-card-strat').textContent = `作戦: ${playerObj.tactic} (Lv.${playerObj.level})`;
-  
-  document.getElementById('p2-card-label').textContent = `OPPONENT (${oppNameStr})`;
-  document.getElementById('p2-card-name').textContent = `${oppObj.gate_number}番 ${oppObj.name}`;
-  document.getElementById('p2-card-strat').textContent = `作戦: ${oppObj.tactic} (Lv.${oppObj.level})`;
-
-  const p1ImgId = normalizeHorseId(playerObj.horse_id) || '0000';
-  const p2ImgId = normalizeHorseId(oppObj.horse_id) || '0000';
-
-  const p1ImgEl = document.getElementById('p1-card-img');
-  if (p1ImgEl) {
-    p1ImgEl.src = `./images/${p1ImgId}.jpg`;
-    p1ImgEl.onerror = () => { p1ImgEl.src = './images/0000.jpg'; };
-  }
-
-  const p2ImgEl = document.getElementById('p2-card-img');
-  if (p2ImgEl) {
-    p2ImgEl.src = `./images/${p2ImgId}.jpg`;
-    p2ImgEl.onerror = () => { p2ImgEl.src = './images/0000.jpg'; };
-  }
-
-  renderLanes();
-  document.getElementById('result-container').style.display = "none";
-  checkAndUpdateReadyState();
-}
-
-function getKana3(name) {
-  if (!name) return 'ダミ';
-  const kanaOnly = name.replace(/[^\u30A0-\u30FF]/g, '');
-  if (kanaOnly.length >= 3) return kanaOnly.substring(0, 3);
-  return name.substring(0, 3);
-}
-
-function renderLanes() {
-  const lanes = document.getElementById('lanes');
-  
-  const isRightToLeft = (currentTrackConfig.phase1_3_dir === "right_to_left");
-  const trackContainer = document.getElementById('track-container');
-  const trackWidth = trackContainer ? (trackContainer.clientWidth - 70) : 500;
-  
-  const initialLeftPx = isRightToLeft ? (10 + trackWidth) : 10;
-
-  let htmlBuffer = "";
-  activeHorses.forEach((h, i) => {
-    let nameClass = h.isPlayer ? "p1-name" : (h.isOpponent ? "p2-name" : "");
-    htmlBuffer += `
-      <div class="horse-lane">
-        <div class="horse-icon" id="horse-icon-${i}" style="left: ${initialLeftPx}px;">
-          <span class="horse-emoji" id="emoji-${i}">🏇</span><span class="${nameClass}">${h.gate_number}.${getKana3(h.name)}</span>
-        </div>
-      </div>`;
-  });
-  lanes.innerHTML = htmlBuffer;
-
-  setHorseDirection(currentTrackConfig.phase1_3_dir);
-}
-
-function setHorseDirection(direction) {
-  activeHorses.forEach((_, i) => {
-    let el = document.getElementById(`emoji-${i}`);
-    if (el) {
-      if (direction === "left_to_right") {
-        el.classList.add("flipped");
-      } else {
-        el.classList.remove("flipped");
-      }
-    }
-  });
-}
-
-function getPosPointsMap(horses, leadPos, trailPos) {
-  const positions = new Array(horses.length);
-  const sorted = [...horses].sort((a, b) => (b.positionPoint || 0) - (a.positionPoint || 0));
-  const maxPt = sorted[0]?.positionPoint ?? 1;
-  const minPt = sorted[sorted.length - 1]?.positionPoint ?? 0;
-  let range = maxPt - minPt;
-  if (range <= 0) range = 1;
-
-  sorted.forEach((h, idx) => {
-    const pt = h.positionPoint ?? 0;
-    const ratio = (pt - minPt) / range;
-    const calculatedX = trailPos + ratio * (leadPos - trailPos);
-    const horseIdx = (typeof h.index === 'number') ? h.index : idx;
-    positions[horseIdx] = calculatedX;
-  });
-
-  return positions;
-}
-
-window.handleButtonClick = function() {
-  if (isGiveupMatch) {
-    showGiveupSeriesResult();
-    return;
-  }
-  if (raceState === 'ready') startRace();
-  else if (raceState === 'finished') {
-    currentRaceIndex++;
-    if (currentRaceIndex < totalRounds) setupRace(currentRaceIndex);
-    else showFinalSeriesResult();
-  }
-};
-
-function showGiveupSeriesResult() {
-  const p1Giveup = !!roomData.player1_giveup;
-  const p2Giveup = !!roomData.player2_giveup;
-  const isHost = (role === 'host');
-  const myIsP1 = isHost;
-
-  const titleEl = document.getElementById('series-result-title');
-  const scoreEl = document.getElementById('series-score-detail');
-
-  let myResultText = "";
-  if (p1Giveup && p2Giveup) {
-    titleEl.textContent = "🤝 引き分け（ダブルノックアウト）";
-    titleEl.style.color = "#ffffff";
-    scoreEl.innerHTML = `双方がチーム編成不能のため、本回戦は<span style="color:var(--gold-color);">引き分け</span>となります。`;
-  } else if ((myIsP1 && p1Giveup) || (!myIsP1 && p2Giveup)) {
-    titleEl.textContent = "❌ 不戦敗";
-    titleEl.style.color = "var(--opponent-color)";
-    scoreEl.innerHTML = `チーム編成不能（ギブアップ）により、本回戦は<span style="color:var(--opponent-color);">不戦敗</span>となります。（※使用済み馬に「4999」が記録されました）`;
-  } else {
-    titleEl.textContent = "🏆 不戦勝！";
-    titleEl.style.color = "var(--gold-color)";
-    scoreEl.innerHTML = `対戦相手がチーム編成不能（ギブアップ）のため、あなたの<span style="color:var(--accent-green);">不戦勝</span>となります！`;
-  }
-
-  const historyBody = document.getElementById('series-history-body');
-  historyBody.innerHTML = `<tr><td colspan="4" style="color: var(--gold-color); font-weight: bold;">[ギブアップによる不戦決着]</td></tr>`;
-
-  document.getElementById('final-series-modal').style.display = "block";
-}
-
-let abilityQueue = [];
-let isShowingAbility = false;
-
-function processAbilityQueue() {
-  if (isShowingAbility || abilityQueue.length === 0) return;
-
-  isShowingAbility = true;
-  const item = abilityQueue.shift();
-  const popup = document.getElementById('ability-popup-container');
-  const box = document.getElementById('ability-popup-box');
-  const horseEl = document.getElementById('ability-pop-horse');
-  const nameEl = document.getElementById('ability-pop-name');
-
-  box.classList.remove('p1-ability', 'p2-ability');
-  popup.classList.remove('p1-pos', 'p2-pos');
-
-  if (item.horse.isPlayer) {
-    box.classList.add('p1-ability');
-    popup.classList.add('p1-pos');
-  } else {
-    box.classList.add('p2-ability');
-    popup.classList.add('p2-pos');
-  }
-
-  horseEl.textContent = `${item.horse.gate_number}番 ${item.horse.name}`;
-  const displayMsg = item.popupMessage || item.abilityName;
-  nameEl.textContent = `【${displayMsg}】`;
-
-  popup.classList.add('show');
-
-  setTimeout(() => {
-    popup.classList.remove('show');
-    setTimeout(() => {
-      isShowingAbility = false;
-      processAbilityQueue();
-    }, 400);
-  }, 2000);
-}
-
-async function startRace() {
-  if (raceState !== 'ready') return;
-  raceState = 'running';
-
-  abilityQueue = [];
-  isShowingAbility = false;
-
-  const btn = document.getElementById('nextBtn');
-  btn.disabled = true;
-  btn.innerText = "🏃 レース進行中...";
-
-  const progressKey = String(getCurrentProgressCode());
-  const cacheObj = roomData?.race_results_cache || {};
-  const raceResultData = cacheObj[progressKey]; 
-  
-  if (!raceResultData) {
-    showErrorModal("レース計算データが取得できませんでした。");
-    return;
-  }
-
-  const rawResults = JSON.parse(JSON.stringify(raceResultData.results));
-  const isHost = (role === 'host');
 
-  rawResults.forEach(h => {
-    if (h.playerRole === 'host') {
-      h.isPlayer = isHost;
-      h.isOpponent = !isHost;
-      h.ownerName = isHost ? myNameStr : oppNameStr;
-    } else if (h.playerRole === 'guest') {
-      h.isPlayer = !isHost;
-      h.isOpponent = isHost;
-      h.ownerName = !isHost ? myNameStr : oppNameStr;
-    } else {
-      h.isPlayer = false;
-      h.isOpponent = false;
-    }
-  });
+  /* ★馬の脚 4本連動 3コマ×4拍リズム（0-25%伸展, 25-50%接地, 50-100%滞空収縮ホールド） */
+  .leg-frame-1 { opacity: 1; }
+  .leg-frame-2 { opacity: 0; }
+  .leg-frame-3 { opacity: 0; }
 
-  calculatedResults = rawResults;
-  currentRacePace = raceResultData.pace;
-  currentRaceBranch = raceResultData.branch.name;
-
-  const comm = raceResultData.commentary;
-
-  if (raceResultData.branch.formula) {
-    currentRaceFormulaStr = raceResultData.branch.formula;
-  } else if (raceResultData.branch.key_stats) {
-    currentRaceFormulaStr = raceResultData.branch.key_stats.map(k => {
-      const nameMap = {
-        potential: "ポテンシャル", current_potential: "ポテンシャル",
-        speed: "スピード", stamina: "スタミナ", sharp: "瞬発", jizoku: "持続", guts: "根性", power: "パワー"
-      };
-      return nameMap[k] || k;
-    }).join(" ＋ ");
-  } else {
-    currentRaceFormulaStr = "標準評価算定";
+  #track-container.running .leg-frame-1 {
+    animation: animLegF1 0.32s steps(1) infinite;
   }
-
-  if (raceResultData.branch.position_bonus_type === "direct_asc") {
-    currentRaceFormulaStr += " ＋ 位置ボーナス(後方有利)";
-  } else if (raceResultData.branch.position_bonus_type === "direct_desc") {
-    currentRaceFormulaStr += " ＋ 位置ボーナス(前方有利)";
+  #track-container.running .leg-frame-2 {
+    animation: animLegF2 0.32s steps(1) infinite;
   }
-  if (raceResultData.branch.style_bonus) {
-    currentRaceFormulaStr += " ＋ 脚質ボーナス";
+  #track-container.running .leg-frame-3 {
+    animation: animLegF3 0.32s steps(1) infinite;
   }
-
-  recordHistory(calculatedResults);
-
-  updateLog(`<strong>【スタート】</strong> ${comm.phase1}`);
-  
-  let p1Pos = getPosPointsMap(calculatedResults, 40, 22);
-  setPhasePositions(p1Pos, 4.0, "linear", currentTrackConfig.phase1_3_dir); 
-
-  setTimeout(() => {
-    const p1Horses = calculatedResults.filter(h => (h.isPlayer || h.isOpponent) && h.phase1_abilities && h.phase1_abilities.length > 0);
-    
-    if (p1Horses.length > 0) {
-      let abilityLogs = [];
-      p1Horses.forEach(h => {
-        const abs = h.phase1_abilities.map(a => `【${a}】`).join("");
-        const label = h.isPlayer ? '<span style="color:var(--player-color); font-weight:bold;">[YOU]</span>' : '<span style="color:var(--opponent-color); font-weight:bold;">[OPP]</span>';
-        abilityLogs.push(`${label} ${h.gate_number}番 ${h.name}の能力 ${abs} が発動！`);
-
-        h.phase1_abilities.forEach(abName => {
-          const msg = (h.popup_messages && h.popup_messages[abName]) || abName;
-          abilityQueue.push({ horse: h, abilityName: abName, popupMessage: msg });
-        });
-      });
-
-      updateLog(`<strong>【向正面】</strong> ${comm.phase2}<br><span style="color:var(--gold-color);">${abilityLogs.join("<br>")}</span>`);
-      processAbilityQueue();
-    } else {
-      updateLog(`<strong>【向正面】</strong> ${comm.phase2}`);
-    }
-    
-    let p2Pos = getPosPointsMap(calculatedResults, 70, 40);
-    setPhasePositions(p2Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
-  }, 4000);
-
-  setTimeout(() => {
-    updateLog(`<strong>【3コーナー〜展開】</strong> ${comm.phase3}`);
-    showTelop(`【ペース】 ${currentRacePace}`, 3000);
-    
-    let p3Pos = getPosPointsMap(calculatedResults, 100, 55);
-    setPhasePositions(p3Pos, 4.3, "linear", currentTrackConfig.phase1_3_dir); 
-  }, 8300); 
-
-  setTimeout(() => {
-    const wipe = document.getElementById('wipe-overlay');
-    wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
-    wipe.style.left = "0";
-    
-    setTimeout(() => {
-      const gl = document.getElementById('goal-line');
-      const gf = document.getElementById('goal-flag');
-      gl.style.display = "block";
-      gf.style.display = "block";
-      
-      if (currentTrackConfig.goal_position === "right") {
-        gl.style.left = "calc(100% - 2px)";
-        gf.style.left = "calc(100% - 2px)";
-      } else {
-        gl.style.left = "2px";
-        gf.style.left = "2px";
-      }
-      
-      setHorseDirection(currentTrackConfig.phase4_dir);
-
-      let p4StartPos = getPosPointsMap(calculatedResults, 27, 2);
-      setPhasePositions(p4StartPos, 0, "linear", currentTrackConfig.phase4_dir);
-    }, 800);
-
-    setTimeout(() => {
-      wipe.style.left = "100%"; 
-      setTimeout(() => {
-        let finalPositions = new Array(activeHorses.length);
-        
-        calculatedResults.forEach((item, rank) => {
-          let posVal = 105 - (rank * 2.5);
-          let horseIdx = (typeof item.index === 'number') ? item.index : rank;
-          finalPositions[horseIdx] = posVal;
-        });
-        
-        setPhasePositions(finalPositions, 10.0, "linear", currentTrackConfig.phase4_dir); 
-             
-        setTimeout(() => {
-          updateLog(`<strong>【最後の直線】</strong> このレースは『${currentRaceBranch}』！ 激しい叩き合いだ！`);
-          showTelop(`【展開】 ${currentRaceBranch}`, 3500);
-
-          const p4Horses = calculatedResults.filter(h => (h.isPlayer || h.isOpponent) && h.phase4_abilities && h.phase4_abilities.length > 0);
-          if (p4Horses.length > 0) {
-            p4Horses.forEach(h => {
-              h.phase4_abilities.forEach(abName => {
-                const msg = (h.popup_messages && h.popup_messages[abName]) || abName;
-                abilityQueue.push({ horse: h, abilityName: abName, popupMessage: `${msg}！` });
-              });
-            });
-            processAbilityQueue();
-          }
-        }, 1500);
-
-        setTimeout(() => {
-          const swapTriggerHorses = calculatedResults.filter(
-            h => (h.isPlayer || h.isOpponent) && h.rank_swap_trigger
-          );
-          if (swapTriggerHorses.length > 0) {
-            swapTriggerHorses.forEach(h => {
-              abilityQueue.push({
-                horse: h,
-                abilityName: h.rank_swap_trigger,
-                popupMessage: `${h.rank_swap_trigger}発動！着順浮上！`
-              });
-            });
-            processAbilityQueue();
-          }
-        }, 7000);
-
-        setTimeout(() => {
-          updateLog(`<strong>【ゴールイン！】</strong> <br><span style="color:#ffff00;"><b>${comm.finish}</b></span>`);
-        }, 7500); 
-
-        setTimeout(() => {
-          hideTelop();
-          renderResults(calculatedResults);
-          
-          raceState = 'finished';
-          const btn = document.getElementById('nextBtn');
-          btn.disabled = false; 
-          btn.innerText = (currentRaceIndex < totalRounds - 1) ? "➡️ 次のレースへ進む" : "🏆 回戦終了：成績を確認する";
-        }, 10500); 
-      }, 100);
-    }, 1500);
-  }, 12600); 
-}
-
-function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear", moveDir = "left_to_right") {
-  const trackContainer = document.getElementById('track-container');
-  if (!trackContainer) return;
-  const trackWidth = trackContainer.clientWidth - 20;
-  
-  positionsArray.forEach((pos, i) => {
-    const el = document.getElementById(`horse-icon-${i}`);
-    if (el) {
-      let validPos = (typeof pos === 'number' && !isNaN(pos)) ? pos : 0;
-      el.style.transition = `left ${durationSec}s ${timing}`;
-      let actualPos = (moveDir === "right_to_left") ? (100 - validPos) : validPos;
-      el.style.left = (10 + (trackWidth * (actualPos / 100))) + "px";
-    }
-  });
-}
-
-function updateLog(text) { document.getElementById('log-content').innerHTML = text; }
-function showTelop(text, durationMs = 1500) {
-  const telop = document.getElementById('race-telop');
-  telop.innerHTML = text; telop.classList.add('show');
-  setTimeout(() => { hideTelop(); }, durationMs);
-}
-function hideTelop() { document.getElementById('race-telop').classList.remove('show'); }
 
-function renderResults(scoredList) {
-  document.getElementById('summary-pace-branch').textContent = `${currentRacePace} 【${currentRaceBranch}】`;
-  document.getElementById('summary-formula').textContent = `${currentRaceFormulaStr} (+ Lv補正 & ランダム差)`;
-
-  const tbody = document.getElementById('result-body');
-  tbody.innerHTML = "";
-  
-  const getPosPt = (item) => (item.positionPoint ?? item.posPt ?? item.position_point ?? 0);
-  const sortedByPos = [...scoredList]
-    .map((item) => ({ item, posPt: getPosPt(item) }))
-    .sort((a, b) => b.posPt - a.posPt);
-
-  const posOrderMap = new Map();
-  sortedByPos.forEach((entry, idx) => {
-    posOrderMap.set(entry.item, idx + 1);
-  });
-
-  scoredList.forEach((item, r) => {
-    let typeBadge = "";
-    let nameClass = "";
-    if (item.isPlayer) {
-      typeBadge = '<br><span class="p1-name" style="font-size:0.8em; font-weight:bold;">[YOU]</span>';
-      nameClass = "p1-name";
-    } else if (item.isOpponent) {
-      typeBadge = '<br><span class="p2-name" style="font-size:0.8em; font-weight:bold;">[OPP]</span>';
-      nameClass = "p2-name";
-    }
-
-    const horseStyle = item.style || item.running_style || "自在";
-    const tacticName = item.tactic || "通常";
-    const tacticLevel = item.level || 1;
-
-    let posOrder = item.positionOrder ?? item.posOrder ?? item.order ?? item.positionRank ?? item.posRank;
-    if (posOrder === undefined || posOrder === null) {
-      posOrder = posOrderMap.get(item);
-    }
-    const posOrderStr = posOrder ? `${posOrder}番手` : '-';
-
-    const rawPosPt = item.positionPoint ?? item.posPt ?? item.position_point;
-    const posPtStr = (rawPosPt !== undefined && rawPosPt !== null) ? `(${Math.round(rawPosPt)}pt)` : '';
-
-    const rawScore = item.score ?? item.totalScore ?? item.evalScore ?? item.finalScore ?? item.total_score ?? item.totalPt ?? item.evalPt ?? item.point;
-    const displayScore = (rawScore !== undefined && rawScore !== null && !isNaN(rawScore)) 
-      ? Math.round(rawScore) 
-      : '-';
-
-    let detailText = item.detailText || "算定詳細なし";
-
-    tbody.innerHTML += `
-      <tr>
-        <td><strong>${r + 1}着</strong>${typeBadge}</td>
-        <td style="text-align:left;">
-          <span class="${nameClass}" style="font-weight:bold;">${item.gate_number ? item.gate_number + '番 ' : ''}${item.name}</span>
-          <span class="horse-sub-info">[${horseStyle}] ${tacticName} (Lv.${tacticLevel})</span>
-        </td>
-        <td>
-          <div style="font-weight:bold; color:#fff;">${posOrderStr}</div>
-          <span class="pos-info">${posPtStr}</span>
-        </td>
-        <td><strong>${displayScore}</strong></td>
-        <td><div class="detail-text">${detailText}</div></td>
-      </tr>`;
-  });
-
-  document.getElementById('result-container').style.display = "block";
-}
-
-function recordHistory(scoredList) {
-  const myHorse = scoredList.find(h => h.isPlayer);
-  const oppHorse = scoredList.find(h => h.isOpponent);
-  
-  const myRank = myHorse ? (scoredList.indexOf(myHorse) + 1) : 99;
-  const oppRank = oppHorse ? (scoredList.indexOf(oppHorse) + 1) : 99;
-
-  let isWin = false;
-  let winnerText = "引き分け";
-  if (myRank < oppRank) {
-    isWin = true;
-    winnerText = myNameStr;
-  } else if (oppRank < myRank) {
-    isWin = false;
-    winnerText = oppNameStr;
+  @keyframes animLegF1 {
+    0%, 24.9% { opacity: 1; }
+    25%, 100% { opacity: 0; }
   }
-
-  seriesHistory.push({
-    raceNum: currentRaceIndex + 1,
-    raceName: currentRaceInfo.race_name,
-    myRank: myRank,
-    oppRank: oppRank,
-    win: isWin,
-    winner: winnerText
-  });
-}
-
-function showFinalSeriesResult() {
-  const currentSeriesIndex = roomData?.current_series_index || 0;
-  sessionStorage.setItem(`watched_race_${roomId}_${currentSeriesIndex}`, 'true');
-
-  seriesHistory = [];
-  const addedRaces = new Set();
-  const cacheObj = roomData?.race_results_cache || {};
-  const isHost = (role === 'host');
-
-  const matchSeries = roomData?.match_series || roomData?.selected_series || ["series_01"];
-  const seriesId = Array.isArray(matchSeries) ? (matchSeries[currentSeriesIndex] || matchSeries[0]) : matchSeries;
-  const seriesInfo = seriesMasterData[seriesId] || Object.values(seriesMasterData)[0] || {};
-  const racesInSeries = seriesInfo.races || (seriesInfo.rounds && seriesInfo.rounds[0] ? seriesInfo.rounds[0].races : null);
-
-  for (let rIdx = 0; rIdx < 5; rIdx++) {
-    const seriesNum = currentSeriesIndex + 1;
-    const pKey = `${seriesNum}${rIdx + 1}`;
-    const raceRes = cacheObj[pKey];
-    if (!raceRes || addedRaces.has(rIdx + 1)) continue;
-    addedRaces.add(rIdx + 1);
-
-    const roundRace = (Array.isArray(racesInSeries) && racesInSeries[rIdx]) ? racesInSeries[rIdx] : null;
-    const raceName = roundRace?.race_name || `第${rIdx + 1}戦`;
-
-    const results = raceRes.results || [];
-    results.forEach(h => {
-      if (h.playerRole === 'host') {
-        h.isPlayer = isHost;
-        h.isOpponent = !isHost;
-      } else if (h.playerRole === 'guest') {
-        h.isPlayer = !isHost;
-        h.isOpponent = isHost;
-      } else {
-        h.isPlayer = false;
-        h.isOpponent = false;
-      }
-    });
-
-    const myHorse = results.find(h => h.isPlayer);
-    const oppHorse = results.find(h => h.isOpponent);
-    const myRank = myHorse ? (results.indexOf(myHorse) + 1) : 99;
-    const oppRank = oppHorse ? (results.indexOf(oppHorse) + 1) : 99;
-
-    let isWin = false;
-    let winnerText = "引き分け";
-    if (myRank < oppRank) {
-      isWin = true;
-      winnerText = myNameStr;
-    } else if (oppRank < myRank) {
-      isWin = false;
-      winnerText = oppNameStr;
-    }
-
-    seriesHistory.push({
-      raceNum: rIdx + 1,
-      raceName: raceName,
-      myRank: myRank,
-      oppRank: oppRank,
-      win: isWin,
-      winner: winnerText
-    });
+  @keyframes animLegF2 {
+    0%, 24.9% { opacity: 0; }
+    25%, 49.9% { opacity: 1; }
+    50%, 100% { opacity: 0; }
   }
-
-  let myWins = 0;
-  let oppWins = 0;
-
-  seriesHistory.forEach(h => {
-    if (h.myRank < h.oppRank) myWins++;
-    else if (h.oppRank < h.myRank) oppWins++;
-  });
-
-  const titleEl = document.getElementById('series-result-title');
-  const scoreEl = document.getElementById('series-score-detail');
-
-  if (myWins > oppWins) {
-    titleEl.textContent = "🏆 シリーズ勝利！";
-    titleEl.style.color = "var(--gold-color)";
-  } else if (oppWins > myWins) {
-    titleEl.textContent = "シリーズ敗北…";
-    titleEl.style.color = "var(--opponent-color)";
-  } else {
-    titleEl.textContent = "引き分け！";
-    titleEl.style.color = "#ffffff";
+  @keyframes animLegF3 {
+    0%, 49.9% { opacity: 0; }
+    50%, 100% { opacity: 1; }
   }
-
-  scoreEl.innerHTML = `本回戦の戦績: <span style="color:var(--player-color);">${myWins}勝</span> - <span style="color:var(--opponent-color);">${oppWins}勝</span>`;
 
-  const historyBody = document.getElementById('series-history-body');
-  historyBody.innerHTML = "";
-  seriesHistory.forEach(h => {
-    const myRankDisplay = (h.myRank > 15 || h.myRank === 99) ? "-" : `${h.myRank}着`;
-    const oppRankDisplay = (h.oppRank > 15 || h.oppRank === 99) ? "-" : `${h.oppRank}着`;
-
-    historyBody.innerHTML += `
-      <tr>
-        <td>R${h.raceNum}</td>
-        <td>${myRankDisplay}</td>
-        <td>${oppRankDisplay}</td>
-        <td><strong>${h.winner}</strong></td>
-      </tr>`;
-  });
-
-  const modalBtn = document.getElementById('modalNextBtn');
-  const statusMsgEl = document.getElementById('modalHostStatusMsg');
-
-  // ★ 【新アーキテクチャ】観戦完了フラグに基づく UI 切り替え
-  const isHostReady = isHost ? !!roomData?.player1_watched : !!roomData?.player2_watched;
-  const isOppReady = isHost ? !!roomData?.player2_watched : !!roomData?.player1_watched;
-
-  if (modalBtn) {
-    modalBtn.disabled = isHostReady && !isOppReady;
-    modalBtn.textContent = (isHostReady && !isOppReady) ? "⏳ 相手の観戦完了待ち..." : "回戦終了：対戦画面（onbattle.html）へ戻る";
-  }
-  
-  if (statusMsgEl) {
-    if (isHostReady && !isOppReady) {
-      statusMsgEl.textContent = "【完了】相手がレース結果を確認するのを待っています...";
-      statusMsgEl.style.color = "var(--accent-green)";
-    } else if (!isHostReady) {
-      statusMsgEl.textContent = "ボタンを押すと、次の回戦（または結果画面）へ進行します。";
-      statusMsgEl.style.color = "var(--gold-color)";
-    }
+  /* 足元の砂埃・蹴り土エフェクト */
+  .horse-dust-wrap {
+    position: absolute;
+    bottom: 2px;
+    right: 8px;
+    width: 20px;
+    height: 14px;
+    pointer-events: none;
   }
-
-  document.getElementById('final-series-modal').style.display = "block";
-}
-
-// 🛡️ 【新アーキテクチャ】 観戦完了フラグの送信のみに特化した次画面移行処理
-window.finishMatchAndNextOrLobby = async function() {
-  if (isNavigatingAway) return;
-
-  const modalBtn = document.getElementById('modalNextBtn');
-  if (modalBtn) {
-    modalBtn.disabled = true;
-    modalBtn.textContent = "⏳ 通信中...";
+  .dust-puff {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0;
+    transform-origin: center;
   }
-
-  if (roomId) {
-    try {
-      const roomRef = doc(db, "online_matches", roomId);
-      const isHost = (role === 'host');
-      const watchedField = isHost ? 'player1_watched' : 'player2_watched';
-
-      // 自分の観戦完了フラグのみを安全に送信
-      await updateDoc(roomRef, {
-        [watchedField]: true
-      });
-      return; 
-    } catch (e) {
-      console.error("次へ移行エラー:", e);
-      if (modalBtn) {
-        modalBtn.disabled = false;
-        modalBtn.textContent = "エラー: もう一度押してください";
-      }
-    }
+  /* 芝コース用（緑片 ＆ 白飛沫） */
+  .dust-puff.p1 {
+    width: 6px; height: 6px; background: #e2e8f0;
+    box-shadow: 2px -2px 0 1px #22c55e;
   }
-};
-</script>
-</body>
-</html>
+  .dust-puff.p2 {
+    width: 8px; height: 5px; background: rgba(240, 253, 244, 0.85);
+    box-
