@@ -532,12 +532,12 @@
             <div style="display: flex; flex-direction: column; gap: 4px;">
               <div style="font-weight:bold; color:#d32f2f; font-size:12px;">成績: ギブアップ <span style="font-size:10px; color:#666; font-weight:normal;">(不戦敗)</span></div>
               <div style="color:#d97706; font-family:monospace; font-size: 11px;">
-                着順計 -着 <span style="font-size:9.5px; color:#888;">(全て不戦敗)</span>
+                着順計 -着 <span style="font-size:9.5px; color:#888;">(出走なし)</span>
               </div>
             </div>
             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
               <span class="badge-loss" style="padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 11px;">× 不戦敗</span>
-              <span style="color:#2d6a37; font-weight:bold; font-size: 11px;">⚡ 充足率: 0.0%</span>
+              <span style="color:#888; font-weight:bold; font-size: 11px;">⚡ 充足率: -%</span>
             </div>
           </div>
         `;
@@ -884,11 +884,9 @@
     await processBattleState(totalWins);
   };
 
-  // ★ 修正：報酬の重複受け取りを防ぐロックフラグ
   let isClaimingReward = false;
 
   async function autoClaimAndShowReward(status) {
-    // 既に報酬獲得済みの場合は即座にreturnし、画面表示のみ行う
     if (status.reward_claimed) {
       if (status.reward_horse_id) {
         await renderInlineRewardCardOnly(status.reward_horse_id);
@@ -896,7 +894,6 @@
       return;
     }
     
-    // 連打等による重複実行ブロック
     if (isClaimingReward) return;
     isClaimingReward = true;
 
@@ -904,30 +901,102 @@
       let pool = HORSES_ARRAY;
       const rewardHorse = pool[Math.floor(Math.random() * pool.length)];
 
-      const userUpdateObj = {
-        "cpu_battle_status.reward_claimed": true,
-        "cpu_battle_status.reward_horse_id": rewardHorse.horse_id,
-        "total_wins": increment(1)
-      };
-
-      globalUserData.total_wins = (globalUserData.total_wins || 0) + 1;
-      status.reward_claimed = true;
-      status.reward_horse_id = rewardHorse.horse_id;
-
       const isSurvival = (status.battle_type === 'survival' || status.deck_type === 1);
-      if (isSurvival) {
-        globalUserData.survival_wins = (globalUserData.survival_wins || 0) + 1;
-        userUpdateObj.survival_wins = increment(1);
-      }
-
       const current1stCount = status.total_1st_places || 0;
       let newMax1st = globalUserData.max_1st_places || 0;
-
       if (current1stCount > newMax1st) {
         newMax1st = current1stCount;
         globalUserData.max_1st_places = newMax1st;
-        userUpdateObj.max_1st_places = newMax1st;
       }
+
+      // サバイバル達成時の実績・自己ベスト記録
+      let survivalBestsUpdate = null;
+      let survivalBadgesUpdate = null;
+
+      if (isSurvival) {
+        globalUserData.survival_wins = (globalUserData.survival_wins || 0) + 1;
+
+        let totalC1 = 0, totalC2 = 0, totalC3 = 0, totalC4Plus = 0, totalRankSum = 0;
+        let actualTeamPotentialSum = 0, maxLimitPotentialSum = 0;
+        const roundResults = status.round_results || {};
+        const lineup = status.series_lineup || [];
+
+        Object.keys(roundResults).forEach(key => {
+          const res = roundResults[key];
+          totalC1 += res.r1 || 0;
+          totalC2 += res.r2 || 0;
+          totalC3 += res.r3 || 0;
+          totalC4Plus += res.r4Plus || 0;
+          totalRankSum += res.rankSum || 0;
+          actualTeamPotentialSum += res.teamPotential || 0;
+        });
+
+        for (let i = 0; i < 3; i++) {
+          if (lineup[i]) {
+            const sObj = SERIES_MASTER.find(s => s.series_id === lineup[i]);
+            const maxLimit = sObj?.potential_limit?.max_total_potential;
+            if (typeof maxLimit === 'number') maxLimitPotentialSum += maxLimit;
+          }
+        }
+
+        let fulfillment = maxLimitPotentialSum > 0 ? Number(((actualTeamPotentialSum / maxLimitPotentialSum) * 100).toFixed(1)) : 0;
+        const existingBests = globalUserData.survival_bests || {};
+        const existingBadges = globalUserData.survival_badges || {};
+
+        const newRecord = {
+          rank_sum: totalRankSum,
+          c1: totalC1,
+          c2: totalC2,
+          c3: totalC3,
+          c4Plus: totalC4Plus,
+          fulfillment: fulfillment,
+          date: new Date().toISOString()
+        };
+
+        const updatedBests = { ...existingBests };
+        if (!updatedBests.min_rank_sum || totalRankSum < updatedBests.min_rank_sum.rank_sum) {
+          updatedBests.min_rank_sum = newRecord;
+        }
+        if (!updatedBests.max_fulfillment || fulfillment > updatedBests.max_fulfillment.fulfillment) {
+          updatedBests.max_fulfillment = newRecord;
+        }
+        if (!updatedBests.min_fulfillment || fulfillment < updatedBests.min_fulfillment.fulfillment) {
+          updatedBests.min_fulfillment = newRecord;
+        }
+        if (!updatedBests.max_1st || totalC1 > (updatedBests.max_1st.c1 ?? 0)) {
+          updatedBests.max_1st = newRecord;
+        }
+
+        const updatedBadges = { ...existingBadges, clear: true };
+        if (fulfillment >= 100) updatedBadges.fulfillment_100 = true;
+
+        globalUserData.survival_bests = updatedBests;
+        globalUserData.survival_badges = updatedBadges;
+        survivalBestsUpdate = updatedBests;
+        survivalBadgesUpdate = updatedBadges;
+      }
+
+      // 報酬付与と同時にDBのcpu_battle_statusを初期化
+      const userUpdateObj = {
+        total_wins: increment(1),
+        cpu_battle_status: { is_active: false }
+      };
+
+      if (isSurvival) {
+        userUpdateObj.survival_wins = increment(1);
+        if (survivalBestsUpdate) userUpdateObj.survival_bests = survivalBestsUpdate;
+        if (survivalBadgesUpdate) userUpdateObj.survival_badges = survivalBadgesUpdate;
+      }
+      if (current1stCount > (globalUserData.max_1st_places || 0)) {
+        userUpdateObj.max_1st_places = current1stCount;
+      }
+
+      globalUserData.total_wins = (globalUserData.total_wins || 0) + 1;
+      
+      // 画面上での描画を継続するためメモリ上のステータスは保持
+      status.reward_claimed = true;
+      status.reward_horse_id = rewardHorse.horse_id;
+      status._is_db_reset = true;
 
       await Promise.all([
         setDoc(doc(db, "users", currentUser.uid), userUpdateObj, { merge: true }),
@@ -950,10 +1019,8 @@
     } catch (err) {
       console.error("データ保存エラー:", err);
       alert("報酬の保存に失敗しました。通信環境をご確認ください。");
-      // エラー時は再試行できるようにフラグとステータスを戻す
       status.reward_claimed = false; 
     } finally {
-      // 処理完了（成功・失敗問わず）でロック解除
       isClaimingReward = false;
     }
   }
@@ -1131,6 +1198,7 @@
       document.getElementById('deckPanel').style.display = 'none';
 
       if (roundWins >= winCondition) {
+        // 勝利時：報酬付与と同時にDB初期化
         if (!status.reward_claimed) {
           if (!window._autoRewardTriggered) {
             window._autoRewardTriggered = true;
@@ -1139,22 +1207,27 @@
         } else {
           await renderInlineRewardCardOnly(status.reward_horse_id);
         }
-
-        startBtn.style.display = 'block';
-        startBtn.disabled = false;
-        startBtn.style.opacity = '1';
-        startBtn.style.cursor = 'pointer';
-        startBtn.textContent = "🏁 バトルを終了する（新しい挑戦を開始する）";
-        startBtn.onclick = manualResetBattleData;
       } else {
+        // 敗北・ギブアップ時：リザルト表示と同時にDB初期化
         document.getElementById('inlineRewardPanel').style.display = 'none';
-        startBtn.style.display = 'block';
-        startBtn.disabled = false;
-        startBtn.style.opacity = '1';
-        startBtn.style.cursor = 'pointer';
-        startBtn.textContent = "🏁 バトルを終了する（新しい挑戦を開始する）";
-        startBtn.onclick = manualResetBattleData;
+        if (!status._is_db_reset) {
+          status._is_db_reset = true;
+          try {
+            await setDoc(doc(db, "users", currentUser.uid), {
+              cpu_battle_status: { is_active: false }
+            }, { merge: true });
+          } catch (e) {
+            console.error("敗北時ステータスリセットエラー:", e);
+          }
+        }
       }
+
+      startBtn.style.display = 'block';
+      startBtn.disabled = false;
+      startBtn.style.opacity = '1';
+      startBtn.style.cursor = 'pointer';
+      startBtn.textContent = "🏁 確認してモード選択へ戻る";
+      startBtn.onclick = () => window.location.reload();
       if (resetBtn) resetBtn.style.display = 'none';
     } else {
       document.getElementById('inlineRewardPanel').style.display = 'none';
