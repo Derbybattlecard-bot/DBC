@@ -1,13 +1,20 @@
 // ============================================================================
 // js/race_calculator.js
-// 競馬シミュレーション・計算エンジン ＆ 実況生成統合モジュール（マスターデータ駆動完全版 v2.4）
+// 競馬シミュレーション・計算エンジン ＆ 実況生成統合モジュール（マスターデータ駆動完全版 v2.5）
 // ============================================================================
 
-// 海外競馬場フルリスト
+// 海外競馬場フルリスト（欧州・米国・アジア・中東・豪州 全競馬場網羅）
 const OVERSEAS_TRACKS = [
-  "沙田", "香港", "クランジ", "メイダン",
-  "ロンシャン", "パリロンシャン", "サンクルー", "アスコット", "ニューマーケット", "エプソム",
-  "デルマー", "サンシャイン", "チャーチルダウンズ", "サンタアニタ", "ベルモントパーク", "アーリントンパーク"
+  // 香港・アジア
+  "沙田", "香港", "クランジ",
+  // 中東
+  "メイダン",
+  // ヨーロッパ
+  "ロンシャン", "パリロンシャン", "サンクルー", "アスコット", "ニューマーケット", "エプソム", "レパーズタウン",
+  // アメリカ
+  "チャーチルダウンズ", "サンタアニタ", "ベルモントパーク", "アーリントンパーク", "デルマー", "サンシャイン",
+  // オーストラリア（オセアニア）
+  "フレミントン", "コーフィールド", "ムーニーバレー", "ランドウィック"
 ];
 
 /**
@@ -310,20 +317,16 @@ function evalAbilityCondition(condition, horse, raceInfo, trackCondition, allHor
   const track = String(raceInfo?.track || "");
   const dist = Number(raceInfo?.distance || 0);
   const isFemale = ["牝", "牝馬"].includes(horse.sex);
-  
-  const tacticStyle = getTacticStyleFromMaster(horse);
-  const isEscape = (tacticStyle === "逃げ");
 
   if (condition.startsWith("track_")) {
     const venue = condition.replace("track_", "");
 
-    if (venue === "fukushima_escape") return track.includes("福島") && isEscape;
-    if (venue === "fukushima_not_escape") return track.includes("福島") && !isEscape;
     if (venue === "local") return ["大井","川崎","船橋","浦和","盛岡","園田","高知","笠松","門別"].some(t => track.includes(t));
     if (venue === "overseas_hongkong" || venue === "overseas_asia") return ["沙田", "香港", "クランジ"].some(t => track.includes(t));
     if (venue === "overseas_dubai") return track.includes("メイダン");
-    if (venue === "overseas_europe") return ["ロンシャン", "パリロンシャン", "サンクルー", "アスコット", "ニューマーケット", "エプソム"].some(t => track.includes(t));
+    if (venue === "overseas_europe") return ["ロンシャン", "パリロンシャン", "サンクルー", "アスコット", "ニューマーケット", "エプソム", "レパーズタウン"].some(t => track.includes(t));
     if (venue === "overseas_usa") return ["デルマー", "サンシャイン", "チャーチルダウンズ", "サンタアニタ", "ベルモントパーク", "アーリントンパーク"].some(t => track.includes(t));
+    if (venue === "overseas_oceania" || venue === "overseas_australia") return ["フレミントン", "コーフィールド", "ムーニーバレー", "ランドウィック"].some(t => track.includes(t));
     if (venue === "overseas_all") return OVERSEAS_TRACKS.some(t => track.includes(t));
 
     const trackNameMap = {
@@ -777,7 +780,7 @@ function applyRankSwapAbilities(resultList) {
 }
 
 // ============================================================================
-// メイン処理エクスポート関数: runRaceLogic (v2.4)
+// メイン処理エクスポート関数: runRaceLogic (v2.5)
 // ============================================================================
 export function runRaceLogic(horses, raceMaster, trackCondition = "良", raceInfo = null, abilityMasterData = null) {
   const resultList = horses.map((h, i) => {
