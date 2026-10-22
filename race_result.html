@@ -1730,31 +1730,64 @@ window.handleButtonClick = function() {
 let abilityQueue = [];
 let isShowingAbility = false;
 
-// ★アビリティがデバフ（能力低下）かどうか判定する汎用関数（雑草魂・気性難・出遅れ等すべてカバー）
+// ★アビリティのバフ／デバフ判定（ゲートバカラ、荒ぶる魂、気分屋、雑草魂などの分岐に完全対応）
 function isAbilityDebuff(abilityName, msg, horse) {
   const text = `${abilityName || ""} ${msg || ""}`;
-  if (["荒ぶる魂", "ゲートバカラ", "気分屋", "出遅れ", "引っ掛かり"].some(n => text.includes(n))) {
-    if (text.includes("覚醒") || text.includes("パワー") || text.includes("突破")) return false;
-    return true;
+
+  // 1. 荒ぶる魂・気分屋（特殊ランダム分岐）
+  if (abilityName === "荒ぶる魂" || abilityName === "気分屋") {
+    if (["暴走", "制御できず", "失敗", "ダウン", "マイナス"].some(w => text.includes(w))) return true;
+    if (["覚醒", "パワー", "好調", "突破", "アップ"].some(w => text.includes(w))) return false;
   }
-  if (text.includes("低下") || text.includes("ダウン") || text.includes("マイナス") || text.includes("暴走") || text.includes("減速") || text.includes("苦戦") || text.includes("失敗")) {
-    return true;
-  }
-  if (abilityMasterData) {
+
+  // 2. abilityMasterDataから、この馬に実際に適用されたeffectのvalueを精査
+  if (abilityMasterData && horse) {
     let master = null;
     if (Array.isArray(abilityMasterData)) {
       master = abilityMasterData.find(a => a.name === abilityName || a.ability_name === abilityName);
     } else if (typeof abilityMasterData === 'object') {
       master = abilityMasterData[abilityName];
     }
-    if (master && master.effects) {
-      const hasNegative = master.effects.some(e => typeof e.value === 'number' && e.value < 0);
-      if (hasNegative) return true;
+
+    if (master && Array.isArray(master.effects)) {
+      const gate = Number(horse.gate_number ?? horse.horse_number ?? horse.gate ?? 0);
+      const isOdd = gate % 2 === 1;
+      const isEven = gate % 2 === 0;
+
+      // 条件（偶数枠/奇数枠やメッセージ一致）に合致するeffectの正負をチェック
+      for (const eff of master.effects) {
+        let isMatch = false;
+        if (eff.condition === "gate_even" && isEven) isMatch = true;
+        else if (eff.condition === "gate_odd" && isOdd) isMatch = true;
+        else if (msg && (eff.popup_text === msg || eff.popup_name === msg)) isMatch = true;
+
+        if (isMatch && typeof eff.value === 'number') {
+          return eff.value < 0; // valueがマイナスならデバフ(true)、プラスならバフ(false)
+        }
+      }
+
+      // メッセージ部分一致による精査
+      for (const eff of master.effects) {
+        if (msg && eff.popup_text && (msg.includes(eff.popup_text) || eff.popup_text.includes(msg))) {
+          if (typeof eff.value === 'number') return eff.value < 0;
+        }
+      }
     }
   }
-  if (horse && horse.ability_buff !== undefined && horse.ability_buff < 0) {
-    return true;
+
+  // 3. テキストによる確実なデバフ／バフキーワード判定
+  const debuffWords = ["出遅れ", "引っ掛かり", "暴走", "低下", "ダウン", "マイナス", "苦戦", "失敗", "減速", "制御できず"];
+  if (debuffWords.some(w => text.includes(w))) return true;
+
+  const buffWords = ["好スタート", "ロケットスタート", "覚醒", "パワー", "上昇", "アップ", "成功", "突破", "浮上", "下克上"];
+  if (buffWords.some(w => text.includes(w))) return false;
+
+  // 4. 馬オブジェクトのability_buff値による判定
+  if (horse && typeof horse.ability_buff === 'number') {
+    if (horse.ability_buff < 0) return true;
+    if (horse.ability_buff > 0) return false;
   }
+
   return false;
 }
 
