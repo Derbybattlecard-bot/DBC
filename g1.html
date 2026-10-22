@@ -147,6 +147,7 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      transition: all 0.2s ease;
     }
     .tab-btn.active {
       background: var(--accent-color);
@@ -246,7 +247,6 @@
     /* ナイトモードのワールドマップ */
     .map-container {
       position: relative;
-      width: 100%;
       aspect-ratio: 16 / 10;
       background: #0b1320; 
       border: 2px solid #4e6b52;
@@ -255,22 +255,23 @@
       box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
       margin-left: 18px; 
       width: calc(100% - 18px);
+      box-sizing: border-box;
     }
     
     .map-bg {
       position: absolute;
       top: 0; left: 0; width: 100%; height: 100%;
-      background-image: radial-gradient(rgba(255,255,255,0.1) 1px, transparent 1px);
+      background-image: radial-gradient(rgba(255,255,255,0.12) 1px, transparent 1px);
       background-size: 10px 10px;
     }
 
     .fog-layer {
       position: absolute;
       top: 0; left: 0; width: 100%; height: 100%;
-      background: radial-gradient(circle at center, rgba(0, 0, 0, 0.3) 0%, rgba(11, 19, 32, 0.95) 100%);
+      background: radial-gradient(circle at center, rgba(0, 0, 0, 0.2) 0%, rgba(11, 19, 32, 0.95) 100%);
       pointer-events: none;
       z-index: 10;
-      transition: opacity 1s ease;
+      transition: opacity 0.8s ease;
     }
 
     .continent {
@@ -285,6 +286,29 @@
     .cont-america { top: 25%; left: 10%; width: 25%; height: 50%; }
     .cont-aus { bottom: 15%; right: 20%; width: 15%; height: 20%; }
 
+    /* マップロック時の案内表示 */
+    .map-lock-overlay {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(11, 19, 32, 0.75);
+      z-index: 25;
+      color: #d1d5db;
+      font-size: 12px;
+      font-weight: bold;
+      text-align: center;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    .map-lock-overlay .lock-icon {
+      font-size: 32px;
+      margin-bottom: 6px;
+    }
+
+    /* ピンのスタイル */
     .loc-pin {
       position: absolute;
       width: 24px;
@@ -292,10 +316,17 @@
       transform: translate(-50%, -100%);
       cursor: pointer;
       z-index: 20;
-      opacity: 0; 
-      transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease, transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
-    .loc-pin.unlocked { opacity: 1; }
+    .loc-pin.unlocked {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .loc-pin:active {
+      transform: translate(-50%, -110%) scale(1.1);
+    }
 
     .pin-icon {
       width: 100%;
@@ -304,7 +335,7 @@
       border-radius: 50% 50% 50% 0;
       transform: rotate(-45deg);
       border: 2px solid #555;
-      box-shadow: 0 0 10px rgba(255,255,255,0.1);
+      box-shadow: 0 0 10px rgba(255,255,255,0.2);
       position: relative;
     }
     .loc-pin.cleared .pin-icon {
@@ -330,7 +361,7 @@
       bottom: -22px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(0,0,0,0.8);
+      background: rgba(0,0,0,0.85);
       border: 1px solid #555;
       color: #fff;
       font-size: 10px;
@@ -339,10 +370,83 @@
       border-radius: 4px;
       white-space: nowrap;
       pointer-events: none;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
     }
     .loc-pin.cleared .pin-label {
       border-color: #d4af37;
+      color: #fef08a;
       text-shadow: 0 0 5px #d4af37;
+    }
+
+    /* マップ下部の国一覧リスト */
+    .overseas-overview {
+      margin-left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .overseas-sec-title {
+      color: #9ca3af;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 2px;
+    }
+    .country-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .country-card {
+      background: var(--card-dark);
+      border: 1px solid #3d4f43;
+      border-radius: 6px;
+      padding: 8px 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .country-card:hover {
+      background: #33433a;
+      border-color: #5ba863;
+    }
+    .country-card:active {
+      transform: scale(0.98);
+    }
+    .country-card.cleared {
+      border-color: #d4af37;
+      background: linear-gradient(135deg, #2a362f, #223326);
+    }
+    .country-card-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .country-card-flag {
+      font-size: 20px;
+      line-height: 1;
+    }
+    .country-card-name {
+      color: #fff;
+      font-size: 11.5px;
+      font-weight: bold;
+    }
+    .country-card-status {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #1e2822;
+      color: #9ca3af;
+    }
+    .country-card.cleared .country-card-status {
+      background: rgba(212, 175, 55, 0.2);
+      color: #fef08a;
+      border: 1px solid #d4af37;
     }
 
     /* 黄金の額縁（メモリアル） */
@@ -470,6 +574,7 @@
       padding: 20px;
       box-shadow: 0 10px 25px rgba(0,0,0,0.5);
       position: relative;
+      box-sizing: border-box;
     }
 
     .modal-close-btn {
@@ -489,7 +594,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 15px;
+      margin-bottom: 12px;
       padding-bottom: 10px;
       border-bottom: 1px dashed var(--border-color);
     }
@@ -503,7 +608,7 @@
       background: #f2f8f3;
       padding: 10px;
       border-radius: 6px;
-      margin-bottom: 15px;
+      margin-bottom: 12px;
       border-left: 3px solid var(--accent-color);
     }
 
@@ -511,7 +616,7 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
-      max-height: 200px;
+      max-height: 220px;
       overflow-y: auto;
     }
 
@@ -524,11 +629,46 @@
       justify-content: space-between;
       align-items: center;
       font-size: 12px;
+      cursor: default;
     }
     .guide-race-item.cleared {
       border-color: #d4af37;
       background: #fffdf0;
       font-weight: bold;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .guide-race-item.cleared:hover {
+      background: #fff8d6;
+    }
+    .guide-race-title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .guide-race-name {
+      color: var(--text-main);
+      font-weight: bold;
+    }
+    .guide-race-course {
+      font-size: 10px;
+      color: var(--text-sub);
+    }
+    .guide-race-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    .badge-unobtained {
+      background: #f3f4f6;
+      color: #9ca3af;
+    }
+    .badge-cleared {
+      background: var(--gold-gradient);
+      color: #000;
+      font-weight: bold;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
     }
 
     /* 殿堂馬切替（スロット）用スタイル */
@@ -638,7 +778,7 @@
     </div>
 
     <!-- タブ: 海外遠征 (ワールドマップ) -->
-    <div id="tabOverseas" style="display: none; flex-direction: column;">
+    <div id="tabOverseas" style="display: none; flex-direction: column; gap: 12px;">
       <div class="map-container">
         <div class="map-bg"></div>
         <div class="continent cont-asia"></div>
@@ -646,10 +786,48 @@
         <div class="continent cont-america"></div>
         <div class="continent cont-aus"></div>
         <div class="fog-layer" id="mapFog"></div>
-        <!-- 開発中のモックピン -->
-        <div class="loc-pin" id="pin_hongkong" style="top: 45%; left: 78%;" onclick="openCountryGuide('hongkong')">
+
+        <!-- マップ上のピン一覧 -->
+        <div class="loc-pin" id="pin_hongkong" style="top: 48%; left: 78%;" onclick="openCountryGuide('hongkong')">
           <div class="pin-icon"></div>
           <div class="pin-label">🇭🇰 香港</div>
+        </div>
+
+        <div class="loc-pin" id="pin_dubai" style="top: 45%; left: 58%;" onclick="openCountryGuide('dubai')">
+          <div class="pin-icon"></div>
+          <div class="pin-label">🇦🇪 ドバイ</div>
+        </div>
+
+        <div class="loc-pin" id="pin_france" style="top: 28%; left: 45%;" onclick="openCountryGuide('france')">
+          <div class="pin-icon"></div>
+          <div class="pin-label">🇫🇷 欧州</div>
+        </div>
+
+        <div class="loc-pin" id="pin_usa" style="top: 36%; left: 21%;" onclick="openCountryGuide('usa')">
+          <div class="pin-icon"></div>
+          <div class="pin-label">🇺🇸 米国</div>
+        </div>
+
+        <div class="loc-pin" id="pin_saudi" style="top: 49%; left: 52%;" onclick="openCountryGuide('saudi')">
+          <div class="pin-icon"></div>
+          <div class="pin-label">🇸🇦 サウジ</div>
+        </div>
+
+        <!-- 未解放時の案内表示 -->
+        <div class="map-lock-overlay" id="mapLockOverlay" style="display: none;">
+          <div class="lock-icon">🔒</div>
+          <div id="lockRequirementText">勝利数を重ねると海外遠征マップが解放されます</div>
+        </div>
+      </div>
+
+      <!-- マップ下部の遠征エリア一覧カード -->
+      <div class="overseas-overview">
+        <div class="overseas-sec-title">
+          <span>遠征エリア一覧 (タップでレース表示)</span>
+          <span id="overseasTotalProgress" style="color: #7ec885; font-size: 11px;">0 制覇</span>
+        </div>
+        <div class="country-grid" id="countryCardGrid">
+          <!-- JSで生成 -->
         </div>
       </div>
     </div>
@@ -708,14 +886,17 @@
     
     <div class="guide-header">
       <div class="guide-flag" id="guideFlag">🇭🇰</div>
-      <h3 class="guide-title" id="guideTitle">香港 (沙田)</h3>
+      <div>
+        <h3 class="guide-title" id="guideTitle">香港 (沙田)</h3>
+        <span id="guideProgress" style="font-size: 11px; color: var(--text-sub);">制覇状況: 0/0</span>
+      </div>
     </div>
     
     <div class="guide-desc" id="guideDesc">
       アジアが誇る近代競馬のメッカ。
     </div>
 
-    <div style="font-size: 11.5px; color: var(--accent-color); font-weight: bold; margin-bottom: 8px;">▼ 開催G1レース一覧</div>
+    <div style="font-size: 11.5px; color: var(--accent-color); font-weight: bold; margin-bottom: 8px;">▼ 開催G1レース一覧 (制覇済レースは詳細確認可能)</div>
     <div class="guide-races" id="guideRacesList">
       <!-- JSで生成 -->
     </div>
@@ -729,18 +910,87 @@
 
   let currentUser = null;
   let userUnlockedSeries = []; 
-  let totalWins = 0; // ★ 追加
+  let totalWins = 0;
   
   // 各タブ用のG1レース配列
   let DOMESTIC_G1 = [];
   let LOCAL_G1 = [];
+  let OVERSEAS_G1 = [];
   let TRIBUTE_G1 = [];
-  let UNLOCK_MASTER = []; // ★ グローバル変数に追加
+  let UNLOCK_MASTER = [];
   
   let userG1Records = {};
   
   let isOverseasUnlocked = false;
   let isTributeUnlocked = false;
+  let currentDetailRaceId = null;
+
+  // 海外国マスター定義
+  const OVERSEAS_REGIONS = {
+    hongkong: {
+      key: 'hongkong',
+      flag: '🇭🇰',
+      name: '香港',
+      title: '香港 (沙田競馬場)',
+      desc: 'アジア屈指の近代競馬の祭典。年末の香港国際競走や春のQE2世Cなど世界中のトップマイラー・中距離馬が集います。',
+      races: [
+        { id: 'HK_CUP', name: '香港カップ', course: '沙田 芝2000m' },
+        { id: 'HK_MILE', name: '香港マイル', course: '沙田 芝1600m' },
+        { id: 'HK_SPRINT', name: '香港スプリント', course: '沙田 芝1200m' },
+        { id: 'HK_VASE', name: '香港ヴァーズ', course: '沙田 芝2400m' },
+        { id: 'QE2_CUP', name: 'クイーンエリザベス2世C', course: '沙田 芝2000m' }
+      ]
+    },
+    dubai: {
+      key: 'dubai',
+      flag: '🇦🇪',
+      name: 'ドバイ',
+      title: 'UAE (メイダン競馬場)',
+      desc: 'オイルマネーが支える世界最高峰の競馬の祭典「ドバイワールドカップデー」。芝・ダート各路線の世界王者が激突します。',
+      races: [
+        { id: 'DWC', name: 'ドバイワールドカップ', course: 'メイダン ダ2000m' },
+        { id: 'DSC', name: 'ドバイシーマクラシック', course: 'メイダン 芝2410m' },
+        { id: 'DTURF', name: 'ドバイターフ', course: 'メイダン 芝1800m' },
+        { id: 'DGS', name: 'ドバイゴールデンシャヒーン', course: 'メイダン ダ1200m' }
+      ]
+    },
+    france: {
+      key: 'france',
+      flag: '🇫🇷',
+      name: '欧州',
+      title: 'フランス (パリロンシャン競馬場)',
+      desc: '欧州競馬の最高峰にして日本馬悲願のタイトル「凱旋門賞」。過酷な洋芝と深い歴史が挑戦者を待ち受けます。',
+      races: [
+        { id: 'ARC', name: '凱旋門賞', course: 'ロンシャン 芝2400m' },
+        { id: 'MAROIS', name: 'ジャック・ル・マロワ賞', course: 'ドーヴィル 芝1600m' },
+        { id: 'ISPAHAN', name: 'イスパーン賞', course: 'ロンシャン 芝1850m' }
+      ]
+    },
+    usa: {
+      key: 'usa',
+      flag: '🇺🇸',
+      name: '米国',
+      title: 'アメリカ (デルマー/サンタアニタ)',
+      desc: 'アメリカ競馬の祭典「ブリーダーズカップ」とクラシック3冠。猛烈なペースで争われるスピードの頂点。',
+      races: [
+        { id: 'BC_CLASSIC', name: 'ブリーダーズカップクラシック', course: '米国 ダ2000m' },
+        { id: 'BC_TURF', name: 'ブリーダーズカップターフ', course: '米国 芝2400m' },
+        { id: 'BC_DIRT_MILE', name: 'BCダートマイル', course: '米国 ダ1600m' },
+        { id: 'KY_DERBY', name: 'ケンタッキーダービー', course: 'チャーチルダウンズ ダ2000m' }
+      ]
+    },
+    saudi: {
+      key: 'saudi',
+      flag: '🇸🇦',
+      name: 'サウジ',
+      title: 'サウジアラビア (キングアブドゥルアジーズ)',
+      desc: '世界最高賞金を誇るスーパーリッチレース「サウジカップ」。漆黒の砂漠ナイトレースで世界の強豪ダート馬が集います。',
+      races: [
+        { id: 'SAUDI_CUP', name: 'サウジカップ', course: 'サウジ ダ1800m' },
+        { id: 'RIYADH_DIRT', name: 'リヤドダートスプリント', course: 'サウジ ダ1200m' }
+      ]
+    }
+  };
 
   async function fetchJsonSafe(filename) {
     const candidatePaths = [`./data/${filename}`, `data/${filename}`, `/data/${filename}`];
@@ -761,22 +1011,21 @@
     currentUser = user;
 
     try {
-      const [userDoc, seriesRes, unlockRes] = await Promise.all([ // ★ 追加
+      const [userDoc, seriesRes, unlockRes] = await Promise.all([
         getDoc(doc(db, "users", user.uid)),
         fetchJsonSafe('series_master.json'),
-        fetchJsonSafe('unlock_master.json') // ★ 追加
+        fetchJsonSafe('unlock_master.json')
       ]);
 
       if (unlockRes) {
-        UNLOCK_MASTER = unlockRes; // ★ 追加
+        UNLOCK_MASTER = unlockRes;
       }
 
       if (userDoc.exists()) {
         const data = userDoc.data();
         userG1Records = data.g1_records || {};
-        // 開発テスト用。実運用時はここはFirebaseの値になります
         userUnlockedSeries = data.unlocked_series || ["SERIES_001", "SERIES_006", "SERIES_016", "SERIES_021"]; 
-        totalWins = data.total_wins || 0; // ★ 追加
+        totalWins = data.total_wins || 0;
       }
 
       if (seriesRes) {
@@ -785,18 +1034,27 @@
 
       document.getElementById('syncStatus').textContent = "✅ 同期完了";
       
-      if(isOverseasUnlocked) {
-        document.getElementById('tabBtnOverseas').classList.remove('disabled');
-        document.getElementById('tabBtnOverseas').style.color = '';
+      // 解放状態に応じたタブボタンの更新
+      const overseasBtn = document.getElementById('tabBtnOverseas');
+      if (isOverseasUnlocked) {
+        overseasBtn.classList.remove('disabled');
+        overseasBtn.style.color = '';
+      } else {
+        overseasBtn.classList.add('disabled');
       }
-      if(isTributeUnlocked) {
-        document.getElementById('tabBtnTribute').classList.remove('disabled');
-        document.getElementById('tabBtnTribute').style.color = '';
+
+      const tributeBtn = document.getElementById('tabBtnTribute');
+      if (isTributeUnlocked) {
+        tributeBtn.classList.remove('disabled');
+        tributeBtn.style.color = '';
+      } else {
+        tributeBtn.classList.add('disabled');
       }
 
       renderTrophyRack('domesticRack', DOMESTIC_G1);
       renderTrophyRack('localRack', LOCAL_G1);
       renderTributeRack();
+      renderMap();
 
     } catch (error) {
       console.error("G1データロードエラー:", error);
@@ -807,22 +1065,33 @@
   function extractG1Races(seriesData) {
     DOMESTIC_G1.length = 0;
     LOCAL_G1.length = 0;
+    OVERSEAS_G1.length = 0;
     TRIBUTE_G1.length = 0;
     isOverseasUnlocked = false;
     isTributeUnlocked = false;
     
     const extractedDomestic = new Map();
     const extractedLocal = new Map();
+    const extractedOverseas = new Map();
     const extractedTribute = new Map();
 
     const seriesList = Array.isArray(seriesData) ? seriesData : Object.values(seriesData);
 
-    // ★ 修正：UNLOCK_MASTERから海外とトリビュートの解放条件（Wins）を取得して判定する
-    const overseasReq = UNLOCK_MASTER.find(u => u.cat.includes("海外"))?.wins || 999;
-    const tributeReq = UNLOCK_MASTER.find(u => u.cat.includes("トリビュート"))?.wins || 999;
+    // UNLOCK_MASTERから海外とトリビュートの解放条件（Wins）を取得して判定
+    const overseasItem = UNLOCK_MASTER.find(u => u.cat && u.cat.includes("海外"));
+    const tributeItem = UNLOCK_MASTER.find(u => u.cat && u.cat.includes("トリビュート"));
+
+    const overseasReq = overseasItem ? (overseasItem.wins || overseasItem.win_req || 10) : 10;
+    const tributeReq = tributeItem ? (tributeItem.wins || tributeItem.win_req || 20) : 20;
 
     isOverseasUnlocked = totalWins >= overseasReq;
     isTributeUnlocked = totalWins >= tributeReq;
+
+    // ロック案内テキスト
+    const lockTextEl = document.getElementById('lockRequirementText');
+    if (lockTextEl) {
+      lockTextEl.textContent = `海外遠征マップは通算 ${overseasReq} 勝で解放されます (現在: ${totalWins} 勝)`;
+    }
 
     seriesList.forEach(series => {
       if (!userUnlockedSeries.includes(series.series_id)) return;
@@ -862,6 +1131,8 @@
 
           if (groupName.includes('地方') || gradeStr.includes('JPN')) {
              if (!extractedLocal.has(raceId)) extractedLocal.set(raceId, raceData);
+          } else if (groupName.includes('海外')) {
+             if (!extractedOverseas.has(raceId)) extractedOverseas.set(raceId, raceData);
           } else {
              if (!extractedDomestic.has(raceId)) extractedDomestic.set(raceId, raceData);
           }
@@ -878,18 +1149,36 @@
 
     DOMESTIC_G1 = Array.from(extractedDomestic.values());
     LOCAL_G1 = Array.from(extractedLocal.values());
+    OVERSEAS_G1 = Array.from(extractedOverseas.values());
     TRIBUTE_G1 = Array.from(extractedTribute.values());
+
+    // series_masterに海外レースがあれば各地域データへ自動マージ
+    OVERSEAS_G1.forEach(oRace => {
+      for (const regKey in OVERSEAS_REGIONS) {
+        const reg = OVERSEAS_REGIONS[regKey];
+        if (oRace.group.includes(reg.name) || oRace.track.includes(reg.name) || oRace.name.includes(reg.name)) {
+          if (!reg.races.some(r => r.id === oRace.id || r.name === oRace.name)) {
+            reg.races.push({
+              id: oRace.id,
+              name: oRace.name,
+              course: oRace.track
+            });
+          }
+        }
+      }
+    });
   }
 
   window.switchMainTab = function(tabName) {
     const tabs = ['domestic', 'local', 'overseas', 'tribute'];
     tabs.forEach(t => {
-      document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`).style.display = (t === tabName) ? 'flex' : 'none';
+      const pane = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`);
+      if (pane) pane.style.display = (t === tabName) ? 'flex' : 'none';
       const btn = document.getElementById(`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
-      if(btn) btn.classList.toggle('active', t === tabName);
+      if (btn) btn.classList.toggle('active', t === tabName);
     });
 
-    if(tabName === 'overseas') {
+    if (tabName === 'overseas') {
       renderMap();
     }
   };
@@ -960,13 +1249,129 @@
 
   function renderMap() {
     const fog = document.getElementById('mapFog');
-    fog.style.opacity = isOverseasUnlocked ? "0.7" : "0.95";
+    const lockOverlay = document.getElementById('mapLockOverlay');
+
+    if (isOverseasUnlocked) {
+      if (fog) fog.style.opacity = "0.35";
+      if (lockOverlay) lockOverlay.style.display = "none";
+    } else {
+      if (fog) fog.style.opacity = "0.95";
+      if (lockOverlay) lockOverlay.style.display = "flex";
+    }
+
+    let totalOverseasCleared = 0;
+    const cardGrid = document.getElementById('countryCardGrid');
+    if (cardGrid) cardGrid.innerHTML = '';
+
+    // 各国ピンとカードの描画
+    Object.keys(OVERSEAS_REGIONS).forEach(key => {
+      const region = OVERSEAS_REGIONS[key];
+      const pinEl = document.getElementById(`pin_${key}`);
+
+      // 制覇数の集計
+      let clearedCount = 0;
+      region.races.forEach(r => {
+        if (userG1Records[r.id]?.slot1) {
+          clearedCount++;
+        }
+      });
+      totalOverseasCleared += clearedCount;
+      const isAllCleared = (region.races.length > 0 && clearedCount === region.races.length);
+      const isPartiallyCleared = clearedCount > 0;
+
+      // ピンのクラス反映
+      if (pinEl) {
+        if (isOverseasUnlocked) {
+          pinEl.classList.add('unlocked');
+        } else {
+          pinEl.classList.remove('unlocked');
+        }
+
+        if (isAllCleared || isPartiallyCleared) {
+          pinEl.classList.add('cleared');
+        } else {
+          pinEl.classList.remove('cleared');
+        }
+      }
+
+      // 下部カードの生成
+      if (cardGrid) {
+        const card = document.createElement('div');
+        card.className = `country-card ${isAllCleared ? 'cleared' : ''}`;
+        card.onclick = () => openCountryGuide(key);
+        card.innerHTML = `
+          <div class="country-card-left">
+            <span class="country-card-flag">${region.flag}</span>
+            <span class="country-card-name">${region.name}</span>
+          </div>
+          <span class="country-card-status">${clearedCount} / ${region.races.length} 制覇</span>
+        `;
+        cardGrid.appendChild(card);
+      }
+    });
+
+    const totalProgEl = document.getElementById('overseasTotalProgress');
+    if (totalProgEl) {
+      totalProgEl.textContent = `${totalOverseasCleared} レース制覇中`;
+    }
   }
+
+  // 国ガイドモーダルを開く関数
+  window.openCountryGuide = function(countryKey) {
+    const data = OVERSEAS_REGIONS[countryKey];
+    if (!data) return;
+
+    document.getElementById('guideFlag').textContent = data.flag;
+    document.getElementById('guideTitle').textContent = data.title;
+    document.getElementById('guideDesc').textContent = data.desc;
+
+    let clearedCount = 0;
+    const listEl = document.getElementById('guideRacesList');
+    listEl.innerHTML = '';
+
+    data.races.forEach(race => {
+      const record = userG1Records[race.id];
+      const isCleared = !!record?.slot1;
+      if (isCleared) clearedCount++;
+
+      const item = document.createElement('div');
+      item.className = `guide-race-item ${isCleared ? 'cleared' : ''}`;
+      
+      if (isCleared) {
+        item.onclick = () => {
+          closeModal('countryGuideModal');
+          openHorseDetailModal(race.id, race.name);
+        };
+      }
+
+      item.innerHTML = `
+        <div class="guide-race-title-group">
+          <span class="guide-race-name">${race.name}</span>
+          <span class="guide-race-course">${race.course || ''}</span>
+        </div>
+        <div>
+          ${isCleared 
+            ? `<span class="guide-race-badge badge-cleared">🏆 ${record.slot1.name || '殿堂馬'}</span>` 
+            : `<span class="guide-race-badge badge-unobtained">未制覇</span>`
+          }
+        </div>
+      `;
+      listEl.appendChild(item);
+    });
+
+    const progEl = document.getElementById('guideProgress');
+    if (progEl) {
+      progEl.textContent = `制覇状況: ${clearedCount} / ${data.races.length}`;
+    }
+
+    document.getElementById('countryGuideModal').classList.add('active');
+  };
 
   window.openHorseDetailModal = function(raceId, raceName) {
     const record = userG1Records[raceId];
     if (!record || !record.slot1) return;
 
+    currentDetailRaceId = raceId;
     document.getElementById('detailRaceName').textContent = raceName;
     
     document.getElementById('slot1Name').textContent = record.slot1.name || "不明";
@@ -993,14 +1398,18 @@
   };
 
   window.closeModal = function(modalId) {
-    document.getElementById(modalId).classList.remove('active');
+    const modal = document.getElementById(modalId);
+    if (modal) modal.classList.remove('active');
   };
 
   window.commitSlot2 = async function(raceId) {
+    const targetRaceId = raceId || currentDetailRaceId;
+    if (!targetRaceId) return;
+
     if(!confirm("最新の勝ち馬を殿堂馬として登録（上書き）しますか？\n※元の殿堂馬の記録は消去されます。")) return;
     
     try {
-      const record = userG1Records[raceId];
+      const record = userG1Records[targetRaceId];
       record.slot1 = { ...record.slot2 };
       delete record.slot2;
 
@@ -1014,6 +1423,7 @@
       renderTrophyRack('domesticRack', DOMESTIC_G1);
       renderTrophyRack('localRack', LOCAL_G1);
       renderTributeRack();
+      renderMap();
       
     } catch(e) {
       console.error("殿堂馬の更新に失敗しました:", e);
