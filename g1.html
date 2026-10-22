@@ -902,7 +902,13 @@
   let ACTIVE_OVERSEAS_REGIONS = {};
 
   async function fetchJsonSafe(filename) {
-    const candidatePaths = [`./data/${filename}`, `data/${filename}`, `/data/${filename}`];
+    const candidatePaths = [
+      `./data/${filename}`, 
+      `data/${filename}`, 
+      `/data/${filename}`,
+      `./data/unrock_master.json`,
+      `data/unrock_master.json`
+    ];
     for (const path of candidatePaths) {
       try {
         const res = await fetch(path);
@@ -934,8 +940,6 @@
         const data = userDoc.data();
         userG1Records = data.g1_records || {};
         totalWins = data.total_wins ?? data.totalWins ?? data.wins ?? 0;
-        
-        // Firestore上の解放シリーズ配列（複数形式に対応）
         userUnlockedSeries = data.unlocked_series || data.unlockedSeries || [];
       }
 
@@ -985,8 +989,32 @@
 
     const seriesList = Array.isArray(seriesData) ? seriesData : Object.values(seriesData);
 
-    // 日本国内の競馬場・G1競走名リスト（海外シリーズ内のステップレース等を除外するための判定用）
-    const JAPAN_TRACKS = ['東京', '中山', '京都', '阪神', '中京', '小倉', '新潟', '福島', '札幌', '函館', '大井', '船橋', '川崎', '浦和', '盛岡', '門別', '園田', '高知', '佐賀', '名古屋', '笠松', '金沢'];
+    // ★ 改善：unlock_master.json と totalWins から各カテゴリの最大解放Noを算出
+    const unlockedCatMaxNo = {};
+    UNLOCK_MASTER.forEach(u => {
+      const cat = u.cat || u.category || "";
+      const req = u.wins ?? 0;
+      if (totalWins >= req) {
+        if (!unlockedCatMaxNo[cat] || u.no > unlockedCatMaxNo[cat]) {
+          unlockedCatMaxNo[cat] = u.no;
+        }
+      }
+    });
+
+    // 海外Mapタブ自体の解放判定（海外チャレンジ NO.1 以上 または wins >= 50）
+    isOverseasUnlocked = (unlockedCatMaxNo["海外チャレンジ"] >= 1) || (unlockedCatMaxNo["海外単独"] >= 1) || (totalWins >= 50);
+    isTributeUnlocked = (unlockedCatMaxNo["トリビュート"] >= 1) || (totalWins >= 150);
+
+    const lockTextEl = document.getElementById('lockRequirementText');
+    if (lockTextEl) {
+      lockTextEl.textContent = `海外遠征マップは通算 50 勝で解放されます (現在: ${totalWins} 勝)`;
+    }
+
+    // 日本国内の競馬場名・国内G1レース名
+    const JAPAN_TRACKS = [
+      '東京', '中山', '京都', '阪神', '中京', '小倉', '新潟', '福島', '札幌', '函館', 
+      '大井', '船橋', '川崎', '浦和', '盛岡', '門別', '園田', '高知', '佐賀', '名古屋', '笠松', '金沢'
+    ];
     const JAPAN_RACE_NAMES = [
       '天皇賞', '宝塚記念', '有馬記念', 'ジャパンカップ', '日本ダービー', '東京優駿', '皐月賞', '菊花賞', 
       '桜花賞', '優駿牝馬', 'オークス', '安田記念', 'マイルチャンピオンシップ', 'スプリンターズ', 
@@ -995,39 +1023,23 @@
       '川崎記念', 'かしわ記念', 'JBC', '南部杯'
     ];
 
-    // UNLOCK_MASTER から海外・トリビュート解放条件（Wins）を取得
-    const overseasItem = UNLOCK_MASTER.find(u => (u.cat || u.category || "").includes("海外"));
-    const tributeItem = UNLOCK_MASTER.find(u => (u.cat || u.category || "").includes("トリビュート"));
-
-    const overseasReq = overseasItem ? (overseasItem.wins ?? overseasItem.win_req ?? overseasItem.req_wins ?? 10) : 10;
-    const tributeReq = tributeItem ? (tributeItem.wins ?? tributeItem.win_req ?? tributeItem.req_wins ?? 20) : 20;
-
-    isOverseasUnlocked = totalWins >= overseasReq;
-    isTributeUnlocked = totalWins >= tributeReq;
-
-    const lockTextEl = document.getElementById('lockRequirementText');
-    if (lockTextEl) {
-      lockTextEl.textContent = `海外遠征マップは通算 ${overseasReq} 勝で解放されます (現在: ${totalWins} 勝)`;
-    }
+    // series_master 内の各カテゴリごとの出現順序（NO.1, NO.2...）をカウント
+    const catCounter = {};
 
     seriesList.forEach(series => {
+      const groupName = series.group || series.category || series.cat || "";
       const sId = series.series_id || series.id || "";
       const seriesTitle = series.series_name || series.name || "";
-      const groupName = series.group || series.category || "";
 
-      // ★ 修正：シリーズ個別のアンロック判定（未解放の米国シリーズを一括で解放しないよう厳密にチェック）
-      let isSeriesUnlocked = false;
-      if (userUnlockedSeries && userUnlockedSeries.length > 0) {
-        isSeriesUnlocked = userUnlockedSeries.includes(sId) || userUnlockedSeries.includes(seriesTitle);
-      } else {
-        const reqWins = series.unlock_wins ?? series.req_wins;
-        if (reqWins != null) {
-          isSeriesUnlocked = totalWins >= reqWins;
-        } else {
-          isSeriesUnlocked = ["SERIES_001", "SERIES_006", "SERIES_016", "SERIES_021"].includes(sId);
-        }
-      }
+      catCounter[groupName] = (catCounter[groupName] || 0) + 1;
+      const seriesNo = catCounter[groupName]; // このカテゴリ内でのシリーズ番号 (1, 2, 3...)
 
+      // ★ 判定：unlock_master による解放、または Firestore配列に明示登録されているか
+      const maxNo = unlockedCatMaxNo[groupName] || 0;
+      const isUnlockedByMaster = (seriesNo <= maxNo);
+      const isUnlockedByDoc = userUnlockedSeries.includes(sId) || userUnlockedSeries.includes(seriesTitle);
+
+      const isSeriesUnlocked = isUnlockedByMaster || isUnlockedByDoc;
       if (!isSeriesUnlocked) return;
 
       if (groupName.includes("トリビュート")) {
@@ -1063,18 +1075,18 @@
             seriesName: seriesTitle
           };
 
-          // ★ 修正：国内レース（宝塚記念、天皇賞春など）かどうかの厳密判定
+          // ★ 修正：国内競馬場・国内G1レースであるかの判定
           const isDomesticRace = JAPAN_TRACKS.some(t => trackStr.includes(t)) || JAPAN_RACE_NAMES.some(n => cleanName.includes(n));
 
           if (isDomesticRace) {
-            // 日本国内競馬場のレースは、たとえ海外シリーズに含まれていても「海外Map」には含めず、国内または地方交流へ
+            // 前哨戦などの国内レースは海外Mapには含めず、国内G1ラックへ振り分け
             if (groupName.includes('地方') || gradeStr.includes('JPN')) {
               if (!extractedLocal.has(raceId)) extractedLocal.set(raceId, raceData);
             } else {
               if (!extractedDomestic.has(raceId)) extractedDomestic.set(raceId, raceData);
             }
           } else {
-            // ★ 海外現地（沙田、メイダン、ロンシャン等）で開催されるG1レースのみ海外Mapの対象
+            // ★ 現地海外競馬場（沙田・メイダン・ロンシャンなど）のG1のみを海外Mapへ
             if (!extractedOverseas.has(raceId)) extractedOverseas.set(raceId, raceData);
           }
         }
@@ -1100,7 +1112,7 @@
     groupOverseasRaces();
   }
 
-  // ★ 修正：レース自体の競馬場やレース名で香港・ドバイ・欧州・米国・サウジに正確に振り分け
+  // 現地G1レースを国・地域（香港・ドバイ・欧州など）へ正確に振り分け
   function groupOverseasRaces() {
     ACTIVE_OVERSEAS_REGIONS = {};
 
