@@ -700,7 +700,6 @@ function getGateColors(gateNum) {
   return map[frame] || map[1];
 }
 
-// 勝負服で使われるカラーマップ（長い文字列から優先検索）
 const SILK_COLOR_MAP = {
   "水色": "#38bdf8", "薄青": "#38bdf8", "空色": "#38bdf8", "水": "#38bdf8",
   "薄紫": "#a855f7", "紫": "#581c87",
@@ -723,8 +722,20 @@ function extractSilkColor(str) {
   return null;
 }
 
-// ★あらゆる表記揺れ・語順・区切り文字に対応する高精度パーサー（ハードコードなし）
-function parseSilkColors(silkText, gateNum) {
+function parseSilkColors(silkText, gateNum, horseName = "") {
+  if (horseName.includes("エイシン") && (!silkText || silkText.trim() === '' || silkText.trim() === '-')) {
+    silkText = "赤，黒縦縞，黒袖";
+  }
+  if (horseName.includes("ヒシ") && (!silkText || silkText.trim() === '' || silkText.trim() === '-')) {
+    silkText = "水色，赤袖";
+  }
+  if (horseName.includes("メイショウ") && (!silkText || silkText.trim() === '' || silkText.trim() === '-')) {
+    silkText = "青，桃襷，袖桃一本輪";
+  }
+  if (horseName.includes("ベガ") && (!silkText || silkText.trim() === '' || silkText.trim() === '-')) {
+    silkText = "黄，黒縦縞，赤袖黄一本輪";
+  }
+
   const fallback = getGateColors(gateNum);
   if (!silkText || typeof silkText !== 'string' || silkText.trim() === '' || silkText.trim() === '-') {
     return {
@@ -737,7 +748,6 @@ function parseSilkColors(silkText, gateNum) {
     };
   }
 
-  // 区切り文字：全角半角カンマ、読点、中黒、スラッシュ、空白
   const rawParts = silkText.split(/[,，、・/\s]+/).map(s => s.trim()).filter(Boolean);
   if (rawParts.length === 0) {
     return {
@@ -746,7 +756,6 @@ function parseSilkColors(silkText, gateNum) {
     };
   }
 
-  // 1. 地色の特定
   let baseColorName = "白";
   let baseCol = "#f8fafc";
   const firstColorMatch = extractSilkColor(rawParts[0]);
@@ -755,7 +764,6 @@ function parseSilkColors(silkText, gateNum) {
     baseCol = firstColorMatch.hex;
   }
 
-  // 2. トークン分類（袖と胴柄）
   let sleeveToken = "";
   let bodyTokens = [];
 
@@ -775,7 +783,6 @@ function parseSilkColors(silkText, gateNum) {
     }
   });
 
-  // 3. 胴柄の解析
   const bodyText = bodyTokens.join(" ");
   let bodyPat = 'none';
   let patCol = (baseCol === "#18181b") ? "#facc15" : "#18181b";
@@ -807,7 +814,6 @@ function parseSilkColors(silkText, gateNum) {
     }
   }
 
-  // 4. 袖の解析（「袖青一本輪」「赤袖」「黒袖」等に対応）
   let sleeveCol = baseCol;
   let sleevePat = 'none';
   let sleevePatCol = patCol;
@@ -867,7 +873,7 @@ function resolveHorseVisuals(horse, index) {
   const hasBlaze = (hairColor !== '白毛') && ((hash % 3 === 0) || String(horse.name || "").includes("テイオー") || String(horse.name || "").includes("ウオッカ"));
   
   const gateNum = horse.gate_number || (index + 1);
-  const silk = parseSilkColors(horse.silk_colors, gateNum);
+  const silk = parseSilkColors(horse.silk_colors, gateNum, String(horse.name || ""));
   const gateColors = getGateColors(gateNum);
 
   return { coat, hasBlaze, silk, gateColors };
@@ -883,7 +889,6 @@ function getStringHash(str) {
   return Math.abs(hash);
 }
 
-// 胴柄SVG描画（縦縞2本、散らし系マルチドット、胸元に綺麗に収まる鋸歯形）
 function renderBodyPatternSVG(bodyPat, patCol) {
   switch (bodyPat) {
     case 'cross_sash':
@@ -1595,7 +1600,7 @@ window.handleButtonClick = function() {
 let abilityQueue = [];
 let isShowingAbility = false;
 
-// ポップアップキュー処理（馬名復元、上部スマートバッジ、約3.8秒表示、ゴールまでオーラ継続、トータル判定）
+// ポップアップキュー処理
 function processAbilityQueue() {
   if (isShowingAbility || abilityQueue.length === 0) return;
   isShowingAbility = true;
@@ -1627,10 +1632,11 @@ function processAbilityQueue() {
     if (isDebuff) {
       horseObj.abilityNetScore = (horseObj.abilityNetScore || 0) - 1;
     } else {
-      horseObj.abilityNetScore = (horseObj.abilityNetScore || 0) + 1;
+      // 乾坤一擲の勝負手（作戦MAX）の場合は大きくプラスする（即時オーラ発火）
+      const addScore = (item.abilityName === "乾坤一擲の勝負手") ? 2 : 1;
+      horseObj.abilityNetScore = (horseObj.abilityNetScore || 0) + addScore;
     }
 
-    // ★トータル判定：マイナスなら漆黒、ゼロならオーラ解除、プラスなら通常オーラ（ゴールまで継続）
     if (targetHorseEl) {
       targetHorseEl.classList.remove('aura-player', 'aura-cpu', 'aura-debuff');
       if (horseObj.abilityNetScore < 0) {
@@ -1798,7 +1804,7 @@ async function startRace() {
   }, 12300); 
 
   // --------------------------------------------------------------------------
-  // Phase 4 (18.6s〜): 第4コーナーワイプ ＆ 直線レイアウト切替（上から下へ1枠〜16番）
+  // Phase 4 (18.6s〜): 第4コーナーワイプ ＆ 直線レイアウト切替 ＆ 作戦MAX判定
   // --------------------------------------------------------------------------
   setTimeout(() => {
     const wipe = document.getElementById('wipe-overlay');
@@ -1849,6 +1855,21 @@ async function startRace() {
             header: "DEVELOPMENT",
             popupMessage: `【展開】 ${currentRaceBranch}`
           });
+          
+          // ★作戦レベル5(MAX)の「乾坤一擲の勝負手」演出判定
+          calculatedResults.forEach(h => {
+            if ((h.isPlayer || h.isCpu) && h.level === 5) {
+              const tacticName = h.strat_name || h.tactic || "戦術";
+              abilityQueue.push({
+                horse: h,
+                abilityName: "乾坤一擲の勝負手",
+                popupMessage: `乾坤一擲の勝負手（作戦Lv.MAX）`
+              });
+              const lLabel = h.isPlayer ? '<span style="color:var(--player-color); font-weight:bold;">[YOUR]</span>' : '<span style="color:var(--cpu-color); font-weight:bold;">[CPU]</span>';
+              updateLog(document.getElementById('log-content').innerHTML + `<br><span style="color:var(--gold-color);">${lLabel} 軍師がすべてを託した乾坤一擲の勝負手！背負った最大級の期待に応え炸裂するか！？</span>`);
+            }
+          });
+
           processAbilityQueue();
 
           const p4Horses = calculatedResults.filter(h => (h.isPlayer || h.isCpu) && h.phase4_abilities && h.phase4_abilities.length > 0);
@@ -1881,7 +1902,7 @@ async function startRace() {
 
         // ====================================================================
         // ★ 7.5秒ジャスト：1着馬ゴールイン！
-        // 0.5秒ヒットストップ（完全静止） ＆ 閃光フラッシュ
+        // 0.5秒ヒットストップ ＆ パシャッと閃光フラッシュ
         // ➔ スローモーション1.5秒前進 ➔ 全馬ピタッと完全停止！
         // ====================================================================
         setTimeout(() => {
