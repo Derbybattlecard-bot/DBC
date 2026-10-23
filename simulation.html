@@ -365,7 +365,7 @@
       <select id="selectRaceFile" class="select-strat-in-table" onchange="onRaceFileChanged()" style="max-width:210px;">
         <option value="/sim/26kikkasho.json" selected>2026 第87回 菊花賞 (GI)</option>
         <option value="/sim/24kikkasho.json">2024 第85回 菊花賞 (GI)</option>
-        <option value="/sim/26satsukisho.json">2026　皐月賞 (GI)</option>
+        <option value="/sim/26satsukisho.json">2026 皐月賞 (GI)</option>
         <option value="/sim/26derby.json">2026ダービー (GI)</option>
       </select>
     </div>
@@ -917,6 +917,61 @@ window.onRaceFileChanged = async function() {
   document.getElementById('single-result-panel').style.display = 'none';
 };
 
+// ==================== ★元のJSONに直接上書き保存する処理 ====================
+window.overwriteOriginalJsonFile = async function() {
+  if (!simRaceData || !Array.isArray(activeHorses)) {
+    alert("レースデータが正しく読み込まれていません。");
+    return;
+  }
+
+  const updatedData = JSON.parse(JSON.stringify(simRaceData));
+  if (Array.isArray(updatedData.horses)) {
+    updatedData.horses.forEach(h => {
+      const active = activeHorses.find(ah => (ah.horse_id && ah.horse_id === h.horse_id) || ah.name === h.name);
+      if (active) {
+        h.tactic = active.tactic;
+      }
+    });
+  }
+
+  const select = document.getElementById('selectRaceFile');
+  const targetPath = select ? select.value : '26kikkasho.json';
+  const defaultFileName = targetPath.split('/').pop() || 'race.json';
+  const jsonString = JSON.stringify(updatedData, null, 2);
+
+  // Chrome / Edge 等の直接上書きAPI
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: defaultFileName,
+        types: [{
+          description: 'JSON ファイル',
+          accept: { 'application/json': ['.json'] }
+        }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(jsonString);
+      await writable.close();
+      alert(`「${handle.name}」を上書き保存しました！`);
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      console.warn('showSaveFilePicker エラーまたは非対応のためダウンロード保存へ切り替えます', err);
+    }
+  }
+
+  // フォールバック: 通常ダウンロード
+  const blob = new Blob([jsonString], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = defaultFileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+  alert(`「${defaultFileName}」をダウンロードしました。\n対象フォルダ内の同名ファイルに上書き（置き換え）してください。`);
+};
+
 function extractAllBranchesFromMaster() {
   ALL_BRANCH_LIST = [];
   const forcedSelect = document.getElementById('selectForcedBranch');
@@ -937,7 +992,6 @@ function extractAllBranchesFromMaster() {
       }
 
       list.forEach(branch => {
-        // ★ごちゃつきの展開・波乱の展開は最初から除外
         if (branch.name === "波乱の展開" || branch.name === "ごちゃつきの展開") return;
         const fullObj = { ...branch, pace };
         ALL_BRANCH_LIST.push(fullObj);
@@ -1998,9 +2052,11 @@ function buildHorseActorSVG(h, i) {
     ? `<div class="owner-marker focus-marker">★ ${name6}</div>`
     : `<div class="owner-marker" style="background:rgba(0,0,0,0.7); color:#fff; border:1px solid #555;">${h.gate_number}番</div>`;
 
+  // ★タグ欠損（馬の巨大化バグ）を修復
   return `
     <div class="horse-shadow" style="animation-delay: ${delay}s;"></div>
-    
+    <div class="horse-dust-wrap">
+      <div class="dust-puff p1" style="animation-delay: ${delay}s;"></div>
       <div class="dust-puff p2" style="animation-delay: ${delay}s;"></div>
     </div>
     <div class="horse-bounce-wrap" style="animation-delay: ${delay}s;">
