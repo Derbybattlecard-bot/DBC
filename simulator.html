@@ -553,20 +553,22 @@
     align-items: center;
     gap: 6px;
   }
-  .batch-level-buttons {
-    display: flex;
-    gap: 4px;
-  }
-  .btn-mini-level {
-    background: #222;
-    border: 1px solid #444;
-    color: #ccc;
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 3px;
+
+  .btn-strat-auto {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    border: 1px solid #60a5fa;
+    color: #fff;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 4px 10px;
+    border-radius: 4px;
     cursor: pointer;
+    box-shadow: 0 2px 6px rgba(59,130,246,0.3);
+    transition: all 0.2s;
   }
-  .btn-mini-level:hover { background: #333; color: #fff; }
+  .btn-strat-auto:hover {
+    filter: brightness(1.2);
+  }
 
   .gate-badge {
     display: inline-block;
@@ -580,18 +582,34 @@
     box-shadow: 0 1px 3px rgba(0,0,0,0.6);
   }
 
-  .select-strat-in-table, .select-level-in-table {
+  .jockey-cell-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+  }
+  .jockey-skill-val {
+    background: #2a354a;
+    color: #ffd700;
+    border: 1px solid #4a5d7c;
+    border-radius: 3px;
+    font-size: 9px;
+    padding: 0 3px;
+    font-weight: bold;
+    font-family: monospace;
+  }
+
+  .select-strat-in-table {
     background: #1e2230;
     color: #fff;
     border: 1px solid #3a445d;
     border-radius: 4px;
-    padding: 2px 4px;
+    padding: 3px 6px;
     font-size: 11px;
     font-weight: bold;
     box-sizing: border-box;
-  }
-  .select-level-in-table {
-    width: 52px;
+    width: 100%;
+    max-width: 170px;
   }
 
   .table-horse-name {
@@ -650,7 +668,7 @@
     <a href="battle.html" class="btn-gate-action">← メニューへ</a>
     <span class="sim-badge">🏇 レースシミュレーター</span>
     
-    <!-- 画面上でレースJSONを切り替え可能 -->
+    <!-- 画面上で対象レースJSONを選択可能 -->
     <div style="display:flex; align-items:center; gap:6px;">
       <span style="font-size:11px; color:#aaa;">対象レース:</span>
       <select id="selectRaceFile" class="select-strat-in-table" onchange="onRaceFileChanged()" style="max-width:180px;">
@@ -818,11 +836,9 @@
     <span>🏇 出走メンバー（出馬表 & 作戦設定）</span>
     <span style="font-size:11px; color:#88a; font-weight:normal;" id="entry-count-label">(全0頭)</span>
   </div>
-  <div class="batch-level-buttons">
-    <span style="font-size:10px; color:#888; align-self:center;">一括Lv:</span>
-    <button class="btn-mini-level" onclick="batchSetLevel(1)">Lv.1</button>
-    <button class="btn-mini-level" onclick="batchSetLevel(3)">Lv.3</button>
-    <button class="btn-mini-level" onclick="batchSetLevel(5)">Lv.5</button>
+  <div>
+    <!-- 作戦自動おまかせ配分ボタン -->
+    <button class="btn-strat-auto" onclick="autoDistributeStrategies()">🎲 作戦おまかせ自動配分</button>
   </div>
 </div>
 
@@ -833,21 +849,20 @@
         <th style="width: 38px;">馬番</th>
         <th style="width: 32px;">注目</th>
         <th style="text-align:left; padding-left:6px;">馬名 (性齢・毛色)</th>
-        <th style="width: 55px;">騎手</th>
+        <th style="width: 100px;">騎手 (腕前)</th>
         <th style="width: 42px;">能力</th>
         <th style="width: 42px;">脚質</th>
         <th style="text-align:left; padding-left:6px;">作戦指示</th>
-        <th style="width: 60px;">作戦Lv</th>
       </tr>
     </thead>
     <tbody id="entry-table-body">
-      <tr><td colspan="8" style="padding:15px; color:#888;">データを読み込んでいます...</td></tr>
+      <tr><td colspan="7" style="padding:15px; color:#888;">データを読み込んでいます...</td></tr>
     </tbody>
   </table>
 </div>
 
 <script type="module">
-// レース計算エンジンのみを読み込み（mob.jsやFirebase等は一切不要）
+// レース計算エンジンのみを読み込み
 import { runRaceLogic } from "./js/race_calculator.js";
 
 const VENUE_DIRECTION_MASTER = {
@@ -1014,6 +1029,7 @@ let focusHorseId = null;
 let raceMasterData = null;
 let strategyMasterData = [];
 let abilityMasterData = null;
+let JOCKEY_MAP = {}; // ジョッキーマスタ引き用
 
 let currentRacePace = "";
 let currentRaceBranch = "";
@@ -1050,14 +1066,23 @@ async function initSimulation() {
     simRaceData = getDefaultSimData();
   }
 
-  const [rMaster, sMaster, aMaster] = await Promise.all([
+  const [rMaster, sMaster, aMaster, jMaster] = await Promise.all([
     fetchJsonSafe('race_master.json'),
     fetchJsonSafe('strategy_master.json'),
-    fetchJsonSafe('ability_master.json')
+    fetchJsonSafe('ability_master.json'),
+    fetchJsonSafe('jockey_master.json')
   ]);
   raceMasterData = rMaster || {};
   strategyMasterData = (Array.isArray(sMaster) && sMaster.length > 0) ? sMaster : getDefaultStrategies();
   abilityMasterData = aMaster || {};
+
+  // ジョッキーマスタをマップ化
+  JOCKEY_MAP = {};
+  if (Array.isArray(jMaster)) {
+    jMaster.forEach(j => {
+      if (j && j.name) JOCKEY_MAP[j.name] = j;
+    });
+  }
 
   setupRaceInfoFromData();
   renderEntryTable();
@@ -1076,25 +1101,40 @@ function getDefaultSimData() {
   return {
     "race_info": { "race_name": "第85回 菊花賞 (GI)", "track": "京都", "surface": "芝", "distance": 3000, "track_condition": "良" },
     "horses": [
-      { "gate_number": 1, "name": "ピースワンデュック", "sex": "牡", "potential": 88, "style": "先行", "jockey": "柴田善臣" },
-      { "gate_number": 2, "name": "ノーブルスカイ", "sex": "牡", "potential": 83, "style": "逃げ", "jockey": "池添謙一" },
-      { "gate_number": 4, "name": "ダノンデサイル", "sex": "牡", "potential": 95, "style": "先行", "jockey": "横山典弘" },
-      { "gate_number": 13, "name": "アーバンシック", "sex": "牡", "potential": 97, "style": "差し", "jockey": "C.ルメール" }
+      { "gate_number": 1, "name": "ピースワンデュック", "sex": "牡馬", "turf_potential": 16, "style": "先行", "jockey": "柴田善臣" },
+      { "gate_number": 2, "name": "ノーブルスカイ", "sex": "牡馬", "turf_potential": 15, "style": "逃げ", "jockey": "池添謙一" },
+      { "gate_number": 4, "name": "ダノンデサイル", "sex": "牡馬", "turf_potential": 19, "style": "先行", "jockey": "横山典弘" },
+      { "gate_number": 13, "name": "アーバンシック", "sex": "牡馬", "turf_potential": 19, "style": "差し", "jockey": "C.ルメール" }
     ]
   };
 }
 
 function getDefaultStrategies() {
   return [
-    { strategy_id: "NIGE_01", name: "ハナにこだわる", category: "逃げ" },
-    { strategy_id: "NIGE_02", name: "ハイラップ逃げ", category: "逃げ" },
-    { strategy_id: "SENKO_01", name: "先行して粘り込み", category: "先行" },
-    { strategy_id: "SENKO_02", name: "好位差し狙い", category: "先行" },
-    { strategy_id: "SASHI_01", name: "早目スパート", category: "差し" },
-    { strategy_id: "SASHI_02", name: "中団待機策", category: "差し" },
-    { strategy_id: "OIKOMI_01", name: "道中死んだふり", category: "追込" },
-    { strategy_id: "OIKOMI_02", name: "大外一気", category: "追込" }
+    { strategy_id: "NIGE_01", name: "ハナにこだわる", style: "逃げ" },
+    { strategy_id: "NIGE_02", name: "マイペース逃げ", style: "逃げ" },
+    { strategy_id: "NIGE_03", name: "平均ラップ逃げ", style: "逃げ" },
+    { strategy_id: "NIGE_04", name: "ハイラップ逃げ", style: "逃げ" },
+    { strategy_id: "SENKO_01", name: "先行して粘り込み", style: "先行" },
+    { strategy_id: "SENKO_02", name: "4角先頭", style: "先行" },
+    { strategy_id: "SENKO_03", name: "流れに任す", style: "先行" },
+    { strategy_id: "SENKO_04", name: "好位差し", style: "先行" },
+    { strategy_id: "SASHI_01", name: "早目スパート", style: "差し" },
+    { strategy_id: "SASHI_02", name: "まくり差し", style: "差し" },
+    { strategy_id: "SASHI_03", name: "じっくり足をためる", style: "差し" },
+    { strategy_id: "SASHI_04", name: "先行マーク", style: "差し" },
+    { strategy_id: "OIKOMI_01", name: "道中死んだふり", style: "追込" },
+    { strategy_id: "OIKOMI_02", name: "馬群を割る", style: "追込" },
+    { strategy_id: "OIKOMI_03", name: "大まくり", style: "追込" },
+    { strategy_id: "OIKOMI_04", name: "限界まで脚をためる", style: "追込" }
   ];
+}
+
+function getJockeyLevel(jockeyName) {
+  if (!jockeyName) return 3.5;
+  const jObj = JOCKEY_MAP[jockeyName];
+  if (jObj && typeof jObj.level === 'number') return jObj.level;
+  return 3.5;
 }
 
 function getDefaultStrategyForStyle(style) {
@@ -1107,16 +1147,15 @@ function getDefaultStrategyForStyle(style) {
 }
 
 function ensureStats(h) {
-  const p = Number(h.potential || h.pt || (h.surface === '芝' ? h.turf_potential : h.dirt_potential) || 85);
+  const p = Number(h.turf_potential || h.potential || 16);
+  h.turf_potential = p;
+  h.dirt_potential = Number(h.dirt_potential ?? 0);
   h.potential = p;
-  h.turf_potential = Number(h.turf_potential ?? p);
-  h.dirt_potential = Number(h.dirt_potential ?? Math.max(30, p - 30));
   h.speed = Number(h.speed ?? p);
   h.stamina = Number(h.stamina ?? p);
   h.sharp = Number(h.sharp ?? p);
   h.jizoku = Number(h.jizoku ?? p);
   h.guts = Number(h.guts ?? p);
-  h.power = Number(h.power ?? p);
   h.style = h.style || h.running_style || "先行";
 }
 
@@ -1140,8 +1179,11 @@ function setupRaceInfoFromData() {
     horse.original_gate = horse.gate_number || (i + 1);
     horse.gate_number = horse.gate_number || (i + 1);
     ensureStats(horse);
+    
+    // ジョッキーマスタからレベルを自動設定
+    horse.jockey_level = getJockeyLevel(horse.jockey);
+    
     if (!horse.tactic) horse.tactic = getDefaultStrategyForStyle(horse.style);
-    if (!horse.level) horse.level = 3;
     return horse;
   });
 
@@ -1151,6 +1193,83 @@ function setupRaceInfoFromData() {
     focusHorseId = activeHorses[0].horse_id || activeHorses[0].name;
   }
 }
+
+// -----------------------------------------------------------------------------
+// 【スマート作戦自動振り分けエンジン】
+// 各脚質の4種類から馬のステータス・展開に合わせて賢く割り振る
+// -----------------------------------------------------------------------------
+window.autoDistributeStrategies = function() {
+  // 脚質ごとのカウンタ（バッティング回避用）
+  const usageCount = { "逃げ": 0, "先行": 0, "差し": 0, "追込": 0 };
+
+  activeHorses.forEach((h, idx) => {
+    const style = h.style || "先行";
+    let chosenTactic = "";
+
+    if (style.includes("逃")) {
+      const count = usageCount["逃げ"]++;
+      // 1頭目はスピードやハナ実績ならハナ、2頭目以降はマイペースや平均ラップ、スタミナ型ならハイラップ
+      if (count === 0) {
+        chosenTactic = (h.speed >= h.stamina) ? "ハナにこだわる" : "マイペース逃げ";
+      } else if (count === 1) {
+        chosenTactic = "平均ラップ逃げ";
+      } else if (count === 2) {
+        chosenTactic = (h.jizoku >= 16) ? "ハイラップ逃げ" : "マイペース逃げ";
+      } else {
+        const pool = ["ハナにこだわる", "マイペース逃げ", "平均ラップ逃げ", "ハイラップ逃げ"];
+        chosenTactic = pool[count % pool.length];
+      }
+
+    } else if (style.includes("先")) {
+      const count = usageCount["先行"]++;
+      if (h.sharp >= 17) {
+        chosenTactic = "好位差し";
+      } else if (h.jizoku >= 18 || h.speed >= 19) {
+        chosenTactic = "4角先頭";
+      } else if (h.stamina >= 18) {
+        chosenTactic = "先行して粘り込み";
+      } else {
+        const pool = ["先行して粘り込み", "好位差し", "流れに任す", "4角先頭"];
+        chosenTactic = pool[count % pool.length];
+      }
+
+    } else if (style.includes("差")) {
+      const count = usageCount["差し"]++;
+      if (h.jizoku >= 18 && h.sharp < 18) {
+        chosenTactic = "まくり差し";
+      } else if (h.sharp >= 20) {
+        chosenTactic = "じっくり足をためる";
+      } else if (h.speed >= 18) {
+        chosenTactic = "先行マーク";
+      } else {
+        const pool = ["早目スパート", "じっくり足をためる", "まくり差し", "先行マーク"];
+        chosenTactic = pool[count % pool.length];
+      }
+
+    } else if (style.includes("追")) {
+      const count = usageCount["追込"]++;
+      if (h.jizoku >= 18) {
+        chosenTactic = "大まくり";
+      } else if (h.sharp >= 20) {
+        chosenTactic = "限界まで脚をためる";
+      } else if (h.guts >= 16) {
+        chosenTactic = "馬群を割る";
+      } else {
+        const pool = ["道中死んだふり", "大まくり", "馬群を割る", "限界まで脚をためる"];
+        chosenTactic = pool[count % pool.length];
+      }
+
+    } else {
+      chosenTactic = "先行して粘り込み";
+    }
+
+    h.tactic = chosenTactic;
+    const sel = document.getElementById(`tableStrat_${idx}`);
+    if (sel) sel.value = chosenTactic;
+  });
+
+  document.getElementById('log-content').innerHTML = `🎲 <strong>全${activeHorses.length}頭の作戦を各馬の適性に合わせて自動割り振りしました！</strong>`;
+};
 
 // -----------------------------------------------------------------------------
 // 出馬表 & 作戦UI描画
@@ -1171,7 +1290,9 @@ function renderEntryTable() {
     const isFocus = (focusHorseId === (h.horse_id || h.name));
     const gateColors = getGateColors(h.gate_number, activeHorses.length);
     const pPt = (raceInfo.surface === 'ダート') ? h.dirt_potential : h.turf_potential;
+    const jLvl = Number(h.jockey_level || getJockeyLevel(h.jockey)).toFixed(1);
 
+    // 作戦プルダウンオプション生成
     let stratOptionsHtml = '';
     const isNigetui = (h.style === '逃追');
     const categories = isNigetui
@@ -1193,11 +1314,6 @@ function renderEntryTable() {
       stratOptionsHtml += `</optgroup>`;
     });
 
-    let lvlOptionsHtml = '';
-    for (let lvl = 1; lvl <= 5; lvl++) {
-      lvlOptionsHtml += `<option value="${lvl}" ${h.level === lvl ? 'selected' : ''}>Lv.${lvl}</option>`;
-    }
-
     const stylePrefix = (h.style || '先行').substring(0, 1);
     const tr = document.createElement('tr');
     tr.id = `entry-row-${idx}`;
@@ -1212,19 +1328,19 @@ function renderEntryTable() {
       </td>
       <td style="text-align:left; padding-left:6px;">
         <span class="table-horse-name" onclick="setFocusHorse('${h.horse_id || h.name}')">${h.name}</span>
-        <span class="horse-sub-tag">${h.sex || '牡'}${h.age || 3}歳 / ${h.hair_color || '鹿毛'}</span>
+        <span class="horse-sub-tag">${h.sex || '牡馬'} / ${h.hair_color || '鹿毛'}</span>
       </td>
-      <td>${h.jockey || '-'}</td>
+      <td>
+        <div class="jockey-cell-badge">
+          <span>${h.jockey || '-'}</span>
+          <span class="jockey-skill-val">${jLvl}</span>
+        </div>
+      </td>
       <td><strong style="color:var(--gold-color);">${pPt}</strong></td>
       <td><span class="style-tag ${stylePrefix}">${h.style || '先行'}</span></td>
       <td style="text-align:left; padding-left:6px;">
         <select class="select-strat-in-table" id="tableStrat_${idx}" onchange="onTableStrategyChange(${idx})">
           ${stratOptionsHtml}
-        </select>
-      </td>
-      <td>
-        <select class="select-level-in-table" id="tableLevel_${idx}" onchange="onTableLevelChange(${idx})">
-          ${lvlOptionsHtml}
         </select>
       </td>
     `;
@@ -1244,19 +1360,6 @@ window.setFocusHorse = function(idOrName) {
 window.onTableStrategyChange = function(idx) {
   const sel = document.getElementById(`tableStrat_${idx}`);
   if (sel && activeHorses[idx]) activeHorses[idx].tactic = sel.value;
-};
-
-window.onTableLevelChange = function(idx) {
-  const sel = document.getElementById(`tableLevel_${idx}`);
-  if (sel && activeHorses[idx]) activeHorses[idx].level = parseInt(sel.value, 10) || 3;
-};
-
-window.batchSetLevel = function(targetLvl) {
-  activeHorses.forEach((h, idx) => {
-    h.level = targetLvl;
-    const sel = document.getElementById(`tableLevel_${idx}`);
-    if (sel) sel.value = targetLvl;
-  });
 };
 
 // -----------------------------------------------------------------------------
@@ -1662,8 +1765,11 @@ function prepareActiveHorsesForLogic() {
         if (typeof matchedStrat[k] === 'number') clone[`strat_${k}`] = matchedStrat[k];
       });
     }
-    const lvl = clone.level || 3;
-    clone.strat_potential = lvl * 2;
+
+    // ★ジョッキーレベルを直接作戦ポテンシャルに連動
+    const jLvl = Number(clone.jockey_level || getJockeyLevel(clone.jockey) || 3.5);
+    clone.level = jLvl;
+    clone.strat_potential = jLvl * 2; // ルメール(5.0)なら10pt, 武豊(4.9)なら9.8pt
     clone.strat_name = matchedStrat ? matchedStrat.name : (clone.tactic || "通常");
     clone.abilityNetScore = 0;
     ensureStats(clone);
@@ -1803,7 +1909,7 @@ function renderSingleResultsTable(results) {
         </td>
         <td style="text-align:left; padding-left:6px;">
           <span style="font-weight:bold; ${isFocus ? 'color:var(--gold-color);' : ''}">${item.name}</span>${focusTag}
-          <div style="font-size:9px; color:#88a;">${item.tactic || '通常'} (Lv.${item.level || 1})</div>
+          <div style="font-size:9px; color:#88a;">${item.jockey || ''} / ${item.tactic || '通常'}</div>
         </td>
         <td>${item.positionRank || rank + 1}番手<br><span style="font-size:9px; color:#777;">(${item.positionPoint || 0}pt)</span></td>
         <td><strong style="color:var(--gold-color);">${Math.floor(item.finalScore || 0)}</strong></td>
@@ -1847,7 +1953,7 @@ function runBatchCalculation(times = 100) {
       gate_number: h.gate_number,
       style: h.style,
       tactic: h.tactic,
-      level: h.level,
+      jockey: h.jockey,
       win1st: 0,
       place2nd: 0,
       place3rd: 0,
@@ -1941,7 +2047,7 @@ function renderBatchStatistics(statsList, times, paceCounts) {
         <td style="text-align:left; padding-left:6px;">
           <span style="font-weight:bold; ${isFocus ? 'color:var(--gold-color);' : ''}">${s.name}</span>
           ${isFocus ? '<span style="color:var(--gold-color); font-size:10px;"> [注目]</span>' : ''}
-          <div style="font-size:9px; color:#88a;">${s.tactic || '通常'} (Lv.${s.level || 1})</div>
+          <div style="font-size:9px; color:#88a;">${s.jockey || ''} / ${s.tactic || '通常'}</div>
         </td>
         <td>${s.style || '先行'}</td>
         <td>
