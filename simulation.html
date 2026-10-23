@@ -246,6 +246,9 @@
     box-shadow: 0 2px 6px rgba(37,99,235,0.3); font-size: 11px; padding: 4px 10px;
   }
   .btn-strat-preset.random-main:hover { filter: brightness(1.2); }
+  .btn-strat-preset.opt-win { background: #854d0e; border-color: #ca8a04; color: #fef08a; }
+  .btn-strat-preset.opt-place { background: #1e3a8a; border-color: #3b82f6; color: #93c5fd; }
+  .btn-strat-preset.opt-avg { background: #065f46; border-color: #10b981; color: #a7f3d0; }
 
   .gate-badge {
     display: inline-block; width: 18px; height: 18px; line-height: 18px; border-radius: 50%;
@@ -289,6 +292,28 @@
     background: #12141c; border: 1px solid #2a334a; border-radius: 8px;
     padding: 12px; margin-top: 16px; margin-bottom: 20px;
   }
+  /* 総括コメント枠 */
+  .analyst-summary-panel {
+    background: linear-gradient(135deg, #182232, #0d131f);
+    border: 1px solid #3b82f6; border-radius: 6px; padding: 10px 14px;
+    margin-bottom: 12px; font-size: 11.5px; line-height: 1.5; color: #e2e8f0;
+  }
+  .analyst-title { color: #60a5fa; font-weight: bold; font-size: 12px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+
+  /* 展開除外フィルターパネル */
+  .exclusion-filter-panel {
+    background: #151924; border: 1px solid #334155; border-radius: 6px; padding: 10px; margin-bottom: 12px;
+  }
+  .exclusion-grid {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px;
+  }
+  .exclusion-chip {
+    background: #1e293b; border: 1px solid #475569; border-radius: 4px; padding: 3px 8px;
+    font-size: 10.5px; display: flex; align-items: center; gap: 4px; cursor: pointer; user-select: none;
+  }
+  .exclusion-chip input { cursor: pointer; }
+  .exclusion-chip.excluded { background: #451a03; border-color: #b45309; color: #fde047; text-decoration: line-through; }
+
   /* ペース確率予測バー */
   .pace-forecast-box {
     background: #181d2a; border: 1px solid #334155; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px;
@@ -326,15 +351,6 @@
     display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
   }
   .karte-horse-title { font-size: 1.25em; font-weight: bold; color: var(--gold-color); }
-  .karte-scenario-grid {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; margin-bottom: 10px;
-  }
-  .scenario-card { background: #161a24; border-radius: 6px; padding: 8px 10px; border: 1px solid #334; }
-  .scenario-card.win { border-color: #22c55e; background: rgba(34,197,94,0.08); }
-  .scenario-card.place { border-color: #3b82f6; background: rgba(59,130,246,0.08); }
-  .scenario-card.lose { border-color: #ef4444; background: rgba(239,68,68,0.08); }
-  .scenario-title { font-size: 11px; font-weight: bold; margin-bottom: 4px; display: flex; justify-content: space-between; }
-  .scenario-list { font-size: 10px; color: #ddd; line-height: 1.5; padding-left: 14px; margin: 0; }
   .changed-highlight { animation: flashRow 1.0s ease-out; }
   @keyframes flashRow { 0% { background-color: rgba(0, 255, 102, 0.35); } 100% { background-color: transparent; } }
 </style>
@@ -429,7 +445,7 @@
   </div>
 </div>
 
-<!-- ==================== 3. 出馬表 兼 作戦指示エリア（レースシーン直下） ==================== -->
+<!-- ==================== 3. 出馬表 兼 作戦指示エリア ==================== -->
 <div class="section-title-bar">
   <div class="section-title">
     <span>🏇 出走メンバー（出馬表 & 作戦指示）</span>
@@ -437,10 +453,11 @@
   </div>
   
   <div class="preset-btn-group">
-    <button class="btn-strat-preset random-main" onclick="applyStrategyPreset('random')">🎲 ランダム配分(奇策あり)</button>
-    <button class="btn-strat-preset" onclick="applyStrategyPreset('high')">🔥 前掛かり(ハイ誘発)</button>
-    <button class="btn-strat-preset" onclick="applyStrategyPreset('slow')">🍃 牽制(スロー誘発)</button>
-    <button class="btn-strat-preset" onclick="applyStrategyPreset('aptitude')">⚖️ 各馬の最適作戦をセット</button>
+    <button class="btn-strat-preset random-main" onclick="applyStrategyPreset('random')">🎲 ランダム配分</button>
+    <button class="btn-strat-preset opt-win" onclick="applyStrategyPreset('best_win')">🥇 1着最多作戦セット</button>
+    <button class="btn-strat-preset opt-place" onclick="applyStrategyPreset('best_place')">🥈 複勝率最多作戦セット</button>
+    <button class="btn-strat-preset opt-avg" onclick="applyStrategyPreset('best_avg')">📊 平均着順最良作戦</button>
+    <button class="btn-strat-preset" onclick="applyStrategyPreset('aptitude')">⚖️ 最適作戦</button>
     <button class="btn-gate-action" style="padding:3px 8px; font-size:10px;" onclick="clearFocusHorse()">注目解除</button>
   </div>
 </div>
@@ -461,7 +478,7 @@
         <th style="width: 28px;">根</th>
         <th style="width: 34px;">脚質</th>
         <th style="text-align:left; padding-left:6px; width:175px;">作戦指示 (変更で即時再計算)</th>
-        <th style="text-align:left; padding-left:6px;">現在の作戦で上位(3着内)に行ける展開</th>
+        <th style="text-align:left; padding-left:6px;">有効展開での上位(3着内)進出傾向</th>
       </tr>
     </thead>
     <tbody id="entry-table-body">
@@ -470,7 +487,7 @@
   </table>
 </div>
 
-<!-- ==================== 4. レース着順結果エリア（出馬表の下） ==================== -->
+<!-- ==================== 4. レース着順結果エリア ==================== -->
 <div id="single-result-panel">
   <div class="section-title" style="margin-bottom:6px;"><span>📋 レース着順結果 & 加算詳細</span></div>
   <div class="result-summary-box">
@@ -494,14 +511,33 @@
   </div>
 </div>
 
-<!-- ==================== 5. マトリックス・多角分析パート（一番下） ==================== -->
+<!-- ==================== 5. マトリックス・多角分析パート ==================== -->
 <div class="analyzer-container" id="analyzer-section">
   <div class="section-title" style="margin-bottom:8px;">
     <span>🧭 展開マトリックス ＆ 作戦組み合わせ分析</span>
-    <button class="btn-gate-action" style="padding:3px 10px; font-size:10px; margin-left:auto;" onclick="calculateAllBranchesDeterministic(true)">🔄 現在の作戦で再計算</button>
+    <button class="btn-gate-action" style="padding:3px 10px; font-size:10px; margin-left:auto;" onclick="calculateAllBranchesDeterministic(true)">🔄 再計算</button>
   </div>
 
-  <!-- 現在の作戦組み合わせによるペース確率メーター -->
+  <!-- 🎙️ 総括コメント枠 -->
+  <div class="analyst-summary-panel" id="analyst-summary-box">
+    <div class="analyst-title">🎙️ レース展開アナリストの総括</div>
+    <div id="analyst-comment-text">データ解析中...</div>
+  </div>
+
+  <!-- ⚙️ 展開除外フィルター設定パネル -->
+  <div class="exclusion-filter-panel">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+      <span style="font-size:11.5px; font-weight:bold; color:#facc15;">⚙️ 展開除外モード（現実的ではない展開や検証から外したい展開を複数チェック）:</span>
+      <div>
+        <button class="btn-gate-action" style="padding:2px 8px; font-size:9.5px;" onclick="toggleAllExclusions(true)">全除外</button>
+        <button class="btn-gate-action" style="padding:2px 8px; font-size:9.5px;" onclick="toggleAllExclusions(false)">全解除</button>
+        <button class="btn-gate-action" style="padding:2px 8px; font-size:9.5px; background:#451a03; border-color:#b45309;" onclick="excludeUnrealisticDefaults()">🎲 波乱・荒れ展開を一括除外</button>
+      </div>
+    </div>
+    <div class="exclusion-grid" id="exclusion-chips-container"></div>
+  </div>
+
+  <!-- ペース確率予測バー -->
   <div class="pace-forecast-box">
     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
       <span style="font-size:11px; font-weight:bold; color:#facc15;">🔥 現在の18頭の作戦組み合わせによる「ペース発生確率」予測:</span>
@@ -512,21 +548,21 @@
   </div>
 
   <div class="analyzer-tabs">
-    <button class="tab-btn active" id="tabBtnMatrix" onclick="switchAnalyzerTab('matrix')">🧭 全21展開別 着順マトリクス（作戦反映）</button>
+    <button class="tab-btn active" id="tabBtnMatrix" onclick="switchAnalyzerTab('matrix')">🧭 展開別 着順マトリクス（除外反映）</button>
     <button class="tab-btn" id="tabBtnSummary" onclick="switchAnalyzerTab('summary')">📊 全18頭「ベスト作戦×上位展開」早見表</button>
     <button class="tab-btn" id="tabBtnCombo" onclick="switchAnalyzerTab('combo')">🔀 個別馬「全16作戦×展開」相性シミュレーター</button>
   </div>
 
-  <!-- タブ1: 全21展開別 着順マトリクス -->
+  <!-- タブ1: 展開別 着順マトリクス -->
   <div class="tab-content active" id="tabContentMatrix">
     <div style="font-size:11px; color:#aaa; margin-bottom:6px;">
-      ※出馬表の作戦（SP/ST/瞬/持/根＋位置取り＋脚質ボーナス）を100%反映した各展開の1〜4着です。「🔥高確率」は現在の作戦組み合わせで発生しやすい展開です。
+      ※チェックを外した（有効な）展開のみを対象に順位・勝率・平均着順等を再計算しています。
     </div>
     <div style="overflow-x: auto;">
       <table class="data-table">
         <thead>
           <tr>
-            <th style="width: 135px;">展開 / ペース (発生率)</th>
+            <th style="width: 145px;">展開 / ペース (発生率)</th>
             <th style="width: 145px;">🥇 1着 (勝者)</th>
             <th style="width: 135px;">🥈 2着</th>
             <th style="width: 135px;">🥉 3着</th>
@@ -543,7 +579,7 @@
   <div class="tab-content" id="tabContentSummary">
     <div class="summary-kpi-grid" id="summary-kpi-container"></div>
     <div style="margin: 8px 0 6px 0; font-weight:bold; color:var(--accent-green); font-size:11px;">
-      🏇 全18頭「現在の作戦での好走展開」＆「どの作戦ならどの展開で上位に行けるか」一覧
+      🏇 全18頭「有効展開での好走傾向」＆「どの作戦なら上位に行けるか」一覧
     </div>
     <div style="overflow-x: auto;">
       <table class="data-table" id="all-horses-summary-table">
@@ -554,7 +590,7 @@
             <th style="width: 38px;">脚質</th>
             <th style="width: 40px; color:var(--gold-color);">芝Pt</th>
             <th style="width: 115px;">現在の作戦<br>(1着 / 3着内)</th>
-            <th style="width: 170px; text-align:left; padding-left:6px;">🟢 現在の作戦で上位(3着内)に行ける展開</th>
+            <th style="width: 170px; text-align:left; padding-left:6px;">🟢 有効展開で上位(3着内)に行ける展開</th>
             <th style="text-align:left; padding-left:6px;">💡 この馬のベスト作戦 × 上位進出パターン（クリックで適用）</th>
           </tr>
         </thead>
@@ -568,7 +604,7 @@
     <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
       <span style="font-size:12px; font-weight:bold; color:var(--gold-color);">🔍 分析する馬を選択:</span>
       <select id="selectComboHorse" class="select-strat-in-table" style="max-width:220px;" onchange="renderHorseComboSimulator(this.value)"></select>
-      <span style="font-size:11px; color:#aaa;">※この馬が全16作戦をそれぞれ選んだ時に「どの展開で上位に来るか」をシミュレーションします。</span>
+      <span style="font-size:11px; color:#aaa;">※この馬が全16作戦を選んだ時の「有効展開での相性」を検証します。</span>
     </div>
     <div id="karte-display-area"></div>
   </div>
@@ -577,9 +613,6 @@
 <script type="module">
 import { runRaceLogic } from "./js/race_calculator.js";
 
-// =============================================================================
-// フォールバック用 作戦マスターデータ（全16作戦の本編パラメータ完全網羅）
-// =============================================================================
 const DEFAULT_STRATEGIES = [
   { strategy_id: "NIGE_01", name: "ハナにこだわる", style: "逃げ", speed: 18, stamina: 11, sharp: 11, jizoku: 14, guts: 16 },
   { strategy_id: "NIGE_02", name: "マイペース逃げ", style: "逃げ", speed: 14, stamina: 16, sharp: 13, jizoku: 15, guts: 12 },
@@ -599,7 +632,6 @@ const DEFAULT_STRATEGIES = [
   { strategy_id: "OIKOMI_04", name: "限界まで脚をためる", style: "追込", speed: 11, stamina: 12, sharp: 19, jizoku: 16, guts: 15 }
 ];
 
-// フォールバック用 レース展開マスター
 const DEFAULT_BRANCHES_BY_PACE = {
   "超ハイペース": [
     { name: "前崩れの展開", key_stats: ["potential", "stamina"], position_bonus_type: "direct_asc", position_bonus_note: "後方有利（先頭=1pt, 18番手=18pt）" },
@@ -647,6 +679,7 @@ let abilityMasterData = null;
 let JOCKEY_MAP = {};
 let ALL_BRANCH_LIST = [];
 let previousWinnersMap = {};
+let excludedBranchNames = new Set(); // 除外する展開名のセット
 
 let currentRacePace = "";
 let currentRaceBranch = "";
@@ -796,7 +829,6 @@ async function fetchJsonSafe(filename) {
   return null;
 }
 
-// ★作戦マスターから確実に作戦オブジェクトとパラメータを引くヘルパー
 function getStrategyList() {
   if (Array.isArray(strategyMasterData) && strategyMasterData.length > 0) return strategyMasterData;
   if (strategyMasterData && Array.isArray(strategyMasterData.strategies)) return strategyMasterData.strategies;
@@ -833,7 +865,6 @@ function getStratStyle(stratObj, tacticName = "") {
   return "先行";
 }
 
-// ★馬オブジェクトに現在の作戦パラメータを確実に同期する関数
 function syncHorseStrategyParams(horse) {
   const strat = findStrategyObj(horse.tactic);
   horse.stratObj = strat;
@@ -880,7 +911,7 @@ async function initSimulation() {
 
   calculateAllBranchesDeterministic(false);
 
-  document.getElementById('log-content').innerHTML = `<strong>【準備完了】</strong> ${raceInfo.race_name}（全${activeHorses.length}頭）。出馬表で作戦を変更すると、一番下のマトリックスと上位進出展開がリアルタイムに更新されます。`;
+  document.getElementById('log-content').innerHTML = `<strong>【準備完了】</strong> ${raceInfo.race_name}（全${activeHorses.length}頭）。出馬表で作戦を変更すると、マトリックスと上位進出展開がリアルタイムに更新されます。`;
 }
 
 window.onRaceFileChanged = async function() {
@@ -923,7 +954,58 @@ function extractAllBranchesFromMaster() {
       if (forcedSelect && optGroup) forcedSelect.appendChild(optGroup);
     }
   });
+
+  renderExclusionChips();
 }
+
+function renderExclusionChips() {
+  const container = document.getElementById('exclusion-chips-container');
+  if (!container) return;
+  container.innerHTML = '';
+
+  ALL_BRANCH_LIST.forEach(b => {
+    const isExcluded = excludedBranchNames.has(b.name);
+    const chip = document.createElement('label');
+    chip.className = `exclusion-chip ${isExcluded ? 'excluded' : ''}`;
+    chip.innerHTML = `
+      <input type="checkbox" value="${b.name}" ${isExcluded ? '' : 'checked'} onchange="onExclusionChanged('${b.name}', this.checked)">
+      <span>[${b.pace.replace("ペース","")}] ${b.name}</span>
+    `;
+    container.appendChild(chip);
+  });
+}
+
+window.onExclusionChanged = function(branchName, isChecked) {
+  if (!isChecked) {
+    excludedBranchNames.add(branchName);
+  } else {
+    excludedBranchNames.delete(branchName);
+  }
+  renderExclusionChips();
+  calculateAllBranchesDeterministic(true);
+};
+
+window.toggleAllExclusions = function(excludeAll) {
+  if (excludeAll) {
+    ALL_BRANCH_LIST.forEach(b => excludedBranchNames.add(b.name));
+  } else {
+    excludedBranchNames.clear();
+  }
+  renderExclusionChips();
+  calculateAllBranchesDeterministic(true);
+};
+
+window.excludeUnrealisticDefaults = function() {
+  // 現実的ではない展開として「波乱の展開」「ごちゃつきの展開」などを初期除外
+  ["波乱の展開", "ごちゃつきの展開", "なし崩しの展開"].forEach(name => {
+    if (ALL_BRANCH_LIST.some(b => b.name === name)) {
+      excludedBranchNames.add(name);
+    }
+  });
+  renderExclusionChips();
+  calculateAllBranchesDeterministic(true);
+  document.getElementById('log-content').innerHTML = `⚙️ <b>展開除外モード</b>：波乱やごちゃつき等の荒れやすい展開を除外して再計算しました。`;
+};
 
 function getJockeyLevel(jockeyName) {
   if (!jockeyName) return 3.5;
@@ -987,9 +1069,6 @@ function setupRaceInfoFromData() {
   focusHorseId = null;
 }
 
-// -----------------------------------------------------------------------------
-// 【ペース発生確率の計算（現在の18頭の作戦組み合わせから算出）】
-// -----------------------------------------------------------------------------
 function calculatePaceProbabilities() {
   activeHorses.forEach(h => syncHorseStrategyParams(h));
   const leadHorses = activeHorses.filter(h => h.tactic_style === "逃げ");
@@ -1010,8 +1089,6 @@ function calculatePaceProbabilities() {
       if (st === "マイペース逃げ") { probs["スローペース"] = 0.6; probs["ミドルペース"] = 0.4; }
       else if (st === "平均ラップ逃げ") { probs["ミドルペース"] = 0.7; probs["スローペース"] = 0.3; }
       else probs["乱ペース"] = 1.0;
-    } else if (leadCount === 3) {
-      probs = { "スローペース": 0.4, "ミドルペース": 0.3, "ハイペース": 0, "超ハイペース": 0, "乱ペース": 0.3 };
     } else {
       probs = { "スローペース": 0.15, "ミドルペース": 0.4, "ハイペース": 0, "超ハイペース": 0, "乱ペース": 0.45 };
     }
@@ -1031,10 +1108,6 @@ function calculatePaceProbabilities() {
       else if (st === "マイペース逃げ") { probs["スローペース"] = 0.6; probs["ミドルペース"] = 0.4; }
       else if (st === "平均ラップ逃げ") { probs["ミドルペース"] = 0.7; probs["スローペース"] = 0.3; }
       else { probs["乱ペース"] = 0.5; probs["スローペース"] = 0.5; }
-    } else if (leadCount === 3) {
-      probs = { "スローペース": 0.15, "ミドルペース": 0.30, "ハイペース": 0.35, "超ハイペース": 0.15, "乱ペース": 0.05 };
-    } else if (leadCount === 4) {
-      probs = { "スローペース": 0, "ミドルペース": 0.30, "ハイペース": 0.40, "超ハイペース": 0.20, "乱ペース": 0.10 };
     } else {
       probs = { "スローペース": 0, "ミドルペース": 0.10, "ハイペース": 0.40, "超ハイペース": 0.35, "乱ペース": 0.15 };
     }
@@ -1065,34 +1138,56 @@ function renderPaceForecastUI(paceProbInfo) {
   };
 
   let barHtml = "";
-  let mainPaces = [];
   Object.entries(probs).forEach(([pace, p]) => {
     if (p > 0) {
       const pct = Math.round(p * 100);
       barHtml += `<div class="pace-seg" style="width:${pct}%; background:${colors[pace]};">${pace.replace("ペース","")} ${pct}%</div>`;
-      if (p >= 0.3) mainPaces.push(`${pace}(${pct}%)`);
     }
   });
   barEl.innerHTML = barHtml;
 
   if (probs["超ハイペース"] + probs["ハイペース"] >= 0.5) {
-    commentEl.innerHTML = `💡 <b>ハイペース傾向</b>：先行勢が苦しくなり、「直線強襲」「決め手勝負」「前崩れ」で<b>差し・追込馬（ゴーイントゥスカイ、アウダーシア等）</b>が台頭しやすい組み合わせです。`;
+    commentEl.innerHTML = `💡 <b>ハイペース傾向</b>：先行勢が苦しくなり、差し・追込勢が台頭しやすい組み合わせです。`;
   } else if (probs["スローペース"] >= 0.5) {
-    commentEl.innerHTML = `💡 <b>スローペース傾向</b>：「前残り」「粘り込み」「上がり勝負」になりやすく、<b>単騎逃げ・先行馬や瞬発力特化馬</b>が上位を独占しやすい組み合わせです。`;
+    commentEl.innerHTML = `💡 <b>スローペース傾向</b>：前残りや上がり勝負になりやすく、逃げ・先行馬や瞬発力特化馬が優勢です。`;
   } else {
-    commentEl.innerHTML = `💡 <b>平均〜ミドル傾向</b>：「ロングスパート」「先行抜け出し」「叩き合い」など地力と持続力・作戦の噛み合いが直結する組み合わせです。`;
+    commentEl.innerHTML = `💡 <b>平均ペース傾向</b>：地力と持続力・作戦の噛み合いが直結するフラットな展開です。`;
   }
 }
 
 // -----------------------------------------------------------------------------
-// 【本編計算エンジン直結アナライザー（作戦パラメータ・道中位置完全反映）】
+// AIアナリスト総括コメント生成
 // -----------------------------------------------------------------------------
+function updateAnalystSummaryComment(paceProbInfo, activeCount) {
+  const textEl = document.getElementById('analyst-comment-text');
+  if (!textEl) return;
+
+  const excludedCount = excludedBranchNames.size;
+  const validBranchCount = ALL_BRANCH_LIST.length - excludedCount;
+  const { probs, leadHorses } = paceProbInfo;
+
+  let dominantPace = "ミドルペース";
+  let maxP = 0;
+  Object.entries(probs).forEach(([p, val]) => {
+    if (val > maxP) { maxP = val; dominantPace = p; }
+  });
+
+  let tone = "堅実な実力勝負";
+  if (excludedCount > 0) {
+    tone = `<b>展開除外モード有効(${excludedCount}個除外)</b>により、荒れ要素を排除した純粋な実力・適性検証モードになっています。`;
+  }
+
+  textEl.innerHTML = `
+    現在の18頭の作戦構成では、逃げ馬が ${leadHorses.length} 頭おり、発生確率が最も高いのは <b>${dominantPace} (${Math.round(maxP*100)}%)</b> です。
+    ${tone} 有効な ${validBranchCount} 展開における各馬の勝率・複勝率をベースに、最適な作戦や軸馬を検証してください。
+  `;
+}
+
 function evaluateAllHorsesForBranch(horsesList, branch) {
   const fieldSize = horsesList.length || 18;
   const isChikaraKurabe = (branch.name === "力比べ" || branch.name.includes("力比べ"));
   const potMultiplier = isChikaraKurabe ? 3 : 1;
 
-  // STEP 1: 各馬の道中位置取りポイント（positionPoint）を算出
   const temp = horsesList.map((horse, idx) => {
     syncHorseStrategyParams(horse);
     const currentTacticStyle = horse.tactic_style;
@@ -1112,17 +1207,13 @@ function evaluateAllHorsesForBranch(horsesList, branch) {
     else if (rawHorseStyle === "自在" || rawHorseStyle === "逃追") styleCalcPt = tacticStylePt + 15;
     else if (rawHorseStyle === "好位") styleCalcPt = tacticStylePt + 10;
 
-    // 追込・差し指示時はしっかり控えるよう上限補正
     if (currentTacticStyle === "追込") styleCalcPt = Math.min(styleCalcPt, 35);
     if (currentTacticStyle === "差し") styleCalcPt = Math.min(styleCalcPt, 55);
 
-    // 作戦のスピード補正も位置取りに微反映（同じ脚質内での前後関係に作戦が効くようにする）
     const posPt = styleCalcPt + horse.speed + (horse.strat_speed * 0.15);
-
     return { ...horse, index: idx, positionPoint: posPt, currentTacticStyle, isNigetuiHighLap };
   });
 
-  // 道中順位（positionRank）の決定（同点時は内枠優先）
   const posSorted = [...temp].sort((a, b) => {
     if (b.positionPoint !== a.positionPoint) return b.positionPoint - a.positionPoint;
     return (a.gate_number || 99) - (b.gate_number || 99);
@@ -1132,7 +1223,6 @@ function evaluateAllHorsesForBranch(horsesList, branch) {
     if (target) target.positionRank = r + 1;
   });
 
-  // STEP 2: 展開別の能力スコア＋作戦スコア＋位置ボーナス＋アビリティ計算
   temp.forEach(h => {
     const basePotVal = h.turf_potential || h.potential || 16;
     const stratPotBase = (h.jockey_level || 3.5) * 2;
@@ -1142,7 +1232,6 @@ function evaluateAllHorsesForBranch(horsesList, branch) {
     let statBreakdowns = [];
 
     if (branch.formula) {
-      // 波乱の展開: 30 - potential + 作戦Lv + (馬能力平均 + 作戦能力平均)
       const avgHorse = (h.speed + h.stamina + h.sharp + h.jizoku + h.guts) / 5;
       const avgStrat = (h.strat_speed + h.strat_stamina + h.strat_sharp + h.strat_jizoku + h.strat_guts) / 5;
       statScore = (30 - basePotVal) + stratPotBase + avgHorse + avgStrat;
@@ -1164,7 +1253,6 @@ function evaluateAllHorsesForBranch(horsesList, branch) {
       statScore = (h.speed + h.strat_speed) + (h.stamina + h.strat_stamina);
     }
 
-    // 作戦脚質ペースボーナス
     let styleBonusPt = 0;
     if (h.isNigetuiHighLap) {
       if (branch.pace === "超ハイペース") styleBonusPt = 2;
@@ -1182,7 +1270,6 @@ function evaluateAllHorsesForBranch(horsesList, branch) {
       }
     }
 
-    // 馬本来の脚質ペースボーナス
     const rawHorseStyle = h.style || "先行";
     let horseStyleBonusPt = 0;
     if (rawHorseStyle === "大逃") {
@@ -1200,7 +1287,6 @@ function evaluateAllHorsesForBranch(horsesList, branch) {
       else if (branch.pace === "ハイペース") horseStyleBonusPt = 1;
     }
 
-    // 位置取りボーナス（前残り・前崩れだけでなく、展開の特性に応じた位置取り有利不利も反映）
     let posAddPt = 0;
     if (branch.position_bonus_type === "direct_asc") {
       posAddPt = h.positionRank;
@@ -1208,7 +1294,6 @@ function evaluateAllHorsesForBranch(horsesList, branch) {
       posAddPt = fieldSize + 1 - h.positionRank;
     }
 
-    // アビリティ加算
     let extraScore = 0;
     const abs = Array.isArray(h.ability) ? h.ability : [];
     abs.forEach(abName => {
@@ -1219,13 +1304,9 @@ function evaluateAllHorsesForBranch(horsesList, branch) {
       if (abName === "不屈の闘志" && ["粘り込みの展開", "叩き合いの展開", "我慢比べの展開"].some(b => branch.name.includes(b))) extraScore += 5;
       if (abName === "衝撃の捲り" && branch.name.includes("前残り")) extraScore += (basePotVal - 10);
       if (abName === "万馬券" && ["ごちゃつきの展開", "なし崩しの展開", "消耗戦の展開"].some(b => branch.name.includes(b))) extraScore += 5;
-
-      // 単騎逃げ（一人旅）：逃げ作戦が全体の1頭だけで先頭の時のみ発動！
       if (abName === "一人旅") {
         const allLeadCount = temp.filter(other => other.currentTacticStyle === "逃げ").length;
-        if (h.currentTacticStyle === "逃げ" && allLeadCount === 1 && h.positionRank === 1) {
-          extraScore += 6;
-        }
+        if (h.currentTacticStyle === "逃げ" && allLeadCount === 1 && h.positionRank === 1) extraScore += 6;
       }
       if (abName === "最内一閃" && h.gate_number <= 2) extraScore += 5;
       if (abName === "大外大歓迎" && h.gate_number >= fieldSize - 1) extraScore += 5;
@@ -1238,7 +1319,6 @@ function evaluateAllHorsesForBranch(horsesList, branch) {
     h.detailText = `【能力+作戦】${statBreakdowns.join(" + ")} = ${statScore.toFixed(1)}pt ｜ 【展開加算】作戦脚質+${styleBonusPt}, 馬脚質+${horseStyleBonusPt}, 位置+${posAddPt}, アビ+${extraScore}`;
   });
 
-  // 最終スコア降順（同点時は根性➔ポテンシャル➔馬番順）
   temp.sort((a, b) => {
     if (Math.abs(b.score - a.score) > 0.001) return b.score - a.score;
     if (b.guts !== a.guts) return b.guts - a.guts;
@@ -1250,14 +1330,14 @@ function evaluateAllHorsesForBranch(horsesList, branch) {
 }
 
 // -----------------------------------------------------------------------------
-// 【全展開別 着順マトリクス ＆ 全頭上位進出分析】
+// マトリックス＆分析計算（展開除外を完全反映）
 // -----------------------------------------------------------------------------
 window.calculateAllBranchesDeterministic = function(animateHighlight = false) {
   activeHorses.forEach(h => syncHorseStrategyParams(h));
 
-  // ペース確率の計算とUI反映
   const paceProbInfo = calculatePaceProbabilities();
   renderPaceForecastUI(paceProbInfo);
+  updateAnalystSummaryComment(paceProbInfo, activeHorses.length);
 
   const matrixTbody = document.getElementById('deterministic-matrix-body');
   if (matrixTbody) matrixTbody.innerHTML = '';
@@ -1278,26 +1358,32 @@ window.calculateAllBranchesDeterministic = function(animateHighlight = false) {
     };
   });
 
+  // 除外されていない有効な展開のみ抽出
+  const validBranches = ALL_BRANCH_LIST.filter(b => !excludedBranchNames.has(b.name));
+
   ALL_BRANCH_LIST.forEach(branch => {
+    const isExcluded = excludedBranchNames.has(branch.name);
     const scoredList = evaluateAllHorsesForBranch(activeHorses, branch);
 
-    scoredList.forEach((h, r) => {
-      const rank = r + 1;
-      const acc = horseStatsAcc[h.name];
-      if (acc) {
-        acc.rankSum += rank;
-        if (rank === 1) {
-          acc.winCount++;
-          acc.winBranches.push(branch);
+    if (!isExcluded) {
+      scoredList.forEach((h, r) => {
+        const rank = r + 1;
+        const acc = horseStatsAcc[h.name];
+        if (acc) {
+          acc.rankSum += rank;
+          if (rank === 1) {
+            acc.winCount++;
+            acc.winBranches.push(branch);
+          }
+          if (rank <= 3) {
+            acc.placeCount++;
+            acc.placeBranches.push({ branch, rank, score: h.score });
+          }
+          if (rank < acc.bestRank) { acc.bestRank = rank; acc.bestBranch = branch; }
+          if (rank > acc.worstRank) { acc.worstRank = rank; acc.worstBranch = branch; }
         }
-        if (rank <= 3) {
-          acc.placeCount++;
-          acc.placeBranches.push({ branch, rank, score: h.score });
-        }
-        if (rank < acc.bestRank) { acc.bestRank = rank; acc.bestBranch = branch; }
-        if (rank > acc.worstRank) { acc.worstRank = rank; acc.worstBranch = branch; }
-      }
-    });
+      });
+    }
 
     const h1 = scoredList[0] || {};
     const h2 = scoredList[1] || {};
@@ -1320,12 +1406,14 @@ window.calculateAllBranchesDeterministic = function(animateHighlight = false) {
         : (paceProb > 0 ? `<span style="color:#aaa; font-size:9px;">(${Math.round(paceProb*100)}%)</span>` : `<span style="color:#555; font-size:9px;">(0%)</span>`);
 
       const keyStatsDesc = branch.formula ? branch.formula : (branch.key_stats ? branch.key_stats.join(" ＋ ") : "総合力");
+      const excludedStyle = isExcluded ? 'opacity: 0.35; background: rgba(50,20,10,0.3);' : '';
 
       matrixTbody.innerHTML += `
-        <tr class="${isChanged ? 'changed-highlight' : ''}">
+        <tr class="${isChanged ? 'changed-highlight' : ''}" style="${excludedStyle}">
           <td>
             <span style="font-weight:bold; color:${paceColor};">[${branch.pace.replace("ペース","")}]</span> ${probBadge}<br>
             <strong style="color:var(--gold-color); font-size:11.5px;">${branch.name}</strong>
+            ${isExcluded ? '<br><span style="color:#f87171; font-size:9px; font-weight:bold;">[除外中]</span>' : ''}
           </td>
           <td style="background:rgba(255,204,0,0.08); text-align:left; padding-left:6px;">
             <strong style="color:var(--gold-color); font-size:11.5px;">${h1.gate_number}番 ${h1.name}</strong>
@@ -1356,13 +1444,9 @@ window.calculateAllBranchesDeterministic = function(animateHighlight = false) {
     }
   });
 
-  // 出馬表内の「現在の作戦で上位に行ける展開」列と作戦スペック表示を更新
   updateEntryTableGoodBranches(horseStatsAcc);
+  renderSummaryTab(horseStatsAcc, validBranches.length);
 
-  // タブ2（全18頭ベスト作戦×上位展開早見表）の描画
-  renderSummaryTab(horseStatsAcc);
-
-  // タブ3（個別馬の全16作戦×展開シミュレーター）の更新
   const comboSel = document.getElementById('selectComboHorse');
   if (comboSel && comboSel.value) {
     renderHorseComboSimulator(comboSel.value);
@@ -1377,7 +1461,7 @@ window.runSpecificBranchNow = function(branchName) {
 };
 
 // -----------------------------------------------------------------------------
-// 【各馬のベスト作戦＆上位進出展開を自動探索する関数】
+// 馬ごとのベスト作戦探索（有効展開のみを対象とする）
 // -----------------------------------------------------------------------------
 function analyzeBestTacticForHorse(targetHorseIndex) {
   const strats = getStrategyList();
@@ -1387,6 +1471,8 @@ function analyzeBestTacticForHorse(targetHorseIndex) {
   const originalTactic = baseHorse.tactic;
   let bestResult = null;
   const allTacticResults = [];
+  const validBranches = ALL_BRANCH_LIST.filter(b => !excludedBranchNames.has(b.name));
+  const totalValid = validBranches.length || 1;
 
   strats.forEach(st => {
     const sName = st.name || st.strategy_name;
@@ -1400,7 +1486,7 @@ function analyzeBestTacticForHorse(targetHorseIndex) {
     let bestRank = 99;
     const goodBranches = [];
 
-    ALL_BRANCH_LIST.forEach(branch => {
+    validBranches.forEach(branch => {
       const scored = evaluateAllHorsesForBranch(activeHorses, branch);
       const r = scored.findIndex(item => item.name === baseHorse.name) + 1;
       const myObj = scored[r - 1];
@@ -1410,8 +1496,6 @@ function analyzeBestTacticForHorse(targetHorseIndex) {
       if (r <= 5) top5Cnt++;
       if (r < bestRank) bestRank = r;
       if (r <= 3) {
-        goodBranches.push({ branchName: branch.name, pace: branch.pace, rank: r, score: myObj?.score || 0 });
-      } else if (r <= 5 && goodBranches.length < 3) {
         goodBranches.push({ branchName: branch.name, pace: branch.pace, rank: r, score: myObj?.score || 0 });
       }
     });
@@ -1425,7 +1509,7 @@ function analyzeBestTacticForHorse(targetHorseIndex) {
       winCnt,
       placeCnt,
       top5Cnt,
-      avgRank: (rankSum / (ALL_BRANCH_LIST.length || 1)),
+      avgRank: (rankSum / totalValid),
       bestRank,
       goodBranches
     };
@@ -1441,7 +1525,6 @@ function analyzeBestTacticForHorse(targetHorseIndex) {
     }
   });
 
-  // 元の作戦に戻す
   activeHorses[targetHorseIndex].tactic = originalTactic;
   syncHorseStrategyParams(activeHorses[targetHorseIndex]);
 
@@ -1449,9 +1532,6 @@ function analyzeBestTacticForHorse(targetHorseIndex) {
   return { bestResult, allTacticResults };
 }
 
-// -----------------------------------------------------------------------------
-// 【出馬表の各行に「作戦パラメータ」と「上位に行ける展開」を表示】
-// -----------------------------------------------------------------------------
 function updateEntryTableGoodBranches(horseStatsAcc) {
   activeHorses.forEach((h, idx) => {
     syncHorseStrategyParams(h);
@@ -1473,23 +1553,19 @@ function updateEntryTableGoodBranches(horseStatsAcc) {
         const more = sortedP.length > 4 ? ` <span style="color:#888;">他${sortedP.length - 4}展開</span>` : "";
         cellEl.innerHTML = `${tags}${more}`;
       } else {
-        cellEl.innerHTML = `<span style="color:#888;">最高${acc.bestRank}位 (${acc.bestBranch?.name.replace("の展開","") || '-'})</span>`;
+        cellEl.innerHTML = `<span style="color:#888;">最高${acc.bestRank}位</span>`;
       }
     }
   });
 }
 
-// -----------------------------------------------------------------------------
-// 【タブ2: 全18頭「ベスト作戦×上位展開」早見表の描画】
-// -----------------------------------------------------------------------------
-function renderSummaryTab(accMap) {
+function renderSummaryTab(accMap, totalValidBranches) {
   const kpiContainer = document.getElementById('summary-kpi-container');
   const tbody = document.getElementById('all-horses-summary-tbody');
   if (!kpiContainer || !tbody) return;
 
-  const totalBranches = ALL_BRANCH_LIST.length || 1;
   const list = Object.values(accMap).map(item => {
-    const avgRank = (item.rankSum / totalBranches).toFixed(1);
+    const avgRank = (item.rankSum / (totalValidBranches || 1)).toFixed(1);
     return { ...item, avgRank };
   }).sort((a, b) => (b.winCount - a.winCount) || (b.placeCount - a.placeCount) || (a.avgRank - b.avgRank));
 
@@ -1499,19 +1575,19 @@ function renderSummaryTab(accMap) {
 
   kpiContainer.innerHTML = `
     <div class="kpi-stat-card">
-      <div class="kpi-stat-title">👑 現在の作戦での最多勝馬</div>
+      <div class="kpi-stat-title">👑 有効展開での最多勝馬</div>
       <div class="kpi-stat-val">${top1.horse?.gate_number || ''}番 ${top1.horse?.name || '---'}</div>
-      <div class="kpi-stat-desc">全${totalBranches}展開中 <b>${top1.winCount}展開</b> で1着 / 作戦: ${top1.horse?.tactic}</div>
+      <div class="kpi-stat-desc">有効 ${totalValidBranches} 展開中 <b>${top1.winCount}展開</b> で1着 / 作戦: ${top1.horse?.tactic}</div>
     </div>
     <div class="kpi-stat-card">
-      <div class="kpi-stat-title">🥈 最多3着以内（連対・複勝軸）</div>
+      <div class="kpi-stat-title">🥈 最多3着以内（複勝軸候補）</div>
       <div class="kpi-stat-val">${topPlace.horse?.gate_number || ''}番 ${topPlace.horse?.name || '---'}</div>
-      <div class="kpi-stat-desc">全${totalBranches}展開中 <b>${topPlace.placeCount}展開</b> で3着以内 (平均 ${topPlace.avgRank} 着)</div>
+      <div class="kpi-stat-desc">有効 ${totalValidBranches} 展開中 <b>${topPlace.placeCount}展開</b> で3着以内 (平均 ${topPlace.avgRank} 着)</div>
     </div>
     <div class="kpi-stat-card">
-      <div class="kpi-stat-title">⚡ 展開ハマり待ちの特注馬</div>
+      <div class="kpi-stat-title">⚡ 注目特注馬</div>
       <div class="kpi-stat-val">${wildCard.horse?.gate_number || ''}番 ${wildCard.horse?.name || '---'}</div>
-      <div class="kpi-stat-desc">【${wildCard.bestBranch?.name || ''}】で最高 ${wildCard.bestRank} 着に浮上</div>
+      <div class="kpi-stat-desc">【${wildCard.bestBranch?.name || ''}】で最高 ${wildCard.bestRank} 着</div>
     </div>
   `;
 
@@ -1523,7 +1599,7 @@ function renderSummaryTab(accMap) {
 
     const currentGoodStr = item.placeBranches.length > 0
       ? item.placeBranches.slice(0, 3).map(p => `${p.branch.name.replace("の展開","")}(<b>${p.rank}着</b>)`).join("、")
-      : `<span style="color:#777;">3着内なし (最高${item.bestRank}位:${item.bestBranch?.name.replace("の展開","")})</span>`;
+      : `<span style="color:#777;">3着内なし (最高${item.bestRank}位)</span>`;
 
     let bestComboHtml = "";
     if (best) {
@@ -1533,7 +1609,7 @@ function renderSummaryTab(accMap) {
           <div>
             <strong style="color:#facc15;">推奨:「${best.tacticName}」</strong>
             <span style="font-size:9.5px; color:#4ade80;">(1着:${best.winCnt} / 3着内:${best.placeCnt})</span><br>
-            <span style="font-size:9.5px; color:#cbd5e1;">狙い目展開: ${topB}</span>
+            <span style="font-size:9.5px; color:#cbd5e1;">狙い目: ${topB}</span>
           </div>
           <button class="btn-gate-action" style="padding:2px 6px; font-size:9px; white-space:nowrap;" onclick="applySpecificTacticToHorse(${idx}, '${best.tacticName}')">この作戦に変更</button>
         </div>
@@ -1570,11 +1646,11 @@ window.applySpecificTacticToHorse = function(idx, tacticName) {
   const sel = document.getElementById(`tableStrat_${idx}`);
   if (sel) sel.value = tacticName;
   calculateAllBranchesDeterministic(true);
-  document.getElementById('log-content').innerHTML = `💡 <strong>${activeHorses[idx].name}</strong> の作戦を推奨の「<b>${tacticName}</b>」に変更し、全展開マトリックスを再計算しました！`;
+  document.getElementById('log-content').innerHTML = `💡 <strong>${activeHorses[idx].name}</strong> の作戦を「<b>${tacticName}</b>」に変更し再計算しました！`;
 };
 
 // -----------------------------------------------------------------------------
-// 【タブ3: 個別馬の「全16作戦×展開」相性シミュレーター】
+// タブ3: 個別馬シミュレーター
 // -----------------------------------------------------------------------------
 function populateComboHorseSelect() {
   const sel = document.getElementById('selectComboHorse');
@@ -1599,6 +1675,7 @@ window.renderHorseComboSimulator = function(horseIdxInput) {
 
   const analysis = analyzeBestTacticForHorse(idx);
   const allTactics = analysis.allTacticResults;
+  const validTotal = ALL_BRANCH_LIST.filter(b => !excludedBranchNames.has(b.name)).length;
 
   const area = document.getElementById('karte-display-area');
   let rowsHtml = '';
@@ -1618,13 +1695,13 @@ window.renderHorseComboSimulator = function(horseIdxInput) {
           ${isCurrent ? '<span style="background:#22c55e; color:#000; font-size:9px; padding:1px 4px; border-radius:3px; margin-left:4px; font-weight:bold;">現在設定中</span>' : ''}
         </td>
         <td class="stat-val">SP:${getStratParam(st,'speed')} ST:${getStratParam(st,'stamina')} 瞬:${getStratParam(st,'sharp')} 持:${getStratParam(st,'jizoku')} 根:${getStratParam(st,'guts')}</td>
-        <td><strong style="color:${res.winCnt > 0 ? '#4ade80' : '#888'}; font-size:12px;">${res.winCnt}</strong> / 21</td>
-        <td><strong style="color:${res.placeCnt > 0 ? '#60a5fa' : '#888'}; font-size:12px;">${res.placeCnt}</strong> / 21</td>
+        <td><strong style="color:${res.winCnt > 0 ? '#4ade80' : '#888'}; font-size:12px;">${res.winCnt}</strong> / ${validTotal}</td>
+        <td><strong style="color:${res.placeCnt > 0 ? '#60a5fa' : '#888'}; font-size:12px;">${res.placeCnt}</strong> / ${validTotal}</td>
         <td>${res.avgRank.toFixed(1)}着</td>
         <td style="text-align:left; padding-left:6px; font-size:10px;">${goodList}</td>
         <td>
           <button class="btn-gate-action" style="padding:3px 8px; font-size:10px;" onclick="applySpecificTacticToHorse(${idx}, '${res.tacticName}')">
-            ${isCurrent ? '設定中' : 'この作戦をセット'}
+            ${isCurrent ? '設定中' : 'セット'}
           </button>
         </td>
       </tr>
@@ -1634,10 +1711,9 @@ window.renderHorseComboSimulator = function(horseIdxInput) {
   area.innerHTML = `
     <div class="karte-header-box">
       <div>
-        <div class="karte-horse-title">★ ${horse.gate_number}番 ${horse.name} の「全16作戦 × 上位進出展開」シミュレーション</div>
+        <div class="karte-horse-title">★ ${horse.gate_number}番 ${horse.name} の「全16作戦 × 有効展開」シミュレーション</div>
         <div style="font-size:10.5px; color:#cbd5e1; margin-top:3px;">
           本来脚質: <b>${horse.style}</b> ｜ 騎手: <b>${horse.jockey} (${horse.jockey_level.toFixed(1)})</b> ｜ 芝ポテンシャル: <b>${horse.turf_potential}</b>
-          （SP:${horse.speed} / ST:${horse.stamina} / 瞬:${horse.sharp} / 持:${horse.jizoku} / 根:${horse.guts}）
         </div>
       </div>
     </div>
@@ -1650,8 +1726,8 @@ window.renderHorseComboSimulator = function(horseIdxInput) {
             <th style="width: 65px;">1着展開数</th>
             <th style="width: 70px;">3着内展開数</th>
             <th style="width: 60px;">平均着順</th>
-            <th style="text-align:left; padding-left:6px;">この作戦で上位（1〜3着・掲示板）に行きやすい展開</th>
-            <th style="width: 95px;">出馬表へ反映</th>
+            <th style="text-align:left; padding-left:6px;">有効展開での上位進出先</th>
+            <th style="width: 75px;">反映</th>
           </tr>
         </thead>
         <tbody>${rowsHtml}</tbody>
@@ -1677,18 +1753,10 @@ window.switchAnalyzerTab = function(tabName) {
 };
 
 // -----------------------------------------------------------------------------
-// 【作戦おまかせ・プリセット配分エンジン】
+// 【作戦セットボタンの拡張（1着数・複勝率・平均着順順に一括セット）】
 // -----------------------------------------------------------------------------
-const STRATEGY_POOL_MAP = {
-  "逃げ": ["ハナにこだわる", "マイペース逃げ", "平均ラップ逃げ", "ハイラップ逃げ"],
-  "先行": ["先行して粘り込み", "4角先頭", "流れに任す", "好位差し"],
-  "差し": ["早目スパート", "まくり差し", "じっくり足をためる", "先行マーク"],
-  "追込": ["道中死んだふり", "馬群を割る", "大まくり", "限界まで脚をためる"]
-};
-
 window.applyStrategyPreset = function(presetType = 'random') {
   if (presetType === 'aptitude') {
-    // 各馬の最も3着以内・平均着順が良くなる最適作戦を個別にセット
     activeHorses.forEach((h, idx) => {
       const analysis = analyzeBestTacticForHorse(idx);
       if (analysis && analysis.bestResult) {
@@ -1696,6 +1764,48 @@ window.applyStrategyPreset = function(presetType = 'random') {
         syncHorseStrategyParams(h);
         const sel = document.getElementById(`tableStrat_${idx}`);
         if (sel) sel.value = h.tactic;
+      }
+    });
+  } else if (presetType === 'best_win') {
+    // 全馬ごとに有効展開で最も1着回数が多い作戦をセット
+    activeHorses.forEach((h, idx) => {
+      const analysis = analyzeBestTacticForHorse(idx);
+      if (analysis && analysis.allTacticResults.length > 0) {
+        const bestWin = [...analysis.allTacticResults].sort((a,b) => b.winCnt - a.winCnt || b.placeCnt - a.placeCnt || a.avgRank - b.avgRank)[0];
+        if (bestWin) {
+          h.tactic = bestWin.tacticName;
+          syncHorseStrategyParams(h);
+          const sel = document.getElementById(`tableStrat_${idx}`);
+          if (sel) sel.value = h.tactic;
+        }
+      }
+    });
+  } else if (presetType === 'best_place') {
+    // 全馬ごとに有効展開で最も3着内回数（複勝率）が多い作戦をセット
+    activeHorses.forEach((h, idx) => {
+      const analysis = analyzeBestTacticForHorse(idx);
+      if (analysis && analysis.allTacticResults.length > 0) {
+        const bestPlace = [...analysis.allTacticResults].sort((a,b) => b.placeCount - a.placeCount || b.winCnt - a.winCnt || a.avgRank - b.avgRank)[0];
+        if (bestPlace) {
+          h.tactic = bestPlace.tacticName;
+          syncHorseStrategyParams(h);
+          const sel = document.getElementById(`tableStrat_${idx}`);
+          if (sel) sel.value = h.tactic;
+        }
+      }
+    });
+  } else if (presetType === 'best_avg') {
+    // 全馬ごとに有効展開で最も平均着順が良い作戦をセット
+    activeHorses.forEach((h, idx) => {
+      const analysis = analyzeBestTacticForHorse(idx);
+      if (analysis && analysis.allTacticResults.length > 0) {
+        const bestAvg = [...analysis.allTacticResults].sort((a,b) => a.avgRank - b.avgRank || b.placeCount - a.placeCount)[0];
+        if (bestAvg) {
+          h.tactic = bestAvg.tacticName;
+          syncHorseStrategyParams(h);
+          const sel = document.getElementById(`tableStrat_${idx}`);
+          if (sel) sel.value = h.tactic;
+        }
       }
     });
   } else {
@@ -1707,32 +1817,8 @@ window.applyStrategyPreset = function(presetType = 'random') {
       else if (rawStyle.includes("追")) baseCategory = "追込";
 
       let chosenTactic = "";
-
-      if (presetType === 'random') {
-        let targetCat = baseCategory;
-        const dice = Math.random();
-        if (dice < 0.25) {
-          if (baseCategory === "先行") targetCat = (Math.random() < 0.5) ? "逃げ" : "差し";
-          else if (baseCategory === "差し") targetCat = (Math.random() < 0.5) ? "先行" : "追込";
-          else if (baseCategory === "追込") targetCat = "差し";
-        }
-        const pool = STRATEGY_POOL_MAP[targetCat] || STRATEGY_POOL_MAP["先行"];
-        // 現在と同じ作戦ばかりにならないよう別候補を優先抽選
-        const candidates = pool.filter(t => t !== h.tactic);
-        chosenTactic = candidates.length > 0
-          ? candidates[Math.floor(Math.random() * candidates.length)]
-          : pool[Math.floor(Math.random() * pool.length)];
-      } else if (presetType === 'high') {
-        if (baseCategory === "逃げ" || idx % 5 === 0) chosenTactic = (Math.random() < 0.5) ? "ハイラップ逃げ" : "ハナにこだわる";
-        else if (baseCategory === "先行") chosenTactic = "4角先頭";
-        else if (baseCategory === "差し") chosenTactic = "まくり差し";
-        else chosenTactic = "大まくり";
-      } else if (presetType === 'slow') {
-        if (baseCategory === "逃げ") chosenTactic = "マイペース逃げ";
-        else if (baseCategory === "先行") chosenTactic = "先行して粘り込み";
-        else if (baseCategory === "差し") chosenTactic = "じっくり足をためる";
-        else chosenTactic = "限界まで脚をためる";
-      }
+      const pool = STRATEGY_POOL_MAP[baseCategory] || STRATEGY_POOL_MAP["先行"];
+      chosenTactic = pool[Math.floor(Math.random() * pool.length)];
 
       h.tactic = chosenTactic;
       syncHorseStrategyParams(h);
@@ -1742,163 +1828,25 @@ window.applyStrategyPreset = function(presetType = 'random') {
   }
 
   calculateAllBranchesDeterministic(true);
-  const labelMap = {
-    'random': '🎲 ランダム配分（奇策あり）',
-    'high': '🔥 前掛かり（ハイペース誘発）',
-    'slow': '🍃 牽制（スローペース誘発）',
+  const labels = {
+    'random': '🎲 ランダム配分',
+    'best_win': '🥇 1着最多作戦一括セット',
+    'best_place': '🥈 複勝率最多作戦一括セット',
+    'best_avg': '📊 平均着順最良作戦一括セット',
     'aptitude': '⚖️ 各馬の最適作戦一括セット'
   };
-  document.getElementById('log-content').innerHTML = `<strong>【作戦配分＆再計算完了】</strong> 「${labelMap[presetType]}」を全馬に適用し、マトリックスとペース予測を更新しました！`;
+  document.getElementById('log-content').innerHTML = `<strong>【一括セット完了】</strong> 「${labels[presetType] || ''}」を適用し、マトリックスを再計算しました！`;
+};
+
+const STRATEGY_POOL_MAP = {
+  "逃げ": ["ハナにこだわる", "マイペース逃げ", "平均ラップ逃げ", "ハイラップ逃げ"],
+  "先行": ["先行して粘り込み", "4角先頭", "流れに任す", "好位差し"],
+  "差し": ["早目スパート", "まくり差し", "じっくり足をためる", "先行マーク"],
+  "追込": ["道中死んだふり", "馬群を割る", "大まくり", "限界まで脚をためる"]
 };
 
 // -----------------------------------------------------------------------------
-// 【出馬表の描画とイベント処理】
-// -----------------------------------------------------------------------------
-function renderEntryTable() {
-  const tbody = document.getElementById('entry-table-body');
-  if (!tbody) return;
-  tbody.innerHTML = '';
-  document.getElementById('entry-count-label').textContent = `(全${activeHorses.length}頭)`;
-
-  const stratsList = getStrategyList();
-  const allCategories = [
-    { prefix: 'NIGE_', catName: '逃げ', title: '【逃げ系】' },
-    { prefix: 'SENKO_', catName: '先行', title: '【先行系】' },
-    { prefix: 'SASHI_', catName: '差し', title: '【差し系】' },
-    { prefix: 'OIKOMI_', catName: '追込', title: '【追込系】' }
-  ];
-
-  activeHorses.forEach((h, idx) => {
-    syncHorseStrategyParams(h);
-    const isFocus = (focusHorseId && focusHorseId === (h.horse_id || h.name));
-    const gateColors = getGateColors(h.gate_number, activeHorses.length);
-    const pPt = (raceInfo.surface === 'ダート') ? h.dirt_potential : h.turf_potential;
-    const jLvl = Number(h.jockey_level || getJockeyLevel(h.jockey)).toFixed(1);
-
-    let stratOptionsHtml = '';
-    allCategories.forEach(cat => {
-      stratOptionsHtml += `<optgroup label="${cat.title}">`;
-      const catStrats = stratsList.filter(s => {
-        if (!s) return false;
-        if (s.strategy_id && s.strategy_id.startsWith(cat.prefix)) return true;
-        return s.category === cat.catName || s.style === cat.catName;
-      });
-      catStrats.forEach(s => {
-        const sName = s.name || s.strategy_name || s.strategy;
-        const isSelected = (h.tactic === sName || h.tactic === s.strategy_id);
-        stratOptionsHtml += `<option value="${sName}" ${isSelected ? 'selected' : ''}>${sName}</option>`;
-      });
-      stratOptionsHtml += `</optgroup>`;
-    });
-
-    const stylePrefix = (h.style || '先行').substring(0, 1);
-    const tr = document.createElement('tr');
-    tr.id = `entry-row-${idx}`;
-    tr.innerHTML = `
-      <td>
-        <span class="gate-badge" style="background:${gateColors.clothBg}; color:${gateColors.clothText}; border:1px solid ${gateColors.stroke};">
-          ${h.gate_number}
-        </span>
-      </td>
-      <td>
-        <input type="radio" name="focusHorse" ${isFocus ? 'checked' : ''} onchange="setFocusHorse('${h.horse_id || h.name}')" title="注目馬に設定">
-      </td>
-      <td style="text-align:left; padding-left:6px;">
-        <span class="table-horse-name" onclick="showHorseKarte('${h.horse_id || h.name}')" title="クリックでこの馬の作戦×展開相性表へ">${h.name}</span>
-        <span class="horse-sub-tag">${h.sex || '牡馬'} / ${h.hair_color || '鹿毛'}</span>
-      </td>
-      <td>
-        <div class="jockey-cell-badge">
-          <span>${h.jockey || '-'}</span>
-          <span class="jockey-skill-val">${jLvl}</span>
-        </div>
-      </td>
-      <td><strong style="color:var(--gold-color); font-size:1.1em;">${pPt}</strong></td>
-      <td class="stat-val">${h.speed}</td>
-      <td class="stat-val">${h.stamina}</td>
-      <td class="stat-val">${h.sharp}</td>
-      <td class="stat-val">${h.jizoku}</td>
-      <td class="stat-val">${h.guts}</td>
-      <td><span class="style-tag ${stylePrefix}">${h.style || '先行'}</span></td>
-      <td style="text-align:left; padding-left:6px;">
-        <select class="select-strat-in-table" id="tableStrat_${idx}" onchange="onTableStrategyChange(${idx})">
-          ${stratOptionsHtml}
-        </select>
-        <span class="strat-mini-spec" id="stratSpec_${idx}"></span>
-      </td>
-      <td style="text-align:left; padding-left:6px; font-size:10px;" id="goodBranchesCell_${idx}">計算中...</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-window.setFocusHorse = function(idOrName) {
-  focusHorseId = idOrName;
-  activeHorses.forEach((h, idx) => {
-    const radio = document.querySelector(`#entry-row-${idx} input[type="radio"]`);
-    if (radio) radio.checked = (focusHorseId === (h.horse_id || h.name));
-  });
-  updateFocusAuraOnTrack();
-};
-
-window.clearFocusHorse = function() {
-  focusHorseId = null;
-  document.querySelectorAll('input[name="focusHorse"]').forEach(r => r.checked = false);
-  updateFocusAuraOnTrack();
-};
-
-window.onTableStrategyChange = function(idx) {
-  const sel = document.getElementById(`tableStrat_${idx}`);
-  if (sel && activeHorses[idx]) {
-    activeHorses[idx].tactic = sel.value;
-    syncHorseStrategyParams(activeHorses[idx]);
-    calculateAllBranchesDeterministic(true);
-    document.getElementById('log-content').innerHTML = `🔄 <strong>${activeHorses[idx].gate_number}番 ${activeHorses[idx].name}</strong> の作戦を「<b>${sel.value}</b>」に変更し、全展開マトリックスを再計算しました。`;
-  }
-};
-
-window.setTrackCondition = function(cond) {
-  trackCondition = cond;
-  setTrackConditionUI(cond);
-  calculateAllBranchesDeterministic(true);
-};
-
-function setTrackConditionUI(cond) {
-  document.querySelectorAll('.btn-cond').forEach(b => b.classList.remove('active'));
-  const targetBtn = document.querySelector(`.cond-btn-${cond}`);
-  if (targetBtn) targetBtn.classList.add('active');
-}
-
-window.shuffleGates = function() {
-  if (raceState === 'running') return;
-  const count = activeHorses.length;
-  const gates = Array.from({ length: count }, (_, i) => i + 1);
-  for (let i = count - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [gates[i], gates[j]] = [gates[j], gates[i]];
-  }
-  activeHorses.forEach((h, i) => { h.gate_number = gates[i]; });
-  activeHorses.sort((a, b) => a.gate_number - b.gate_number);
-  renderEntryTable();
-  setupSimulationTrack();
-  populateComboHorseSelect();
-  calculateAllBranchesDeterministic(true);
-  document.getElementById('log-content').innerHTML = `🎲 <strong>枠順をランダム抽選し、最内一閃・大外大歓迎などの枠順効果を全展開に再反映しました！</strong>`;
-};
-
-window.resetGates = function() {
-  if (raceState === 'running') return;
-  activeHorses.forEach(h => { h.gate_number = h.original_gate || 1; });
-  activeHorses.sort((a, b) => a.gate_number - b.gate_number);
-  renderEntryTable();
-  setupSimulationTrack();
-  populateComboHorseSelect();
-  calculateAllBranchesDeterministic(true);
-  document.getElementById('log-content').innerHTML = `🔄 <strong>枠順を初期状態に戻しました。</strong>`;
-};
-
-// -----------------------------------------------------------------------------
-// トラック＆馬アイコン描画
+// トラックアニメーション関連
 // -----------------------------------------------------------------------------
 function setupSimulationTrack() {
   const trackContainer = document.getElementById('track-container');
@@ -2274,9 +2222,6 @@ function triggerHitStop(ms = 500) {
   setTimeout(() => { tc.classList.remove('hit-stop'); }, ms);
 }
 
-// -----------------------------------------------------------------------------
-// 【本番アニメ発走】
-// -----------------------------------------------------------------------------
 window.startSingleRaceSimulation = async function() {
   if (raceState === 'running') return;
   raceState = 'running';
@@ -2298,7 +2243,6 @@ window.startSingleRaceSimulation = async function() {
 
   activeHorses.forEach(h => syncHorseStrategyParams(h));
 
-  // おまかせの場合は現在の作戦組み合わせのペース確率に基づいて展開を抽選
   if (!targetBranchObj) {
     const { probs } = calculatePaceProbabilities();
     const r = Math.random();
@@ -2308,30 +2252,26 @@ window.startSingleRaceSimulation = async function() {
       acc += p;
       if (r <= acc) { chosenPace = pace; break; }
     }
-    const candidates = ALL_BRANCH_LIST.filter(b => b.pace === chosenPace);
-    targetBranchObj = candidates.length > 0
-      ? candidates[Math.floor(Math.random() * candidates.length)]
-      : ALL_BRANCH_LIST[0];
+    const candidates = ALL_BRANCH_LIST.filter(b => b.pace === chosenPace && !excludedBranchNames.has(b.name));
+    const fallbackCandidates = ALL_BRANCH_LIST.filter(b => b.pace === chosenPace);
+    const pool = candidates.length > 0 ? candidates : fallbackCandidates;
+    targetBranchObj = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : ALL_BRANCH_LIST[0];
   }
 
   currentRacePace = targetBranchObj.pace;
   currentRaceBranch = targetBranchObj.name;
   currentRaceFormulaStr = targetBranchObj.formula || (targetBranchObj.key_stats ? targetBranchObj.key_stats.join(" ＋ ") : "能力総合算定");
 
-  // マトリックスと100%同一の作戦反映エンジンで着順・道中位置を計算
   const evaluated = evaluateAllHorsesForBranch(activeHorses, targetBranchObj);
-  const calculatedResults = evaluated.map(item => ({
-    ...item,
-    finalScore: item.score
-  }));
+  const calculatedResults = evaluated.map(item => ({ ...item, finalScore: item.score }));
 
   const posSorted = [...calculatedResults].sort((a, b) => a.positionRank - b.positionRank);
   const comm = {
     phase1: `各馬一斉にスタート！先頭を伺うのは ${posSorted[0]?.name}、続いて ${posSorted[1]?.name}、${posSorted[2]?.name}！`,
     phase2: `向正面に入り、好位集団には ${posSorted[3]?.name}、${posSorted[4]?.name}、${posSorted[5]?.name} がつけています。`,
     phase3: `3コーナーから4コーナーへ！ペースは【${currentRacePace}】！各馬が仕掛けを開始します！`,
-    phase4: `最後の直線！このレースは『${currentRaceBranch}』！対象能力（${currentRaceFormulaStr}）と作戦が火花を散らす！`,
-    finish: `勝ったのは ${calculatedResults[0]?.gate_number}番 ${calculatedResults[0]?.name}（${calculatedResults[0]?.tactic}）！2着に ${calculatedResults[1]?.name}、3着に ${calculatedResults[2]?.name}！`
+    phase4: `最後の直線！このレースは『${currentRaceBranch}』！`,
+    finish: `勝ったのは ${calculatedResults[0]?.gate_number}番 ${calculatedResults[0]?.name}（${calculatedResults[0]?.tactic}）！`
   };
 
   const phase1Dir = (currentTrackConfig.phase1_3_dir === "none") ? currentTrackConfig.phase4_dir : currentTrackConfig.phase1_3_dir;
@@ -2358,7 +2298,7 @@ window.startSingleRaceSimulation = async function() {
   }, 6000);
 
   setTimeout(() => {
-    document.getElementById('log-content').innerHTML = `<strong>【3コーナー〜展開】</strong> ${comm.phase3}`;
+    document.getElementById('log-content').innerHTML = `<strong>【3コーナー】</strong> ${comm.phase3}`;
     spawnFurlongPole("600", false);
     let p3Pos = getPosPointsMap(calculatedResults, 97, 22);
     setPhasePositions(p3Pos, 6.3, "linear", phase1Dir);
