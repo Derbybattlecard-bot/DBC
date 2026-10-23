@@ -27,7 +27,6 @@
     font-size: 13px;
   }
 
-  /* ヘッダーパネル */
   .sim-header-panel {
     background: linear-gradient(135deg, #1f242d, #11141a);
     border: 2px solid var(--accent-green);
@@ -166,6 +165,8 @@
   .dust-puff { position: absolute; border-radius: 50%; opacity: 0; transform-origin: center; }
   .dust-puff.p1 { width: 6px; height: 6px; background: #e2e8f0; box-shadow: 2px -2px 0 1px #22c55e; }
   .dust-puff.p2 { width: 8px; height: 5px; background: rgba(240, 253, 244, 0.85); box-shadow: -1px -3px 0 1px #16a34a; }
+  #track-container.dirt-track .dust-puff.p1 { width: 9px; height: 7px; background: rgba(160, 110, 75, 0.7); box-shadow: 2px -2px 0 1px #78350f; }
+  #track-container.dirt-track .dust-puff.p2 { width: 11px; height: 9px; background: rgba(180, 125, 85, 0.6); box-shadow: -1px -3px 0 1px #92400e; }
   #track-container.running .dust-puff.p1 { animation: puffDrift1 0.32s ease-out infinite; }
   #track-container.running .dust-puff.p2 { animation: puffDrift2 0.32s ease-out infinite 0.16s; }
   @keyframes puffDrift1 { 0% { opacity: 0.85; transform: translate(0, 0) scale(0.6); } 100% { opacity: 0; transform: translate(22px, -8px) scale(1.6); } }
@@ -200,7 +201,6 @@
     margin-bottom: 10px; line-height: 1.4; 
   }
 
-  /* 操作パネル */
   .sim-action-panel {
     background: var(--panel-card); border: 1px solid var(--border-color);
     border-radius: 8px; padding: 10px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px;
@@ -220,7 +220,6 @@
   .btn-sim-primary:hover { filter: brightness(1.15); }
   .btn-sim-primary:disabled { background: #333; color: #666; border-color: #555; cursor: not-allowed; }
 
-  /* 分析タブ */
   .analyzer-container {
     background: #12141c; border: 1px solid #2a334a; border-radius: 8px;
     padding: 10px; margin-bottom: 12px;
@@ -264,7 +263,6 @@
   .scenario-title { font-size: 11px; font-weight: bold; margin-bottom: 4px; display: flex; justify-content: space-between; }
   .scenario-list { font-size: 10px; color: #ddd; line-height: 1.5; padding-left: 14px; margin: 0; }
 
-  /* テーブル共通 */
   .data-table { width: 100%; border-collapse: collapse; background: #111; font-size: 11px; border: 1px solid #333; }
   .data-table th, .data-table td { border: 1px solid #222; padding: 5px 3px; text-align: center; vertical-align: middle; }
   .data-table th { background: #1a1a24; color: var(--accent-green); white-space: nowrap; font-size: 10px; }
@@ -325,8 +323,8 @@
     <div style="display:flex; align-items:center; gap:6px;">
       <span style="font-size:11px; color:#aaa;">対象レース:</span>
       <select id="selectRaceFile" class="select-strat-in-table" onchange="onRaceFileChanged()" style="max-width:200px;">
-        <option value="./sim/26kikkasho.json" selected>2026 第87回 菊花賞 (GI)</option>
-        <option value="./sim/24kikkasho.json">2024 第85回 菊花賞 (GI)</option>
+        <option value="26kikkasho.json" selected>2026 第87回 菊花賞 (GI)</option>
+        <option value="24kikkasho.json">2024 第85回 菊花賞 (GI)</option>
       </select>
     </div>
   </div>
@@ -529,6 +527,9 @@
 </div>
 
 <script type="module">
+// ★重要: 本編計算エンジンを確実にインポート
+import { runRaceLogic } from "./js/race_calculator.js";
+
 let simRaceData = null;
 let rawHorseList = [];
 let activeHorses = [];
@@ -670,8 +671,17 @@ function renderSleevePatternSVG(sleevePat, sleeveCol) {
   }
 }
 
+// ★安全なマルチパス JSON 取得関数
 async function fetchJsonSafe(filename) {
-  const paths = [`./sim/${filename}`, `./data/${filename}`, `data/${filename}`, `../data/${filename}`];
+  const paths = [
+    filename,
+    `./${filename}`,
+    `./sim/${filename}`,
+    `sim/${filename}`,
+    `./data/${filename}`,
+    `data/${filename}`,
+    `../data/${filename}`
+  ];
   for (const p of paths) {
     try {
       const res = await fetch(p);
@@ -686,16 +696,16 @@ async function fetchJsonSafe(filename) {
 // -----------------------------------------------------------------------------
 async function initSimulation() {
   const select = document.getElementById('selectRaceFile');
-  const targetPath = select ? select.value : './sim/26kikkasho.json';
+  const targetFile = select ? select.value : '26kikkasho.json';
 
-  try {
-    const res = await fetch(targetPath);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    simRaceData = await res.json();
-  } catch (err) {
-    console.warn("JSON読み込み失敗:", err);
+  // 1. レースデータの取得（見つからない場合の自動フォールバック完備）
+  simRaceData = await fetchJsonSafe(targetFile);
+  if (!simRaceData) {
+    console.warn("指定JSONが見つかりませんでした。デフォルトの26kikkashoを探索します...");
+    simRaceData = await fetchJsonSafe('26kikkasho.json');
   }
 
+  // 2. マスターデータの取得
   const [rMaster, sMaster, aMaster, jMaster] = await Promise.all([
     fetchJsonSafe('race_master.json'),
     fetchJsonSafe('strategy_master.json'),
@@ -783,12 +793,12 @@ function ensureStats(h) {
 }
 
 function setupRaceInfoFromData() {
-  const rInfo = simRaceData.race_info || {};
+  const rInfo = simRaceData?.race_info || {};
   raceInfo = {
-    race_name: rInfo.race_name || "特別シミュレーションレース",
+    race_name: rInfo.race_name || "第87回 菊花賞 (GI)",
     track: rInfo.track || "京都",
     surface: rInfo.surface || "芝",
-    distance: Number(rInfo.distance) || 2000,
+    distance: Number(rInfo.distance) || 3000,
     race_number: 1
   };
   trackCondition = rInfo.track_condition || "良";
@@ -797,7 +807,8 @@ function setupRaceInfoFromData() {
   document.getElementById('display-race-title').textContent = raceInfo.race_name;
   document.getElementById('display-race-spec').textContent = `（${raceInfo.track} ${raceInfo.surface} ${raceInfo.distance}m）`;
 
-  rawHorseList = (simRaceData.horses || []).map((h, i) => {
+  const horsesArray = simRaceData?.horses || [];
+  rawHorseList = horsesArray.map((h, i) => {
     const horse = { ...h };
     horse.original_gate = horse.gate_number || (i + 1);
     horse.gate_number = horse.gate_number || (i + 1);
@@ -813,7 +824,7 @@ function setupRaceInfoFromData() {
 }
 
 // -----------------------------------------------------------------------------
-// 【本編計算エンジン直結アナライザー（★作戦パラメータ完全反映版）】
+// 【本編計算エンジン直結アナライザー（作戦パラメータ完全合算）】
 // -----------------------------------------------------------------------------
 function calculateExactBranchScore(horse, branch, totalHorses) {
   const fieldSize = totalHorses || 16;
@@ -824,7 +835,6 @@ function calculateExactBranchScore(horse, branch, totalHorses) {
   const stratPotBase = (horse.jockey_level || 3.5) * 2;
   const totalPot = (basePotVal * potMultiplier) + (stratPotBase * potMultiplier);
 
-  // ★作戦マスターからのステータス取得を確実に実施
   const strat = strategyMasterData.find(s => s.name === horse.tactic) || {};
   const s_speed = strat.speed || 0;
   const s_stamina = strat.stamina || 0;
@@ -834,7 +844,6 @@ function calculateExactBranchScore(horse, branch, totalHorses) {
 
   let statScore = 0;
 
-  // 1. 本編能力算定 (key_stats or formula)
   if (branch.formula) {
     const avgHorseStat = (horse.speed + horse.stamina + horse.sharp + horse.jizoku + horse.guts) / 5;
     const avgStratStat = (s_speed + s_stamina + s_sharp + s_jizoku + s_guts) / 5;
@@ -845,7 +854,7 @@ function calculateExactBranchScore(horse, branch, totalHorses) {
         statScore += totalPot;
       } else {
         const horseBase = horse[key] ?? 0;
-        const stratVal = strat[key] ?? 0; // ★ここで確実に作戦値(10~19)を合算
+        const stratVal = strat[key] ?? 0;
         statScore += (horseBase + stratVal);
       }
     });
@@ -853,7 +862,6 @@ function calculateExactBranchScore(horse, branch, totalHorses) {
     statScore = (horse.speed || 0) + s_speed + (horse.stamina || 0) + s_stamina;
   }
 
-  // 2. 本編脚質・ペースボーナス
   const rawHorseStyle = horse.style || "先行";
   const tacticName = horse.tactic || "";
   let currentTacticStyle = strat.style || strat.category || "先行";
@@ -892,7 +900,6 @@ function calculateExactBranchScore(horse, branch, totalHorses) {
     else if (branch.pace === "ハイペース") horseStyleBonusPt = 1;
   }
 
-  // ★3. 道中位置取りポイント（位置順位計算用）の算出
   let tacticStylePt = 40;
   if (currentTacticStyle === "逃げ") tacticStylePt = 90;
   else if (currentTacticStyle === "先行") tacticStylePt = 70;
@@ -904,13 +911,11 @@ function calculateExactBranchScore(horse, branch, totalHorses) {
   else if (rawHorseStyle === "逃げ") styleCalcPt = tacticStylePt + 20;
   else if (rawHorseStyle === "自在" || rawHorseStyle === "逃追") styleCalcPt = tacticStylePt + 15;
   else if (rawHorseStyle === "好位") styleCalcPt = tacticStylePt + 10;
-  // ★追込作戦時は馬本来の脚質ボーナスを加味しても前に行きすぎないよう補正
   if (currentTacticStyle === "追込") styleCalcPt = Math.min(styleCalcPt, 35); 
   if (currentTacticStyle === "差し") styleCalcPt = Math.min(styleCalcPt, 55); 
 
-  horse.positionPoint = styleCalcPt + horse.speed; // (位置取り計算用)
+  horse.positionPoint = styleCalcPt + horse.speed;
 
-  // 4. アビリティ加算（本編 phase4 特殊ボーナス）
   let extraScore = 0;
   const abs = Array.isArray(horse.ability) ? horse.ability : [];
   abs.forEach(abName => {
@@ -930,7 +935,6 @@ function calculateExactBranchScore(horse, branch, totalHorses) {
     if (abName === "連勝街道") extraScore += 4;
   });
 
-  // 注: posAddPt (位置取りボーナス) は、全馬の positionPoint が決まって rank が出てから後で加算する
   return { 
     baseStatScore: statScore + styleBonusPt + horseStyleBonusPt + extraScore, 
     extraScore 
@@ -954,17 +958,14 @@ window.calculateAllBranchesDeterministic = function() {
   const branchWinners = [];
 
   ALL_BRANCH_LIST.forEach(branch => {
-    // 1. まず各馬のベーススコアと位置取りポイントを計算
     let list = activeHorses.map(h => {
       const res = calculateExactBranchScore(h, branch, activeHorses.length);
       return { ...h, baseStatScore: res.baseStatScore, posPt: h.positionPoint };
     });
 
-    // 2. 位置取りポイントで道中順位(Rank)を決定
     list.sort((a, b) => b.posPt - a.posPt);
     list.forEach((h, r) => { h.posRank = r + 1; });
 
-    // 3. 道中順位に基づいて本編位置取りダイレクトボーナスを加算
     list.forEach(h => {
       let posAddPt = 0;
       if (branch.position_bonus_type === "direct_asc") {
@@ -975,7 +976,6 @@ window.calculateAllBranchesDeterministic = function() {
       h.score = h.baseStatScore + posAddPt;
     });
 
-    // 4. 最終スコアで着順ソート
     list.sort((a, b) => b.score - a.score);
 
     list.forEach((h, r) => {
@@ -1121,7 +1121,6 @@ window.showHorseKarte = function(idOrName) {
   switchAnalyzerTab('karte');
 
   const branchRankings = ALL_BRANCH_LIST.map(branch => {
-    // 順位付けのために全頭のスコアを計算
     const list = activeHorses.map(h => {
       const res = calculateExactBranchScore(h, branch, activeHorses.length);
       return { name: h.name, id: h.horse_id || h.name, baseStatScore: res.baseStatScore, posPt: h.positionPoint };
@@ -1224,7 +1223,7 @@ window.switchAnalyzerTab = function(tabName) {
 };
 
 // -----------------------------------------------------------------------------
-// 【作戦自動配分エンジン（確率による多様性）】
+// 【作戦自動配分エンジン】
 // -----------------------------------------------------------------------------
 const STRATEGY_POOL_MAP = {
   "逃げ": ["ハナにこだわる", "マイペース逃げ", "平均ラップ逃げ", "ハイラップ逃げ"],
@@ -1275,14 +1274,524 @@ window.applyStrategyPreset = function(presetType = 'random') {
     if (sel) sel.value = chosenTactic;
   });
 
-  // ★作戦を変えたら展開の確率が変わる（100%固定を緩和するためのUI表示更新など）
   calculateAllBranchesDeterministic();
   const labelMap = { 'random': '🎲 ランダム（奇策あり）', 'high': '🔥 前掛かり（ハイ想定）', 'slow': '🍃 牽制（スロー想定）', 'aptitude': '⚖️ 適性重視' };
   document.getElementById('log-content').innerHTML = `<strong>【作戦配分完了】</strong> 「${labelMap[presetType]}」で作戦を全頭セットし、全展開を再計算しました。`;
 };
 
 // -----------------------------------------------------------------------------
-// 【本番アニメ発走（★追込馬の直線ワープ修正 ＆ 展開指定機能）】
+// 出馬表描画
+// -----------------------------------------------------------------------------
+function renderEntryTable() {
+  const tbody = document.getElementById('entry-table-body');
+  tbody.innerHTML = '';
+  document.getElementById('entry-count-label').textContent = `(全${activeHorses.length}頭)`;
+
+  const allCategories = [
+    { prefix: 'NIGE_', catName: '逃げ', title: '【逃げ系】' },
+    { prefix: 'SENKO_', catName: '先行', title: '【先行系】' },
+    { prefix: 'SASHI_', catName: '差し', title: '【差し系】' },
+    { prefix: 'OIKOMI_', catName: '追込', title: '【追込系】' }
+  ];
+
+  activeHorses.forEach((h, idx) => {
+    const isFocus = (focusHorseId && focusHorseId === (h.horse_id || h.name));
+    const gateColors = getGateColors(h.gate_number, activeHorses.length);
+    const pPt = (raceInfo.surface === 'ダート') ? h.dirt_potential : h.turf_potential;
+    const jLvl = Number(h.jockey_level || getJockeyLevel(h.jockey)).toFixed(1);
+
+    let stratOptionsHtml = '';
+    allCategories.forEach(cat => {
+      stratOptionsHtml += `<optgroup label="${cat.title}">`;
+      const catStrats = strategyMasterData.filter(s => {
+        if (!s) return false;
+        if (s.strategy_id && s.strategy_id.startsWith(cat.prefix)) return true;
+        return s.category === cat.catName || s.style === cat.catName;
+      });
+      catStrats.forEach(s => {
+        const sName = s.name || s.strategy_name || s.strategy;
+        const isSelected = (h.tactic === sName || h.tactic === s.strategy_id);
+        stratOptionsHtml += `<option value="${sName}" ${isSelected ? 'selected' : ''}>${sName}</option>`;
+      });
+      stratOptionsHtml += `</optgroup>`;
+    });
+
+    const stylePrefix = (h.style || '先行').substring(0, 1);
+    const tr = document.createElement('tr');
+    tr.id = `entry-row-${idx}`;
+    tr.innerHTML = `
+      <td>
+        <span class="gate-badge" style="background:${gateColors.clothBg}; color:${gateColors.clothText}; border:1px solid ${gateColors.stroke};">
+          ${h.gate_number}
+        </span>
+      </td>
+      <td>
+        <input type="radio" name="focusHorse" ${isFocus ? 'checked' : ''} onchange="setFocusHorse('${h.horse_id || h.name}')" title="注目馬に設定">
+      </td>
+      <td style="text-align:left; padding-left:6px;">
+        <span class="table-horse-name" onclick="showHorseKarte('${h.horse_id || h.name}')" title="カルテを表示">${h.name}</span>
+        <span class="horse-sub-tag">${h.sex || '牡馬'} / ${h.hair_color || '鹿毛'}</span>
+      </td>
+      <td>
+        <div class="jockey-cell-badge">
+          <span>${h.jockey || '-'}</span>
+          <span class="jockey-skill-val">${jLvl}</span>
+        </div>
+      </td>
+      <td><strong style="color:var(--gold-color); font-size:1.1em;">${pPt}</strong></td>
+      <td class="stat-val">${h.speed}</td>
+      <td class="stat-val">${h.stamina}</td>
+      <td class="stat-val">${h.sharp}</td>
+      <td class="stat-val">${h.jizoku}</td>
+      <td class="stat-val">${h.guts}</td>
+      <td><span class="style-tag ${stylePrefix}">${h.style || '先行'}</span></td>
+      <td style="text-align:left; padding-left:6px;">
+        <select class="select-strat-in-table" id="tableStrat_${idx}" onchange="onTableStrategyChange(${idx})">
+          ${stratOptionsHtml}
+        </select>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+window.setFocusHorse = function(idOrName) {
+  focusHorseId = idOrName;
+  activeHorses.forEach((h, idx) => {
+    const radio = document.querySelector(`#entry-row-${idx} input[type="radio"]`);
+    if (radio) radio.checked = (focusHorseId === (h.horse_id || h.name));
+  });
+  updateFocusAuraOnTrack();
+};
+
+window.clearFocusHorse = function() {
+  focusHorseId = null;
+  document.querySelectorAll('input[name="focusHorse"]').forEach(r => r.checked = false);
+  updateFocusAuraOnTrack();
+};
+
+window.onTableStrategyChange = function(idx) {
+  const sel = document.getElementById(`tableStrat_${idx}`);
+  if (sel && activeHorses[idx]) {
+    activeHorses[idx].tactic = sel.value;
+    calculateAllBranchesDeterministic();
+  }
+};
+
+window.setTrackCondition = function(cond) {
+  trackCondition = cond;
+  setTrackConditionUI(cond);
+  calculateAllBranchesDeterministic();
+};
+
+function setTrackConditionUI(cond) {
+  document.querySelectorAll('.btn-cond').forEach(b => b.classList.remove('active'));
+  const targetBtn = document.querySelector(`.cond-btn-${cond}`);
+  if (targetBtn) targetBtn.classList.add('active');
+}
+
+window.shuffleGates = function() {
+  if (raceState === 'running') return;
+  const count = activeHorses.length;
+  const gates = Array.from({ length: count }, (_, i) => i + 1);
+  for (let i = count - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [gates[i], gates[j]] = [gates[j], gates[i]];
+  }
+  activeHorses.forEach((h, i) => { h.gate_number = gates[i]; });
+  activeHorses.sort((a, b) => a.gate_number - b.gate_number);
+  renderEntryTable();
+  setupSimulationTrack();
+  calculateAllBranchesDeterministic();
+  document.getElementById('log-content').innerHTML = `🎲 <strong>枠順を再抽選し、全展開を再計算しました！</strong>`;
+};
+
+window.resetGates = function() {
+  if (raceState === 'running') return;
+  activeHorses.forEach(h => { h.gate_number = h.original_gate || 1; });
+  activeHorses.sort((a, b) => a.gate_number - b.gate_number);
+  renderEntryTable();
+  setupSimulationTrack();
+  calculateAllBranchesDeterministic();
+  document.getElementById('log-content').innerHTML = `🔄 <strong>枠順を初期設定に戻しました。</strong>`;
+};
+
+function setupSimulationTrack() {
+  const trackContainer = document.getElementById('track-container');
+  if (trackContainer) {
+    trackContainer.classList.remove('running', 'hit-stop');
+    if (raceInfo.surface === "ダート") trackContainer.classList.add('dirt-track');
+    else trackContainer.classList.remove('dirt-track');
+  }
+
+  const turnDir = raceMasterData?.venue_direction_master?.[raceInfo.track] || "右回り";
+  isStraightOnly = (raceInfo.distance === 1000);
+  const trackMasterObj = raceMasterData?.track_direction_master?.[isStraightOnly ? "直線" : turnDir];
+  currentTrackConfig = trackMasterObj || { phase1_3_dir: "left_to_right", phase4_dir: "right_to_left", goal_position: "left" };
+
+  renderTrackLanes();
+}
+
+function getKana3(name) {
+  if (!name) return 'ダミ';
+  const kanaOnly = name.replace(/[^゠-ヿ]/g, '');
+  return kanaOnly.length >= 3 ? kanaOnly.substring(0, 3) : name.substring(0, 3);
+}
+
+function getName6(name) {
+  if (!name) return 'ダミー';
+  return name.length >= 6 ? name.substring(0, 6) : name;
+}
+
+function buildHorseActorSVG(h, i) {
+  const vis = resolveHorseVisuals(h, i);
+  const { coat, hasBlaze, silk, gateColors } = vis;
+  const name6 = getName6(h.name);
+  const uid = `sim_${i}`;
+  const isFocus = (focusHorseId && focusHorseId === (h.horse_id || h.name));
+
+  const blazeSVG = hasBlaze
+    ? `<path d="M 68 62 C 55 76, 42 92, 33 105 L 38 108 C 48 94, 60 78, 72 65 Z" fill="#f8fafc"/>`
+    : '';
+
+  const bodyPatSVG = renderBodyPatternSVG(silk.bodyPat, silk.patCol);
+  const sleevePatSVG = renderSleevePatternSVG(silk.sleevePat, silk.sleeveCol);
+  const delay = ((i % 7) * -0.045).toFixed(3);
+
+  const markerHTML = isFocus 
+    ? `<div class="owner-marker focus-marker">★ ${name6}</div>`
+    : `<div class="owner-marker" style="background:rgba(0,0,0,0.7); color:#fff; border:1px solid #555;">${h.gate_number}番</div>`;
+
+  return `
+    <div class="horse-shadow" style="animation-delay: ${delay}s;"></div>
+    <div class="horse-dust-wrap">
+      <div class="dust-puff p1" style="animation-delay: ${delay}s;"></div>
+      <div class="dust-puff p2" style="animation-delay: ${delay}s;"></div>
+    </div>
+    <div class="horse-bounce-wrap" style="animation-delay: ${delay}s;">
+      ${markerHTML}
+      <svg width="100%" height="100%" viewBox="0 0 420 270" style="overflow: visible;">
+        <defs>
+          <linearGradient id="bg_${uid}" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="${coat.light}" />
+            <stop offset="42%" stop-color="${coat.main}" />
+            <stop offset="82%" stop-color="${coat.dark}" />
+            <stop offset="100%" stop-color="${coat.sock}" />
+          </linearGradient>
+          <clipPath id="sc_${uid}"><path d="M 148 48 C 170 38, 198 42, 220 62 C 214 74, 198 82, 180 80 C 164 78, 152 64, 148 48 Z" /></clipPath>
+          <clipPath id="slc_${uid}"><path d="M 158 54 L 176 82 L 142 96 L 134 82 L 152 72 L 144 58 Z" /></clipPath>
+        </defs>
+
+        <g class="leg-frame-1" style="animation-delay: ${delay}s;">
+          <path d="M 142 162 C 132 178, 122 192, 116 202 L 148 222 L 152 215 L 128 205 L 156 168 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="148,222 162,222 160,215 151,215" fill="#57534e"/>
+          <path d="M 278 158 C 292 176, 304 192, 310 202 L 276 235 L 284 239 L 322 204 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="276,235 264,242 278,244 285,239" fill="#57534e"/>
+        </g>
+        <g class="leg-frame-2" style="animation-delay: ${delay}s;">
+          <path d="M 144 162 C 142 180, 140 198, 142 212 L 180 222 L 180 214 L 158 214 L 158 165 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="180,222 192,222 192,214 180,214" fill="#57534e"/>
+          <path d="M 276 158 C 285 172, 292 186, 295 198 L 265 228 L 273 232 L 305 200 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="265,228 255,234 266,238 273,232" fill="#57534e"/>
+        </g>
+        <g class="leg-frame-3" style="animation-delay: ${delay}s;">
+          <path d="M 144 160 C 136 174, 134 186, 140 196 L 176 188 L 172 180 L 152 190 L 156 165 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="176,188 184,182 180,175 172,180" fill="#57534e"/>
+          <path d="M 275 158 C 270 174, 260 188, 252 198 L 235 220 L 243 224 L 262 200 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="235,220 225,226 232,230 243,224" fill="#57534e"/>
+        </g>
+
+        <path d="M 326 106 C 356 108, 388 122, 414 142 C 392 140, 374 135, 358 128 Z" fill="${coat.mane}" stroke="#140d0a" stroke-width="2"/>
+        <path d="M 88 56 C 118 66, 148 80, 174 96 L 168 105 C 142 88, 114 74, 84 64 Z" fill="${coat.mane}" stroke="#140d0a" stroke-width="1.6"/>
+        <path d="M 76 58 C 72 44, 73 36, 77 32 C 82 38, 84 48, 84 56 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
+        <path d="M 74 56 C 58 72, 44 88, 31 104 C 26 110, 28 118, 35 122 C 42 125, 49 122, 54 116 C 68 120, 82 115, 88 104 C 102 122, 116 142, 126 158 C 140 168, 175 174, 215 174 C 255 174, 290 166, 316 156 C 334 142, 340 116, 326 100 C 312 86, 286 88, 258 94 C 225 100, 192 100, 164 90 C 138 76, 112 64, 84 54 Z" fill="url(#bg_${uid})" stroke="#1c130e" stroke-width="2.5"/>
+
+        <g class="leg-frame-1" style="animation-delay: ${delay}s;">
+          <path d="M 124 158 C 114 172, 102 188, 88 204 L 50 234 L 58 241 L 98 210 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="50,234 38,238 42,245 59,241" fill="#78716c"/>
+          <path d="M 270 162 C 284 180, 302 196, 320 206 L 360 238 L 368 232 L 332 198 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="360,238 368,246 376,239 368,232" fill="#78716c"/>
+        </g>
+        <g class="leg-frame-2" style="animation-delay: ${delay}s;">
+          <path d="M 124 158 C 120 178, 116 198, 118 214 L 160 224 L 160 216 L 136 216 L 138 164 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="160,224 172,224 172,216 160,216" fill="#78716c"/>
+          <path d="M 270 162 C 280 176, 288 190, 290 202 L 258 232 L 266 236 L 298 204 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="258,232 248,238 258,242 266,236" fill="#78716c"/>
+        </g>
+        <g class="leg-frame-3" style="animation-delay: ${delay}s;">
+          <path d="M 124 158 C 116 170, 110 184, 118 198 L 162 190 L 158 182 L 134 192 L 138 166 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="162,190 170,184 166,177 158,182" fill="#78716c"/>
+          <path d="M 270 162 C 264 176, 252 190, 242 202 L 222 224 L 230 228 L 254 204 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="222,224 212,230 220,234 230,228" fill="#78716c"/>
+        </g>
+
+        ${blazeSVG}
+        <ellipse cx="36" cy="112" rx="3" ry="2" transform="rotate(-30 36 112)" fill="#0f0906"/>
+        <ellipse cx="66" cy="78" rx="4" ry="3.2" transform="rotate(-15 66 78)" fill="#110b08"/>
+        <circle cx="65" cy="77" r="1.3" fill="#ffffff"/>
+        <path d="M 82 60 C 80 44, 82 34, 88 30 C 93 38, 94 48, 90 60 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
+        <path d="M 42 95 L 55 115 M 86 58 L 50 110 M 70 64 L 86 72 M 86 64 L 86 104" stroke="#18181b" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+
+        <path d="M 170 92 L 260 90 L 270 156 L 180 160 Z" fill="${gateColors.clothBg}" stroke="#111827" stroke-width="2.5"/>
+        <g id="saddle-txt-${i}">
+          <text x="224" y="114" text-anchor="middle" fill="${gateColors.clothText}" font-size="18" font-weight="900">${h.gate_number}</text>
+          <text x="224" y="145" text-anchor="middle" fill="${gateColors.clothText}" stroke="${gateColors.stroke}" stroke-width="3.5" paint-order="stroke fill" font-size="25" font-weight="900">${getKana3(h.name)}</text>
+        </g>
+
+        <g class="jockey-group">
+          <path d="M 212 58 C 228 64, 236 78, 226 92 C 216 102, 196 110, 180 110 Z" fill="#f8fafc" stroke="#18181b" stroke-width="2.2"/>
+          <path d="M 178 104 L 202 130 L 192 140 L 178 138 L 188 128 L 172 110 Z" fill="#18181b" stroke="#090d16" stroke-width="2"/>
+
+          <g clip-path="url(#sc_${uid})">
+            <rect x="135" y="28" width="100" height="65" fill="${silk.base}" />
+            <g transform="translate(182, 60) rotate(10.5) translate(-182, -60)">${bodyPatSVG}</g>
+          </g>
+          <path d="M 148 48 C 170 38, 198 42, 220 62 Z" fill="none" stroke="#18181b" stroke-width="2.2"/>
+
+          <circle cx="136" cy="54" r="10.5" fill="#fde68a" stroke="#18181b" stroke-width="2"/>
+          <rect x="124" y="50" width="11" height="6" rx="2" fill="#18181b" stroke="#e2e8f0" stroke-width="1.2"/>
+
+          <path d="M 122 48 C 122 33, 136 25, 153 31 C 161 35, 163 45, 156 52 Z" fill="${gateColors.cap}" stroke="#18181b" stroke-width="2.2" stroke-linejoin="round"/>
+          <polygon points="122,48 111,51 126,52" fill="#18181b"/>
+
+          <g clip-path="url(#slc_${uid})">
+            <rect x="125" y="48" width="55" height="52" fill="${silk.sleeve}" />
+            ${sleevePatSVG}
+          </g>
+          <path d="M 158 54 L 176 82 L 142 96 L 134 82 L 152 72 L 144 58 Z" fill="none" stroke="#18181b" stroke-width="2.2"/>
+
+          <circle cx="136" cy="85" r="5" fill="#fde68a" stroke="#18181b" stroke-width="1.8"/>
+          <line x1="49" y1="112" x2="136" y2="85" stroke="#18181b" stroke-width="2.5"/>
+        </g>
+      </svg>
+    </div>
+  `;
+}
+
+function renderTrackLanes() {
+  const lanes = document.getElementById('lanes');
+  const gateEl = document.getElementById('start-gate');
+  const trackContainer = document.getElementById('track-container');
+  const trackWidth = trackContainer?.clientWidth || 600;
+
+  const initialDir = (currentTrackConfig.phase1_3_dir === "none") ? currentTrackConfig.phase4_dir : currentTrackConfig.phase1_3_dir;
+  const isRightToLeft = (initialDir === "right_to_left");
+
+  let gateLeftPx = isRightToLeft ? Math.round(trackWidth * 0.80 - 80) : Math.round(trackWidth * 0.20);
+  let horseStartWaitPx = isRightToLeft ? (gateLeftPx + 5) : (gateLeftPx - 15);
+
+  if (gateEl) {
+    gateEl.style.display = "block";
+    gateEl.style.opacity = "1";
+    gateEl.style.transition = "none";
+    gateEl.style.left = `${gateLeftPx}px`;
+    gateEl.style.transform = isRightToLeft ? "scaleX(-1)" : "scaleX(1)";
+  }
+
+  let htmlBuffer = "";
+  activeHorses.forEach((h, i) => {
+    htmlBuffer += `
+      <div class="horse-icon" id="horse-icon-${i}" style="left: ${horseStartWaitPx}px;">
+        ${buildHorseActorSVG(h, i)}
+      </div>`;
+  });
+  lanes.innerHTML = htmlBuffer;
+
+  applyLaneLayout(false);
+  setHorseDirection(initialDir);
+  updateFocusAuraOnTrack();
+}
+
+function updateFocusAuraOnTrack() {
+  activeHorses.forEach((h, i) => {
+    const el = document.getElementById(`horse-icon-${i}`);
+    if (el) {
+      if (focusHorseId && focusHorseId === (h.horse_id || h.name)) {
+        el.classList.add('aura-focus');
+        el.style.zIndex = 40;
+      } else {
+        el.classList.remove('aura-focus');
+      }
+    }
+  });
+}
+
+function applyLaneLayout(isStraight = false) {
+  const fieldCount = activeHorses.length || 16;
+  const minTop = 85;
+  const maxTop = 275;
+  const stepY = fieldCount > 1 ? (maxTop - minTop) / (fieldCount - 1) : 12;
+  const effectiveIsStraight = isStraightOnly ? true : isStraight;
+
+  activeHorses.forEach((h, i) => {
+    const el = document.getElementById(`horse-icon-${i}`);
+    if (el) {
+      const laneTopPx = effectiveIsStraight 
+        ? Math.round(minTop + (i * stepY)) 
+        : Math.round(maxTop - (i * stepY));
+      const isFocus = (focusHorseId && focusHorseId === (h.horse_id || h.name));
+      el.style.top = `${laneTopPx}px`;
+      el.style.zIndex = Math.floor(laneTopPx) + (isFocus ? 15 : 0);
+    }
+  });
+}
+
+function setHorseDirection(direction) {
+  const effectiveDir = (direction === "none") ? "left_to_right" : direction;
+  currentVisualDir = effectiveDir;
+  const tc = document.getElementById('track-container');
+  if (tc) {
+    tc.classList.toggle('dir-ltr', effectiveDir === "left_to_right");
+    tc.classList.toggle('dir-rtl', effectiveDir !== "left_to_right");
+  }
+
+  activeHorses.forEach((_, i) => {
+    const iconEl = document.getElementById(`horse-icon-${i}`);
+    const txtGroup = document.getElementById(`saddle-txt-${i}`);
+    if (iconEl) {
+      if (effectiveDir === "left_to_right") {
+        iconEl.classList.add("dir-ltr");
+        if (txtGroup) txtGroup.setAttribute("transform", "translate(448, 0) scale(-1, 1)");
+      } else {
+        iconEl.classList.remove("dir-ltr");
+        if (txtGroup) txtGroup.removeAttribute("transform");
+      }
+    }
+  });
+}
+
+function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear", moveDir = "left_to_right") {
+  const trackContainer = document.getElementById('track-container');
+  if (!trackContainer) return;
+  const trackWidth = trackContainer.clientWidth || 600;
+
+  const goalMeetXRight = Math.round(trackWidth * 0.82);
+  const goalMeetXLeft  = Math.round(trackWidth * 0.18);
+
+  positionsArray.forEach((pos, i) => {
+    const el = document.getElementById(`horse-icon-${i}`);
+    if (el) {
+      let validPos = (typeof pos === 'number' && !isNaN(pos)) ? pos : 0;
+      el.style.transition = durationSec > 0 ? `left ${durationSec}s ${timing}` : 'none';
+
+      let leftPx = 0;
+      if (moveDir === "left_to_right") {
+        const startNose = -10;
+        const targetNose = goalMeetXRight;
+        const currentNose = startNose + ((targetNose - startNose) * (validPos / 85));
+        leftPx = Math.round(currentNose - 88);
+      } else {
+        const startNose = trackWidth + 10;
+        const targetNose = goalMeetXLeft;
+        const currentNose = startNose - ((startNose - targetNose) * (validPos / 85));
+        leftPx = Math.round(currentNose - 6);
+      }
+      el.style.left = `${leftPx}px`;
+    }
+  });
+}
+
+function freezeAllHorsesInPlace() {
+  activeHorses.forEach((_, i) => {
+    const el = document.getElementById(`horse-icon-${i}`);
+    if (el) {
+      const computedLeft = window.getComputedStyle(el).left;
+      el.style.transition = "none";
+      el.style.left = computedLeft;
+    }
+  });
+  const gp = document.getElementById('active-goal-post');
+  if (gp) {
+    const computedLeft = window.getComputedStyle(gp).left;
+    gp.style.transition = "none";
+    gp.style.left = computedLeft;
+  }
+}
+
+function getPosPointsMap(horses, leadPos, trailPos) {
+  const positions = new Array(horses.length);
+  const sorted = [...horses].sort((a, b) => (b.positionPoint || 0) - (a.positionPoint || 0));
+  const maxPt = sorted[0]?.positionPoint ?? 1;
+  const minPt = sorted[sorted.length - 1]?.positionPoint ?? 0;
+  let range = maxPt - minPt;
+  if (range <= 0) range = 1;
+
+  sorted.forEach((h, idx) => {
+    const pt = h.positionPoint ?? 0;
+    const ratio = (pt - minPt) / range;
+    const calculatedX = trailPos + ratio * (leadPos - trailPos);
+    const horseIdx = (typeof h.index === 'number') ? h.index : idx;
+    positions[horseIdx] = calculatedX;
+  });
+  return positions;
+}
+
+function spawnFurlongPole(label, isRed = false) {
+  const layer = document.getElementById('furlong-layer');
+  const tc = document.getElementById('track-container');
+  if (!layer || !tc) return;
+
+  const pole = document.createElement('div');
+  pole.className = 'furlong-pole';
+  pole.innerHTML = `<div class="furlong-sign ${isRed ? 'jra-red' : 'jra-blue'}">${label}</div><div class="furlong-stick"></div>`;
+
+  const w = tc.clientWidth || 600;
+  const isLTR = (currentVisualDir === "left_to_right");
+  const startX = isLTR ? (w + 50) : -60;
+  const endX = isLTR ? -60 : (w + 50);
+
+  pole.style.left = `${startX}px`;
+  layer.appendChild(pole);
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => { pole.style.left = `${endX}px`; });
+  });
+  setTimeout(() => { if (pole.parentNode) pole.remove(); }, 2000);
+}
+
+function spawnMovingGoalPost(moveDir = "left_to_right") {
+  const layer = document.getElementById('furlong-layer');
+  const tc = document.getElementById('track-container');
+  if (!layer || !tc) return;
+
+  const pole = document.createElement('div');
+  pole.className = 'moving-goal-pole';
+  pole.id = 'active-goal-post';
+  pole.innerHTML = `<div class="moving-goal-flag">GOAL</div><div class="moving-goal-line"></div>`;
+
+  const w = tc.clientWidth || 600;
+  const isLTR = (moveDir === "left_to_right");
+  const startX = isLTR ? (w + 40) : -50;
+  const endX   = isLTR ? -60 : (w + 40);
+
+  pole.style.left = `${startX}px`;
+  layer.appendChild(pole);
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      pole.style.transition = `left 2.2s linear`;
+      pole.style.left = `${endX}px`;
+    });
+  });
+  setTimeout(() => { if (pole.parentNode) pole.remove(); }, 2400);
+}
+
+function triggerFinishFlash() {
+  const fl = document.getElementById('flash-overlay');
+  if (!fl) return;
+  fl.classList.add('flash');
+  setTimeout(() => { fl.classList.remove('flash'); }, 90);
+}
+
+function triggerHitStop(ms = 500) {
+  const tc = document.getElementById('track-container');
+  if (!tc) return;
+  tc.classList.add('hit-stop');
+  setTimeout(() => { tc.classList.remove('hit-stop'); }, ms);
+}
+
+// -----------------------------------------------------------------------------
+// 【本番アニメ発走（道中追従 ＆ 直線追い込み型アニメーション）】
 // -----------------------------------------------------------------------------
 window.startSingleRaceSimulation = async function() {
   if (raceState === 'running') return;
@@ -1303,7 +1812,7 @@ window.startSingleRaceSimulation = async function() {
     trackContainer.classList.add('running');
   }
 
-  // 1. 各馬の作戦パラメータを注入して計算の準備
+  // 1. 各馬の作戦パラメータを注入
   const calcHorses = activeHorses.map((h, i) => {
     const clone = { ...h, index: i };
     let matchedStrat = strategyMasterData.find(s => s.name === clone.tactic || s.strategy_id === clone.tactic) || {};
@@ -1317,7 +1826,7 @@ window.startSingleRaceSimulation = async function() {
     return clone;
   });
 
-  // 2. 本編計算エンジンを呼び出す（★ここで作戦パラメータが加算された状態でスコアが出る）
+  // 2. 本編計算エンジンの呼び出し
   const raceResultData = runRaceLogic(calcHorses, raceMasterData, trackCondition, raceInfo, abilityMasterData);
   let calculatedResults = raceResultData.results;
   currentRacePace = raceResultData.pace;
@@ -1325,7 +1834,6 @@ window.startSingleRaceSimulation = async function() {
   currentRaceFormulaStr = raceResultData.branch.formula || raceResultData.branch.key_stats?.join(" ＋ ") || "能力総合算定";
   let comm = raceResultData.commentary;
 
-  // ★特定の展開が指定されている場合は、直算スコア・順位に差し替える
   if (forcedBranchObj) {
     currentRacePace = forcedBranchObj.pace;
     currentRaceBranch = forcedBranchObj.name;
@@ -1370,8 +1878,7 @@ window.startSingleRaceSimulation = async function() {
     gateEl.style.opacity = "0";
   }
 
-  // ★ Phase 1〜3: 道中位置取りのアニメーション
-  // ※この時点では「最終着順(finalScore)」ではなく「道中位置(positionPoint)」を使う
+  // Phase 1〜3: 道中隊列
   let p1Pos = getPosPointsMap(calculatedResults, 54, 18);
   setPhasePositions(p1Pos, 6.0, "cubic-bezier(0.25, 0.8, 0.25, 1)", phase1Dir);
   setTimeout(() => spawnFurlongPole("1000", false), 2500);
@@ -1386,54 +1893,46 @@ window.startSingleRaceSimulation = async function() {
   setTimeout(() => {
     document.getElementById('log-content').innerHTML = `<strong>【3コーナー〜展開】</strong> ペース: <b>${currentRacePace}</b><br>${comm.phase3}`;
     spawnFurlongPole("600", false);
-    // 3コーナー〜4コーナーにかけて、徐々に仕掛け始める馬が出る
     let p3Pos = getPosPointsMap(calculatedResults, 97, 22);
     setPhasePositions(p3Pos, 6.3, "linear", phase1Dir);
   }, 12300);
 
-  // ★ Phase 4: 直線の攻防（ワープ問題の修正箇所）
+  // Phase 4: 直線の攻防（ワープ解消）
   setTimeout(() => {
     const wipe = document.getElementById('wipe-overlay');
     wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
     wipe.style.left = "0";
 
-    // 画面切り替えの瞬間に、馬の位置を「最終着順」ではなく「道中の位置（p3Pos）」のまま直線に向かせる
     setTimeout(() => {
       applyLaneLayout(true);
       setHorseDirection(currentTrackConfig.phase4_dir);
       
-      // 直線入口では道中順位（positionPoint順）でスタートさせる
       let straightEnterPos = new Array(activeHorses.length);
       const sortedByPos = [...calculatedResults].sort((a, b) => (b.positionPoint || 0) - (a.positionPoint || 0));
       sortedByPos.forEach((item, r) => {
         let horseIdx = (typeof item.index === 'number') ? item.index : r;
-        straightEnterPos[horseIdx] = 45 - (r * 3.0); // 先頭が45、後方が下がる
+        straightEnterPos[horseIdx] = 45 - (r * 3.0);
       });
-      // 0秒（瞬時）で直線入口の隊列をセット
       setPhasePositions(straightEnterPos, 0, "linear", currentTrackConfig.phase4_dir);
     }, 800);
 
-    // ワイプが明けたら、7.5秒かけて「最終着順」へ向かって徐々に追い抜くアニメーションを開始
     setTimeout(() => {
       wipe.style.left = "100%";
       document.getElementById('log-content').innerHTML = `<strong>【直線】</strong> 展開: <b>${currentRaceBranch}</b>！<br>${comm.phase4}`;
 
-      // ゴール前の最終着順位置（finalScoreで決定された順位）
       let finalPositions = new Array(activeHorses.length);
       calculatedResults.forEach((item, rank) => {
-        let posVal = 85 - (rank * 4.0); // 1着が85、以下4ずつ下がる
+        let posVal = 85 - (rank * 4.0);
         let horseIdx = (typeof item.index === 'number') ? item.index : rank;
         finalPositions[horseIdx] = posVal;
       });
       
-      // 7.5秒かけて道中位置からゴール位置へ滑らかに移動させる（ここで追い込みが発生する）
       setPhasePositions(finalPositions, 7.5, "cubic-bezier(0.4, 0.0, 0.2, 1)", currentTrackConfig.phase4_dir);
 
       setTimeout(() => spawnFurlongPole("400", false), 1400);
       setTimeout(() => spawnFurlongPole("200", true), 4400);
       setTimeout(() => spawnMovingGoalPost(currentTrackConfig.phase4_dir), 7030);
 
-      // ゴールイン（0.5秒停止 ➔ 1.5秒スロー前進 ➔ 完全停止 ➔ 1.5秒余韻）
       setTimeout(() => {
         triggerFinishFlash();
         triggerHitStop(500);
@@ -1506,6 +2005,7 @@ function renderSingleResultsTable(results) {
   panel.style.display = 'block';
   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
+
 // 起動
 initSimulation();
 </script>
