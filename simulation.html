@@ -1,0 +1,2469 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Derby Battle Card - 物理エネルギー レースシミュレーション</title>
+<style>
+  :root {
+    --bg-color: #0b0b0e;
+    --panel-bg: #16161c;
+    --panel-card: #1c1c24;
+    --border-color: #333;
+    --accent-green: #00ff66;
+    --player-color: #3399ff;
+    --cpu-color: #ff4444;
+    --gold-color: #ffcc00;
+    --scroll-speed: 0.38s;
+  }
+  
+  body { 
+    font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", monospace, sans-serif; 
+    background: var(--bg-color); 
+    color: #fff; 
+    padding: 10px; 
+    max-width: 950px; 
+    margin: 0 auto; 
+    font-size: 13px;
+  }
+
+  /* 1. ヘッダーパネル */
+  .sim-header-panel {
+    background: linear-gradient(135deg, #1f242d, #11141a);
+    border: 2px solid var(--accent-green);
+    border-radius: 8px;
+    padding: 12px 14px;
+    box-shadow: 0 0 14px rgba(0,255,102,0.2);
+    margin-bottom: 10px;
+  }
+  .sim-header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .sim-badge {
+    background: #00ff66;
+    color: #000;
+    font-size: 11px;
+    font-weight: 900;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+  }
+  .race-main-title {
+    font-size: 1.35em;
+    font-weight: bold;
+    color: #fff;
+    margin: 4px 0 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .race-sub-spec { font-size: 0.85em; color: #a8d5ba; font-weight: normal; }
+
+  .sim-conditions-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0,0,0,0.45);
+    border: 1px solid #2a3a2e;
+    border-radius: 6px;
+    padding: 6px 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .condition-selector-group { display: flex; align-items: center; gap: 6px; }
+  .cond-label { font-size: 11px; color: #aaa; font-weight: bold; }
+  .btn-cond {
+    background: #222; color: #bbb; border: 1px solid #444; border-radius: 4px;
+    padding: 3px 10px; font-size: 11px; font-weight: bold; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-cond:hover { background: #333; color: #fff; }
+  .btn-cond.active {
+    background: var(--accent-green); color: #000; border-color: var(--accent-green);
+    box-shadow: 0 0 8px rgba(0,255,102,0.5);
+  }
+  .cond-btn-良.active { background: #22c55e; color: #000; }
+  .cond-btn-稍重.active { background: #f59e0b; color: #000; }
+  .cond-btn-重.active { background: #ea580c; color: #fff; }
+  .cond-btn-不良.active { background: #dc2626; color: #fff; }
+
+  .gate-ctrl-group { display: flex; gap: 6px; }
+  .btn-gate-action {
+    background: #1e293b; border: 1px solid #475569; color: #cbd5e1; font-size: 11px;
+    font-weight: bold; padding: 4px 10px; border-radius: 4px; cursor: pointer; text-decoration: none; transition: all 0.2s;
+  }
+  .btn-gate-action:hover { background: #334155; color: #fff; border-color: #64748b; }
+
+  /* 2. レースシーン（トラック＆実況＆発走パネル） */
+  #track-container { 
+    background: #4d9e59; border: 3px solid #e2e8f0; border-radius: 8px; position: relative; 
+    height: 380px; overflow: hidden; box-shadow: inset 0 0 24px rgba(0,0,0,0.65), 0 6px 16px rgba(0,0,0,0.5); 
+    margin-bottom: 10px;
+  }
+  #track-container.hit-stop * { animation-play-state: paused !important; }
+
+  .track-backdrop {
+    position: absolute; top: 0; left: 0; right: 0; width: 100%; height: 96px;
+    background: linear-gradient(to bottom, #3b8246 0px, #3b8246 14px, #e2e8f0 14px, #cbd5e1 18px, #9a7b69 18px, #856756 50px, #235c34 50px, #194526 74px, #f8fafc 74px, #cbd5e1 81px, transparent 81px);
+    z-index: 1; pointer-events: none;
+  }
+  #track-container.dirt-track .track-backdrop {
+    background: linear-gradient(to bottom, #7c5d4b 0px, #7c5d4b 14px, #e2e8f0 14px, #cbd5e1 18px, #478c4f 18px, #3b7642 50px, #2c4c32 50px, #1e3623 74px, #f8fafc 74px, #cbd5e1 81px, transparent 81px);
+  }
+  .track-rail-posts {
+    position: absolute; top: 76px; left: 0; right: 0; width: 100%; height: 22px;
+    background: repeating-linear-gradient(90deg, transparent 0px, transparent 64px, #e2e8f0 64px, #94a3b8 70px);
+    z-index: 2; pointer-events: none;
+  }
+  .track-surface {
+    position: absolute; top: 94px; bottom: 0; left: 0; right: 0; width: 100%;
+    background: repeating-linear-gradient(90deg, #4ea84a 0px, #4ea84a 90px, #5cb857 90px, #5cb857 180px);
+    z-index: 1; pointer-events: none;
+  }
+  #track-container.dirt-track .track-surface {
+    background: repeating-linear-gradient(90deg, #8c6244 0px, #8c6244 90px, #996d4e 90px, #996d4e 180px);
+  }
+  #track-container.running.dir-rtl .track-rail-posts, #track-container.running.dir-rtl .track-surface { animation: scrollGroundLTR var(--scroll-speed) linear infinite; }
+  #track-container.running.dir-ltr .track-rail-posts, #track-container.running.dir-ltr .track-surface { animation: scrollGroundRTL var(--scroll-speed) linear infinite; }
+  @keyframes scrollGroundLTR { from { background-position: 0 0; } to { background-position: 180px 0; } }
+  @keyframes scrollGroundRTL { from { background-position: 0 0; } to { background-position: -180px 0; } }
+
+  #start-gate {
+    position: absolute; top: 65px; width: 90px; height: 235px; z-index: 8; pointer-events: none;
+    transition: left 2.0s cubic-bezier(0.4, 0, 0.8, 1), opacity 0.8s ease-in 0.8s; display: none;
+  }
+  #furlong-layer { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 3; pointer-events: none; overflow: hidden; }
+  .furlong-pole { position: absolute; top: 22px; width: 46px; height: 80px; display: flex; flex-direction: column; align-items: center; transition: left 1.8s linear; }
+  .furlong-sign { border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 900; box-shadow: 0 3px 8px rgba(0,0,0,0.6); }
+  .furlong-sign.jra-blue { background: #ffffff; color: #1d4ed8; border: 3.5px solid #1d4ed8; }
+  .furlong-sign.jra-red { background: #ffffff; color: #dc2626; border: 3.5px solid #dc2626; box-shadow: 0 0 14px rgba(220,38,38,0.85); }
+  .furlong-stick { width: 5px; height: 36px; background: repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff 7px, #dc2626 7px, #dc2626 14px); }
+
+  .moving-goal-pole { position: absolute; top: 18px; bottom: 0; width: 24px; z-index: 6; pointer-events: none; display: flex; flex-direction: column; align-items: center; }
+  .moving-goal-flag { background: linear-gradient(135deg, #d97706, #facc15); color: #000; border: 2px solid #fff; font-weight: 900; font-size: 11px; padding: 2px 9px; border-radius: 12px; box-shadow: 0 3px 8px rgba(0,0,0,0.6); margin-bottom: 2px; }
+  .moving-goal-line { width: 4px; flex: 1; background: linear-gradient(to bottom, #ffffff, #ffcc00); box-shadow: 0 0 16px rgba(255, 204, 0, 1); }
+
+  #flash-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #ffffff; opacity: 0; z-index: 70; pointer-events: none; transition: opacity 0.08s ease-out; }
+  #flash-overlay.flash { opacity: 0.92; transition: none; }
+  #lanes { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 10; pointer-events: none; }
+
+  .horse-icon { position: absolute; width: 94px; height: 61px; transform-origin: center center; will-change: left, top; }
+  .horse-icon.dir-ltr { transform: scaleX(-1); }
+  .horse-shadow { position: absolute; bottom: 3px; left: 12px; width: 68px; height: 8px; background: rgba(0, 0, 0, 0.45); border-radius: 50%; }
+  .horse-bounce-wrap { width: 100%; height: 100%; position: relative; }
+  #track-container.running .horse-bounce-wrap { animation: gallopBounce 0.32s ease-in-out infinite alternate; }
+  #track-container.running .horse-shadow { animation: shadowScale 0.32s ease-in-out infinite alternate; }
+  @keyframes gallopBounce { 0% { transform: translateY(2.5px) rotate(-1.0deg); } 100% { transform: translateY(-4.0px) rotate(1.2deg); } }
+  @keyframes shadowScale { 0% { transform: scaleX(1.04); opacity: 0.58; } 100% { transform: scaleX(0.84); opacity: 0.25; } }
+
+  .leg-frame-1 { opacity: 1; } .leg-frame-2 { opacity: 0; } .leg-frame-3 { opacity: 0; }
+  #track-container.running .leg-frame-1 { animation: animLegF1 0.32s steps(1) infinite; }
+  #track-container.running .leg-frame-2 { animation: animLegF2 0.32s steps(1) infinite; }
+  #track-container.running .leg-frame-3 { animation: animLegF3 0.32s steps(1) infinite; }
+  @keyframes animLegF1 { 0%, 24.9% { opacity: 1; } 25%, 100% { opacity: 0; } }
+  @keyframes animLegF2 { 0%, 24.9% { opacity: 0; } 25%, 49.9% { opacity: 1; } 50%, 100% { opacity: 0; } }
+  @keyframes animLegF3 { 0%, 49.9% { opacity: 0; } 50%, 100% { opacity: 1; } }
+
+  @keyframes auraPulseFocus {
+    0% { filter: drop-shadow(0 0 5px #ffd700) drop-shadow(0 0 12px #ffaa00) brightness(1.3); }
+    100% { filter: drop-shadow(0 0 12px #ffff33) drop-shadow(0 0 24px #ff8800) brightness(1.6); }
+  }
+  .horse-icon.aura-focus .horse-bounce-wrap {
+    animation: gallopBounce 0.32s ease-in-out infinite alternate, auraPulseFocus 0.5s ease-in-out infinite alternate !important;
+  }
+  .owner-marker {
+    position: absolute; top: -14px; left: 48%; transform: translateX(-50%);
+    padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 900;
+    white-space: nowrap; z-index: 30; box-shadow: 0 2px 5px rgba(0,0,0,0.7); letter-spacing: -0.3px;
+  }
+  .owner-marker.focus-marker { background: rgba(90, 70, 10, 0.95); color: #ffd700; border: 1.5px solid #ffcc00; }
+  .horse-icon.dir-ltr .owner-marker { transform: translateX(-50%) scaleX(-1); }
+
+  #wipe-overlay {
+    position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+    background: linear-gradient(90deg, #001133, #000000, #001133);
+    z-index: 50; display: flex; justify-content: center; align-items: center;
+    transition: left 0.6s cubic-bezier(0.8, 0, 0.2, 1);
+  }
+  .wipe-text { color: var(--gold-color); font-size: 1.5em; font-weight: bold; text-align: center; text-shadow: 2px 2px 10px #000; }
+
+  #commentary-box { 
+    background: #050515; color: #ffffff; border: 2px double var(--accent-green); 
+    padding: 8px 12px; border-radius: 6px; min-height: 44px; font-size: 0.85em; 
+    margin-bottom: 10px; line-height: 1.4; 
+  }
+
+  .sim-action-panel {
+    background: var(--panel-card); border: 1px solid var(--border-color);
+    border-radius: 8px; padding: 10px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .sim-action-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  
+  .select-force-branch {
+    background: #0f172a; color: #facc15; border: 1.5px solid #eab308; border-radius: 6px;
+    padding: 9px 10px; font-size: 12px; font-weight: bold; cursor: pointer; flex: 1.2; min-width: 220px;
+  }
+  .btn-sim-primary {
+    flex: 1.5; min-width: 170px; background: linear-gradient(135deg, #00aa33, #007722);
+    color: #fff; font-weight: 900; font-size: 1.05em; padding: 10px 14px;
+    border: 2px solid var(--accent-green); border-radius: 6px; cursor: pointer;
+    box-shadow: 0 3px 8px rgba(0,255,102,0.3); transition: transform 0.1s, filter 0.2s;
+  }
+  .btn-sim-primary:hover { filter: brightness(1.15); }
+  .btn-sim-primary:disabled { background: #333; color: #666; border-color: #555; cursor: not-allowed; }
+
+  /* 3. 出馬表＆共通テーブル */
+  .data-table { width: 100%; border-collapse: collapse; background: #111; font-size: 11px; border: 1px solid #333; }
+  .data-table th, .data-table td { border: 1px solid #222; padding: 5px 4px; text-align: center; vertical-align: middle; }
+  .data-table th { background: #1a1a24; color: var(--accent-green); white-space: nowrap; font-size: 10px; }
+  .stat-val { font-family: monospace; font-size: 10.5px; font-weight: bold; color: #cbd5e1; }
+  .strat-mini-spec { font-family: monospace; font-size: 9px; color: #93c5fd; margin-top: 2px; display: block; }
+
+  .input-stat-edit {
+    width: 34px; background: #0f172a; color: #fff; border: 1px solid #334155;
+    border-radius: 3px; text-align: center; font-size: 10.5px; font-weight: bold; padding: 2px 1px;
+  }
+  .input-stat-edit:focus { border-color: #38bdf8; outline: none; background: #1e293b; color: #facc15; }
+  .input-stat-edit.pot-edit { color: var(--gold-color); font-weight: 900; }
+
+  .select-style-edit {
+    background: #1e293b; color: #facc15; border: 1px solid #475569;
+    border-radius: 4px; font-size: 11px; font-weight: bold; padding: 3px 4px; width: 100%; max-width: 175px;
+  }
+
+  .section-title-bar { display: flex; justify-content: space-between; align-items: center; margin: 12px 0 6px 0; flex-wrap: wrap; gap: 6px; }
+  .section-title { font-size: 1.1em; font-weight: bold; color: var(--accent-green); display: flex; align-items: center; gap: 6px; }
+
+  .preset-btn-group { display: flex; gap: 4px; flex-wrap: wrap; }
+  .btn-strat-preset {
+    background: #1e293b; border: 1px solid #475569; color: #cbd5e1; font-size: 10px; font-weight: bold;
+    padding: 4px 9px; border-radius: 4px; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-strat-preset:hover { background: #334155; color: #fff; }
+  .btn-strat-preset.random-main {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8); border-color: #60a5fa; color: #fff;
+    box-shadow: 0 2px 6px rgba(37,99,235,0.3); font-size: 11px; padding: 4px 10px;
+  }
+  .btn-strat-preset.random-main:hover { filter: brightness(1.2); }
+  .btn-strat-preset.opt-win { background: #854d0e; border-color: #ca8a04; color: #fef08a; }
+  .btn-strat-preset.opt-place { background: #1e3a8a; border-color: #3b82f6; color: #93c5fd; }
+  .btn-strat-preset.opt-avg { background: #065f46; border-color: #10b981; color: #a7f3d0; }
+
+  .gate-badge {
+    display: inline-block; width: 18px; height: 18px; line-height: 18px; border-radius: 50%;
+    font-weight: 900; font-size: 10px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  }
+  .jockey-cell-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; }
+  .jockey-skill-val {
+    background: #2a354a; color: #ffd700; border: 1px solid #4a5d7c; border-radius: 3px; font-size: 9px; padding: 0 3px; font-weight: bold; font-family: monospace;
+  }
+  .select-strat-in-table {
+    background: #1e2230; color: #fff; border: 1px solid #3a445d; border-radius: 4px;
+    padding: 3px 4px; font-size: 11px; font-weight: bold; box-sizing: border-box; width: 100%; max-width: 155px;
+  }
+  .table-horse-name { font-weight: bold; color: #fff; font-size: 11px; cursor: pointer; text-decoration: underline; text-decoration-color: #4a5d7c; }
+  .table-horse-name:hover { color: var(--gold-color); text-decoration-color: var(--gold-color); }
+  .horse-sub-tag { font-size: 9px; color: #8899aa; display: block; }
+  .style-tag { display: inline-block; padding: 1px 4px; border-radius: 3px; font-size: 9px; font-weight: bold; }
+  .style-tag.逃 { background: #b91c1c; color: #fff; }
+  .style-tag.先 { background: #15803d; color: #fff; }
+  .style-tag.好 { background: #047857; color: #fff; }
+  .style-tag.差 { background: #1d4ed8; color: #fff; }
+  .style-tag.追 { background: #7e22ce; color: #fff; }
+
+  /* 4. 単発レース結果エリア */
+  #single-result-panel {
+    display: none;
+    background: #141822;
+    border: 2px solid var(--gold-color);
+    border-radius: 8px;
+    padding: 10px;
+    margin: 14px 0;
+  }
+  .result-summary-box {
+    background: #0d1017; border: 1px solid #334455; border-radius: 6px; padding: 8px 12px; font-size: 11px; margin-bottom: 8px; line-height: 1.5;
+  }
+  .detail-code { font-family: monospace; font-size: 10px; color: var(--gold-color); text-align: left; word-break: break-all; }
+
+  /* 5. マトリックス＆多角分析パート */
+  .analyzer-container {
+    background: #12141c; border: 1px solid #2a334a; border-radius: 8px;
+    padding: 12px; margin-top: 16px; margin-bottom: 20px;
+  }
+  .analyst-summary-panel {
+    background: linear-gradient(135deg, #182232, #0d131f);
+    border: 1px solid #3b82f6; border-radius: 6px; padding: 10px 14px;
+    margin-bottom: 12px; font-size: 11.5px; line-height: 1.5; color: #e2e8f0;
+  }
+  .analyst-title { color: #60a5fa; font-weight: bold; font-size: 12px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+
+  .exclusion-filter-panel {
+    background: #151924; border: 1px solid #334155; border-radius: 6px; padding: 10px; margin-bottom: 12px;
+  }
+  .exclusion-grid {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px;
+  }
+  .exclusion-chip {
+    background: #1e293b; border: 1px solid #475569; border-radius: 4px; padding: 3px 8px;
+    font-size: 10.5px; display: flex; align-items: center; gap: 4px; cursor: pointer; user-select: none;
+  }
+  .exclusion-chip input { cursor: pointer; }
+  .exclusion-chip.excluded { background: #451a03; border-color: #b45309; color: #fde047; text-decoration: line-through; }
+
+  .pace-forecast-box {
+    background: #181d2a; border: 1px solid #334155; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px;
+  }
+  .pace-bar-wrap {
+    display: flex; height: 18px; border-radius: 4px; overflow: hidden; margin: 6px 0; border: 1px solid #444;
+  }
+  .pace-seg { display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; color: #000; white-space: nowrap; overflow: hidden; transition: width 0.3s; }
+  .analyzer-tabs {
+    display: flex; gap: 6px; border-bottom: 2px solid #2a334a; padding-bottom: 6px; margin-bottom: 10px; flex-wrap: wrap;
+  }
+  .tab-btn {
+    background: #1c2230; border: 1px solid #3a4560; color: #aaa; padding: 6px 12px;
+    border-radius: 5px 5px 0 0; font-weight: bold; font-size: 11px; cursor: pointer; transition: all 0.2s;
+  }
+  .tab-btn.active {
+    background: #2563eb; color: #fff; border-color: #60a5fa; box-shadow: 0 0 10px rgba(37,99,235,0.4);
+  }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .summary-kpi-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin-bottom: 10px;
+  }
+  .kpi-stat-card {
+    background: #181d2a; border: 1px solid #2d3b55; border-radius: 6px; padding: 8px 10px;
+  }
+  .kpi-stat-title { font-size: 10px; color: #8899aa; font-weight: bold; margin-bottom: 2px; }
+  .kpi-stat-val { font-size: 14px; font-weight: 900; color: var(--gold-color); }
+  .kpi-stat-desc { font-size: 10px; color: #ccc; margin-top: 2px; line-height: 1.3; }
+
+  .karte-header-box {
+    background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #3b82f6;
+    border-radius: 6px; padding: 10px 14px; margin-bottom: 10px;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+  }
+  .karte-horse-title { font-size: 1.25em; font-weight: bold; color: var(--gold-color); }
+  .changed-highlight { animation: flashRow 1.0s ease-out; }
+  @keyframes flashRow { 0% { background-color: rgba(0, 255, 102, 0.35); } 100% { background-color: transparent; } }
+</style>
+</head>
+<body>
+
+<!-- ==================== 1. 上部ヘッダーパネル ==================== -->
+<div class="sim-header-panel">
+  <div class="sim-header-top">
+    <a href="battle.html" class="btn-gate-action">← メニューへ</a>
+    <span class="sim-badge">🏇 物理エネルギー レースシミュレーター</span>
+    
+    <div style="display:flex; align-items:center; gap:6px;">
+      <span style="font-size:11px; color:#aaa;">対象レース:</span>
+      <select id="selectRaceFile" class="select-strat-in-table" onchange="onRaceFileChanged()" style="max-width:240px;">
+        <option value="26kikkasho.json" selected>2026 第87回 菊花賞 (GI)</option>
+        <option value="26derby.json">2026 第93回 日本ダービー (GI)</option>
+        <option value="26satsukisho.json">2026 第86回 皐月賞 (GI)</option>
+        <option value="24kikkasho.json">2024 第85回 菊花賞 (GI)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="race-main-title">
+    <span id="display-race-title">レース名 読込中...</span>
+    <span class="race-sub-spec" id="display-race-spec">(---)</span>
+  </div>
+
+  <div class="sim-conditions-bar">
+    <div class="condition-selector-group">
+      <span class="cond-label">馬場状態:</span>
+      <button class="btn-cond cond-btn-良 active" onclick="setTrackCondition('良')">良</button>
+      <button class="btn-cond cond-btn-稍重" onclick="setTrackCondition('稍重')">稍重</button>
+      <button class="btn-cond cond-btn-重" onclick="setTrackCondition('重')">重</button>
+      <button class="btn-cond cond-btn-不良" onclick="setTrackCondition('不良')">不良</button>
+    </div>
+    <div class="gate-ctrl-group">
+      <button class="btn-gate-action" onclick="shuffleGates()">🎲 枠順ランダム抽選</button>
+      <button class="btn-gate-action" onclick="resetGates()">🔄 元の枠順に戻す</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 2. レースシーン ==================== -->
+<div id="track-container">
+  <div class="track-backdrop"></div>
+  <div class="track-rail-posts"></div>
+  <div class="track-surface"></div>
+
+  <div id="start-gate">
+    <svg width="100%" height="100%" viewBox="0 0 90 235">
+      <rect x="5" y="0" width="80" height="24" rx="3" fill="#15803d" stroke="#0f172a" stroke-width="2"/>
+      <line x1="8" y1="12" x2="82" y2="12" stroke="#facc15" stroke-width="2"/>
+      <rect x="25" y="4" width="40" height="15" rx="2" fill="#0f172a"/>
+      <text id="gate-start-text" x="45" y="16" fill="#facc15" font-size="10" font-weight="900" font-family="Arial" text-anchor="middle">START</text>
+      <line x1="15" y1="24" x2="15" y2="235" stroke="#cbd5e1" stroke-width="4.5"/>
+      <line x1="75" y1="24" x2="75" y2="235" stroke="#cbd5e1" stroke-width="4.5"/>
+      <line x1="15" y1="60" x2="75" y2="100" stroke="#94a3b8" stroke-width="2"/>
+      <line x1="75" y1="60" x2="15" y2="100" stroke="#94a3b8" stroke-width="2"/>
+      <line x1="15" y1="140" x2="75" y2="180" stroke="#94a3b8" stroke-width="2"/>
+      <line x1="75" y1="140" x2="15" y2="180" stroke="#94a3b8" stroke-width="2"/>
+      <polygon points="15,45 3,55 3,120 15,115" fill="#eab308" stroke="#1e293b" stroke-width="1.5" opacity="0.9"/>
+      <polygon points="75,45 87,55 87,120 75,115" fill="#eab308" stroke="#1e293b" stroke-width="1.5" opacity="0.9"/>
+      <polygon points="15,135 3,145 3,210 15,205" fill="#15803d" stroke="#1e293b" stroke-width="1.5" opacity="0.9"/>
+      <polygon points="75,135 87,145 87,210 75,205" fill="#15803d" stroke="#1e293b" stroke-width="1.5" opacity="0.9"/>
+      <rect x="12" y="105" width="6" height="35" rx="2" fill="#ef4444"/>
+      <rect x="72" y="105" width="6" height="35" rx="2" fill="#ef4444"/>
+    </svg>
+  </div>
+
+  <div id="furlong-layer"></div>
+  <div id="lanes"></div>
+  <div id="wipe-overlay"><div class="wipe-text" id="wipe-text">第4コーナーをカーブして<br>いよいよ最後の直線！！</div></div>
+  <div id="flash-overlay"></div>
+</div>
+
+<div id="commentary-box">
+  <div style="color: var(--accent-green); font-weight: bold; font-size: 0.85em;">【実況ログ】</div>
+  <div id="log-content">シミュレーションデータを準備中...</div>
+</div>
+
+<div class="sim-action-panel">
+  <div class="sim-action-row">
+    <div style="display:flex; align-items:center; gap:6px; flex:1.2; min-width:240px;">
+      <span style="font-size:11px; color:#facc15; font-weight:bold; white-space:nowrap;">🎯 展開指定:</span>
+      <select id="selectForcedBranch" class="select-force-branch">
+        <option value="AUTO">🎲 おまかせ（現在の脚質構成から物理確率で抽選）</option>
+      </select>
+    </div>
+
+    <button class="btn-sim-primary" id="btnStartSingle" onclick="startSingleRaceSimulation()">
+      🏁 この展開で発走！（物理アニメーション再生）
+    </button>
+  </div>
+</div>
+
+<!-- ==================== 3. 出馬表 兼 脚質スタイル指定エリア ==================== -->
+<div class="section-title-bar">
+  <div class="section-title">
+    <span>🏇 出走メンバー（出馬表 & 5大パラメータ・脚質編集）</span>
+    <span style="font-size:11px; color:#88a; font-weight:normal;" id="entry-count-label">(全0頭)</span>
+  </div>
+  
+  <div class="preset-btn-group">
+    <button class="btn-strat-preset" style="background:linear-gradient(135deg, #15803d, #166534); border-color:#22c55e; color:#fff; font-weight:bold;" onclick="overwriteOriginalJsonFile()" title="対象のJSONファイルを選んで直接上書き保存します">💾 元のJSONに直接上書き</button>
+    <button class="btn-strat-preset" style="background:#065f46; border-color:#10b981; color:#a7f3d0;" onclick="exportCustomHorsesJson()" title="現在の全馬パラメータをJSONファイルとしてダウンロード保存">📥 JSON保存(DL)</button>
+    <button class="btn-strat-preset" style="background:#451a03; border-color:#b45309; color:#fde047;" onclick="resetCustomHorsesToDefault()" title="編集したパラメータを初期値に戻す">🔄 初期値に戻す</button>
+    <button class="btn-strat-preset opt-win" onclick="applyStrategyPreset('best_win')">🥇 1着最多スタイル</button>
+    <button class="btn-strat-preset opt-place" onclick="applyStrategyPreset('best_place')">🥈 複勝率最多スタイル</button>
+    <button class="btn-strat-preset opt-avg" onclick="applyStrategyPreset('best_avg')">📊 平均着順最良スタイル</button>
+    <button class="btn-strat-preset" onclick="applyStrategyPreset('aptitude')">⚖️ 適性最適スタイル</button>
+    <button class="btn-gate-action" style="padding:3px 8px; font-size:10px;" onclick="clearFocusHorse()">注目解除</button>
+  </div>
+</div>
+
+<div style="overflow-x: auto; margin-bottom: 14px;">
+  <table class="data-table" id="entry-table">
+    <thead>
+      <tr>
+        <th style="width: 30px;">馬番</th>
+        <th style="width: 28px;">注目</th>
+        <th style="text-align:left; padding-left:6px; width:135px;">馬名 (クリックで診断)</th>
+        <th style="width: 60px;">騎手</th>
+        <th style="width: 36px; color:var(--gold-color);">総合Pt</th>
+        <th style="width: 40px;" title="行き脚(ダッシュ力)">行き脚</th>
+        <th style="width: 40px;" title="スタミナ(基礎エネルギー容量)">スタミナ</th>
+        <th style="width: 40px;" title="瞬発力(3F最高速)">瞬発力</th>
+        <th style="width: 40px;" title="持続力(4F航続力)">持続力</th>
+        <th style="width: 40px;" title="操縦性(折り合い・馬群耐性)">操縦性</th>
+        <th style="text-align:left; padding-left:6px; width:170px;">脚質スタイル (8種類・変更で即時再計算)</th>
+        <th style="text-align:left; padding-left:6px;">有効展開での上位(3着内)進出傾向</th>
+      </tr>
+    </thead>
+    <tbody id="entry-table-body">
+      <tr><td colspan="12" style="padding:15px; color:#888;">データを読み込んでいます...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ==================== 4. レース着順結果エリア ==================== -->
+<div id="single-result-panel">
+  <div class="section-title" style="margin-bottom:6px;"><span>📋 レース着順結果 & 物理エネルギー詳細</span></div>
+  <div class="result-summary-box">
+    <div><strong>発生ペース:</strong> <span id="summary-pace">---</span> 【<span id="summary-branch" style="color:var(--accent-green); font-weight:bold;">---</span>】</div>
+    <div><strong>計算方式:</strong> <span id="summary-formula" style="color:var(--gold-color);">---</span></div>
+  </div>
+  <div style="overflow-x: auto;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width: 42px;">着順</th>
+          <th style="width: 32px;">馬番</th>
+          <th style="text-align:left; padding-left:6px;">馬名 / 脚質スタイル</th>
+          <th style="width: 75px;">4C秒差(位置)</th>
+          <th style="width: 75px;">直線上り3F</th>
+          <th style="width: 60px;">着差</th>
+          <th style="text-align:left; padding-left:6px;">物理判定詳細（4C差＋上り3F ＆ 残りエネルギー）</th>
+        </tr>
+      </thead>
+      <tbody id="single-result-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== 5. マトリックス＆多角分析パート ==================== -->
+<div class="analyzer-container" id="analyzer-section">
+  <div class="section-title" style="margin-bottom:8px;">
+    <span>🧭 展開別 着順マトリクス ＆ 物理シミュレーション分析</span>
+    <button class="btn-gate-action" style="padding:3px 10px; font-size:10px; margin-left:auto;" onclick="calculateAllBranchesDeterministic(true)">🔄 再計算</button>
+  </div>
+
+  <!-- 総括コメント枠 -->
+  <div class="analyst-summary-panel" id="analyst-summary-box">
+    <div class="analyst-title">🎙️ レース展開アナリストの物理分析総括</div>
+    <div id="analyst-comment-text">データ解析中...</div>
+  </div>
+
+  <!-- 展開除外フィルター設定パネル -->
+  <div class="exclusion-filter-panel">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+      <span style="font-size:11.5px; font-weight:bold; color:#facc15;">⚙️ 展開除外モード（検証から外したい展開をチェック）:</span>
+      <div>
+        <button class="btn-gate-action" style="padding:2px 8px; font-size:9.5px;" onclick="toggleAllExclusions(true)">全除外</button>
+        <button class="btn-gate-action" style="padding:2px 8px; font-size:9.5px;" onclick="toggleAllExclusions(false)">全解除</button>
+        <button class="btn-gate-action" style="padding:2px 8px; font-size:9.5px; background:#451a03; border-color:#b45309;" onclick="excludeUnrealisticDefaults()">🎲 超消耗・前崩壊を除外</button>
+      </div>
+    </div>
+    <div class="exclusion-grid" id="exclusion-chips-container"></div>
+  </div>
+
+  <!-- ペース確率予測バー -->
+  <div class="pace-forecast-box">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
+      <span style="font-size:11px; font-weight:bold; color:#facc15;">🔥 現在の18頭の脚質スタイル構成による「ラップ波形発生確率」予測:</span>
+      <span id="lead-horses-status" style="font-size:10px; color:#a8d5ba;">逃げ系: 0頭</span>
+    </div>
+    <div class="pace-bar-wrap" id="pace-prob-bar"></div>
+    <div id="pace-forecast-comment" style="font-size:10.5px; color:#cbd5e1;"></div>
+  </div>
+
+  <div class="analyzer-tabs">
+    <button class="tab-btn active" id="tabBtnMatrix" onclick="switchAnalyzerTab('matrix')">🧭 展開別 着順マトリクス（除外反映）</button>
+    <button class="tab-btn" id="tabBtnSummary" onclick="switchAnalyzerTab('summary')">📊 全18頭「勝率・複勝率 ＆ ベスト脚質」早見表</button>
+    <button class="tab-btn" id="tabBtnCombo" onclick="switchAnalyzerTab('combo')">🔀 個別馬「全8脚質スタイル×展開」相性診断</button>
+  </div>
+
+  <!-- タブ1: 展開別 着順マトリクス -->
+  <div class="tab-content active" id="tabContentMatrix">
+    <div style="font-size:11px; color:#aaa; margin-bottom:6px;">
+      ※各展開のラップ波形に対し、4コーナー秒差（位置取り）と直線の上がり3Fを物理加算して着順を算出しています。
+    </div>
+    <div style="overflow-x: auto;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width: 155px;">展開 / ペース (発生率)</th>
+            <th style="width: 145px;">🥇 1着 (勝者)</th>
+            <th style="width: 135px;">🥈 2着</th>
+            <th style="width: 135px;">🥉 3着</th>
+            <th style="width: 125px;">4着</th>
+            <th style="text-align:left; padding-left:6px;">展開の物理特性 ＆ テスト発走</th>
+          </tr>
+        </thead>
+        <tbody id="deterministic-matrix-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- タブ2: 全18頭「勝率・複勝率 ＆ ベスト脚質」早見表 -->
+  <div class="tab-content" id="tabContentSummary">
+    <div class="summary-kpi-grid" id="summary-kpi-container"></div>
+    <div style="margin: 8px 0 6px 0; font-weight:bold; color:var(--accent-green); font-size:11px;">
+      🏇 全18頭「総合勝率・複勝率」＆「どの脚質なら勝ち負けできるか」一覧
+    </div>
+    <div style="overflow-x: auto;">
+      <table class="data-table" id="all-horses-summary-table">
+        <thead>
+          <tr>
+            <th style="width: 30px;">馬番</th>
+            <th style="width: 115px; text-align:left; padding-left:6px;">馬名</th>
+            <th style="width: 75px;">現在スタイル</th>
+            <th style="width: 40px; color:var(--gold-color);">総合Pt</th>
+            <th style="width: 115px;">期待値<br>(勝率 / 複勝率)</th>
+            <th style="width: 170px; text-align:left; padding-left:6px;">🟢 好走(3着内)できる展開</th>
+            <th style="text-align:left; padding-left:6px;">💡 この馬のベスト脚質スタイル（クリックで変更）</th>
+          </tr>
+        </thead>
+        <tbody id="all-horses-summary-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- タブ3: 個別馬「全8脚質スタイル×展開」相性診断 -->
+  <div class="tab-content" id="tabContentCombo">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+      <span style="font-size:12px; font-weight:bold; color:var(--gold-color);">🔍 分析する馬を選択:</span>
+      <select id="selectComboHorse" class="select-strat-in-table" style="max-width:230px;" onchange="renderHorseComboSimulator(this.value)"></select>
+      <span style="font-size:11px; color:#aaa;">※この馬が全8脚質スタイルを選んだ時の「有効展開での着順」を診断します。</span>
+    </div>
+    <div id="karte-display-area"></div>
+  </div>
+</div>
+
+<script type="module">
+// =============================================================================
+// 競馬物理シミュレーションエンジン（5大パラメータ × 8脚質スタイル）
+// =============================================================================
+
+// 1. 8大脚質スタイル（振る舞い）の定義
+const RUNNING_STYLES = [
+  { id: "STYLE_01", name: "主張逃げ", label: "主張逃げ (ハナ奪取)", category: "逃げ", c4_base: 0.00, desc: "前半から押して何が何でも先頭へ。スタミナ前借り消費大。" },
+  { id: "STYLE_02", name: "マイペース逃げ", label: "マイペース逃げ (単騎逃げ)", category: "逃げ", c4_base: 0.06, desc: "スムーズに先頭。中盤落として息を入れ余力粘り込み。" },
+  { id: "STYLE_03", name: "先行なだれ込み", label: "先行なだれ込み (持続粘り)", category: "先行", c4_base: 0.20, desc: "好位2〜3番手を追走。瞬発力勝負を避け持続力で押し切る。" },
+  { id: "STYLE_04", name: "好位差し", label: "好位差し (器用抜け出し)", category: "先行", c4_base: 0.38, desc: "好位3〜5番手ポケット。中盤息を入れて直線瞬発抜け出し。" },
+  { id: "STYLE_05", name: "中団瞬発", label: "中団瞬発 (キレ味勝負)", category: "差し", c4_base: 0.68, desc: "中団6〜9番手で脚を溜め、直線ラスト3Fのキレ味勝負。" },
+  { id: "STYLE_06", name: "捲り差し", label: "捲り差し (早仕掛け持続)", category: "差し", c4_base: 0.52, desc: "3〜4角から早めに進出。長く良い脚を使って前を捕らえる。" },
+  { id: "STYLE_07", name: "直線一気", label: "直線一気 (極限溜め)", category: "追込", c4_base: 0.88, desc: "後方で完全死んだふり。4角まで動かず直線大外一撃。" },
+  { id: "STYLE_08", name: "大捲り", label: "大捲り (奇襲ロンスパ)", category: "追込", c4_base: 0.30, desc: "中盤の緩みで向正面から一気に先頭へ押し上げる奇襲。" }
+];
+
+// 2. 7大ラップパターン（波形）
+const LAP_PATTERNS = [
+  { id: "LP_01", name: "超消耗・前崩壊型", pace: "超ハイペース", desc: "11秒台後半〜12.0秒の一本調子。中盤の息入れゼロ。前に行った馬が壊滅。", has_rest: false, rest_bonus: 0, lead_consumption_mult: 1.55, jizoku_weight: 0.45, sharp_weight: 0.25, stamina_weight: 0.60 },
+  { id: "LP_02", name: "ハイペース・直線強襲型", pace: "ハイペース", desc: "淀みないハイペース。息が入らず、脚を極限まで溜めた差し馬の末脚が炸裂。", has_rest: false, rest_bonus: 0, lead_consumption_mult: 1.30, jizoku_weight: 0.35, sharp_weight: 0.50, stamina_weight: 0.40 },
+  { id: "LP_03", name: "淀みなし・平均持続型", pace: "ミドルペース", desc: "全区間12.0〜12.2秒のフラット巡航。地力と持続力に長けた好位勢が有利。", has_rest: false, rest_bonus: 0, lead_consumption_mult: 1.00, jizoku_weight: 0.50, sharp_weight: 0.35, stamina_weight: 0.40 },
+  { id: "LP_04", name: "王道クラシック・二段加速型", pace: "ミドルペース", desc: "前半平均 ➔ 中盤に12.8秒以上の息入れ ➔ 直線最加速。好位の器用さと総合力。", has_rest: true, rest_bonus: 16, lead_consumption_mult: 0.85, jizoku_weight: 0.35, sharp_weight: 0.45, stamina_weight: 0.35 },
+  { id: "LP_05", name: "ロンスパ・中盤急加速型", pace: "乱ペース", desc: "向正面〜3角(残り1000m)から11.6秒へ急加速。持続力特化の捲り馬が主導権を握る。", has_rest: false, rest_bonus: 0, lead_consumption_mult: 1.25, jizoku_weight: 0.65, sharp_weight: 0.25, stamina_weight: 0.45 },
+  { id: "LP_06", name: "スロー・瞬発力特化型", pace: "スローペース", desc: "前半〜3角まで12.8秒超の深い息入れ ➔ ラスト3F急加速(11.0〜11.2秒)。上がり32秒台の鬼脚勝負。", has_rest: true, rest_bonus: 26, lead_consumption_mult: 0.65, jizoku_weight: 0.20, sharp_weight: 0.65, stamina_weight: 0.25 },
+  { id: "LP_07", name: "ドスロー・完全前残り型", pace: "スローペース", desc: "単騎マイペースで終始楽走 ➔ 直線ヨーイドン。前が全く止まらない物理前残り決着。", has_rest: true, rest_bonus: 32, lead_consumption_mult: 0.50, jizoku_weight: 0.30, sharp_weight: 0.45, stamina_weight: 0.20 }
+];
+
+// 3. 着差（秒差）の競馬公認テキスト変換
+function getMarginText(sec) {
+  if (sec <= 0.005) return "ー";
+  if (sec <= 0.04) return "ハナ";
+  if (sec <= 0.09) return "アタマ";
+  if (sec <= 0.18) return "クビ";
+  if (sec <= 0.28) return "１／２";
+  if (sec <= 0.42) return "３／４";
+  if (sec <= 0.58) return "１";
+  if (sec <= 0.75) return "１ 1/4";
+  if (sec <= 0.95) return "１ 1/2";
+  if (sec <= 1.25) return "２";
+  if (sec <= 1.55) return "２ 1/2";
+  if (sec <= 1.85) return "３";
+  if (sec <= 2.35) return "大差";
+  return `${sec.toFixed(1)}s`;
+}
+
+let simRaceData = null;
+let rawHorseList = [];
+let activeHorses = [];
+let trackCondition = "良";
+let raceInfo = {};
+let focusHorseId = null;
+
+let ALL_BRANCH_LIST = LAP_PATTERNS;
+let previousWinnersMap = {};
+let excludedBranchNames = new Set();
+
+let currentRacePace = "";
+let currentRaceBranch = "";
+let currentRaceFormulaStr = "";
+let currentTrackConfig = { phase1_3_dir: "left_to_right", phase4_dir: "right_to_left", goal_position: "left" };
+let currentVisualDir = "left_to_right";
+let raceState = 'idle';
+
+const GATE_FRAME_COLORS = {
+  1: { clothBg: '#f8fafc', clothText: '#0f172a', cap: '#f8fafc', stroke: '#cbd5e1' },
+  2: { clothBg: '#1e293b', clothText: '#ffffff', cap: '#1e293b', stroke: '#000000' },
+  3: { clothBg: '#dc2626', clothText: '#ffffff', cap: '#dc2626', stroke: '#000000' },
+  4: { clothBg: '#1d4ed8', clothText: '#ffffff', cap: '#1d4ed8', stroke: '#000000' },
+  5: { clothBg: '#eab308', clothText: '#0f172a', cap: '#eab308', stroke: '#ffffff' },
+  6: { clothBg: '#15803d', clothText: '#ffffff', cap: '#15803d', stroke: '#000000' },
+  7: { clothBg: '#ea580c', clothText: '#ffffff', cap: '#ea580c', stroke: '#000000' },
+  8: { clothBg: '#ec4899', clothText: '#ffffff', cap: '#ec4899', stroke: '#000000' }
+};
+
+const COAT_PALETTE = {
+  '鹿毛':   { main: '#8c3b14', dark: '#4d1e07', light: '#b35524', sock: '#1a1310', mane: '#18110e' },
+  '黒鹿毛': { main: '#3d2214', dark: '#1f1008', light: '#5c3622', sock: '#140c08', mane: '#110a07' },
+  '青鹿毛': { main: '#2e1c14', dark: '#150c08', light: '#4a2c1c', sock: '#110c0a', mane: '#0a0706' },
+  '青毛':   { main: '#241c19', dark: '#110c0a', light: '#423530', sock: '#110c0a', mane: '#0a0706' },
+  '栗毛':   { main: '#b85216', dark: '#783006', light: '#de7131', sock: '#8f3908', mane: '#d97706' },
+  '栃栗毛': { main: '#8c360c', dark: '#521f04', light: '#ad4817', sock: '#521f04', mane: '#b45309' },
+  '芦毛':   { main: '#94a3b8', dark: '#526277', light: '#cbd5e1', sock: '#cbd5e1', mane: '#334155' },
+  '白毛':   { main: '#f1f5f9', dark: '#cbd5e1', light: '#ffffff', sock: '#e2e8f0', mane: '#e2e8f0' }
+};
+
+function getCoatPalette(hairColor) { return COAT_PALETTE[String(hairColor || "").trim()] || COAT_PALETTE['鹿毛']; }
+function getGateColors(gateNum, totalHorses = 18) {
+  const g = Number(gateNum) || 1;
+  const frame = totalHorses <= 8 ? Math.min(8, Math.max(1, g)) : Math.min(8, Math.max(1, Math.ceil(g / (totalHorses / 8))));
+  return GATE_FRAME_COLORS[frame] || GATE_FRAME_COLORS[1];
+}
+
+const SILK_COLOR_MAP = {
+  "水色": "#38bdf8", "薄青": "#38bdf8", "空色": "#38bdf8", "薄紫": "#a855f7", "紫": "#581c87",
+  "白": "#f8fafc", "黒": "#18181b", "赤": "#dc2626", "青": "#1d4ed8", "黄": "#facc15",
+  "緑": "#15803d", "桃": "#f472b6", "ピンク": "#f472b6", "橙": "#ea580c", "オレンジ": "#ea580c",
+  "茶": "#78350f", "海老": "#881337", "鼠": "#64748b"
+};
+
+function extractSilkColor(str) {
+  if (!str) return null;
+  for (const cName of Object.keys(SILK_COLOR_MAP)) {
+    if (str.includes(cName)) return { name: cName, hex: SILK_COLOR_MAP[cName] };
+  }
+  return null;
+}
+
+function parseSilkColors(silkText, gateNum) {
+  const fallback = getGateColors(gateNum);
+  if (!silkText || typeof silkText !== 'string' || silkText.trim() === '' || silkText.trim() === '-') {
+    return { base: fallback.clothBg, bodyPat: 'none', patCol: fallback.clothText, sleeve: fallback.clothBg, sleevePat: 'none', sleeveCol: fallback.clothText };
+  }
+  const rawParts = silkText.split(/[,，、・/\s]+/).map(s => s.trim()).filter(Boolean);
+  let baseCol = "#f8fafc";
+  const firstMatch = extractSilkColor(rawParts[0]);
+  if (firstMatch) baseCol = firstMatch.hex;
+
+  let bodyPat = 'none';
+  let patCol = (baseCol === "#18181b") ? "#facc15" : "#18181b";
+  const fullText = silkText;
+
+  if (fullText.includes("十字襷") || fullText.includes("十字")) bodyPat = 'cross_sash';
+  else if (fullText.includes("縦縞") || fullText.includes("縦じま")) bodyPat = 'vertical';
+  else if (fullText.includes("鋸歯形")) bodyPat = 'sawtooth';
+  else if (fullText.includes("山形") || fullText.includes("菱山形")) bodyPat = 'chevron';
+  else if (fullText.includes("二本輪")) bodyPat = 'band2';
+  else if (fullText.includes("一本輪")) bodyPat = 'band1';
+  else if (fullText.includes("襷")) bodyPat = 'sash';
+  else if (fullText.includes("星") || fullText.includes("玉霰") || fullText.includes("ダイヤ")) bodyPat = 'diamond';
+
+  for (const cName of Object.keys(SILK_COLOR_MAP)) {
+    if (fullText.includes(cName) && SILK_COLOR_MAP[cName] !== baseCol) {
+      patCol = SILK_COLOR_MAP[cName];
+      break;
+    }
+  }
+
+  let sleeveCol = baseCol;
+  let sleevePat = 'none';
+  if (fullText.includes("袖")) {
+    const sPart = fullText.split("袖")[1] || "";
+    const sc = extractSilkColor(sPart);
+    if (sc) sleeveCol = sc.hex;
+    if (sPart.includes("一本輪")) sleevePat = 'band1';
+    else if (sPart.includes("二本輪") || sPart.includes("三本輪")) sleevePat = 'band2';
+    else if (sPart.includes("縦縞")) sleevePat = 'stripe';
+  }
+
+  return { base: baseCol, bodyPat, patCol, sleeve: sleeveCol, sleevePat, sleeveCol: patCol };
+}
+
+function resolveHorseVisuals(horse, index) {
+  const coat = getCoatPalette(horse.hair_color || "鹿毛");
+  const hasBlaze = (horse.hair_color !== '白毛') && (((index * 7 + 3) % 4 === 0) || String(horse.name || "").includes("テイオー"));
+  const gateColors = getGateColors(horse.gate_number || (index + 1), rawHorseList.length || 18);
+  const silk = parseSilkColors(horse.silk_colors, horse.gate_number || (index + 1));
+  return { coat, hasBlaze, silk, gateColors };
+}
+
+function renderBodyPatternSVG(bodyPat, patCol) {
+  switch (bodyPat) {
+    case 'cross_sash': return `<polygon points="152,32 166,32 216,86 202,86" fill="${patCol}"/><polygon points="202,32 216,32 166,86 152,86" fill="${patCol}"/>`;
+    case 'vertical': return `<line x1="120" y1="48" x2="245" y2="48" stroke="${patCol}" stroke-width="12"/><line x1="120" y1="72" x2="245" y2="72" stroke="${patCol}" stroke-width="12"/>`;
+    case 'band1': return `<rect x="176" y="20" width="14" height="75" fill="${patCol}"/>`;
+    case 'band2': return `<rect x="168" y="20" width="8.5" height="75" fill="${patCol}"/><rect x="186" y="20" width="8.5" height="75" fill="${patCol}"/>`;
+    case 'sawtooth': return `<polygon points="130,20 172,20 186,34 168,48 186,62 168,76 186,90 172,95 130,95" fill="${patCol}"/>`;
+    case 'chevron': return `<path d="M 215 35 L 165 59 L 215 83 L 225 74 L 185 59 L 225 44 Z" fill="${patCol}"/>`;
+    case 'sash': return `<polygon points="152,32 166,32 216,86 202,86" fill="${patCol}"/>`;
+    case 'diamond': return `<circle cx="158" cy="45" r="4.5" fill="${patCol}"/><circle cx="185" cy="42" r="4.5" fill="${patCol}"/><circle cx="212" cy="46" r="4.5" fill="${patCol}"/><circle cx="170" cy="62" r="4.5" fill="${patCol}"/><circle cx="198" cy="62" r="4.5" fill="${patCol}"/><circle cx="184" cy="80" r="4.5" fill="${patCol}"/>`;
+    default: return '';
+  }
+}
+
+function renderSleevePatternSVG(sleevePat, sleeveCol) {
+  switch (sleevePat) {
+    case 'band1': return `<polygon points="144,65 174,70 171,78 141,73" fill="${sleeveCol}"/>`;
+    case 'band2': return `<polygon points="146,62 174,67 172,73 144,68" fill="${sleeveCol}"/><polygon points="140,74 168,79 166,85 138,80" fill="${sleeveCol}"/>`;
+    case 'stripe': return `<path d="M 152 54 L 164 85 L 138 92" stroke="${sleeveCol}" stroke-width="5" fill="none" stroke-linejoin="round"/>`;
+    default: return '';
+  }
+}
+
+async function fetchJsonSafe(filename) {
+  const cleanName = filename.replace(/^\.\/(sim\/|data\/)?/, '').replace(/^\/(sim\/|data\/)?/, '');
+  const paths = [
+    filename,
+    `./${cleanName}`,
+    `./sim/${cleanName}`,
+    `./data/${cleanName}`,
+    `sim/${cleanName}`,
+    `data/${cleanName}`
+  ];
+  for (const p of paths) {
+    try {
+      const res = await fetch(p);
+      if (res.ok) return await res.json();
+    } catch (e) {}
+  }
+  return null;
+}
+
+// 4. コア物理計算関数（エネルギー収支 ＆ ラップ波形シミュレーション）
+function simulateRacePhysics(horsesList, lapPattern, distance = 3000) {
+  const distFactor = (distance || 2400) / 2400.0;
+
+  const scoredHorses = horsesList.map((h, idx) => {
+    const stObj = RUNNING_STYLES.find(s => s.name === h.style) || RUNNING_STYLES[2];
+    let baseC4 = stObj.c4_base;
+
+    // ロンスパ型(LP_05)で大捲り・捲り差しの場合は早めに先頭へ押し上げる
+    if (lapPattern.id === "LP_05" && (h.style.includes("捲り") || h.jizoku >= 18.0)) {
+      baseC4 = Math.max(0.08, baseC4 - 0.22);
+    }
+
+    const spdEffect = (15.0 - h.speed) * 0.025;
+    const gateNum = h.gate_number || (idx + 1);
+    const gateEffect = (gateNum - 9) * 0.008;
+    const c4Gap = Math.max(0.0, baseC4 + spdEffect + gateEffect);
+
+    // エネルギー消費（前借り）
+    const initialEnergy = h.stamina * 5.2;
+    let leadCost = Math.max(4.0, (1.8 - Math.min(1.8, c4Gap)) * 16.0);
+    if (h.style === "主張逃げ") {
+      leadCost *= 1.35;
+      if (h.speed < 16.0) leadCost += (16.0 - h.speed) * 4.0;
+    } else if (h.style === "マイペース逃げ") {
+      leadCost *= 0.90;
+    }
+    const borrowCost = leadCost * lapPattern.lead_consumption_mult * distFactor;
+
+    // 中盤の息入れ（回復）
+    let energyRecovered = 0.0;
+    if (lapPattern.has_rest) {
+      let recEff = (h.guts * 0.65 + h.stamina * 0.35) / 15.0;
+      if (h.style === "好位差し") recEff *= 1.25;
+      else if (h.style === "マイペース逃げ") recEff *= 1.15;
+      else if (h.style === "先行なだれ込み" || h.style === "中団瞬発") recEff *= 1.10;
+      else if (h.style === "主張逃げ") recEff *= 0.82;
+      energyRecovered = lapPattern.rest_bonus * recEff;
+    }
+
+    const remainingEnergy = initialEnergy - borrowCost + energyRecovered;
+
+    // 直線の上がり3F計算
+    const base3f = (distance >= 3000) ? 34.6 : 34.1;
+    const sharpBonus = (h.sharp - 15.0) * 0.28 * lapPattern.sharp_weight;
+    const jizokuBonus = (h.jizoku - 15.0) * 0.20 * lapPattern.jizoku_weight * distFactor;
+
+    let gasOut = 0.0;
+    let freshBonus = 0.0;
+    if (remainingEnergy < 45.0) {
+      gasOut = (45.0 - remainingEnergy) * 0.05;
+    } else if (remainingEnergy > 55.0) {
+      freshBonus = -Math.min(0.45, (remainingEnergy - 55.0) * 0.012);
+    }
+
+    const clearanceBonus = (h.guts - 15.0) * 0.045;
+
+    let styleBurstMod = 0.0;
+    if ((h.style === "中団瞬発" || h.style === "直線一気") && remainingEnergy >= 50.0) {
+      styleBurstMod = -0.15 * lapPattern.sharp_weight;
+    } else if (h.style === "先行なだれ込み") {
+      styleBurstMod = -0.08 * lapPattern.jizoku_weight;
+    }
+
+    const actual3f = base3f - sharpBonus - jizokuBonus + gasOut + freshBonus - clearanceBonus + styleBurstMod;
+    const totalTimeMetric = c4Gap + actual3f;
+    const positionPoint = 100.0 - (c4Gap * 55.0) + (h.speed * 0.3);
+
+    return {
+      ...h,
+      index: idx,
+      c4_gap: Number(c4Gap.toFixed(2)),
+      actual_3f: Number(actual3f.toFixed(2)),
+      remaining_energy: Number(remainingEnergy.toFixed(1)),
+      total_time_metric: Number(totalTimeMetric.toFixed(3)),
+      positionPoint
+    };
+  });
+
+  scoredHorses.sort((a, b) => a.total_time_metric - b.total_time_metric);
+  const winnerTime = scoredHorses[0].total_time_metric;
+
+  scoredHorses.forEach((sh, r) => {
+    sh.rank = r + 1;
+    sh.margin_sec = Number((sh.total_time_metric - winnerTime).toFixed(2));
+    sh.margin_text = getMarginText(sh.margin_sec);
+    sh.finalScore = Number((100.0 - sh.total_time_metric * 1.5).toFixed(1));
+    sh.detailText = `4C差:${sh.c4_gap}s + 上り:${sh.actual_3f}s [残E:${sh.remaining_energy}] ➔ ${sh.margin_sec > 0 ? '+' + sh.margin_sec + 's (' + sh.margin_text + ')' : '1着'}`;
+  });
+
+  return scoredHorses;
+}
+
+// 5. ローカルストレージ ＆ 上書き保存
+function getCurrentStorageKey() {
+  const select = document.getElementById('selectRaceFile');
+  const targetFile = select ? select.value : '26kikkasho.json';
+  const cleanName = targetFile.replace(/^.*[\/]/, '');
+  return `dbc_sim_physics_${cleanName}`;
+}
+
+function saveCustomHorsesToStorage() {
+  try {
+    const key = getCurrentStorageKey();
+    const dataToSave = activeHorses.map(h => ({
+      gate_number: h.gate_number,
+      name: h.name,
+      turf_potential: h.turf_potential,
+      speed: h.speed,
+      stamina: h.stamina,
+      sharp: h.sharp,
+      jizoku: h.jizoku,
+      guts: h.guts,
+      style: h.style
+    }));
+    localStorage.setItem(key, JSON.stringify(dataToSave));
+  } catch(e) {
+    console.warn("localStorage save failed:", e);
+  }
+}
+
+function loadCustomHorsesFromStorage() {
+  try {
+    const key = getCurrentStorageKey();
+    const saved = localStorage.getItem(key);
+    if (!saved) return false;
+    const parsed = JSON.parse(saved);
+    if (!Array.isArray(parsed) || parsed.length === 0) return false;
+
+    let appliedCount = 0;
+    parsed.forEach(savedH => {
+      const target = activeHorses.find(h => h.gate_number === savedH.gate_number || h.name === savedH.name);
+      if (target) {
+        if (savedH.turf_potential !== undefined) target.turf_potential = Number(savedH.turf_potential);
+        if (savedH.speed !== undefined) target.speed = Number(savedH.speed);
+        if (savedH.stamina !== undefined) target.stamina = Number(savedH.stamina);
+        if (savedH.sharp !== undefined) target.sharp = Number(savedH.sharp);
+        if (savedH.jizoku !== undefined) target.jizoku = Number(savedH.jizoku);
+        if (savedH.guts !== undefined) target.guts = Number(savedH.guts);
+        if (savedH.style !== undefined) target.style = savedH.style;
+        appliedCount++;
+      }
+    });
+    return (appliedCount > 0);
+  } catch(e) {
+    console.warn("localStorage load failed:", e);
+  }
+  return false;
+}
+
+window.resetCustomHorsesToDefault = function() {
+  const key = getCurrentStorageKey();
+  localStorage.removeItem(key);
+  setupRaceInfoFromData();
+  renderEntryTable();
+  populateComboHorseSelect();
+  calculateAllBranchesDeterministic(true);
+  document.getElementById('log-content').innerHTML = `🔄 <strong>パラメータを初期JSONデータに戻しました。</strong>`;
+};
+
+window.overwriteOriginalJsonFile = async function() {
+  const currentFileName = (document.getElementById('selectRaceFile')?.value || '26kikkasho.json').replace(/^.*[\/]/, '');
+
+  const exportData = {
+    race_info: raceInfo,
+    horses: activeHorses.map(h => ({
+      gate_number: h.gate_number,
+      horse_id: h.horse_id || `H_${h.gate_number}`,
+      name: h.name,
+      sex: h.sex || "牡馬",
+      rarity: h.rarity || "NOR",
+      turf_potential: h.turf_potential,
+      dirt_potential: h.dirt_potential || 0,
+      min_distance: h.min_distance || 1800,
+      max_distance: h.max_distance || 3200,
+      speed: h.speed,
+      stamina: h.stamina,
+      sharp: h.sharp,
+      jizoku: h.jizoku,
+      guts: h.guts,
+      style: h.style,
+      ability: h.ability || [],
+      comment: h.comment || "",
+      region: h.region || "関西",
+      hair_color: h.hair_color || "鹿毛",
+      silk_colors: h.silk_colors || "",
+      jockey: h.jockey || "",
+      jockey_level: h.jockey_level || 3.5
+    }))
+  };
+
+  const jsonStr = JSON.stringify(exportData, null, 2);
+
+  if ('showSaveFilePicker' in window) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: currentFileName,
+        types: [{
+          description: 'JSONファイル',
+          accept: { 'application/json': ['.json'] }
+        }]
+      });
+
+      const writable = await handle.createWritable();
+      await writable.write(jsonStr);
+      await writable.close();
+
+      saveCustomHorsesToStorage();
+      document.getElementById('log-content').innerHTML = `💾 <strong>${handle.name}</strong> への直接上書き保存が完了しました！`;
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        document.getElementById('log-content').innerHTML = `⚠️ 保存がキャンセルされました。`;
+        return;
+      }
+      console.warn("File System Access API 保存エラー:", err);
+    }
+  }
+
+  alert("お使いの環境が直接上書きに対応していないか許可されませんでした。通常のダウンロード保存を実行します。");
+  window.exportCustomHorsesJson();
+};
+
+window.exportCustomHorsesJson = function() {
+  const currentFileName = (document.getElementById('selectRaceFile')?.value || '26kikkasho.json').replace(/^.*[\/]/, '');
+  const exportData = {
+    race_info: raceInfo,
+    horses: activeHorses.map(h => ({
+      gate_number: h.gate_number,
+      horse_id: h.horse_id || `H_${h.gate_number}`,
+      name: h.name,
+      sex: h.sex || "牡馬",
+      rarity: h.rarity || "NOR",
+      turf_potential: h.turf_potential,
+      dirt_potential: h.dirt_potential || 0,
+      min_distance: h.min_distance || 1800,
+      max_distance: h.max_distance || 3200,
+      speed: h.speed,
+      stamina: h.stamina,
+      sharp: h.sharp,
+      jizoku: h.jizoku,
+      guts: h.guts,
+      style: h.style,
+      ability: h.ability || [],
+      comment: h.comment || "",
+      region: h.region || "関西",
+      hair_color: h.hair_color || "鹿毛",
+      silk_colors: h.silk_colors || "",
+      jockey: h.jockey || "",
+      jockey_level: h.jockey_level || 3.5
+    }))
+  };
+
+  const jsonStr = JSON.stringify(exportData, null, 2);
+  const blob = new Blob([jsonStr], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = currentFileName.replace('.json', '_custom.json');
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  document.getElementById('log-content').innerHTML = `📥 <strong>${a.download}</strong> をダウンロード保存しました！`;
+};
+
+// 6. 初期化
+async function initSimulation() {
+  const select = document.getElementById('selectRaceFile');
+  const targetFile = select ? select.value : '26kikkasho.json';
+
+  const rData = await fetchJsonSafe(targetFile);
+  simRaceData = rData || await fetchJsonSafe('26kikkasho.json') || { race_info: {}, horses: [] };
+
+  extractAllBranchesFromMaster();
+  setupRaceInfoFromData();
+
+  const hasCustom = loadCustomHorsesFromStorage();
+
+  renderEntryTable();
+  setupSimulationTrack();
+  populateComboHorseSelect();
+
+  calculateAllBranchesDeterministic(false);
+
+  const customNotice = hasCustom ? "（保存済みカスタムパラメータ適用中）" : "";
+  document.getElementById('log-content').innerHTML = `<strong>【準備完了】</strong> ${raceInfo.race_name}（全${activeHorses.length}頭）${customNotice}。出馬表の脚質スタイル・数値を変更すると、物理エネルギー収支と統計分析がリアルタイムに更新されます。`;
+}
+
+window.onRaceFileChanged = async function() {
+  previousWinnersMap = {};
+  await initSimulation();
+  document.getElementById('single-result-panel').style.display = 'none';
+};
+
+function extractAllBranchesFromMaster() {
+  ALL_BRANCH_LIST = LAP_PATTERNS;
+  const forcedSelect = document.getElementById('selectForcedBranch');
+  if (forcedSelect) {
+    forcedSelect.innerHTML = '<option value="AUTO">🎲 おまかせ（現在の脚質構成から物理確率で抽選）</option>';
+    ALL_BRANCH_LIST.forEach(branch => {
+      const opt = document.createElement('option');
+      opt.value = branch.name;
+      opt.textContent = `【${branch.pace.replace("ペース","")}】${branch.name}`;
+      forcedSelect.appendChild(opt);
+    });
+  }
+  renderExclusionChips();
+}
+
+function renderExclusionChips() {
+  const container = document.getElementById('exclusion-chips-container');
+  if (!container) return;
+  container.innerHTML = '';
+
+  ALL_BRANCH_LIST.forEach(b => {
+    const isExcluded = excludedBranchNames.has(b.name);
+    const chip = document.createElement('label');
+    chip.className = `exclusion-chip ${isExcluded ? 'excluded' : ''}`;
+    chip.innerHTML = `
+      <input type="checkbox" value="${b.name}" ${isExcluded ? '' : 'checked'} onchange="onExclusionChanged('${b.name}', this.checked)">
+      <span>[${b.pace.replace("ペース","")}] ${b.name}</span>
+    `;
+    container.appendChild(chip);
+  });
+}
+
+window.onExclusionChanged = function(branchName, isChecked) {
+  if (!isChecked) excludedBranchNames.add(branchName);
+  else excludedBranchNames.delete(branchName);
+  renderExclusionChips();
+  calculateAllBranchesDeterministic(true);
+};
+
+window.toggleAllExclusions = function(excludeAll) {
+  if (excludeAll) ALL_BRANCH_LIST.forEach(b => excludedBranchNames.add(b.name));
+  else excludedBranchNames.clear();
+  renderExclusionChips();
+  calculateAllBranchesDeterministic(true);
+};
+
+window.excludeUnrealisticDefaults = function() {
+  excludedBranchNames.add("超消耗・前崩壊型");
+  renderExclusionChips();
+  calculateAllBranchesDeterministic(true);
+  document.getElementById('log-content').innerHTML = `⚙️ <b>展開除外モード</b>：極端な前崩壊展開を除外して再計算しました。`;
+};
+
+function ensureStats(h) {
+  const p = Number(h.turf_potential || h.potential || 16);
+  h.turf_potential = p;
+  h.dirt_potential = Number(h.dirt_potential ?? 0);
+  h.potential = p;
+  h.speed = Number(h.speed ?? p);
+  h.stamina = Number(h.stamina ?? p);
+  h.sharp = Number(h.sharp ?? p);
+  h.jizoku = Number(h.jizoku ?? p);
+  h.guts = Number(h.guts ?? p);
+
+  // 旧作戦や旧脚質からの正規化
+  const validStyles = RUNNING_STYLES.map(s => s.name);
+  if (!validStyles.includes(h.style)) {
+    const raw = String(h.style || "");
+    if (raw.includes("逃") || raw.includes("大逃")) h.style = "主張逃げ";
+    else if (raw.includes("好")) h.style = "好位差し";
+    else if (raw.includes("差")) h.style = "中団瞬発";
+    else if (raw.includes("追")) h.style = "直線一気";
+    else h.style = "先行なだれ込み";
+  }
+}
+
+function setupRaceInfoFromData() {
+  const rInfo = simRaceData?.race_info || {};
+  raceInfo = {
+    race_name: rInfo.race_name || "第87回 菊花賞 (GI)",
+    track: rInfo.track || "京都",
+    surface: rInfo.surface || "芝",
+    distance: Number(rInfo.distance) || 3000,
+    race_number: 1
+  };
+  trackCondition = rInfo.track_condition || "良";
+  setTrackConditionUI(trackCondition);
+
+  document.getElementById('display-race-title').textContent = raceInfo.race_name;
+  document.getElementById('display-race-spec').textContent = `（${raceInfo.track} ${raceInfo.surface} ${raceInfo.distance}m）`;
+
+  rawHorseList = (simRaceData?.horses || []).map((h, i) => {
+    const horse = { ...h };
+    horse.original_gate = horse.gate_number || (i + 1);
+    horse.gate_number = horse.gate_number || (i + 1);
+    ensureStats(horse);
+    horse.jockey_level = Number(horse.jockey_level || 4.0);
+    return horse;
+  });
+
+  rawHorseList.sort((a, b) => (a.gate_number || 0) - (b.gate_number || 0));
+  activeHorses = JSON.parse(JSON.stringify(rawHorseList));
+  focusHorseId = null;
+}
+
+function calculatePaceProbabilities() {
+  const leadHorses = activeHorses.filter(h => h.style.includes("逃げ"));
+  const leadCount = leadHorses.length;
+  const hasShucho = activeHorses.some(h => h.style === "主張逃げ");
+  const hasMakuri = activeHorses.some(h => h.style === "大捲り" || (h.style === "捲り差し" && h.jizoku >= 18.0));
+
+  let patternProbs = {
+    "LP_01": 0.05, "LP_02": 0.15, "LP_03": 0.20,
+    "LP_04": 0.30, "LP_05": 0.15, "LP_06": 0.10, "LP_07": 0.05
+  };
+
+  if (leadCount === 0) {
+    patternProbs = { "LP_01": 0.0, "LP_02": 0.05, "LP_03": 0.15, "LP_04": 0.30, "LP_05": hasMakuri ? 0.25 : 0.10, "LP_06": 0.25, "LP_07": 0.15 };
+  } else if (leadCount === 1) {
+    if (hasShucho) {
+      patternProbs = { "LP_01": 0.15, "LP_02": 0.30, "LP_03": 0.25, "LP_04": 0.15, "LP_05": hasMakuri ? 0.15 : 0.05, "LP_06": 0.05, "LP_07": 0.0 };
+    } else {
+      patternProbs = { "LP_01": 0.0, "LP_02": 0.05, "LP_03": 0.15, "LP_04": 0.35, "LP_05": hasMakuri ? 0.25 : 0.05, "LP_06": 0.25, "LP_07": 0.15 };
+    }
+  } else {
+    patternProbs = { "LP_01": 0.25, "LP_02": 0.35, "LP_03": 0.20, "LP_04": 0.05, "LP_05": 0.15, "LP_06": 0.0, "LP_07": 0.0 };
+  }
+
+  return { patternProbs, leadHorses };
+}
+
+function renderPaceForecastUI(paceProbInfo) {
+  const { patternProbs, leadHorses } = paceProbInfo;
+  const statusEl = document.getElementById('lead-horses-status');
+  const barEl = document.getElementById('pace-prob-bar');
+  const commentEl = document.getElementById('pace-forecast-comment');
+  if (!barEl) return;
+
+  if (leadHorses.length === 0) {
+    statusEl.textContent = `逃げ系: 0頭（牽制し合い）`;
+  } else {
+    statusEl.textContent = `逃げ系: ${leadHorses.length}頭（${leadHorses.map(h => `${h.name}[${h.style}]`).join("、")}）`;
+  }
+
+  const colors = {
+    "LP_01": "#dc2626", "LP_02": "#ea580c", "LP_03": "#3b82f6",
+    "LP_04": "#10b981", "LP_05": "#8b5cf6", "LP_06": "#f59e0b", "LP_07": "#eab308"
+  };
+
+  let barHtml = "";
+  Object.entries(patternProbs).forEach(([patId, p]) => {
+    if (p > 0) {
+      const pct = Math.round(p * 100);
+      const pat = LAP_PATTERNS.find(lp => lp.id === patId);
+      barHtml += `<div class="pace-seg" style="width:${pct}%; background:${colors[patId]};">${pat?.name.substring(0,4)} ${pct}%</div>`;
+    }
+  });
+  barEl.innerHTML = barHtml;
+
+  commentEl.innerHTML = `💡 <b>物理エネルギー分析</b>：逃げ系${leadHorses.length}頭。出馬表の脚質スタイル構成からラップ波形の発生確率を算出して物理集計しています。`;
+}
+
+function updateAnalystSummaryComment(paceProbInfo, activeCount) {
+  const textEl = document.getElementById('analyst-comment-text');
+  if (!textEl) return;
+
+  const { patternProbs } = paceProbInfo;
+
+  let topPatId = "LP_04";
+  let maxP = 0;
+  Object.entries(patternProbs).forEach(([id, val]) => {
+    if (val > maxP) { maxP = val; topPatId = id; }
+  });
+  const topPat = LAP_PATTERNS.find(lp => lp.id === topPatId);
+
+  textEl.innerHTML = `
+    現在の18頭の脚質構成では、最も発生しやすい展開は <b>${topPat?.name} (${Math.round(maxP*100)}%)</b> です。<br>
+    4コーナーでの秒差（ポジション力）に、中盤の息入れ回復と直線の上がり3Fタイムを物理加算して着順・着差を正確に導出しています。
+  `;
+}
+
+window.calculateAllBranchesDeterministic = function(animateHighlight = false) {
+  const paceProbInfo = calculatePaceProbabilities();
+  renderPaceForecastUI(paceProbInfo);
+  updateAnalystSummaryComment(paceProbInfo, activeHorses.length);
+
+  const matrixTbody = document.getElementById('deterministic-matrix-body');
+  if (matrixTbody) matrixTbody.innerHTML = '';
+
+  const horseStatsAcc = {};
+  activeHorses.forEach(h => {
+    horseStatsAcc[h.name] = {
+      horse: h,
+      winCount: 0,
+      placeCount: 0,
+      weightedWinProb: 0.0,
+      weightedPlaceProb: 0.0,
+      weightedRankSum: 0.0,
+      winBranches: [],
+      placeBranches: [],
+      bestBranch: null,
+      bestRank: 99,
+      worstBranch: null,
+      worstRank: 0
+    };
+  });
+
+  const validBranches = ALL_BRANCH_LIST.filter(b => !excludedBranchNames.has(b.name));
+  const validTotalProb = validBranches.reduce((sum, b) => sum + (paceProbInfo.patternProbs[b.id] || 0.0), 0.0) || 1.0;
+
+  ALL_BRANCH_LIST.forEach(branch => {
+    const isExcluded = excludedBranchNames.has(branch.name);
+    const scoredList = simulateRacePhysics(activeHorses, branch, raceInfo.distance);
+    const patProb = (paceProbInfo.patternProbs[branch.id] || 0.0);
+    const normalizedProb = patProb / validTotalProb;
+
+    if (!isExcluded) {
+      scoredList.forEach((h, r) => {
+        const rank = r + 1;
+        const acc = horseStatsAcc[h.name];
+        if (acc) {
+          acc.weightedRankSum += rank * normalizedProb;
+          if (rank === 1) {
+            acc.winCount++;
+            acc.weightedWinProb += normalizedProb;
+            acc.winBranches.push(branch);
+          }
+          if (rank <= 3) {
+            acc.placeCount++;
+            acc.weightedPlaceProb += normalizedProb;
+            acc.placeBranches.push({ branch, rank, actual_3f: h.actual_3f, margin_sec: h.margin_sec, margin_text: h.margin_text });
+          }
+          if (rank < acc.bestRank) { acc.bestRank = rank; acc.bestBranch = branch; }
+          if (rank > acc.worstRank) { acc.worstRank = rank; acc.worstBranch = branch; }
+        }
+      });
+    }
+
+    const h1 = scoredList[0] || {};
+    const h2 = scoredList[1] || {};
+    const h3 = scoredList[2] || {};
+    const h4 = scoredList[3] || {};
+
+    const prevKey = `${h1.name}_${h2.name}_${h3.name}`;
+    const isChanged = animateHighlight && previousWinnersMap[branch.name] && previousWinnersMap[branch.name] !== prevKey;
+    previousWinnersMap[branch.name] = prevKey;
+
+    if (matrixTbody) {
+      let paceColor = "#60a5fa";
+      if (branch.pace.includes("ハイ")) paceColor = "#f87171";
+      else if (branch.pace.includes("スロー")) paceColor = "#4ade80";
+      else if (branch.pace.includes("乱")) paceColor = "#eab308";
+
+      const pct = Math.round(patProb * 100);
+      const probBadge = pct >= 25
+        ? `<span style="background:#dc2626; color:#fff; font-size:9px; padding:1px 4px; border-radius:3px; margin-left:3px;">🔥有力(${pct}%)</span>`
+        : `<span style="color:#aaa; font-size:9px;">(${pct}%)</span>`;
+
+      const excludedStyle = isExcluded ? 'opacity: 0.35; background: rgba(50,20,10,0.3);' : '';
+
+      matrixTbody.innerHTML += `
+        <tr class="${isChanged ? 'changed-highlight' : ''}" style="${excludedStyle}">
+          <td>
+            <span style="font-weight:bold; color:${paceColor};">[${branch.pace.replace("ペース","")}]</span> ${probBadge}<br>
+            <strong style="color:var(--gold-color); font-size:11.5px;">${branch.name}</strong>
+            ${isExcluded ? '<br><span style="color:#f87171; font-size:9px; font-weight:bold;">[除外中]</span>' : ''}
+          </td>
+          <td style="background:rgba(255,204,0,0.08); text-align:left; padding-left:6px;">
+            <strong style="color:var(--gold-color); font-size:11.5px;">${h1.gate_number}番 ${h1.name}</strong>
+            ${isChanged ? '<span style="color:#00ff66; font-size:9px; font-weight:bold;">🔄変動</span>' : ''}<br>
+            <span style="font-size:9px; color:#aaa;">上り:${h1.actual_3f}s (${h1.style})</span>
+          </td>
+          <td style="text-align:left; padding-left:6px;">
+            <span style="font-weight:bold; color:#fff;">${h2.gate_number}番 ${h2.name}</span><br>
+            <span style="font-size:9px; color:#888;">${h2.margin_text} (上り:${h2.actual_3f}s)</span>
+          </td>
+          <td style="text-align:left; padding-left:6px;">
+            <span style="color:#cbd5e1;">${h3.gate_number}番 ${h3.name}</span><br>
+            <span style="font-size:9px; color:#888;">${h3.margin_text} (上り:${h3.actual_3f}s)</span>
+          </td>
+          <td style="text-align:left; padding-left:6px;">
+            <span style="color:#94a3b8;">${h4.gate_number}番 ${h4.name}</span><br>
+            <span style="font-size:9px; color:#666;">${h4.margin_text}</span>
+          </td>
+          <td style="text-align:left; padding-left:6px; font-size:10px; color:#aaa;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="color:#cbd5e1;">${branch.desc}</span>
+              <button class="btn-gate-action" style="padding:2px 6px; font-size:9px;" onclick="runSpecificBranchNow('${branch.name}')">▶ 発走</button>
+            </div>
+            <div style="font-size:9px; color:#93c5fd; margin-top:2px;">
+              息入れ:${branch.has_rest ? 'あり(+'+branch.rest_bonus+')' : 'なし(消耗戦)'} ｜ 先行負荷:${branch.lead_consumption_mult}倍
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+  });
+
+  updateEntryTableGoodBranches(horseStatsAcc);
+  renderSummaryTab(horseStatsAcc, validBranches.length);
+
+  const comboSel = document.getElementById('selectComboHorse');
+  if (comboSel && comboSel.value) {
+    renderHorseComboSimulator(comboSel.value);
+  }
+};
+
+window.runSpecificBranchNow = function(branchName) {
+  const sel = document.getElementById('selectForcedBranch');
+  if (sel) sel.value = branchName;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  startSingleRaceSimulation();
+};
+
+function analyzeBestStyleForHorse(targetHorseIndex) {
+  const baseHorse = activeHorses[targetHorseIndex];
+  if (!baseHorse) return null;
+
+  const originalStyle = baseHorse.style;
+  let bestResult = null;
+  const allStyleResults = [];
+  const validBranches = ALL_BRANCH_LIST.filter(b => !excludedBranchNames.has(b.name));
+  const totalValid = validBranches.length || 1;
+
+  RUNNING_STYLES.forEach(st => {
+    activeHorses[targetHorseIndex].style = st.name;
+
+    let winCnt = 0;
+    let placeCnt = 0;
+    let rankSum = 0;
+    let bestRank = 99;
+    const goodBranches = [];
+
+    validBranches.forEach(branch => {
+      const scored = simulateRacePhysics(activeHorses, branch, raceInfo.distance);
+      const r = scored.findIndex(item => item.name === baseHorse.name) + 1;
+      const myObj = scored[r - 1];
+      rankSum += r;
+      if (r === 1) winCnt++;
+      if (r <= 3) placeCnt++;
+      if (r < bestRank) bestRank = r;
+      if (r <= 3) {
+        goodBranches.push({ branchName: branch.name, pace: branch.pace, rank: r, actual_3f: myObj?.actual_3f, margin_text: myObj?.margin_text });
+      }
+    });
+
+    goodBranches.sort((a, b) => a.rank - b.rank);
+
+    const summary = {
+      styleName: st.name,
+      label: st.label,
+      desc: st.desc,
+      winCnt,
+      placeCnt,
+      avgRank: (rankSum / totalValid),
+      bestRank,
+      goodBranches
+    };
+    allStyleResults.push(summary);
+
+    if (
+      !bestResult ||
+      summary.winCnt > bestResult.winCnt ||
+      (summary.winCnt === bestResult.winCnt && summary.placeCnt > bestResult.placeCnt) ||
+      (summary.winCnt === bestResult.winCnt && summary.placeCnt === bestResult.placeCnt && summary.avgRank < bestResult.avgRank)
+    ) {
+      bestResult = summary;
+    }
+  });
+
+  activeHorses[targetHorseIndex].style = originalStyle;
+  allStyleResults.sort((a, b) => (b.winCnt - a.winCnt) || (b.placeCnt - a.placeCnt) || (a.avgRank - b.avgRank));
+  return { bestResult, allStyleResults };
+}
+
+function updateEntryTableGoodBranches(horseStatsAcc) {
+  activeHorses.forEach((h, idx) => {
+    const cellEl = document.getElementById(`goodBranchesCell_${idx}`);
+    if (cellEl) {
+      const acc = horseStatsAcc[h.name];
+      if (!acc) return;
+      if (acc.placeBranches.length > 0) {
+        const sortedP = [...acc.placeBranches].sort((a, b) => a.rank - b.rank);
+        const tags = sortedP.slice(0, 3).map(p => {
+          const col = p.rank === 1 ? '#facc15' : '#93c5fd';
+          return `<span style="color:${col}; font-weight:${p.rank===1?'bold':'normal'};">${p.branch.name.substring(0,4)}(${p.rank}着)</span>`;
+        }).join("、");
+        const more = sortedP.length > 3 ? ` <span style="color:#888;">他${sortedP.length - 3}展開</span>` : "";
+        cellEl.innerHTML = `${tags}${more}`;
+      } else {
+        cellEl.innerHTML = `<span style="color:#888;">最高${acc.bestRank}位</span>`;
+      }
+    }
+  });
+}
+
+function renderSummaryTab(accMap, totalValidBranches) {
+  const kpiContainer = document.getElementById('summary-kpi-container');
+  const tbody = document.getElementById('all-horses-summary-tbody');
+  if (!kpiContainer || !tbody) return;
+
+  const list = Object.values(accMap).sort((a, b) => (b.weightedWinProb - a.weightedWinProb) || (b.weightedPlaceProb - a.weightedPlaceProb) || (a.weightedRankSum - b.weightedRankSum));
+
+  const top1 = list[0] || {};
+  const topPlace = [...list].sort((a, b) => b.weightedPlaceProb - a.weightedPlaceProb || a.weightedRankSum - b.weightedRankSum)[0] || {};
+  const wildCard = list.find(item => item.weightedPlaceProb >= 0.20 && item.horse.turf_potential <= 16.0) || list[2] || {};
+
+  kpiContainer.innerHTML = `
+    <div class="kpi-stat-card">
+      <div class="kpi-stat-title">👑 統計最多勝率（本命軸候補）</div>
+      <div class="kpi-stat-val">${top1.horse?.gate_number || ''}番 ${top1.horse?.name || '---'}</div>
+      <div class="kpi-stat-desc">総合勝率: <b>${Math.round((top1.weightedWinProb||0)*100)}%</b> / 複勝率: <b>${Math.round((top1.weightedPlaceProb||0)*100)}%</b></div>
+    </div>
+    <div class="kpi-stat-card">
+      <div class="kpi-stat-title">🥈 複勝安定度 No.1（連軸候補）</div>
+      <div class="kpi-stat-val">${topPlace.horse?.gate_number || ''}番 ${topPlace.horse?.name || '---'}</div>
+      <div class="kpi-stat-desc">複勝率: <b>${Math.round((topPlace.weightedPlaceProb||0)*100)}%</b> (平均 ${topPlace.weightedRankSum ? topPlace.weightedRankSum.toFixed(1) : '-'} 着)</div>
+    </div>
+    <div class="kpi-stat-card">
+      <div class="kpi-stat-title">⚡ 展開特化の伏兵</div>
+      <div class="kpi-stat-val">${wildCard.horse?.gate_number || ''}番 ${wildCard.horse?.name || '---'}</div>
+      <div class="kpi-stat-desc">得意な【${wildCard.bestBranch?.name || ''}】で最高 ${wildCard.bestRank} 着</div>
+    </div>
+  `;
+
+  tbody.innerHTML = '';
+  activeHorses.forEach((h, idx) => {
+    const item = accMap[h.name];
+    if (!item) return;
+
+    const bestAnalysis = analyzeBestStyleForHorse(idx);
+    const best = bestAnalysis?.bestResult;
+
+    const currentGoodStr = item.placeBranches.length > 0
+      ? item.placeBranches.slice(0, 3).map(p => `${p.branch.name.substring(0,4)}(<b>${p.rank}着</b>)`).join("、")
+      : `<span style="color:#777;">3着内なし (最高${item.bestRank}位)</span>`;
+
+    let bestComboHtml = "";
+    if (best) {
+      const topB = best.goodBranches.slice(0, 3).map(b => `${b.branchName.substring(0,4)}(${b.rank}着)`).join("、") || `最高${best.bestRank}着`;
+      bestComboHtml = `
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:4px;">
+          <div>
+            <strong style="color:#facc15;">推奨:「${best.styleName}」</strong>
+            <span style="font-size:9.5px; color:#4ade80;">(1着:${best.winCnt} / 3着内:${best.placeCnt})</span><br>
+            <span style="font-size:9.5px; color:#cbd5e1;">狙い目: ${topB}</span>
+          </div>
+          <button class="btn-gate-action" style="padding:2px 6px; font-size:9px; white-space:nowrap;" onclick="applySpecificStyleToHorse(${idx}, '${best.styleName}')">このスタイルに変更</button>
+        </div>
+      `;
+    }
+
+    const winPct = Math.round((item.weightedWinProb || 0) * 100);
+    const placePct = Math.round((item.weightedPlaceProb || 0) * 100);
+
+    tbody.innerHTML += `
+      <tr>
+        <td>
+          <span class="gate-badge" style="background:${getGateColors(h.gate_number, activeHorses.length).clothBg}; color:${getGateColors(h.gate_number, activeHorses.length).clothText}; border:1px solid ${getGateColors(h.gate_number, activeHorses.length).stroke};">
+            ${h.gate_number}
+          </span>
+        </td>
+        <td style="text-align:left; padding-left:6px;">
+          <span class="table-horse-name" onclick="showHorseKarte('${h.horse_id || h.name}')">${h.name}</span>
+        </td>
+        <td><span class="style-tag ${h.style?.substring(0,1)}">${h.style}</span></td>
+        <td><strong style="color:var(--gold-color);">${h.turf_potential}</strong></td>
+        <td>
+          <span style="font-size:9.5px;">勝率:<b style="color:${winPct>20?'#4ade80':'#fff'};">${winPct}%</b> / 複勝:<b style="color:${placePct>40?'#60a5fa':'#fff'};">${placePct}%</b></span>
+        </td>
+        <td style="text-align:left; padding-left:6px; font-size:10px;">${currentGoodStr}</td>
+        <td style="text-align:left; padding-left:6px; font-size:10px;">${bestComboHtml}</td>
+      </tr>
+    `;
+  });
+}
+
+function renderEntryTable() {
+  const tbody = document.getElementById('entry-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  const labelCount = document.getElementById('entry-count-label');
+  if (labelCount) labelCount.textContent = `(全${activeHorses.length}頭)`;
+
+  activeHorses.forEach((h, idx) => {
+    const visual = resolveHorseVisuals(h, idx);
+    const isFocused = (focusHorseId === h.horse_id || focusHorseId === h.name);
+
+    let styleOptions = RUNNING_STYLES.map(st => `
+      <option value="${st.name}" ${st.name === h.style ? 'selected' : ''}>${st.label}</option>
+    `).join('');
+
+    tbody.innerHTML += `
+      <tr style="${isFocused ? 'background:rgba(255,204,0,0.12); border-left:3px solid var(--gold-color);' : ''}">
+        <td><span class="gate-badge" style="background:${visual.gateColors.clothBg}; color:${visual.gateColors.clothText};">${h.gate_number}</span></td>
+        <td><input type="checkbox" ${isFocused ? 'checked' : ''} onchange="toggleFocusHorse('${h.name}', this.checked)"></td>
+        <td style="text-align:left; padding-left:6px;">
+          <span class="table-horse-name" onclick="selectAndFocusHorse('${h.name}')" title="クリックでこの馬の脚質診断を表示">${h.name}</span>
+          <span class="horse-sub-tag">${h.jockey || '未定'} (Lv.${h.jockey_level})</span>
+        </td>
+        <td>
+          <span class="jockey-skill-val">Lv.${h.jockey_level}</span>
+        </td>
+        <td>
+          <input type="number" step="0.5" min="10" max="25" class="input-stat-edit pot-edit" 
+                 value="${h.turf_potential}" onchange="onHorseParamChanged(${idx}, 'turf_potential', this.value)" title="総合ポテンシャルを変更">
+        </td>
+        <td>
+          <input type="number" step="0.5" min="10" max="25" class="input-stat-edit" 
+                 value="${h.speed}" onchange="onHorseParamChanged(${idx}, 'speed', this.value)" title="行き脚(ダッシュ力)を変更">
+        </td>
+        <td>
+          <input type="number" step="0.5" min="10" max="25" class="input-stat-edit" 
+                 value="${h.stamina}" onchange="onHorseParamChanged(${idx}, 'stamina', this.value)" title="スタミナ(基礎エネルギー)を変更">
+        </td>
+        <td>
+          <input type="number" step="0.5" min="10" max="25" class="input-stat-edit" 
+                 value="${h.sharp}" onchange="onHorseParamChanged(${idx}, 'sharp', this.value)" title="瞬発力(3F最高速)を変更">
+        </td>
+        <td>
+          <input type="number" step="0.5" min="10" max="25" class="input-stat-edit" 
+                 value="${h.jizoku}" onchange="onHorseParamChanged(${idx}, 'jizoku', this.value)" title="持続力(4F航続力)を変更">
+        </td>
+        <td>
+          <input type="number" step="0.5" min="10" max="25" class="input-stat-edit" 
+                 value="${h.guts}" onchange="onHorseParamChanged(${idx}, 'guts', this.value)" title="操縦性(折り合い・馬群耐性)を変更">
+        </td>
+        <td style="text-align:left; padding-left:6px;">
+          <select class="select-style-edit" id="tableStyle_${idx}" onchange="onHorseStyleChanged(${idx}, this.value)" title="走りの振る舞い(脚質スタイル)を変更">
+            ${styleOptions}
+          </select>
+        </td>
+        <td style="text-align:left; padding-left:6px;" id="goodBranchesCell_${idx}">
+          <span style="color:#666;">計算中...</span>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+window.onHorseParamChanged = function(idx, paramKey, newVal) {
+  const num = parseFloat(newVal);
+  if (isNaN(num)) return;
+  if (!activeHorses[idx]) return;
+
+  activeHorses[idx][paramKey] = num;
+  if (paramKey === 'turf_potential') {
+    activeHorses[idx].potential = num;
+  }
+  ensureStats(activeHorses[idx]);
+
+  saveCustomHorsesToStorage();
+  calculateAllBranchesDeterministic(true);
+  document.getElementById('log-content').innerHTML = `✏️ <strong>${activeHorses[idx].name}</strong> の【${paramKey}】を <b>${num}</b> に変更し、保存・再計算しました！`;
+};
+
+window.onHorseStyleChanged = function(idx, newStyle) {
+  if (!activeHorses[idx]) return;
+  activeHorses[idx].style = newStyle;
+
+  saveCustomHorsesToStorage();
+  calculateAllBranchesDeterministic(true);
+  document.getElementById('log-content').innerHTML = `🏇 <strong>${activeHorses[idx].name}</strong> の脚質スタイルを「<b>${newStyle}</b>」に変更し、物理マトリクスを再計算しました！`;
+};
+
+window.applySpecificStyleToHorse = function(idx, styleName) {
+  if (!activeHorses[idx]) return;
+  activeHorses[idx].style = styleName;
+  saveCustomHorsesToStorage();
+  const sel = document.getElementById(`tableStyle_${idx}`);
+  if (sel) sel.value = styleName;
+  calculateAllBranchesDeterministic(true);
+  document.getElementById('log-content').innerHTML = `💡 <strong>${activeHorses[idx].name}</strong> の脚質を「<b>${styleName}</b>」に変更し再計算しました！`;
+};
+
+window.toggleFocusHorse = function(horseName, isChecked) {
+  focusHorseId = isChecked ? horseName : null;
+  renderEntryTable();
+  setupSimulationTrack();
+};
+
+window.selectAndFocusHorse = function(horseName) {
+  focusHorseId = horseName;
+  renderEntryTable();
+  setupSimulationTrack();
+  switchAnalyzerTab('combo');
+  const comboSel = document.getElementById('selectComboHorse');
+  if (comboSel) {
+    const idx = activeHorses.findIndex(h => h.name === horseName);
+    if (idx >= 0) {
+      comboSel.value = String(idx);
+      renderHorseComboSimulator(idx);
+    }
+  }
+};
+
+window.clearFocusHorse = function() {
+  focusHorseId = null;
+  renderEntryTable();
+  setupSimulationTrack();
+};
+
+window.shuffleGates = function() {
+  const gates = activeHorses.map((_, i) => i + 1);
+  for (let i = gates.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [gates[i], gates[j]] = [gates[j], gates[i]];
+  }
+  activeHorses.forEach((h, i) => { h.gate_number = gates[i]; });
+  activeHorses.sort((a, b) => a.gate_number - b.gate_number);
+  renderEntryTable();
+  setupSimulationTrack();
+  calculateAllBranchesDeterministic(true);
+};
+
+window.resetGates = function() {
+  activeHorses.forEach(h => { h.gate_number = h.original_gate || 1; });
+  activeHorses.sort((a, b) => a.gate_number - b.gate_number);
+  renderEntryTable();
+  setupSimulationTrack();
+  calculateAllBranchesDeterministic(true);
+};
+
+window.setTrackCondition = function(cond) {
+  trackCondition = cond;
+  setTrackConditionUI(cond);
+  calculateAllBranchesDeterministic(true);
+};
+
+function setTrackConditionUI(cond) {
+  document.querySelectorAll('.btn-cond').forEach(btn => {
+    if (btn.textContent === cond) btn.classList.add('active');
+    else btn.classList.remove('active');
+  });
+}
+
+window.applyStrategyPreset = function(presetType = 'best_win') {
+  if (presetType === 'aptitude') {
+    activeHorses.forEach((h, idx) => {
+      // 5大パラメータから最も自然な脚質スタイルを判定
+      if (h.speed >= 17.0 && h.stamina >= 16.5) h.style = (idx % 2 === 0) ? "マイペース逃げ" : "主張逃げ";
+      else if (h.stamina >= 17.5 && h.guts >= 17.0) h.style = "好位差し";
+      else if (h.jizoku >= 18.0) h.style = "大捲り";
+      else if (h.sharp >= 18.5) h.style = "直線一気";
+      else if (h.sharp >= 17.0) h.style = "中団瞬発";
+      else h.style = "先行なだれ込み";
+
+      const sel = document.getElementById(`tableStyle_${idx}`);
+      if (sel) sel.value = h.style;
+    });
+  } else if (presetType === 'best_win') {
+    activeHorses.forEach((h, idx) => {
+      const analysis = analyzeBestStyleForHorse(idx);
+      if (analysis && analysis.allStyleResults.length > 0) {
+        const bestWin = [...analysis.allStyleResults].sort((a,b) => b.winCnt - a.winCnt || b.placeCnt - a.placeCnt || a.avgRank - b.avgRank)[0];
+        if (bestWin) {
+          h.style = bestWin.styleName;
+          const sel = document.getElementById(`tableStyle_${idx}`);
+          if (sel) sel.value = h.style;
+        }
+      }
+    });
+  } else if (presetType === 'best_place') {
+    activeHorses.forEach((h, idx) => {
+      const analysis = analyzeBestStyleForHorse(idx);
+      if (analysis && analysis.allStyleResults.length > 0) {
+        const bestPlace = [...analysis.allStyleResults].sort((a,b) => b.placeCnt - a.placeCnt || b.winCnt - a.winCnt || a.avgRank - b.avgRank)[0];
+        if (bestPlace) {
+          h.style = bestPlace.styleName;
+          const sel = document.getElementById(`tableStyle_${idx}`);
+          if (sel) sel.value = h.style;
+        }
+      }
+    });
+  } else if (presetType === 'best_avg') {
+    activeHorses.forEach((h, idx) => {
+      const analysis = analyzeBestStyleForHorse(idx);
+      if (analysis && analysis.allStyleResults.length > 0) {
+        const bestAvg = [...analysis.allStyleResults].sort((a,b) => a.avgRank - b.avgRank || b.placeCnt - a.placeCnt)[0];
+        if (bestAvg) {
+          h.style = bestAvg.styleName;
+          const sel = document.getElementById(`tableStyle_${idx}`);
+          if (sel) sel.value = h.style;
+        }
+      }
+    });
+  }
+
+  saveCustomHorsesToStorage();
+  calculateAllBranchesDeterministic(true);
+  const labels = {
+    'best_win': '🥇 1着最多スタイル',
+    'best_place': '🥈 複勝率最多スタイル',
+    'best_avg': '📊 平均着順最良スタイル',
+    'aptitude': '⚖️ パラメータ適性最適スタイル'
+  };
+  document.getElementById('log-content').innerHTML = `<strong>【一括セット完了】</strong> 「${labels[presetType] || ''}」を全頭に適用し再計算しました！`;
+};
+
+window.switchAnalyzerTab = function(tabName) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+  if (tabName === 'matrix') {
+    document.getElementById('tabBtnMatrix').classList.add('active');
+    document.getElementById('tabContentMatrix').classList.add('active');
+  } else if (tabName === 'summary') {
+    document.getElementById('tabBtnSummary').classList.add('active');
+    document.getElementById('tabContentSummary').classList.add('active');
+  } else {
+    document.getElementById('tabBtnCombo').classList.add('active');
+    document.getElementById('tabContentCombo').classList.add('active');
+  }
+};
+
+function populateComboHorseSelect() {
+  const sel = document.getElementById('selectComboHorse');
+  if (!sel) return;
+  sel.innerHTML = activeHorses.map((h, i) => `<option value="${i}">${h.gate_number}番 ${h.name} (${h.style})</option>`).join('');
+}
+
+window.showHorseKarte = function(idOrName) {
+  const idx = activeHorses.findIndex(h => (h.horse_id || h.name) === idOrName);
+  if (idx === -1) return;
+  switchAnalyzerTab('combo');
+  const sel = document.getElementById('selectComboHorse');
+  if (sel) sel.value = String(idx);
+  renderHorseComboSimulator(idx);
+  document.getElementById('analyzer-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+window.renderHorseComboSimulator = function(horseIdxInput) {
+  const idx = Number(horseIdxInput);
+  const horse = activeHorses[idx];
+  if (!horse) return;
+
+  const analysis = analyzeBestStyleForHorse(idx);
+  const allStyles = analysis.allStyleResults;
+  const validTotal = ALL_BRANCH_LIST.filter(b => !excludedBranchNames.has(b.name)).length;
+
+  const area = document.getElementById('karte-display-area');
+  let rowsHtml = '';
+
+  allStyles.forEach(res => {
+    const isCurrent = (res.styleName === horse.style);
+    const goodList = res.goodBranches.length > 0
+      ? res.goodBranches.map(b => `<span style="color:${b.rank===1?'#facc15':'#93c5fd'}; font-weight:${b.rank===1?'bold':'normal'};">[${b.pace.replace("ペース","")}]${b.branchName.substring(0,4)}(${b.rank}着)</span>`).join("、")
+      : `<span style="color:#777;">上位圏なし（最高 ${res.bestRank} 着）</span>`;
+
+    rowsHtml += `
+      <tr style="${isCurrent ? 'background:rgba(37,99,235,0.22);' : ''}">
+        <td style="text-align:left; padding-left:8px;">
+          <span class="style-tag ${res.styleName.substring(0,1)}">${res.styleName}</span>
+          <strong style="color:${isCurrent ? 'var(--gold-color)' : '#fff'}; margin-left:4px;">${res.label}</strong>
+          ${isCurrent ? '<span style="background:#22c55e; color:#000; font-size:9px; padding:1px 4px; border-radius:3px; margin-left:4px; font-weight:bold;">現在設定中</span>' : ''}
+        </td>
+        <td style="text-align:left; padding-left:6px; font-size:10px; color:#cbd5e1;">${res.desc}</td>
+        <td><strong style="color:${res.winCnt > 0 ? '#4ade80' : '#888'}; font-size:12px;">${res.winCnt}</strong> / ${validTotal}</td>
+        <td><strong style="color:${res.placeCnt > 0 ? '#60a5fa' : '#888'}; font-size:12px;">${res.placeCnt}</strong> / ${validTotal}</td>
+        <td>${res.avgRank.toFixed(1)}着</td>
+        <td style="text-align:left; padding-left:6px; font-size:10px;">${goodList}</td>
+        <td>
+          <button class="btn-gate-action" style="padding:3px 8px; font-size:10px;" onclick="applySpecificStyleToHorse(${idx}, '${res.styleName}')">
+            ${isCurrent ? '設定中' : 'セット'}
+          </button>
+        </td>
+      </tr>
+    `;
+  });
+
+  area.innerHTML = `
+    <div class="karte-header-box">
+      <div>
+        <div class="karte-horse-title">★ ${horse.gate_number}番 ${horse.name} の「全8脚質スタイル×展開」物理適性診断</div>
+        <div style="font-size:10.5px; color:#cbd5e1; margin-top:3px;">
+          設定スタイル: <b>${horse.style}</b> ｜ 騎手: <b>${horse.jockey} (Lv.${horse.jockey_level})</b> ｜ 総合ポテンシャル: <b>${horse.turf_potential}</b><br>
+          ［ 行き脚:<b>${horse.speed}</b> / スタミナ:<b>${horse.stamina}</b> / 瞬発力:<b>${horse.sharp}</b> / 持続力:<b>${horse.jizoku}</b> / 操縦性:<b>${horse.guts}</b> ］
+        </div>
+      </div>
+    </div>
+    <div style="overflow-x: auto;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width: 165px; text-align:left; padding-left:8px;">脚質スタイル</th>
+            <th style="text-align:left; padding-left:6px;">走りの振る舞い・物理的特徴</th>
+            <th style="width: 65px;">1着展開数</th>
+            <th style="width: 70px;">3着内展開数</th>
+            <th style="width: 60px;">平均着順</th>
+            <th style="text-align:left; padding-left:6px;">好走(3着内)できる展開</th>
+            <th style="width: 75px;">反映</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>
+  `;
+};
+
+function setupSimulationTrack() {
+  const trackContainer = document.getElementById('track-container');
+  if (trackContainer) {
+    trackContainer.classList.remove('running', 'hit-stop');
+    if (raceInfo.surface === "ダート") trackContainer.classList.add('dirt-track');
+    else trackContainer.classList.remove('dirt-track');
+  }
+
+  currentTrackConfig = { phase1_3_dir: "left_to_right", phase4_dir: "right_to_left", goal_position: "left" };
+  renderTrackLanes();
+}
+
+function getKana3(name) {
+  if (!name) return 'ダミ';
+  const kanaOnly = name.replace(/[^゠-ヿ]/g, '');
+  return kanaOnly.length >= 3 ? kanaOnly.substring(0, 3) : name.substring(0, 3);
+}
+
+function getName6(name) {
+  if (!name) return 'ダミー';
+  return name.length >= 6 ? name.substring(0, 6) : name;
+}
+
+function buildHorseActorSVG(h, i) {
+  const vis = resolveHorseVisuals(h, i);
+  const { coat, hasBlaze, silk, gateColors } = vis;
+  const name6 = getName6(h.name);
+  const uid = `sim_${i}`;
+  const isFocus = (focusHorseId && focusHorseId === (h.horse_id || h.name));
+
+  const blazeSVG = hasBlaze
+    ? `<path d="M 68 62 C 55 76, 42 92, 33 105 L 38 108 C 48 94, 60 78, 72 65 Z" fill="#f8fafc"/>`
+    : '';
+
+  const bodyPatSVG = renderBodyPatternSVG(silk.bodyPat, silk.patCol);
+  const sleevePatSVG = renderSleevePatternSVG(silk.sleevePat, silk.sleeveCol);
+  const delay = ((i % 7) * -0.045).toFixed(3);
+
+  const markerHTML = isFocus 
+    ? `<div class="owner-marker focus-marker">★ ${name6}</div>`
+    : `<div class="owner-marker" style="background:rgba(0,0,0,0.7); color:#fff; border:1px solid #555;">${h.gate_number}番</div>`;
+
+  return `
+    <div class="horse-shadow" style="animation-delay: ${delay}s;"></div>
+    <div class="horse-bounce-wrap" style="animation-delay: ${delay}s;">
+      ${markerHTML}
+      <svg width="100%" height="100%" viewBox="0 0 420 270" style="overflow: visible;">
+        <defs>
+          <linearGradient id="bg_${uid}" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="${coat.light}" />
+            <stop offset="42%" stop-color="${coat.main}" />
+            <stop offset="82%" stop-color="${coat.dark}" />
+            <stop offset="100%" stop-color="${coat.sock}" />
+          </linearGradient>
+          <clipPath id="sc_${uid}"><path d="M 148 48 C 170 38, 198 42, 220 62 C 214 74, 198 82, 180 80 C 164 78, 152 64, 148 48 Z" /></clipPath>
+          <clipPath id="slc_${uid}"><path d="M 158 54 L 176 82 L 142 96 L 134 82 L 152 72 L 144 58 Z" /></clipPath>
+        </defs>
+
+        <g class="leg-frame-1" style="animation-delay: ${delay}s;">
+          <path d="M 142 162 C 132 178, 122 192, 116 202 L 148 222 L 152 215 L 128 205 L 156 168 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="148,222 162,222 160,215 151,215" fill="#57534e"/>
+          <path d="M 278 158 C 292 176, 304 192, 310 202 L 276 235 L 284 239 L 322 204 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="276,235 264,242 278,244 285,239" fill="#57534e"/>
+        </g>
+        <g class="leg-frame-2" style="animation-delay: ${delay}s;">
+          <path d="M 144 162 C 142 180, 140 198, 142 212 L 180 222 L 180 214 L 158 214 L 158 165 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="180,222 192,222 192,214 180,214" fill="#57534e"/>
+          <path d="M 276 158 C 285 172, 292 186, 295 198 L 265 228 L 273 232 L 305 200 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="265,228 255,234 266,238 273,232" fill="#57534e"/>
+        </g>
+        <g class="leg-frame-3" style="animation-delay: ${delay}s;">
+          <path d="M 144 160 C 136 174, 134 186, 140 196 L 176 188 L 172 180 L 152 190 L 156 165 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="176,188 184,182 180,175 172,180" fill="#57534e"/>
+          <path d="M 275 158 C 270 174, 260 188, 252 198 L 235 220 L 243 224 L 262 200 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="235,220 225,226 232,230 243,224" fill="#57534e"/>
+        </g>
+
+        <path d="M 326 106 C 356 108, 388 122, 414 142 C 392 140, 374 135, 358 128 Z" fill="${coat.mane}" stroke="#140d0a" stroke-width="2"/>
+        <path d="M 88 56 C 118 66, 148 80, 174 96 L 168 105 C 142 88, 114 74, 84 64 Z" fill="${coat.mane}" stroke="#140d0a" stroke-width="1.6"/>
+        <path d="M 76 58 C 72 44, 73 36, 77 32 C 82 38, 84 48, 84 56 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
+        <path d="M 74 56 C 58 72, 44 88, 31 104 C 26 110, 28 118, 35 122 C 42 125, 49 122, 54 116 C 68 120, 82 115, 88 104 C 102 122, 116 142, 126 158 C 140 168, 175 174, 215 174 C 255 174, 290 166, 316 156 C 334 142, 340 116, 326 100 C 312 86, 286 88, 258 94 C 225 100, 192 100, 164 90 C 138 76, 112 64, 84 54 Z" fill="url(#bg_${uid})" stroke="#1c130e" stroke-width="2.5"/>
+
+        <g class="leg-frame-1" style="animation-delay: ${delay}s;">
+          <path d="M 124 158 C 114 172, 102 188, 88 204 L 50 234 L 58 241 L 98 210 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="50,234 38,238 42,245 59,241" fill="#78716c"/>
+          <path d="M 270 162 C 284 180, 302 196, 320 206 L 360 238 L 368 232 L 332 198 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="360,238 368,246 376,239 368,232" fill="#78716c"/>
+        </g>
+        <g class="leg-frame-2" style="animation-delay: ${delay}s;">
+          <path d="M 124 158 C 120 178, 116 198, 118 214 L 160 224 L 160 216 L 136 216 L 138 164 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="160,224 172,224 172,216 160,216" fill="#78716c"/>
+          <path d="M 270 162 C 280 176, 288 190, 290 202 L 258 232 L 266 236 L 298 204 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="258,232 248,238 258,242 266,236" fill="#78716c"/>
+        </g>
+        <g class="leg-frame-3" style="animation-delay: ${delay}s;">
+          <path d="M 124 158 C 116 170, 110 184, 118 198 L 162 190 L 158 182 L 134 192 L 138 166 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="162,190 170,184 166,177 158,182" fill="#78716c"/>
+          <path d="M 270 162 C 264 176, 252 190, 242 202 L 222 224 L 230 228 L 254 204 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
+          <polygon points="222,224 212,230 220,234 230,228" fill="#78716c"/>
+        </g>
+
+        ${blazeSVG}
+        <ellipse cx="36" cy="112" rx="3" ry="2" transform="rotate(-30 36 112)" fill="#0f0906"/>
+        <ellipse cx="66" cy="78" rx="4" ry="3.2" transform="rotate(-15 66 78)" fill="#110b08"/>
+        <circle cx="65" cy="77" r="1.3" fill="#ffffff"/>
+        <path d="M 82 60 C 80 44, 82 34, 88 30 C 93 38, 94 48, 90 60 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
+        <path d="M 42 95 L 55 115 M 86 58 L 50 110 M 70 64 L 86 72 M 86 64 L 86 104" stroke="#18181b" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+
+        <path d="M 170 92 L 260 90 L 270 156 L 180 160 Z" fill="${gateColors.clothBg}" stroke="#111827" stroke-width="2.5"/>
+        <g id="saddle-txt-${i}">
+          <text x="224" y="114" text-anchor="middle" fill="${gateColors.clothText}" font-size="18" font-weight="900">${h.gate_number}</text>
+          <text x="224" y="145" text-anchor="middle" fill="${gateColors.clothText}" stroke="${gateColors.stroke}" stroke-width="3.5" paint-order="stroke fill" font-size="25" font-weight="900">${getKana3(h.name)}</text>
+        </g>
+
+        <g class="jockey-group">
+          <path d="M 212 58 C 228 64, 236 78, 226 92 C 216 102, 196 110, 180 110 Z" fill="#f8fafc" stroke="#18181b" stroke-width="2.2"/>
+          <path d="M 178 104 L 202 130 L 192 140 L 178 138 L 188 128 L 172 110 Z" fill="#18181b" stroke="#090d16" stroke-width="2"/>
+
+          <g clip-path="url(#sc_${uid})">
+            <rect x="135" y="28" width="100" height="65" fill="${silk.base}" />
+            <g transform="translate(182, 60) rotate(10.5) translate(-182, -60)">${bodyPatSVG}</g>
+          </g>
+          <path d="M 148 48 C 170 38, 198 42, 220 62 Z" fill="none" stroke="#18181b" stroke-width="2.2"/>
+
+          <circle cx="136" cy="54" r="10.5" fill="#fde68a" stroke="#18181b" stroke-width="2"/>
+          <rect x="124" y="50" width="11" height="6" rx="2" fill="#18181b" stroke="#e2e8f0" stroke-width="1.2"/>
+
+          <path d="M 122 48 C 122 33, 136 25, 153 31 C 161 35, 163 45, 156 52 Z" fill="${gateColors.cap}" stroke="#18181b" stroke-width="2.2" stroke-linejoin="round"/>
+          <polygon points="122,48 111,51 126,52" fill="#18181b"/>
+
+          <g clip-path="url(#slc_${uid})">
+            <rect x="125" y="48" width="55" height="52" fill="${silk.sleeve}" />
+            ${sleevePatSVG}
+          </g>
+          <path d="M 158 54 L 176 82 L 142 96 L 134 82 L 152 72 L 144 58 Z" fill="none" stroke="#18181b" stroke-width="2.2"/>
+
+          <circle cx="136" cy="85" r="5" fill="#fde68a" stroke="#18181b" stroke-width="1.8"/>
+          <line x1="49" y1="112" x2="136" y2="85" stroke="#18181b" stroke-width="2.5"/>
+        </g>
+      </svg>
+    </div>
+  `;
+}
+
+function renderTrackLanes() {
+  const lanes = document.getElementById('lanes');
+  const gateEl = document.getElementById('start-gate');
+  const trackContainer = document.getElementById('track-container');
+  const trackWidth = trackContainer?.clientWidth || 600;
+
+  const initialDir = "left_to_right";
+  const isRightToLeft = (initialDir === "right_to_left");
+
+  let gateLeftPx = isRightToLeft ? Math.round(trackWidth * 0.80 - 80) : Math.round(trackWidth * 0.20);
+  let horseStartWaitPx = isRightToLeft ? (gateLeftPx + 5) : (gateLeftPx - 15);
+
+  if (gateEl) {
+    gateEl.style.display = "block";
+    gateEl.style.opacity = "1";
+    gateEl.style.transition = "none";
+    gateEl.style.left = `${gateLeftPx}px`;
+    gateEl.style.transform = isRightToLeft ? "scaleX(-1)" : "scaleX(1)";
+  }
+
+  let htmlBuffer = "";
+  activeHorses.forEach((h, i) => {
+    htmlBuffer += `
+      <div class="horse-icon" id="horse-icon-${i}" style="left: ${horseStartWaitPx}px;">
+        ${buildHorseActorSVG(h, i)}
+      </div>`;
+  });
+  lanes.innerHTML = htmlBuffer;
+
+  applyLaneLayout(false);
+  setHorseDirection(initialDir);
+  updateFocusAuraOnTrack();
+}
+
+function updateFocusAuraOnTrack() {
+  activeHorses.forEach((h, i) => {
+    const el = document.getElementById(`horse-icon-${i}`);
+    if (el) {
+      if (focusHorseId && focusHorseId === (h.horse_id || h.name)) {
+        el.classList.add('aura-focus');
+        el.style.zIndex = 40;
+      } else {
+        el.classList.remove('aura-focus');
+      }
+    }
+  });
+}
+
+function applyLaneLayout(isStraight = false) {
+  const fieldCount = activeHorses.length || 18;
+  const minTop = 85;
+  const maxTop = 275;
+  const stepY = fieldCount > 1 ? (maxTop - minTop) / (fieldCount - 1) : 12;
+
+  activeHorses.forEach((h, i) => {
+    const el = document.getElementById(`horse-icon-${i}`);
+    if (el) {
+      const laneTopPx = isStraight 
+        ? Math.round(minTop + (i * stepY)) 
+        : Math.round(maxTop - (i * stepY));
+      const isFocus = (focusHorseId && focusHorseId === (h.horse_id || h.name));
+      el.style.top = `${laneTopPx}px`;
+      el.style.zIndex = Math.floor(laneTopPx) + (isFocus ? 15 : 0);
+    }
+  });
+}
+
+function setHorseDirection(direction) {
+  currentVisualDir = direction;
+  const tc = document.getElementById('track-container');
+  if (tc) {
+    tc.classList.toggle('dir-ltr', direction === "left_to_right");
+    tc.classList.toggle('dir-rtl', direction !== "left_to_right");
+  }
+
+  activeHorses.forEach((_, i) => {
+    const iconEl = document.getElementById(`horse-icon-${i}`);
+    const txtGroup = document.getElementById(`saddle-txt-${i}`);
+    if (iconEl) {
+      if (direction === "left_to_right") {
+        iconEl.classList.add("dir-ltr");
+        if (txtGroup) txtGroup.setAttribute("transform", "translate(448, 0) scale(-1, 1)");
+      } else {
+        iconEl.classList.remove("dir-ltr");
+        if (txtGroup) txtGroup.removeAttribute("transform");
+      }
+    }
+  });
+}
+
+function setPhasePositions(positionsArray, durationSec = 3.0, timing = "linear", moveDir = "left_to_right") {
+  const trackContainer = document.getElementById('track-container');
+  if (!trackContainer) return;
+  const trackWidth = trackContainer.clientWidth || 600;
+
+  const goalMeetXRight = Math.round(trackWidth * 0.82);
+  const goalMeetXLeft  = Math.round(trackWidth * 0.18);
+
+  positionsArray.forEach((pos, i) => {
+    const el = document.getElementById(`horse-icon-${i}`);
+    if (el) {
+      let validPos = (typeof pos === 'number' && !isNaN(pos)) ? pos : 0;
+      el.style.transition = durationSec > 0 ? `left ${durationSec}s ${timing}` : 'none';
+
+      let leftPx = 0;
+      if (moveDir === "left_to_right") {
+        const startNose = -10;
+        const targetNose = goalMeetXRight;
+        const currentNose = startNose + ((targetNose - startNose) * (validPos / 85));
+        leftPx = Math.round(currentNose - 88);
+      } else {
+        const startNose = trackWidth + 10;
+        const targetNose = goalMeetXLeft;
+        const currentNose = startNose - ((startNose - targetNose) * (validPos / 85));
+        leftPx = Math.round(currentNose - 6);
+      }
+      el.style.left = `${leftPx}px`;
+    }
+  });
+}
+
+function freezeAllHorsesInPlace() {
+  activeHorses.forEach((_, i) => {
+    const el = document.getElementById(`horse-icon-${i}`);
+    if (el) {
+      const computedLeft = window.getComputedStyle(el).left;
+      el.style.transition = "none";
+      el.style.left = computedLeft;
+    }
+  });
+  const gp = document.getElementById('active-goal-post');
+  if (gp) {
+    const computedLeft = window.getComputedStyle(gp).left;
+    gp.style.transition = "none";
+    gp.style.left = computedLeft;
+  }
+}
+
+function getPosPointsMap(horses, leadPos, trailPos) {
+  const positions = new Array(horses.length);
+  const sorted = [...horses].sort((a, b) => (b.positionPoint || 0) - (a.positionPoint || 0));
+  const maxPt = sorted[0]?.positionPoint ?? 1;
+  const minPt = sorted[sorted.length - 1]?.positionPoint ?? 0;
+  let range = maxPt - minPt;
+  if (range <= 0) range = 1;
+
+  sorted.forEach((h, idx) => {
+    const pt = h.positionPoint ?? 0;
+    const ratio = (pt - minPt) / range;
+    const calculatedX = trailPos + ratio * (leadPos - trailPos);
+    const horseIdx = (typeof h.index === 'number') ? h.index : idx;
+    positions[horseIdx] = calculatedX;
+  });
+  return positions;
+}
+
+function spawnFurlongPole(label, isRed = false) {
+  const layer = document.getElementById('furlong-layer');
+  const tc = document.getElementById('track-container');
+  if (!layer || !tc) return;
+
+  const pole = document.createElement('div');
+  pole.className = 'furlong-pole';
+  pole.innerHTML = `<div class="furlong-sign ${isRed ? 'jra-red' : 'jra-blue'}">${label}</div><div class="furlong-stick"></div>`;
+
+  const w = tc.clientWidth || 600;
+  const isLTR = (currentVisualDir === "left_to_right");
+  const startX = isLTR ? (w + 50) : -60;
+  const endX = isLTR ? -60 : (w + 50);
+
+  pole.style.left = `${startX}px`;
+  layer.appendChild(pole);
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => { pole.style.left = `${endX}px`; });
+  });
+  setTimeout(() => { if (pole.parentNode) pole.remove(); }, 2000);
+}
+
+function spawnMovingGoalPost(moveDir = "left_to_right") {
+  const layer = document.getElementById('furlong-layer');
+  const tc = document.getElementById('track-container');
+  if (!layer || !tc) return;
+
+  const pole = document.createElement('div');
+  pole.className = 'moving-goal-pole';
+  pole.id = 'active-goal-post';
+  pole.innerHTML = `<div class="moving-goal-flag">GOAL</div><div class="moving-goal-line"></div>`;
+
+  const w = tc.clientWidth || 600;
+  const isLTR = (moveDir === "left_to_right");
+  const startX = isLTR ? (w + 40) : -50;
+  const endX   = isLTR ? -60 : (w + 40);
+
+  pole.style.left = `${startX}px`;
+  layer.appendChild(pole);
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      pole.style.transition = `left 2.2s linear`;
+      pole.style.left = `${endX}px`;
+    });
+  });
+  setTimeout(() => { if (pole.parentNode) pole.remove(); }, 2400);
+}
+
+function triggerFinishFlash() {
+  const fl = document.getElementById('flash-overlay');
+  if (!fl) return;
+  fl.classList.add('flash');
+  setTimeout(() => { fl.classList.remove('flash'); }, 90);
+}
+
+function triggerHitStop(ms = 500) {
+  const tc = document.getElementById('track-container');
+  if (!tc) return;
+  tc.classList.add('hit-stop');
+  setTimeout(() => { tc.classList.remove('hit-stop'); }, ms);
+}
+
+window.startSingleRaceSimulation = async function() {
+  if (raceState === 'running') return;
+  raceState = 'running';
+
+  const forcedBranchName = document.getElementById('selectForcedBranch')?.value || "AUTO";
+  let targetBranchObj = (forcedBranchName !== "AUTO") ? ALL_BRANCH_LIST.find(b => b.name === forcedBranchName) : null;
+
+  const btnSingle = document.getElementById('btnStartSingle');
+  btnSingle.disabled = true;
+  btnSingle.textContent = "🏃 物理シミュレーション進行中...";
+
+  setupSimulationTrack();
+  const trackContainer = document.getElementById('track-container');
+  if (trackContainer) {
+    trackContainer.classList.remove('hit-stop');
+    trackContainer.style.setProperty('--scroll-speed', '0.38s');
+    trackContainer.classList.add('running');
+  }
+
+  if (!targetBranchObj) {
+    const { patternProbs } = calculatePaceProbabilities();
+    const r = Math.random();
+    let acc = 0;
+    let chosenId = "LP_04";
+    for (const [id, p] of Object.entries(patternProbs)) {
+      acc += p;
+      if (r <= acc) { chosenId = id; break; }
+    }
+    targetBranchObj = LAP_PATTERNS.find(lp => lp.id === chosenId) || LAP_PATTERNS[3];
+  }
+
+  currentRacePace = targetBranchObj.pace;
+  currentRaceBranch = targetBranchObj.name;
+  currentRaceFormulaStr = `物理計算: 4C秒差 ＋ 直線上り3F [息入れ:${targetBranchObj.has_rest ? 'あり' : 'なし'}]`;
+
+  const calculatedResults = simulateRacePhysics(activeHorses, targetBranchObj, raceInfo.distance);
+
+  const posSorted = [...calculatedResults].sort((a, b) => (b.positionPoint || 0) - (a.positionPoint || 0));
+  const comm = {
+    phase1: `各馬一斉にスタート！先頭に立ったのは ${posSorted[0]?.name}！続いて ${posSorted[1]?.name}、${posSorted[2]?.name} が続く！`,
+    phase2: `スタンド前から向正面へ。ペースは【${currentRacePace}】。${targetBranchObj.has_rest ? 'ここでペースが落ち、各馬に息が入ります！' : '淀みないラップで息が入らないタフな展開！'}`,
+    phase3: `2周目の坂の下り！仕掛けが始まった！『${currentRaceBranch}』の流れ！`,
+    phase4: `最後の直線！抜け出しを図る前を、外から鋭い脚で追う後続集団！`,
+    finish: `勝ったのは ${calculatedResults[0]?.gate_number}番 ${calculatedResults[0]?.name}（上り${calculatedResults[0]?.actual_3f}秒）！`
+  };
+
+  const phase1Dir = "left_to_right";
+  const trackWidth = trackContainer?.clientWidth || 600;
+
+  document.getElementById('log-content').innerHTML = `<strong>【スタート】</strong> ${comm.phase1}`;
+  const gateEl = document.getElementById('start-gate');
+  if (gateEl) {
+    gateEl.style.transition = "left 2.0s cubic-bezier(0.4, 0, 0.8, 1), opacity 0.8s ease-in 0.8s";
+    gateEl.style.left = "-180px";
+    gateEl.style.opacity = "0";
+  }
+
+  let p1Pos = getPosPointsMap(calculatedResults, 54, 18);
+  setPhasePositions(p1Pos, 6.0, "cubic-bezier(0.25, 0.8, 0.25, 1)", phase1Dir);
+  setTimeout(() => spawnFurlongPole("1000", false), 2500);
+
+  setTimeout(() => {
+    document.getElementById('log-content').innerHTML = `<strong>【向正面】</strong> ${comm.phase2}`;
+    spawnFurlongPole("800", false);
+    let p2Pos = getPosPointsMap(calculatedResults, 96, 18);
+    setPhasePositions(p2Pos, 6.3, "linear", phase1Dir);
+  }, 6000);
+
+  setTimeout(() => {
+    document.getElementById('log-content').innerHTML = `<strong>【3コーナー】</strong> ${comm.phase3}`;
+    spawnFurlongPole("600", false);
+    let p3Pos = getPosPointsMap(calculatedResults, 97, 22);
+    setPhasePositions(p3Pos, 6.3, "linear", phase1Dir);
+  }, 12300);
+
+  setTimeout(() => {
+    const wipe = document.getElementById('wipe-overlay');
+    wipe.style.transition = "left 0.6s cubic-bezier(0.8, 0, 0.2, 1)";
+    wipe.style.left = "0";
+
+    setTimeout(() => {
+      applyLaneLayout(true);
+      setHorseDirection("right_to_left");
+      
+      let straightEnterPos = new Array(activeHorses.length);
+      const sortedByPos = [...calculatedResults].sort((a, b) => (b.positionPoint || 0) - (a.positionPoint || 0));
+      sortedByPos.forEach((item, r) => {
+        let horseIdx = (typeof item.index === 'number') ? item.index : r;
+        straightEnterPos[horseIdx] = 45 - (r * 3.0);
+      });
+      setPhasePositions(straightEnterPos, 0, "linear", "right_to_left");
+    }, 800);
+
+    setTimeout(() => {
+      wipe.style.left = "100%";
+      document.getElementById('log-content').innerHTML = `<strong>【直線】</strong> ${comm.phase4}`;
+
+      let finalPositions = new Array(activeHorses.length);
+      calculatedResults.forEach((item, rank) => {
+        let posVal = 85 - (rank * 4.0);
+        let horseIdx = (typeof item.index === 'number') ? item.index : rank;
+        finalPositions[horseIdx] = posVal;
+      });
+      
+      setPhasePositions(finalPositions, 7.5, "cubic-bezier(0.4, 0.0, 0.2, 1)", "right_to_left");
+
+      setTimeout(() => spawnFurlongPole("400", false), 1400);
+      setTimeout(() => spawnFurlongPole("200", true), 4400);
+      setTimeout(() => spawnMovingGoalPost("right_to_left"), 7030);
+
+      setTimeout(() => {
+        triggerFinishFlash();
+        triggerHitStop(500);
+        document.getElementById('log-content').innerHTML = `<strong>【ゴールイン！】</strong> <br><span style="color:#ffcc00; font-size:1.15em;"><b>${comm.finish}</b></span>`;
+
+        setTimeout(() => {
+          if (trackContainer) trackContainer.style.setProperty('--scroll-speed', '1.2s');
+
+          let slowPositions = new Array(activeHorses.length);
+          calculatedResults.forEach((item, rank) => {
+            let horseIdx = (typeof item.index === 'number') ? item.index : rank;
+            slowPositions[horseIdx] = (85 - (rank * 4.0)) + 10;
+          });
+          setPhasePositions(slowPositions, 1.5, "ease-out", "right_to_left");
+
+          setTimeout(() => {
+            freezeAllHorsesInPlace();
+            if (trackContainer) {
+              trackContainer.classList.remove('running');
+              trackContainer.classList.add('hit-stop');
+            }
+
+            setTimeout(() => {
+              renderSingleResultsTable(calculatedResults);
+              raceState = 'idle';
+              btnSingle.disabled = false;
+              btnSingle.textContent = "🏁 この展開で発走！（物理アニメーション再生）";
+            }, 1500);
+
+          }, 1500);
+        }, 500);
+      }, 7500);
+    }, 1500);
+  }, 18600);
+};
+
+function renderSingleResultsTable(results) {
+  document.getElementById('summary-pace').textContent = currentRacePace;
+  document.getElementById('summary-branch').textContent = currentRaceBranch;
+  document.getElementById('summary-formula').textContent = currentRaceFormulaStr;
+
+  const tbody = document.getElementById('single-result-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  results.forEach((item, rank) => {
+    const isFocus = (focusHorseId && focusHorseId === (item.horse_id || item.name));
+    const focusTag = isFocus ? '<span style="color:var(--gold-color); font-weight:bold; font-size:10px;"> [注目]</span>' : '';
+    const gateColors = getGateColors(item.gate_number, results.length);
+
+    tbody.innerHTML += `
+      <tr style="${isFocus ? 'background:rgba(255,204,0,0.12);' : ''}">
+        <td><strong style="color:${rank === 0 ? 'var(--gold-color)' : '#fff'}; font-size:1.1em;">${rank + 1}着</strong></td>
+        <td>
+          <span class="gate-badge" style="background:${gateColors.clothBg}; color:${gateColors.clothText}; border:1px solid ${gateColors.stroke};">
+            ${item.gate_number}
+          </span>
+        </td>
+        <td style="text-align:left; padding-left:6px;">
+          <span style="font-weight:bold; ${isFocus ? 'color:var(--gold-color)' : ''}">${item.name}</span>${focusTag}
+          <div style="font-size:9.5px; color:#93c5fd;">${item.jockey || ''} / スタイル: <b>${item.style}</b></div>
+        </td>
+        <td>4C差: ${item.c4_gap}s</td>
+        <td><strong style="color:var(--gold-color); font-size:1.1em;">${item.actual_3f}s</strong></td>
+        <td><span style="font-weight:bold; color:${item.margin_sec === 0 ? '#4ade80' : '#fff'};">${item.margin_text}</span></td>
+        <td class="detail-code">${item.detailText || "---"}</td>
+      </tr>
+    `;
+  });
+
+  const panel = document.getElementById('single-result-panel');
+  if (panel) {
+    panel.style.display = 'block';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  initSimulation();
+});
+</script>
+</body>
+</html>
