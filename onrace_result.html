@@ -157,15 +157,25 @@
     to   { background-position: -180px 0; }
   }
 
+  /* スタートゲート（アルミパンチフェンス風のリアルな緑デザイン） */
   #start-gate {
     position: absolute;
     top: 65px;
-    width: 90px;
+    width: 105px;
     height: 235px;
-    z-index: 8;
+    z-index: 300;
     pointer-events: none;
-    transition: left 2.0s cubic-bezier(0.4, 0, 0.8, 1), opacity 0.8s ease-in 0.8s;
+    transition: left 2.0s cubic-bezier(0.4, 0, 0.8, 1), opacity 0.8s ease-in 0.6s;
     display: none;
+  }
+
+  .gate-door-panel {
+    transform-origin: 15px center;
+    transition: transform 0.28s cubic-bezier(0.1, 0.9, 0.2, 1), opacity 0.28s ease-out;
+  }
+  #start-gate.opened .gate-door-panel {
+    transform: scaleX(0.08) skewY(-8deg);
+    opacity: 0.15;
   }
 
   #furlong-layer {
@@ -295,7 +305,6 @@
     100% { transform: scaleX(0.84); opacity: 0.25; }
   }
 
-  /* ★馬の脚 4本連動 3コマ×4拍リズム（0-25%伸展, 25-50%接地, 50-100%滞空収縮ホールド） */
   .leg-frame-1 { opacity: 1; }
   .leg-frame-2 { opacity: 0; }
   .leg-frame-3 { opacity: 0; }
@@ -324,56 +333,6 @@
     50%, 100% { opacity: 1; }
   }
 
-  /* 足元の砂埃・蹴り土エフェクト */
-  .horse-dust-wrap {
-    position: absolute;
-    bottom: 2px;
-    right: 8px;
-    width: 20px;
-    height: 14px;
-    pointer-events: none;
-  }
-  .dust-puff {
-    position: absolute;
-    border-radius: 50%;
-    opacity: 0;
-    transform-origin: center;
-  }
-  /* 芝コース用（緑片 ＆ 白飛沫） */
-  .dust-puff.p1 {
-    width: 6px; height: 6px; background: #e2e8f0;
-    box-shadow: 2px -2px 0 1px #22c55e;
-  }
-  .dust-puff.p2 {
-    width: 8px; height: 5px; background: rgba(240, 253, 244, 0.85);
-    box-shadow: -1px -3px 0 1px #16a34a;
-  }
-  /* ダートコース用（土煙） */
-  #track-container.dirt-track .dust-puff.p1 {
-    width: 9px; height: 7px; background: rgba(160, 110, 75, 0.7);
-    box-shadow: 2px -2px 0 1px #78350f;
-  }
-  #track-container.dirt-track .dust-puff.p2 {
-    width: 11px; height: 9px; background: rgba(180, 125, 85, 0.6);
-    box-shadow: -1px -3px 0 1px #92400e;
-  }
-
-  #track-container.running .dust-puff.p1 {
-    animation: puffDrift1 0.32s ease-out infinite;
-  }
-  #track-container.running .dust-puff.p2 {
-    animation: puffDrift2 0.32s ease-out infinite 0.16s;
-  }
-
-  @keyframes puffDrift1 {
-    0% { opacity: 0.85; transform: translate(0, 0) scale(0.6); }
-    100% { opacity: 0; transform: translate(22px, -8px) scale(1.6); }
-  }
-  @keyframes puffDrift2 {
-    0% { opacity: 0.85; transform: translate(2px, 2px) scale(0.7); }
-    100% { opacity: 0; transform: translate(26px, -12px) scale(1.8); }
-  }
-
   /* オーラ演出（青・赤・控えめなスモーキーデバフ） */
   @keyframes auraPulsePlayer {
     0% { filter: drop-shadow(0 0 4px #60a5fa) drop-shadow(0 0 10px #2563eb) brightness(1.25); }
@@ -383,7 +342,6 @@
     0% { filter: drop-shadow(0 0 4px #f87171) drop-shadow(0 0 10px #dc2626) brightness(1.25); }
     100% { filter: drop-shadow(0 0 10px #fca5a5) drop-shadow(0 0 20px #ef4444) brightness(1.5); }
   }
-  /* ★デバフオーラ：他馬を邪魔しない上品なスモーキーグレー・ダークオーラ */
   @keyframes auraPulseDebuff {
     0% { filter: drop-shadow(0 0 3px #475569) drop-shadow(0 0 6px #1e293b) brightness(0.9); }
     100% { filter: drop-shadow(0 0 5px #64748b) drop-shadow(0 0 11px #334155) brightness(0.82); }
@@ -626,23 +584,47 @@
     <div class="track-surface"></div>
 
     <div id="start-gate">
-      <svg width="100%" height="100%" viewBox="0 0 90 235">
-        <rect x="5" y="0" width="80" height="24" rx="3" fill="#15803d" stroke="#0f172a" stroke-width="2"/>
-        <line x1="8" y1="12" x2="82" y2="12" stroke="#facc15" stroke-width="2"/>
-        <rect x="25" y="4" width="40" height="15" rx="2" fill="#0f172a"/>
-        <text id="gate-start-text" x="45" y="16" fill="#facc15" font-size="10" font-weight="900" font-family="Arial" text-anchor="middle">START</text>
+      <svg width="100%" height="100%" viewBox="0 0 105 235">
+        <defs>
+          <pattern id="punchMesh" width="4" height="4" patternUnits="userSpaceOnUse">
+            <rect width="4" height="4" fill="#1b4d3e"/>
+            <circle cx="2" cy="2" r="1.1" fill="#0d2820" opacity="0.85"/>
+          </pattern>
+        </defs>
+
+        <rect x="5" y="0" width="95" height="24" rx="3" fill="#1b4d3e" stroke="#0f172a" stroke-width="2"/>
+        <line x1="8" y1="12" x2="97" y2="12" stroke="#facc15" stroke-width="2"/>
+        <rect x="25" y="4" width="55" height="15" rx="2" fill="#0f172a"/>
+        <text id="gate-start-text" x="53" y="16" fill="#facc15" font-size="9" font-weight="900" font-family="Arial" text-anchor="middle">/// START ///</text>
+        
         <line x1="15" y1="24" x2="15" y2="235" stroke="#cbd5e1" stroke-width="4.5"/>
-        <line x1="75" y1="24" x2="75" y2="235" stroke="#cbd5e1" stroke-width="4.5"/>
-        <line x1="15" y1="60" x2="75" y2="100" stroke="#94a3b8" stroke-width="2"/>
-        <line x1="75" y1="60" x2="15" y2="100" stroke="#94a3b8" stroke-width="2"/>
-        <line x1="15" y1="140" x2="75" y2="180" stroke="#94a3b8" stroke-width="2"/>
-        <line x1="75" y1="140" x2="15" y2="180" stroke="#94a3b8" stroke-width="2"/>
-        <polygon points="15,45 3,55 3,120 15,115" fill="#eab308" stroke="#1e293b" stroke-width="1.5" opacity="0.9"/>
-        <polygon points="75,45 87,55 87,120 75,115" fill="#eab308" stroke="#1e293b" stroke-width="1.5" opacity="0.9"/>
-        <polygon points="15,135 3,145 3,210 15,205" fill="#15803d" stroke="#1e293b" stroke-width="1.5" opacity="0.9"/>
-        <polygon points="75,135 87,145 87,210 75,205" fill="#15803d" stroke="#1e293b" stroke-width="1.5" opacity="0.9"/>
-        <rect x="12" y="105" width="6" height="35" rx="2" fill="#ef4444"/>
-        <rect x="72" y="105" width="6" height="35" rx="2" fill="#ef4444"/>
+        <line x1="90" y1="24" x2="90" y2="235" stroke="#cbd5e1" stroke-width="4.5"/>
+        
+        <line x1="15" y1="60" x2="90" y2="95" stroke="#94a3b8" stroke-width="2"/>
+        <line x1="90" y1="60" x2="15" y2="95" stroke="#94a3b8" stroke-width="2"/>
+        <line x1="15" y1="135" x2="90" y2="170" stroke="#94a3b8" stroke-width="2"/>
+        <line x1="90" y1="135" x2="15" y2="170" stroke="#94a3b8" stroke-width="2"/>
+
+        <polygon points="15,45 3,55 3,115 15,110" fill="#2d6a4f" stroke="#1e293b" stroke-width="1.5" opacity="0.9"/>
+        <polygon points="15,125 3,135 3,195 15,190" fill="#1b4d3e" stroke="#1e293b" stroke-width="1.5" opacity="0.9"/>
+        
+        <g class="gate-door-panel">
+          <rect x="22" y="32" width="70" height="42" rx="3" fill="#1b4d3e" stroke="#0f172a" stroke-width="2"/>
+          <rect x="26" y="36" width="62" height="34" rx="2" fill="url(#punchMesh)" stroke="#11382c" stroke-width="1"/>
+          <line x1="26" y1="53" x2="88" y2="53" stroke="#2d6a4f" stroke-width="2"/>
+          
+          <rect x="22" y="82" width="70" height="44" rx="3" fill="#1b4d3e" stroke="#0f172a" stroke-width="2"/>
+          <rect x="26" y="86" width="62" height="36" rx="2" fill="url(#punchMesh)" stroke="#11382c" stroke-width="1"/>
+          <line x1="26" y1="104" x2="88" y2="104" stroke="#2d6a4f" stroke-width="2"/>
+
+          <rect x="22" y="134" width="70" height="44" rx="3" fill="#1b4d3e" stroke="#0f172a" stroke-width="2"/>
+          <rect x="26" y="138" width="62" height="36" rx="2" fill="url(#punchMesh)" stroke="#11382c" stroke-width="1"/>
+          <line x1="26" y1="156" x2="88" y2="156" stroke="#2d6a4f" stroke-width="2"/>
+
+          <rect x="22" y="186" width="70" height="42" rx="3" fill="#1b4d3e" stroke="#0f172a" stroke-width="2"/>
+          <rect x="26" y="190" width="62" height="34" rx="2" fill="url(#punchMesh)" stroke="#11382c" stroke-width="1"/>
+          <line x1="26" y1="207" x2="88" y2="207" stroke="#2d6a4f" stroke-width="2"/>
+        </g>
       </svg>
     </div>
 
@@ -977,7 +959,6 @@ function getStringHash(str) {
   return Math.abs(hash);
 }
 
-// 胴柄SVG描画（★ツルマルの縦輪の位置で前後分割：前が柄色、後ろが地色、境界が縦に鋸歯形）
 function renderBodyPatternSVG(bodyPat, patCol) {
   switch (bodyPat) {
     case 'cross_sash':
@@ -1374,7 +1355,6 @@ async function ensureUsedHorsesUpdated() {
   }
 }
 
-// 充足率（合計ポテンシャル）の計算と記録
 async function calculateAndUploadAllRaces() {
   await ensureUsedHorsesUpdated();
 
@@ -2117,10 +2097,6 @@ function buildHorseActorSVG(h, i) {
 
   return `
     <div class="horse-shadow" style="animation-delay: ${delay}s;"></div>
-    <div class="horse-dust-wrap">
-      <div class="dust-puff p1" style="animation-delay: ${delay}s;"></div>
-      <div class="dust-puff p2" style="animation-delay: ${delay}s;"></div>
-    </div>
     <div class="horse-bounce-wrap" style="animation-delay: ${delay}s;">
       ${markerHTML}
       <svg width="100%" height="100%" viewBox="0 0 420 270" style="overflow: visible;">
@@ -2240,7 +2216,6 @@ function buildHorseActorSVG(h, i) {
   `;
 }
 
-// 直線のみのレースは上から1枠固定。通常レースは道中が下から1枠、直線が上から1枠
 function applyLaneLayout(isStraight = false) {
   const fieldCount = activeHorses.length || 16;
   const minTop = 85;
@@ -2263,7 +2238,6 @@ function applyLaneLayout(isStraight = false) {
   });
 }
 
-// フェーズ1初期配置：左右20%地点にゲートと馬をセット
 function renderLanes() {
   const lanes = document.getElementById('lanes');
   const gateEl = document.getElementById('start-gate');
@@ -2280,14 +2254,15 @@ function renderLanes() {
   let horseStartWaitPx = 0;
 
   if (isRightToLeft) {
-    gateLeftPx = Math.round(trackWidth * 0.80 - 80);
-    horseStartWaitPx = gateLeftPx + 5;
+    gateLeftPx = Math.round(trackWidth * 0.80 - 105);
+    horseStartWaitPx = gateLeftPx + 5; 
   } else {
     gateLeftPx = Math.round(trackWidth * 0.20);
-    horseStartWaitPx = gateLeftPx - 15;
+    horseStartWaitPx = gateLeftPx + 5; 
   }
 
   if (gateEl) {
+    gateEl.classList.remove('opened');
     gateEl.style.display = "block";
     gateEl.style.opacity = "1";
     gateEl.style.transition = "none";
@@ -2297,7 +2272,7 @@ function renderLanes() {
     const gateText = document.getElementById('gate-start-text');
     if (gateText) {
       if (isRightToLeft) {
-        gateText.setAttribute("transform", "translate(90, 0) scale(-1, 1)");
+        gateText.setAttribute("transform", "translate(105, 0) scale(-1, 1)");
       } else {
         gateText.removeAttribute("transform");
       }
@@ -2540,7 +2515,6 @@ function showGiveupSeriesResult() {
 let abilityQueue = [];
 let isShowingAbility = false;
 
-// アビリティのバフ／デバフ判定（ゲートバカラ、荒ぶる魂、気分屋、雑草魂などの分岐に完全対応）
 function isAbilityDebuff(abilityName, msg, horse) {
   const text = `${abilityName || ""} ${msg || ""}`;
 
@@ -2595,7 +2569,6 @@ function isAbilityDebuff(abilityName, msg, horse) {
   return false;
 }
 
-// ポップアップキュー処理
 function processAbilityQueue() {
   if (isShowingAbility || abilityQueue.length === 0) return;
   isShowingAbility = true;
@@ -2663,13 +2636,15 @@ function processAbilityQueue() {
 
   popup.classList.add('show');
 
+  /* 表示時間を3.3秒（3300ms）に短縮 */
   setTimeout(() => {
     popup.classList.remove('show');
+    /* ウェイトを0.2秒（200ms）に短縮してよりスムーズに順次発動 */
     setTimeout(() => {
       isShowingAbility = false;
       processAbilityQueue();
-    }, 300);
-  }, 3800);
+    }, 200);
+  }, 3300);
 }
 
 async function startRace() {
@@ -2763,23 +2738,22 @@ async function startRace() {
   const hasBigEscape = activeHorses.some(h => h.style === "大逃");
   const trackWidth = trackContainer?.clientWidth || 600;
 
-  // --------------------------------------------------------------------------
-  // Phase 1 (0.0s〜): ゲート開放 ＆ スタート！（20%地点から発進、先頭は中央へ）
-  // --------------------------------------------------------------------------
   updateLog(`<strong>【スタート】</strong> ${comm.phase1}`);
   
   const gateEl = document.getElementById('start-gate');
   if (gateEl) {
-    gateEl.style.transition = "left 2.0s cubic-bezier(0.4, 0, 0.8, 1), opacity 0.8s ease-in 0.8s";
-    gateEl.style.left = isRTL ? `${trackWidth + 60}px` : "-180px";
-    gateEl.style.opacity = "0";
+    gateEl.classList.add('opened');
+    setTimeout(() => {
+      gateEl.style.transition = "left 2.0s cubic-bezier(0.4, 0, 0.8, 1), opacity 0.8s ease-in 0.6s";
+      gateEl.style.left = isRTL ? `${trackWidth + 80}px` : "-200px";
+      gateEl.style.opacity = "0";
+    }, 180);
   }
 
   let p1Pos = getPosPointsMap(calculatedResults, 54, 18);
   setPhasePositions(p1Pos, 6.0, "cubic-bezier(0.25, 0.8, 0.25, 1)", phase1Dir); 
   setTimeout(() => spawnFurlongPole("1000", false), 2500);
 
-  // ゲートバカラ等のゲート系アビリティ即時ポップアップ
   const gateAbilities = calculatedResults.filter(h => (h.isPlayer || h.isOpponent) && h.phase1_abilities && h.phase1_abilities.length > 0);
   if (gateAbilities.length > 0) {
     let gateLogs = [];
@@ -2801,7 +2775,6 @@ async function startRace() {
     }
   }
 
-  // 2回カットイン対象レース：第1ワイプ
   if (isDoubleCutin) {
     setTimeout(() => {
       const wipe = document.getElementById('wipe-overlay');
@@ -2823,9 +2796,6 @@ async function startRace() {
     }, 5400);
   }
 
-  // --------------------------------------------------------------------------
-  // Phase 2 (6.0s〜): 向正面（先頭95% / 大逃げ時103%ハミ出し、6.3秒間）
-  // --------------------------------------------------------------------------
   setTimeout(() => {
     updateLog(`<strong>【向正面】</strong> ${comm.phase2}`);
     spawnFurlongPole("800", false);
@@ -2835,9 +2805,7 @@ async function startRace() {
     setPhasePositions(p2Pos, 6.3, "linear", midPhaseDir); 
   }, 6000);
 
-  // --------------------------------------------------------------------------
-  // Phase 3 (12.3s〜): 3コーナー〜展開（道中アビリティ発動）
-  // --------------------------------------------------------------------------
+  /* Phase 3 (11.8s〜): ペースポップアップのタイミングを今より0.5秒早く (12300ms → 11800ms) */
   setTimeout(() => {
     updateLog(`<strong>【3コーナー〜展開】</strong> ${comm.phase3}`);
     
@@ -2871,11 +2839,8 @@ async function startRace() {
     const leadP3 = hasBigEscape ? 104 : 96;
     let p3Pos = getPosPointsMap(calculatedResults, leadP3, 22);
     setPhasePositions(p3Pos, 6.3, "linear", midPhaseDir); 
-  }, 12300); 
+  }, 11800); 
 
-  // --------------------------------------------------------------------------
-  // Phase 4 (18.6s〜): 第4コーナーワイプ ＆ 直線レイアウト切替 ＆ 乾坤一擲即時発動
-  // --------------------------------------------------------------------------
   setTimeout(() => {
     const wipe = document.getElementById('wipe-overlay');
     const wipeTextEl = document.getElementById('wipe-text');
@@ -2917,7 +2882,6 @@ async function startRace() {
           spawnMovingGoalPost(currentTrackConfig.phase4_dir);
         }, 7030);
              
-        // 直線突入直後：最優先で乾坤一擲を発動
         setTimeout(() => {
           updateLog(`<strong>【最後の直線】</strong> ${comm.phase4}`);
           
@@ -2972,7 +2936,6 @@ async function startRace() {
           }
         }, 6200);
 
-        // ゴールイン（7.5秒）
         setTimeout(() => {
           triggerFinishFlash();
           triggerHitStop(500);
