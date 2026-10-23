@@ -53,11 +53,6 @@
     border-radius: 4px;
     letter-spacing: 0.5px;
   }
-  .sim-file-info {
-    font-size: 11px;
-    color: #88a;
-    font-family: monospace;
-  }
   .race-main-title {
     font-size: 1.35em;
     font-weight: bold;
@@ -131,6 +126,7 @@
     padding: 4px 10px;
     border-radius: 4px;
     cursor: pointer;
+    text-decoration: none;
     transition: all 0.2s;
   }
   .btn-gate-action:hover {
@@ -414,24 +410,6 @@
   .owner-marker.focus-marker { background: rgba(90, 70, 10, 0.95); color: #ffd700; border: 1.5px solid #ffcc00; }
   .horse-icon.dir-ltr .owner-marker { transform: translateX(-50%) scaleX(-1); }
 
-  #ability-popup-container {
-    position: absolute; top: 15px; left: 50%; transform: translateX(-50%) scale(0.85);
-    z-index: 60; pointer-events: none; opacity: 0; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    max-width: 90%; white-space: nowrap;
-  }
-  #ability-popup-container.show { opacity: 1; transform: translateX(-50%) scale(1); }
-  .ability-popup-box {
-    background: linear-gradient(135deg, rgba(12,14,22,0.96), rgba(22,26,40,0.98));
-    border: 2px solid var(--gold-color);
-    box-shadow: 0 4px 18px rgba(0,0,0,0.85), 0 0 16px rgba(255, 204, 0, 0.4);
-    border-radius: 12px; padding: 6px 18px; text-align: center;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-  }
-  .ability-pop-header-row { display: flex; align-items: center; gap: 8px; }
-  .ability-pop-header { font-size: 0.72em; font-weight: 900; letter-spacing: 1px; padding: 1px 6px; border-radius: 4px; background: rgba(0,0,0,0.6); color: var(--gold-color); border: 1px solid var(--gold-color); }
-  .ability-pop-horse { font-size: 0.9em; font-weight: bold; color: #e2e8f0; }
-  .ability-pop-name { font-size: 1.15em; font-weight: 900; color: var(--gold-color); text-shadow: 0 2px 4px rgba(0,0,0,0.9); }
-
   #wipe-overlay {
     position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
     background: linear-gradient(90deg, #001133, #000000, #001133);
@@ -610,7 +588,6 @@
     padding: 2px 4px;
     font-size: 11px;
     font-weight: bold;
-    max-width: 140px;
     box-sizing: border-box;
   }
   .select-level-in-table {
@@ -670,9 +647,18 @@
 <!-- ヘッダー & レース条件設定 -->
 <div class="sim-header-panel">
   <div class="sim-header-top">
-    <span class="sim-badge">🏇 RACE SIMULATOR</span>
-    <span class="sim-file-info" id="sim-file-indicator">JSON: 読込中...</span>
+    <a href="battle.html" class="btn-gate-action">← メニューへ</a>
+    <span class="sim-badge">🏇 レースシミュレーター</span>
+    
+    <!-- 画面上でレースJSONを切り替え可能 -->
+    <div style="display:flex; align-items:center; gap:6px;">
+      <span style="font-size:11px; color:#aaa;">対象レース:</span>
+      <select id="selectRaceFile" class="select-strat-in-table" onchange="onRaceFileChanged()" style="max-width:180px;">
+        <option value="./sim/24kikkasho.json" selected>2024 菊花賞 (GI)</option>
+      </select>
+    </div>
   </div>
+
   <div class="race-main-title">
     <span id="display-race-title">レース名 読込中...</span>
     <span class="race-sub-spec" id="display-race-spec">(---)</span>
@@ -727,17 +713,6 @@
     <div class="wipe-text" id="wipe-text">第4コーナーをカーブして<br>いよいよ最後の直線！！</div>
   </div>
   <div id="flash-overlay"></div>
-
-  <!-- アビリティバッジ -->
-  <div id="ability-popup-container">
-    <div class="ability-popup-box" id="ability-popup-box">
-      <div class="ability-pop-header-row">
-        <div class="ability-pop-header" id="ability-pop-header">ABILITY</div>
-        <div class="ability-pop-horse" id="ability-pop-horse">馬名</div>
-      </div>
-      <div class="ability-pop-name" id="ability-pop-name">【アビリティ名】</div>
-    </div>
-  </div>
 </div>
 
 <!-- 実況ボックス -->
@@ -872,15 +847,7 @@
 </div>
 
 <script type="module">
-// =============================================================================
-// 【シミュレーション対象レース設定エリア】
-// 読み込むレースデータのJSONファイルパスをここに指定してください。
-// 例: './sim/24kikkasho.json', './sim/24arimakinen.json', etc.
-// =============================================================================
-const SIM_TARGET_JSON = './sim/24kikkasho.json';
-// =============================================================================
-
-import { determineStrategy } from "./js/mob.js";
+// レース計算エンジンのみを読み込み（mob.jsやFirebase等は一切不要）
 import { runRaceLogic } from "./js/race_calculator.js";
 
 const VENUE_DIRECTION_MASTER = {
@@ -909,47 +876,37 @@ const COAT_PALETTE = {
 };
 
 const GATE_FRAME_COLORS = {
-  1: { clothBg: '#f8fafc', clothText: '#0f172a', cap: '#f8fafc', stroke: '#cbd5e1', frameName: '1枠' },
-  2: { clothBg: '#1e293b', clothText: '#ffffff', cap: '#1e293b', stroke: '#000000', frameName: '2枠' },
-  3: { clothBg: '#dc2626', clothText: '#ffffff', cap: '#dc2626', stroke: '#000000', frameName: '3枠' },
-  4: { clothBg: '#1d4ed8', clothText: '#ffffff', cap: '#1d4ed8', stroke: '#000000', frameName: '4枠' },
-  5: { clothBg: '#eab308', clothText: '#0f172a', cap: '#eab308', stroke: '#ffffff', frameName: '5枠' },
-  6: { clothBg: '#15803d', clothText: '#ffffff', cap: '#15803d', stroke: '#000000', frameName: '6枠' },
-  7: { clothBg: '#ea580c', clothText: '#ffffff', cap: '#ea580c', stroke: '#000000', frameName: '7枠' },
-  8: { clothBg: '#ec4899', clothText: '#ffffff', cap: '#ec4899', stroke: '#000000', frameName: '8枠' }
+  1: { clothBg: '#f8fafc', clothText: '#0f172a', stroke: '#cbd5e1' },
+  2: { clothBg: '#1e293b', clothText: '#ffffff', stroke: '#000000' },
+  3: { clothBg: '#dc2626', clothText: '#ffffff', stroke: '#000000' },
+  4: { clothBg: '#1d4ed8', clothText: '#ffffff', stroke: '#000000' },
+  5: { clothBg: '#eab308', clothText: '#0f172a', stroke: '#ffffff' },
+  6: { clothBg: '#15803d', clothText: '#ffffff', stroke: '#000000' },
+  7: { clothBg: '#ea580c', clothText: '#ffffff', stroke: '#000000' },
+  8: { clothBg: '#ec4899', clothText: '#ffffff', stroke: '#000000' }
 };
 
 function getCoatPalette(hairColor) {
-  const key = String(hairColor || "").trim();
-  return COAT_PALETTE[key] || COAT_PALETTE['鹿毛'];
+  return COAT_PALETTE[String(hairColor || "").trim()] || COAT_PALETTE['鹿毛'];
 }
 
 function getGateColors(gateNum, totalHorses = 18) {
   const g = Number(gateNum) || 1;
-  let frame = 1;
-  if (totalHorses <= 8) {
-    frame = Math.min(8, Math.max(1, g));
-  } else {
-    frame = Math.min(8, Math.max(1, Math.ceil(g / (totalHorses / 8))));
-  }
+  const frame = totalHorses <= 8 ? Math.min(8, Math.max(1, g)) : Math.min(8, Math.max(1, Math.ceil(g / (totalHorses / 8))));
   return GATE_FRAME_COLORS[frame] || GATE_FRAME_COLORS[1];
 }
 
 const SILK_COLOR_MAP = {
-  "水色": "#38bdf8", "薄青": "#38bdf8", "空色": "#38bdf8", "水": "#38bdf8",
-  "薄紫": "#a855f7", "紫": "#581c87",
-  "白": "#f8fafc", "黒": "#18181b", "赤": "#dc2626", "青": "#1d4ed8",
-  "黄": "#facc15", "緑": "#15803d", "桃": "#f472b6", "ピンク": "#f472b6",
-  "橙": "#ea580c", "オレンジ": "#ea580c",
-  "海老": "#881337", "えび": "#881337",
-  "鼠": "#64748b", "ねずみ": "#64748b", "灰": "#64748b", "グレー": "#64748b",
-  "茶": "#78350f", "茶色": "#78350f"
+  "水色": "#38bdf8", "薄青": "#38bdf8", "空色": "#38bdf8",
+  "薄紫": "#a855f7", "紫": "#581c87", "白": "#f8fafc", "黒": "#18181b",
+  "赤": "#dc2626", "青": "#1d4ed8", "黄": "#facc15", "緑": "#15803d",
+  "桃": "#f472b6", "ピンク": "#f472b6", "橙": "#ea580c", "オレンジ": "#ea580c",
+  "茶": "#78350f"
 };
-const SORTED_COLOR_NAMES = Object.keys(SILK_COLOR_MAP).sort((a, b) => b.length - a.length);
 
 function extractSilkColor(str) {
   if (!str) return null;
-  for (const cName of SORTED_COLOR_NAMES) {
+  for (const cName of Object.keys(SILK_COLOR_MAP)) {
     if (str.includes(cName)) return { name: cName, hex: SILK_COLOR_MAP[cName] };
   }
   return null;
@@ -958,7 +915,7 @@ function extractSilkColor(str) {
 function parseSilkColors(silkText, gateNum) {
   const fallback = getGateColors(gateNum);
   if (!silkText || typeof silkText !== 'string' || silkText.trim() === '' || silkText.trim() === '-') {
-    return { base: fallback.cap, bodyPat: 'none', patCol: fallback.clothText, sleeve: fallback.cap, sleevePat: 'none', sleeveCol: fallback.clothText };
+    return { base: fallback.clothBg, bodyPat: 'none', patCol: fallback.clothText, sleeve: fallback.clothBg, sleevePat: 'none', sleeveCol: fallback.clothText };
   }
   const rawParts = silkText.split(/[,，、・/\s]+/).map(s => s.trim()).filter(Boolean);
   let baseCol = "#f8fafc";
@@ -971,14 +928,14 @@ function parseSilkColors(silkText, gateNum) {
 
   if (fullText.includes("十字襷") || fullText.includes("十字")) bodyPat = 'cross_sash';
   else if (fullText.includes("縦縞") || fullText.includes("縦じま")) bodyPat = 'vertical';
-  else if (fullText.includes("鋸歯形") || fullText.includes("のこぎり")) bodyPat = 'sawtooth';
+  else if (fullText.includes("鋸歯形")) bodyPat = 'sawtooth';
   else if (fullText.includes("山形")) bodyPat = 'chevron';
-  else if (fullText.includes("二本輪") || fullText.includes("２本輪")) bodyPat = 'band2';
-  else if (fullText.includes("一本輪") || fullText.includes("１本輪")) bodyPat = 'band1';
-  else if (fullText.includes("襷") || fullText.includes("たすき")) bodyPat = 'sash';
+  else if (fullText.includes("二本輪")) bodyPat = 'band2';
+  else if (fullText.includes("一本輪")) bodyPat = 'band1';
+  else if (fullText.includes("襷")) bodyPat = 'sash';
   else if (fullText.includes("星") || fullText.includes("ダイヤ")) bodyPat = 'diamond';
 
-  for (const cName of SORTED_COLOR_NAMES) {
+  for (const cName of Object.keys(SILK_COLOR_MAP)) {
     if (fullText.includes(cName) && SILK_COLOR_MAP[cName] !== baseCol) {
       patCol = SILK_COLOR_MAP[cName];
       break;
@@ -1064,10 +1021,7 @@ let currentRaceFormulaStr = "";
 let currentTrackConfig = TRACK_DIRECTION_MASTER["右回り"];
 let currentVisualDir = "left_to_right";
 let isStraightOnly = false;
-let isDoubleCutin = false;
 let raceState = 'idle';
-let abilityQueue = [];
-let isShowingAbility = false;
 
 // -----------------------------------------------------------------------------
 // 初期ロード処理
@@ -1084,19 +1038,18 @@ async function fetchJsonSafe(filename) {
 }
 
 async function initSimulation() {
-  document.getElementById('sim-file-indicator').textContent = `JSON: ${SIM_TARGET_JSON}`;
+  const select = document.getElementById('selectRaceFile');
+  const targetPath = select ? select.value : './sim/24kikkasho.json';
 
-  // 1. レースJSONのロード
   try {
-    const res = await fetch(SIM_TARGET_JSON);
+    const res = await fetch(targetPath);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     simRaceData = await res.json();
   } catch (err) {
-    console.warn("指定されたJSONの読み込みに失敗しました。デフォルトデータを使用します:", err);
+    console.warn("JSONの読み込みに失敗しました。デフォルトデータを使用します:", err);
     simRaceData = getDefaultSimData();
   }
 
-  // 2. マスタデータのロード
   const [rMaster, sMaster, aMaster] = await Promise.all([
     fetchJsonSafe('race_master.json'),
     fetchJsonSafe('strategy_master.json'),
@@ -1106,13 +1059,18 @@ async function initSimulation() {
   strategyMasterData = (Array.isArray(sMaster) && sMaster.length > 0) ? sMaster : getDefaultStrategies();
   abilityMasterData = aMaster || {};
 
-  // 3. レース基本情報のセットアップ
   setupRaceInfoFromData();
   renderEntryTable();
   setupSimulationTrack();
 
   document.getElementById('log-content').innerHTML = `<strong>【準備完了】</strong> ${raceInfo.race_name}（全${activeHorses.length}頭）。作戦を選択して「発走」または「検証」を実行してください。`;
 }
+
+window.onRaceFileChanged = async function() {
+  await initSimulation();
+  document.getElementById('single-result-panel').style.display = 'none';
+  document.getElementById('batch-stats-section').style.display = 'none';
+};
 
 function getDefaultSimData() {
   return {
@@ -1121,9 +1079,7 @@ function getDefaultSimData() {
       { "gate_number": 1, "name": "ピースワンデュック", "sex": "牡", "potential": 88, "style": "先行", "jockey": "柴田善臣" },
       { "gate_number": 2, "name": "ノーブルスカイ", "sex": "牡", "potential": 83, "style": "逃げ", "jockey": "池添謙一" },
       { "gate_number": 4, "name": "ダノンデサイル", "sex": "牡", "potential": 95, "style": "先行", "jockey": "横山典弘" },
-      { "gate_number": 8, "name": "コスモキュランダ", "sex": "牡", "potential": 93, "style": "先行", "jockey": "M.デムーロ" },
-      { "gate_number": 13, "name": "アーバンシック", "sex": "牡", "potential": 97, "style": "差し", "jockey": "C.ルメール" },
-      { "gate_number": 16, "name": "ヘデントール", "sex": "牡", "potential": 94, "style": "差し", "jockey": "戸崎圭太" }
+      { "gate_number": 13, "name": "アーバンシック", "sex": "牡", "potential": 97, "style": "差し", "jockey": "C.ルメール" }
     ]
   };
 }
@@ -1189,7 +1145,6 @@ function setupRaceInfoFromData() {
     return horse;
   });
 
-  // 馬番順にソート
   rawHorseList.sort((a, b) => (a.gate_number || 0) - (b.gate_number || 0));
   activeHorses = JSON.parse(JSON.stringify(rawHorseList));
   if (activeHorses.length > 0 && !focusHorseId) {
@@ -1217,7 +1172,6 @@ function renderEntryTable() {
     const gateColors = getGateColors(h.gate_number, activeHorses.length);
     const pPt = (raceInfo.surface === 'ダート') ? h.dirt_potential : h.turf_potential;
 
-    // 作戦プルダウンオプション生成
     let stratOptionsHtml = '';
     const isNigetui = (h.style === '逃追');
     const categories = isNigetui
@@ -1239,14 +1193,12 @@ function renderEntryTable() {
       stratOptionsHtml += `</optgroup>`;
     });
 
-    // レベルプルダウン
     let lvlOptionsHtml = '';
     for (let lvl = 1; lvl <= 5; lvl++) {
       lvlOptionsHtml += `<option value="${lvl}" ${h.level === lvl ? 'selected' : ''}>Lv.${lvl}</option>`;
     }
 
     const stylePrefix = (h.style || '先行').substring(0, 1);
-
     const tr = document.createElement('tr');
     tr.id = `entry-row-${idx}`;
     tr.innerHTML = `
@@ -1291,16 +1243,12 @@ window.setFocusHorse = function(idOrName) {
 
 window.onTableStrategyChange = function(idx) {
   const sel = document.getElementById(`tableStrat_${idx}`);
-  if (sel && activeHorses[idx]) {
-    activeHorses[idx].tactic = sel.value;
-  }
+  if (sel && activeHorses[idx]) activeHorses[idx].tactic = sel.value;
 };
 
 window.onTableLevelChange = function(idx) {
   const sel = document.getElementById(`tableLevel_${idx}`);
-  if (sel && activeHorses[idx]) {
-    activeHorses[idx].level = parseInt(sel.value, 10) || 3;
-  }
+  if (sel && activeHorses[idx]) activeHorses[idx].level = parseInt(sel.value, 10) || 3;
 };
 
 window.batchSetLevel = function(targetLvl) {
@@ -1334,21 +1282,17 @@ window.shuffleGates = function() {
     [gates[i], gates[j]] = [gates[j], gates[i]];
   }
 
-  activeHorses.forEach((h, i) => {
-    h.gate_number = gates[i];
-  });
+  activeHorses.forEach((h, i) => { h.gate_number = gates[i]; });
   activeHorses.sort((a, b) => a.gate_number - b.gate_number);
 
   renderEntryTable();
   setupSimulationTrack();
-  document.getElementById('log-content').innerHTML = `🎲 <strong>枠順を再抽選しました！</strong>（全${count}頭がランダムにゲートへ配置されました）`;
+  document.getElementById('log-content').innerHTML = `🎲 <strong>枠順を再抽選しました！</strong>`;
 };
 
 window.resetGates = function() {
   if (raceState === 'running') return;
-  activeHorses.forEach(h => {
-    h.gate_number = h.original_gate || 1;
-  });
+  activeHorses.forEach(h => { h.gate_number = h.original_gate || 1; });
   activeHorses.sort((a, b) => a.gate_number - b.gate_number);
 
   renderEntryTable();
@@ -1421,88 +1365,70 @@ function buildHorseActorSVG(h, i) {
             <stop offset="82%" stop-color="${coat.dark}" />
             <stop offset="100%" stop-color="${coat.sock}" />
           </linearGradient>
-          <clipPath id="sc_${uid}">
-            <path d="M 148 48 C 170 38, 198 42, 220 62 C 214 74, 198 82, 180 80 C 164 78, 152 64, 148 48 Z" />
-          </clipPath>
-          <clipPath id="slc_${uid}">
-            <path d="M 158 54 L 176 82 L 142 96 L 134 82 L 152 72 L 144 58 Z" />
-          </clipPath>
+          <clipPath id="sc_${uid}"><path d="M 148 48 C 170 38, 198 42, 220 62 C 214 74, 198 82, 180 80 C 164 78, 152 64, 148 48 Z" /></clipPath>
+          <clipPath id="slc_${uid}"><path d="M 158 54 L 176 82 L 142 96 L 134 82 L 152 72 L 144 58 Z" /></clipPath>
         </defs>
-
-        <!-- 脚 3コマ -->
         <g class="leg-frame-1" style="animation-delay: ${delay}s;">
-          <path d="M 142 162 C 132 178, 122 192, 116 202 C 113 207, 115 212, 122 214 L 148 222 L 152 215 L 128 205 L 156 168 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
+          <path d="M 142 162 C 132 178, 122 192, 116 202 L 148 222 L 152 215 L 128 205 L 156 168 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
           <polygon points="148,222 162,222 160,215 151,215" fill="#57534e"/>
-          <path d="M 278 158 C 292 176, 304 192, 310 202 L 276 235 L 284 239 L 322 204 C 316 188, 306 170, 294 154 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
+          <path d="M 278 158 C 292 176, 304 192, 310 202 L 276 235 L 284 239 L 322 204 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
           <polygon points="276,235 264,242 278,244 285,239" fill="#57534e"/>
         </g>
         <g class="leg-frame-2" style="animation-delay: ${delay}s;">
-          <path d="M 144 162 C 142 180, 140 198, 142 212 C 143 218, 148 222, 156 222 L 180 222 L 180 214 L 158 214 L 158 165 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
+          <path d="M 144 162 C 142 180, 140 198, 142 212 L 180 222 L 180 214 L 158 214 L 158 165 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
           <polygon points="180,222 192,222 192,214 180,214" fill="#57534e"/>
-          <path d="M 276 158 C 285 172, 292 186, 295 198 L 265 228 L 273 232 L 305 200 C 302 185, 295 170, 286 156 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
+          <path d="M 276 158 C 285 172, 292 186, 295 198 L 265 228 L 273 232 L 305 200 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
           <polygon points="265,228 255,234 266,238 273,232" fill="#57534e"/>
         </g>
         <g class="leg-frame-3" style="animation-delay: ${delay}s;">
-          <path d="M 144 160 C 136 174, 134 186, 140 196 C 144 200, 150 202, 158 198 L 176 188 L 172 180 L 152 190 L 156 165 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
+          <path d="M 144 160 C 136 174, 134 186, 140 196 L 176 188 L 172 180 L 152 190 L 156 165 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
           <polygon points="176,188 184,182 180,175 172,180" fill="#57534e"/>
-          <path d="M 275 158 C 270 174, 260 188, 252 198 L 235 220 L 243 224 L 262 200 C 274 185, 282 170, 285 156 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
+          <path d="M 275 158 C 270 174, 260 188, 252 198 L 235 220 L 243 224 L 262 200 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
           <polygon points="235,220 225,226 232,230 243,224" fill="#57534e"/>
         </g>
-
-        <!-- 馬体 -->
-        <path d="M 326 106 C 356 108, 388 122, 414 142 C 392 140, 374 135, 358 128 C 380 140, 398 152, 410 162 C 380 156, 354 144, 336 128 Z" fill="${coat.mane}" stroke="#140d0a" stroke-width="2"/>
+        <path d="M 326 106 C 356 108, 388 122, 414 142 C 392 140, 374 135, 358 128 Z" fill="${coat.mane}" stroke="#140d0a" stroke-width="2"/>
         <path d="M 88 56 C 118 66, 148 80, 174 96 L 168 105 C 142 88, 114 74, 84 64 Z" fill="${coat.mane}" stroke="#140d0a" stroke-width="1.6"/>
         <path d="M 76 58 C 72 44, 73 36, 77 32 C 82 38, 84 48, 84 56 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
         <path d="M 74 56 C 58 72, 44 88, 31 104 C 26 110, 28 118, 35 122 C 42 125, 49 122, 54 116 C 68 120, 82 115, 88 104 C 102 122, 116 142, 126 158 C 140 168, 175 174, 215 174 C 255 174, 290 166, 316 156 C 334 142, 340 116, 326 100 C 312 86, 286 88, 258 94 C 225 100, 192 100, 164 90 C 138 76, 112 64, 84 54 Z" fill="url(#bg_${uid})" stroke="#1c130e" stroke-width="2.5"/>
-
-        <!-- 手前脚 -->
         <g class="leg-frame-1" style="animation-delay: ${delay}s;">
-          <path d="M 124 158 C 114 172, 102 188, 88 204 L 50 234 L 58 241 L 98 210 C 114 196, 130 182, 142 170 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
+          <path d="M 124 158 C 114 172, 102 188, 88 204 L 50 234 L 58 241 L 98 210 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
           <polygon points="50,234 38,238 42,245 59,241" fill="#78716c"/>
-          <path d="M 270 162 C 284 180, 302 196, 320 206 L 360 238 L 368 232 L 332 198 C 320 184, 312 170, 310 156 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
+          <path d="M 270 162 C 284 180, 302 196, 320 206 L 360 238 L 368 232 L 332 198 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
           <polygon points="360,238 368,246 376,239 368,232" fill="#78716c"/>
         </g>
         <g class="leg-frame-2" style="animation-delay: ${delay}s;">
-          <path d="M 124 158 C 120 178, 116 198, 118 214 C 120 220, 126 224, 136 224 L 160 224 L 160 216 L 136 216 L 138 164 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
+          <path d="M 124 158 C 120 178, 116 198, 118 214 L 160 224 L 160 216 L 136 216 L 138 164 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
           <polygon points="160,224 172,224 172,216 160,216" fill="#78716c"/>
-          <path d="M 270 162 C 280 176, 288 190, 290 202 L 258 232 L 266 236 L 298 204 C 296 188, 288 174, 278 160 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
+          <path d="M 270 162 C 280 176, 288 190, 290 202 L 258 232 L 266 236 L 298 204 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
           <polygon points="258,232 248,238 258,242 266,236" fill="#78716c"/>
         </g>
         <g class="leg-frame-3" style="animation-delay: ${delay}s;">
-          <path d="M 124 158 C 116 170, 110 184, 118 198 C 122 204, 130 206, 140 202 L 162 190 L 158 182 L 134 192 L 138 166 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
+          <path d="M 124 158 C 116 170, 110 184, 118 198 L 162 190 L 158 182 L 134 192 L 138 166 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
           <polygon points="162,190 170,184 166,177 158,182" fill="#78716c"/>
-          <path d="M 270 162 C 264 176, 252 190, 242 202 L 222 224 L 230 228 L 254 204 C 266 188, 276 174, 278 160 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
+          <path d="M 270 162 C 264 176, 252 190, 242 202 L 222 224 L 230 228 L 254 204 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
           <polygon points="222,224 212,230 220,234 230,228" fill="#78716c"/>
         </g>
-
-        <!-- 顔・ゼッケン -->
         ${blazeSVG}
         <ellipse cx="36" cy="112" rx="3" ry="2" transform="rotate(-30 36 112)" fill="#0f0906"/>
         <ellipse cx="66" cy="78" rx="4" ry="3.2" transform="rotate(-15 66 78)" fill="#110b08"/>
         <circle cx="65" cy="77" r="1.3" fill="#ffffff"/>
         <path d="M 82 60 C 80 44, 82 34, 88 30 C 93 38, 94 48, 90 60 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2"/>
         <path d="M 42 95 L 55 115 M 86 58 L 50 110 M 70 64 L 86 72 M 86 64 L 86 104" stroke="#18181b" stroke-width="2.8" fill="none" stroke-linecap="round"/>
-
-        <!-- ゼッケン -->
         <path d="M 170 92 L 260 90 L 270 156 L 180 160 Z" fill="${gateColors.clothBg}" stroke="#111827" stroke-width="2.5"/>
         <g id="saddle-txt-${i}">
           <text x="224" y="114" text-anchor="middle" fill="${gateColors.clothText}" font-size="18" font-weight="900">${h.gate_number}</text>
           <text x="224" y="145" text-anchor="middle" fill="${gateColors.clothText}" stroke="${gateColors.stroke}" stroke-width="3.5" paint-order="stroke fill" font-size="25" font-weight="900">${getKana3(h.name)}</text>
         </g>
-
-        <!-- 騎手 ＆ 勝負服 -->
         <g class="jockey-group">
-          <path d="M 212 58 C 228 64, 236 78, 226 92 C 216 102, 196 110, 180 110 C 174 110, 172 102, 180 96 C 192 86, 204 74, 212 58 Z" fill="#f8fafc" stroke="#18181b" stroke-width="2.2"/>
+          <path d="M 212 58 C 228 64, 236 78, 226 92 C 216 102, 196 110, 180 110 Z" fill="#f8fafc" stroke="#18181b" stroke-width="2.2"/>
           <path d="M 178 104 L 202 130 L 192 140 L 178 138 L 188 128 L 172 110 Z" fill="#18181b" stroke="#090d16" stroke-width="2"/>
           <g clip-path="url(#sc_${uid})">
             <rect x="135" y="28" width="100" height="65" fill="${silk.base}" />
-            <g transform="translate(182, 60) rotate(10.5) translate(-182, -60)">
-              ${bodyPatSVG}
-            </g>
+            <g transform="translate(182, 60) rotate(10.5) translate(-182, -60)">${bodyPatSVG}</g>
           </g>
-          <path d="M 148 48 C 170 38, 198 42, 220 62 C 214 74, 198 82, 180 80 C 164 78, 152 64, 148 48 Z" fill="none" stroke="#18181b" stroke-width="2.2"/>
+          <path d="M 148 48 C 170 38, 198 42, 220 62 Z" fill="none" stroke="#18181b" stroke-width="2.2"/>
           <circle cx="136" cy="54" r="10.5" fill="#fde68a" stroke="#18181b" stroke-width="2"/>
-          <path d="M 122 48 C 122 33, 136 25, 153 31 C 161 35, 163 45, 156 52 Z" fill="${gateColors.cap}" stroke="#18181b" stroke-width="2.2"/>
+          <path d="M 122 48 C 122 33, 136 25, 153 31 Z" fill="${gateColors.clothBg}" stroke="#18181b" stroke-width="2.2"/>
           <g clip-path="url(#slc_${uid})">
             <rect x="125" y="48" width="55" height="52" fill="${silk.sleeve}" />
             ${sleevePatSVG}
@@ -1723,9 +1649,8 @@ function triggerHitStop(ms = 500) {
 // -----------------------------------------------------------------------------
 // 【シミュレーション実行エンジン】
 // -----------------------------------------------------------------------------
-function prepareActiveHorsesForLogic(customList = null) {
-  const source = customList || activeHorses;
-  return source.map((h, i) => {
+function prepareActiveHorsesForLogic() {
+  return activeHorses.map((h, i) => {
     const clone = { ...h, index: i };
     let matchedStrat = null;
     if (strategyMasterData && clone.tactic) {
@@ -1913,7 +1838,6 @@ function runBatchCalculation(times = 100) {
   const logBox = document.getElementById('log-content');
   logBox.innerHTML = `⚡ <strong>高速シミュレーションを ${times} 回 実行中...</strong>`;
 
-  // 各頭の統計バッファ初期化
   const statsMap = {};
   activeHorses.forEach(h => {
     const key = String(h.horse_id || h.name);
@@ -1928,25 +1852,21 @@ function runBatchCalculation(times = 100) {
       place2nd: 0,
       place3rd: 0,
       rankSum: 0,
-      scoreSum: 0,
-      maxScore: 0
+      scoreSum: 0
     };
   });
 
-  const paceCounts = { "ハイ": 0, "ミドル": 0, "スロー": 0, "超スロー": 0 };
+  const paceCounts = { "ハイ": 0, "ミドル": 0, "スロー": 0 };
 
-  // 高速ループ実行
   for (let iter = 0; iter < times; iter++) {
     const runHorses = prepareActiveHorsesForLogic();
     const res = runRaceLogic(runHorses, raceMasterData, trackCondition, raceInfo, abilityMasterData);
     
-    // ペース集計
     const paceStr = res.pace || "ミドル";
     if (paceStr.includes("ハイ")) paceCounts["ハイ"]++;
     else if (paceStr.includes("スロー")) paceCounts["スロー"]++;
     else paceCounts["ミドル"]++;
 
-    // 着順集計
     res.results.forEach((item, rank) => {
       const key = String(item.horse_id || item.name);
       const s = statsMap[key];
@@ -1956,12 +1876,10 @@ function runBatchCalculation(times = 100) {
         else if (rank === 2) s.place3rd++;
         s.rankSum += (rank + 1);
         s.scoreSum += (item.finalScore || 0);
-        if ((item.finalScore || 0) > s.maxScore) s.maxScore = item.finalScore || 0;
       }
     });
   }
 
-  // 集計結果の整形
   const statsList = Object.values(statsMap).map(s => {
     const winRate = ((s.win1st / times) * 100).toFixed(1);
     const top2Rate = (((s.win1st + s.place2nd) / times) * 100).toFixed(1);
@@ -1971,9 +1889,7 @@ function runBatchCalculation(times = 100) {
     return { ...s, winRate, top2Rate, top3Rate, avgRank, avgScore };
   });
 
-  // 1着数が多い順、同数なら平均着順が良い順にソート
   statsList.sort((a, b) => (b.win1st - a.win1st) || (a.avgRank - b.avgRank));
-
   renderBatchStatistics(statsList, times, paceCounts);
   logBox.innerHTML = `✅ <strong>高速シミュレーション完了！</strong>（全${times}レースの検証結果を集計・表示しました）`;
 }
@@ -1981,7 +1897,6 @@ function runBatchCalculation(times = 100) {
 function renderBatchStatistics(statsList, times, paceCounts) {
   document.getElementById('batch-run-count-label').textContent = `（全 ${times} 回 試行）`;
 
-  // KPIカード更新
   const topWinner = statsList[0] || {};
   document.getElementById('kpi-winner-name').textContent = topWinner.name || '---';
   document.getElementById('kpi-winner-stats').textContent = `勝率: ${topWinner.winRate}% (${topWinner.win1st}勝)`;
@@ -1997,15 +1912,13 @@ function renderBatchStatistics(statsList, times, paceCounts) {
   const hRate = ((paceCounts["ハイ"] / times) * 100).toFixed(0);
   const mRate = ((paceCounts["ミドル"] / times) * 100).toFixed(0);
   const sRate = ((paceCounts["スロー"] / times) * 100).toFixed(0);
-  let mainPace = "ミドル";
+  let mainPace = "ミドルペース傾向";
   if (paceCounts["ハイ"] >= paceCounts["ミドル"] && paceCounts["ハイ"] >= paceCounts["スロー"]) mainPace = "ハイペース傾向";
   else if (paceCounts["スロー"] >= paceCounts["ミドル"]) mainPace = "スローペース傾向";
-  else mainPace = "ミドルペース傾向";
 
   document.getElementById('kpi-pace-main').textContent = mainPace;
   document.getElementById('kpi-pace-sub').textContent = `H: ${hRate}% / M: ${mRate}% / S: ${sRate}%`;
 
-  // テーブル描画
   const tbody = document.getElementById('batch-table-body');
   tbody.innerHTML = '';
 
