@@ -156,7 +156,7 @@
     to   { background-position: -180px 0; }
   }
 
-  /* ★スタートゲート（アルミパンチフェンス風のリアルな緑デザイン） */
+  /* スタートゲート（アルミパンチフェンス風のリアルな緑デザイン） */
   #start-gate {
     position: absolute;
     top: 65px;
@@ -1334,7 +1334,7 @@ function buildHorseActorSVG(h, i) {
           </clipPath>
         </defs>
 
-        <!-- ★奥側の脚 3コマ（onrace_result(33)基準の形状） -->
+        <!-- 奥側の脚 3コマ（後ろ脚形状維持） -->
         <g class="leg-frame-1" style="animation-delay: ${delay}s;">
           <path d="M 142 162 C 132 178, 122 192, 116 202 C 113 207, 115 212, 122 214 L 148 222 L 152 215 L 128 205 L 156 168 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="148,222 162,222 160,215 151,215" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
@@ -1361,7 +1361,7 @@ function buildHorseActorSVG(h, i) {
 
         <path d="M 74 56 C 58 72, 44 88, 31 104 C 26 110, 28 118, 35 122 C 42 125, 49 122, 54 116 C 68 120, 82 115, 88 104 C 102 122, 116 142, 126 158 C 140 168, 175 174, 215 174 C 255 174, 290 166, 316 156 C 334 142, 340 116, 326 100 C 312 86, 286 88, 258 94 C 225 100, 192 100, 164 90 C 138 76, 112 64, 84 54 Z" fill="url(#bg_${uid})" stroke="#1c130e" stroke-width="2.5" stroke-linejoin="round"/>
 
-        <!-- ★手前側の脚 3コマ（onrace_result(33)基準の形状） -->
+        <!-- 手前側の脚 3コマ（後ろ脚形状維持） -->
         <g class="leg-frame-1" style="animation-delay: ${delay}s;">
           <path d="M 124 158 C 114 172, 102 188, 88 204 L 50 234 L 58 241 L 98 210 C 114 196, 130 182, 142 170 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="50,234 38,238 42,245 59,241" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
@@ -1796,13 +1796,16 @@ function processAbilityQueue() {
   }
 
   popup.classList.add('show');
+  
+  // 表示時間を3.3秒（3300ms）に短縮
   setTimeout(() => {
     popup.classList.remove('show');
+    // 次のアビリティへの切り替えウェイトも200msに短縮し、よりスムーズに順次発動
     setTimeout(() => {
       isShowingAbility = false;
       processAbilityQueue();
-    }, 300);
-  }, 3800);
+    }, 200);
+  }, 3300);
 }
 
 async function startRace() {
@@ -1935,6 +1938,9 @@ async function startRace() {
     setPhasePositions(p2Pos, 6.3, "linear", midPhaseDir); 
   }, 6000);
 
+  // --------------------------------------------------------------------------
+  // Phase 3 (11.8s〜): 3コーナー〜展開（ペースポップアップタイミングを今より0.5秒早く）
+  // --------------------------------------------------------------------------
   setTimeout(() => {
     updateLog(`<strong>【3コーナー〜展開】</strong> ${comm.phase3}`);
     
@@ -1968,7 +1974,7 @@ async function startRace() {
     const leadP3 = hasBigEscape ? 104 : 96;
     let p3Pos = getPosPointsMap(calculatedResults, leadP3, 22);
     setPhasePositions(p3Pos, 6.3, "linear", midPhaseDir); 
-  }, 12300); 
+  }, 11800); // 12300から500ms（0.5秒）早く変更
 
   setTimeout(() => {
     const wipe = document.getElementById('wipe-overlay');
@@ -2011,6 +2017,7 @@ async function startRace() {
           spawnMovingGoalPost(currentTrackConfig.phase4_dir);
         }, 7030);
              
+        // 乾坤一擲の演出（保持）
         setTimeout(() => {
           updateLog(`<strong>【最後の直線】</strong> ${comm.phase4}`);
           
