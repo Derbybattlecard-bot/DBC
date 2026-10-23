@@ -156,15 +156,26 @@
     to   { background-position: -180px 0; }
   }
 
+  /* ★スタートゲート（馬の手前 z-index:300 で馬を覆う） */
   #start-gate {
     position: absolute;
     top: 65px;
-    width: 90px;
+    width: 105px;
     height: 235px;
-    z-index: 8;
+    z-index: 300;
     pointer-events: none;
-    transition: left 2.0s cubic-bezier(0.4, 0, 0.8, 1), opacity 0.8s ease-in 0.8s;
+    transition: left 2.0s cubic-bezier(0.4, 0, 0.8, 1), opacity 0.8s ease-in 0.6s;
     display: none;
+  }
+
+  /* ゲート前扉（スタート時に左右にバカンと開くアニメーション） */
+  .gate-door-panel {
+    transform-origin: 15px center;
+    transition: transform 0.28s cubic-bezier(0.1, 0.9, 0.2, 1), opacity 0.28s ease-out;
+  }
+  #start-gate.opened .gate-door-panel {
+    transform: scaleX(0.08) skewY(-8deg);
+    opacity: 0.15;
   }
 
   #furlong-layer {
@@ -323,56 +334,6 @@
     50%, 100% { opacity: 1; }
   }
 
-  /* 足元の砂埃・蹴り土エフェクト */
-  .horse-dust-wrap {
-    position: absolute;
-    bottom: 2px;
-    right: 8px;
-    width: 20px;
-    height: 14px;
-    pointer-events: none;
-  }
-  .dust-puff {
-    position: absolute;
-    border-radius: 50%;
-    opacity: 0;
-    transform-origin: center;
-  }
-  /* 芝コース用（緑片 ＆ 白飛沫） */
-  .dust-puff.p1 {
-    width: 6px; height: 6px; background: #e2e8f0;
-    box-shadow: 2px -2px 0 1px #22c55e;
-  }
-  .dust-puff.p2 {
-    width: 8px; height: 5px; background: rgba(240, 253, 244, 0.85);
-    box-shadow: -1px -3px 0 1px #16a34a;
-  }
-  /* ダートコース用（土煙） */
-  #track-container.dirt-track .dust-puff.p1 {
-    width: 9px; height: 7px; background: rgba(160, 110, 75, 0.7);
-    box-shadow: 2px -2px 0 1px #78350f;
-  }
-  #track-container.dirt-track .dust-puff.p2 {
-    width: 11px; height: 9px; background: rgba(180, 125, 85, 0.6);
-    box-shadow: -1px -3px 0 1px #92400e;
-  }
-
-  #track-container.running .dust-puff.p1 {
-    animation: puffDrift1 0.32s ease-out infinite;
-  }
-  #track-container.running .dust-puff.p2 {
-    animation: puffDrift2 0.32s ease-out infinite 0.16s;
-  }
-
-  @keyframes puffDrift1 {
-    0% { opacity: 0.85; transform: translate(0, 0) scale(0.6); }
-    100% { opacity: 0; transform: translate(22px, -8px) scale(1.6); }
-  }
-  @keyframes puffDrift2 {
-    0% { opacity: 0.85; transform: translate(2px, 2px) scale(0.7); }
-    100% { opacity: 0; transform: translate(26px, -12px) scale(1.8); }
-  }
-
   /* オーラ演出（青・赤・控えめなスモーキーデバフ） */
   @keyframes auraPulsePlayer {
     0% { filter: drop-shadow(0 0 4px #60a5fa) drop-shadow(0 0 10px #2563eb) brightness(1.25); }
@@ -382,7 +343,6 @@
     0% { filter: drop-shadow(0 0 4px #f87171) drop-shadow(0 0 10px #dc2626) brightness(1.25); }
     100% { filter: drop-shadow(0 0 10px #fca5a5) drop-shadow(0 0 20px #ef4444) brightness(1.5); }
   }
-  /* ★デバフオーラ：他馬を邪魔しない上品なスモーキーグレー・ダークオーラ */
   @keyframes auraPulseDebuff {
     0% { filter: drop-shadow(0 0 3px #475569) drop-shadow(0 0 6px #1e293b) brightness(0.9); }
     100% { filter: drop-shadow(0 0 5px #64748b) drop-shadow(0 0 11px #334155) brightness(0.82); }
@@ -602,23 +562,49 @@
     <div class="track-surface"></div>
 
     <div id="start-gate">
-      <svg width="100%" height="100%" viewBox="0 0 90 235">
-        <rect x="5" y="0" width="80" height="24" rx="3" fill="#15803d" stroke="#0f172a" stroke-width="2"/>
-        <line x1="8" y1="12" x2="82" y2="12" stroke="#facc15" stroke-width="2"/>
-        <rect x="25" y="4" width="40" height="15" rx="2" fill="#0f172a"/>
-        <text id="gate-start-text" x="45" y="16" fill="#facc15" font-size="10" font-weight="900" font-family="Arial" text-anchor="middle">START</text>
+      <svg width="100%" height="100%" viewBox="0 0 105 235">
+        <!-- 屋根＆START看板 -->
+        <rect x="5" y="0" width="95" height="24" rx="3" fill="#15803d" stroke="#0f172a" stroke-width="2"/>
+        <line x1="8" y1="12" x2="97" y2="12" stroke="#facc15" stroke-width="2"/>
+        <rect x="32" y="4" width="42" height="15" rx="2" fill="#0f172a"/>
+        <text id="gate-start-text" x="53" y="16" fill="#facc15" font-size="10" font-weight="900" font-family="Arial" text-anchor="middle">START</text>
+        
+        <!-- メイン支柱（後柱 x=15, 前柱 x=90） -->
         <line x1="15" y1="24" x2="15" y2="235" stroke="#cbd5e1" stroke-width="4.5"/>
-        <line x1="75" y1="24" x2="75" y2="235" stroke="#cbd5e1" stroke-width="4.5"/>
-        <line x1="15" y1="60" x2="75" y2="100" stroke="#94a3b8" stroke-width="2"/>
-        <line x1="75" y1="60" x2="15" y2="100" stroke="#94a3b8" stroke-width="2"/>
-        <line x1="15" y1="140" x2="75" y2="180" stroke="#94a3b8" stroke-width="2"/>
-        <line x1="75" y1="140" x2="15" y2="180" stroke="#94a3b8" stroke-width="2"/>
-        <polygon points="15,45 3,55 3,120 15,115" fill="#eab308" stroke="#1e293b" stroke-width="1.5" opacity="0.9"/>
-        <polygon points="75,45 87,55 87,120 75,115" fill="#eab308" stroke="#1e293b" stroke-width="1.5" opacity="0.9"/>
-        <polygon points="15,135 3,145 3,210 15,205" fill="#15803d" stroke="#1e293b" stroke-width="1.5" opacity="0.9"/>
-        <polygon points="75,135 87,145 87,210 75,205" fill="#15803d" stroke="#1e293b" stroke-width="1.5" opacity="0.9"/>
-        <rect x="12" y="105" width="6" height="35" rx="2" fill="#ef4444"/>
-        <rect x="72" y="105" width="6" height="35" rx="2" fill="#ef4444"/>
+        <line x1="90" y1="24" x2="90" y2="235" stroke="#cbd5e1" stroke-width="4.5"/>
+        
+        <!-- サイドブレース（骨組み） -->
+        <line x1="15" y1="60" x2="90" y2="95" stroke="#94a3b8" stroke-width="2"/>
+        <line x1="90" y1="60" x2="15" y2="95" stroke="#94a3b8" stroke-width="2"/>
+        <line x1="15" y1="135" x2="90" y2="170" stroke="#94a3b8" stroke-width="2"/>
+        <line x1="90" y1="135" x2="15" y2="170" stroke="#94a3b8" stroke-width="2"/>
+
+        <!-- サイドクッションパッド -->
+        <polygon points="15,45 3,55 3,115 15,110" fill="#eab308" stroke="#1e293b" stroke-width="1.5" opacity="0.9"/>
+        <polygon points="15,125 3,135 3,195 15,190" fill="#15803d" stroke="#1e293b" stroke-width="1.5" opacity="0.9"/>
+        
+        <!-- ★前扉（ゲートドア：馬をしっかり覆い隠し、スタートでパカッと開く！） -->
+        <g class="gate-door-panel">
+          <rect x="22" y="32" width="70" height="42" rx="3" fill="#166534" stroke="#0f172a" stroke-width="2"/>
+          <rect x="26" y="36" width="62" height="34" rx="2" fill="#15803d"/>
+          <line x1="26" y1="53" x2="88" y2="53" stroke="#facc15" stroke-width="2"/>
+          <rect x="36" y="44" width="42" height="18" rx="2" fill="#ef4444" opacity="0.9"/>
+          
+          <rect x="22" y="82" width="70" height="44" rx="3" fill="#166534" stroke="#0f172a" stroke-width="2"/>
+          <rect x="26" y="86" width="62" height="36" rx="2" fill="#15803d"/>
+          <line x1="26" y1="104" x2="88" y2="104" stroke="#facc15" stroke-width="2"/>
+          <rect x="36" y="95" width="42" height="18" rx="2" fill="#eab308" opacity="0.9"/>
+
+          <rect x="22" y="134" width="70" height="44" rx="3" fill="#166534" stroke="#0f172a" stroke-width="2"/>
+          <rect x="26" y="138" width="62" height="36" rx="2" fill="#15803d"/>
+          <line x1="26" y1="156" x2="88" y2="156" stroke="#facc15" stroke-width="2"/>
+          <rect x="36" y="147" width="42" height="18" rx="2" fill="#1d4ed8" opacity="0.9"/>
+
+          <rect x="22" y="186" width="70" height="42" rx="3" fill="#166534" stroke="#0f172a" stroke-width="2"/>
+          <rect x="26" y="190" width="62" height="34" rx="2" fill="#15803d"/>
+          <line x1="26" y1="207" x2="88" y2="207" stroke="#facc15" stroke-width="2"/>
+          <rect x="36" y="198" width="42" height="18" rx="2" fill="#ef4444" opacity="0.9"/>
+        </g>
       </svg>
     </div>
 
@@ -853,7 +839,7 @@ function parseSilkColors(silkText, gateNum) {
       bodyPat = 'band1';
     } else if (bodyText.includes("襷") || bodyText.includes("たすき")) {
       bodyPat = 'sash';
-    } else if (bodyText.includes("玉霰") || bodyText.includes("星散") || bodyText.includes("銭形散") || bodyText.includes("蛇目散") || bodyText.includes("ダイヤモンド") || bodyText.includes("ダイヤ") || bodyText.includes("菱") || bodyText.includes("元禄") || bodyText.includes("格子") || bodyText.includes("星") || bodyText.includes("玉")) {
+    } else if (bodyText.includes("玉霰") || bodyText.includes("星散") || bodyText.includes("銭形散") || bodyText.includes("蛇目散") || bodyText.includes("ダイヤモンド") || bodyText.includes("ダイヤ") || bodyText.菱) {
       bodyPat = 'diamond';
     }
 
@@ -1305,7 +1291,7 @@ function setupRace(rIdx) {
 
 function getKana3(name) {
   if (!name) return 'ダミ';
-  const kanaOnly = name.replace(/[^゠-ヿ]/g, '');
+  const kanaOnly = name.replace(/[^\u30A0-\u30FF]/g, '');
   return kanaOnly.length >= 3 ? kanaOnly.substring(0, 3) : name.substring(0, 3);
 }
 
@@ -1338,10 +1324,6 @@ function buildHorseActorSVG(h, i) {
 
   return `
     <div class="horse-shadow" style="animation-delay: ${delay}s;"></div>
-    <div class="horse-dust-wrap">
-      <div class="dust-puff p1" style="animation-delay: ${delay}s;"></div>
-      <div class="dust-puff p2" style="animation-delay: ${delay}s;"></div>
-    </div>
     <div class="horse-bounce-wrap" style="animation-delay: ${delay}s;">
       ${markerHTML}
       <svg width="100%" height="100%" viewBox="0 0 420 270" style="overflow: visible;">
@@ -1360,50 +1342,50 @@ function buildHorseActorSVG(h, i) {
           </clipPath>
         </defs>
 
-        <!-- ★奥側の脚 3コマ（伸展・接地・収縮滞空） -->
+        <!-- ★奥側の脚 3コマ（伸展・接地・収縮滞空：トモの厚み強化版） -->
         <g class="leg-frame-1" style="animation-delay: ${delay}s;">
           <path d="M 142 162 C 132 178, 122 192, 116 202 C 113 207, 115 212, 122 214 L 148 222 L 152 215 L 128 205 L 156 168 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="148,222 162,222 160,215 151,215" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
-          <path d="M 278 158 C 292 176, 304 192, 310 202 L 276 235 L 284 239 L 322 204 C 316 188, 306 170, 294 154 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M 252 156 C 266 174, 296 192, 312 202 L 276 235 L 284 239 L 324 204 C 322 186, 320 168, 312 152 C 292 154, 272 155, 252 156 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="276,235 264,242 278,244 285,239" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
         </g>
         <g class="leg-frame-2" style="animation-delay: ${delay}s;">
           <path d="M 144 162 C 142 180, 140 198, 142 212 C 143 218, 148 222, 156 222 L 180 222 L 180 214 L 158 214 L 158 165 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="180,222 192,222 192,214 180,214" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
-          <path d="M 276 158 C 285 172, 292 186, 295 198 L 265 228 L 273 232 L 305 200 C 302 185, 295 170, 286 156 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M 250 156 C 262 172, 282 186, 295 198 L 265 228 L 273 232 L 305 200 C 310 184, 318 168, 312 152 C 290 154, 270 155, 250 156 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="265,228 255,234 266,238 273,232" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
         </g>
         <g class="leg-frame-3" style="animation-delay: ${delay}s;">
           <path d="M 144 160 C 136 174, 134 186, 140 196 C 144 200, 150 202, 158 198 L 176 188 L 172 180 L 152 190 L 156 165 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="176,188 184,182 180,175 172,180" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
-          <path d="M 275 158 C 270 174, 260 188, 252 198 L 235 220 L 243 224 L 262 200 C 274 185, 282 170, 285 156 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M 246 156 C 248 174, 246 188, 248 198 L 232 220 L 240 224 L 264 200 C 284 184, 316 168, 312 152 C 290 154, 268 155, 246 156 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="235,220 225,226 232,230 243,224" fill="#57534e" stroke="#1c130e" stroke-width="1.5"/>
         </g>
 
-        <!-- 尾・鬣・胴体ベース（手前脚を切り離して完全独立化） -->
+        <!-- 尾・鬣・胴体ベース -->
         <path d="M 326 106 C 356 108, 388 122, 414 142 C 392 140, 374 135, 358 128 C 380 140, 398 152, 410 162 C 380 156, 354 144, 336 128 C 352 144, 364 158, 372 170 C 346 156, 330 136, 320 118 Z" fill="${coat.mane}" stroke="#140d0a" stroke-width="2" stroke-linejoin="round"/>
         <path d="M 88 56 C 118 66, 148 80, 174 96 L 168 105 C 142 88, 114 74, 84 64 Z" fill="${coat.mane}" stroke="#140d0a" stroke-width="1.6"/>
         <path d="M 76 58 C 72 44, 73 36, 77 32 C 82 38, 84 48, 84 56 Z" fill="${coat.dark}" stroke="#1c130e" stroke-width="2"/>
 
         <path d="M 74 56 C 58 72, 44 88, 31 104 C 26 110, 28 118, 35 122 C 42 125, 49 122, 54 116 C 68 120, 82 115, 88 104 C 102 122, 116 142, 126 158 C 140 168, 175 174, 215 174 C 255 174, 290 166, 316 156 C 334 142, 340 116, 326 100 C 312 86, 286 88, 258 94 C 225 100, 192 100, 164 90 C 138 76, 112 64, 84 54 Z" fill="url(#bg_${uid})" stroke="#1c130e" stroke-width="2.5" stroke-linejoin="round"/>
 
-        <!-- ★手前側の脚 3コマ（伸展・接地・収縮滞空） -->
+        <!-- ★手前側の脚 3コマ（伸展・接地・収縮滞空：トモの厚み強化版） -->
         <g class="leg-frame-1" style="animation-delay: ${delay}s;">
           <path d="M 124 158 C 114 172, 102 188, 88 204 L 50 234 L 58 241 L 98 210 C 114 196, 130 182, 142 170 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="50,234 38,238 42,245 59,241" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
-          <path d="M 270 162 C 284 180, 302 196, 320 206 L 360 238 L 368 232 L 332 198 C 320 184, 312 170, 310 156 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M 238 160 C 252 174, 276 194, 318 206 L 360 238 L 368 232 L 334 198 C 330 182, 332 168, 324 150 C 298 156, 268 158, 238 160 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="360,238 368,246 376,239 368,232" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
         </g>
         <g class="leg-frame-2" style="animation-delay: ${delay}s;">
           <path d="M 124 158 C 120 178, 116 198, 118 214 C 120 220, 126 224, 136 224 L 160 224 L 160 216 L 136 216 L 138 164 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="160,224 172,224 172,216 160,216" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
-          <path d="M 270 162 C 280 176, 288 190, 290 202 L 258 232 L 266 236 L 298 204 C 296 188, 288 174, 278 160 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M 238 158 C 248 174, 268 188, 280 200 L 258 232 L 266 236 L 298 204 C 306 186, 324 170, 322 150 C 296 154, 266 156, 238 158 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="258,232 248,238 258,242 266,236" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
         </g>
         <g class="leg-frame-3" style="animation-delay: ${delay}s;">
           <path d="M 124 158 C 116 170, 110 184, 118 198 C 122 204, 130 206, 140 202 L 162 190 L 158 182 L 134 192 L 138 166 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="162,190 170,184 166,177 158,182" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
-          <path d="M 270 162 C 264 176, 252 190, 242 202 L 222 224 L 230 228 L 254 204 C 266 188, 276 174, 278 160 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M 235 158 C 238 174, 236 190, 238 202 L 220 224 L 228 228 L 256 204 C 278 184, 322 170, 320 150 C 294 154, 264 156, 235 158 Z" fill="${coat.main}" stroke="#1c130e" stroke-width="2" stroke-linejoin="round"/>
           <polygon points="222,224 212,230 220,234 230,228" fill="#78716c" stroke="#1c130e" stroke-width="1.8"/>
         </g>
 
@@ -1502,15 +1484,16 @@ function renderLanes() {
 
   if (isRightToLeft) {
     // 右端から20%（約480px付近）
-    gateLeftPx = Math.round(trackWidth * 0.80 - 80);
-    horseStartWaitPx = gateLeftPx + 5; // ゲート枠内
+    gateLeftPx = Math.round(trackWidth * 0.80 - 95);
+    horseStartWaitPx = gateLeftPx + 5; // ゲート枠内にぴったり収まる
   } else {
     // 左端から20%（約120px付近）
     gateLeftPx = Math.round(trackWidth * 0.20);
-    horseStartWaitPx = gateLeftPx - 15; // ゲート枠内
+    horseStartWaitPx = gateLeftPx + 5; // ゲート枠内にぴったり収まる
   }
 
   if (gateEl) {
+    gateEl.classList.remove('opened');
     gateEl.style.display = "block";
     gateEl.style.opacity = "1";
     gateEl.style.transition = "none";
@@ -1521,7 +1504,7 @@ function renderLanes() {
     const gateText = document.getElementById('gate-start-text');
     if (gateText) {
       if (isRightToLeft) {
-        gateText.setAttribute("transform", "translate(90, 0) scale(-1, 1)");
+        gateText.setAttribute("transform", "translate(105, 0) scale(-1, 1)");
       } else {
         gateText.removeAttribute("transform");
       }
@@ -1933,15 +1916,18 @@ async function startRace() {
   const trackWidth = trackContainer?.clientWidth || 600;
 
   // --------------------------------------------------------------------------
-  // Phase 1 (0.0s〜): ゲート開放 ＆ スタート！（20%地点から発進、先頭は中央へ）
+  // Phase 1 (0.0s〜): ゲート前扉開放 ＆ スタート！（開いた瞬間に飛び出し、ゲートはフェードアウト）
   // --------------------------------------------------------------------------
   updateLog(`<strong>【スタート】</strong> ${comm.phase1}`);
   
   const gateEl = document.getElementById('start-gate');
   if (gateEl) {
-    gateEl.style.transition = "left 2.0s cubic-bezier(0.4, 0, 0.8, 1), opacity 0.8s ease-in 0.8s";
-    gateEl.style.left = isRTL ? `${trackWidth + 60}px` : "-180px";
-    gateEl.style.opacity = "0";
+    gateEl.classList.add('opened'); // ★前扉がガシャンと開く！
+    setTimeout(() => {
+      gateEl.style.transition = "left 2.0s cubic-bezier(0.4, 0, 0.8, 1), opacity 0.8s ease-in 0.6s";
+      gateEl.style.left = isRTL ? `${trackWidth + 80}px` : "-200px";
+      gateEl.style.opacity = "0";
+    }, 180);
   }
 
   // ★20%地点からの飛び出し：先頭はマイルドなイージングで画面中央（52%付近）へ展開
