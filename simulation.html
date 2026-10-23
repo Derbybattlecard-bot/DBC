@@ -91,7 +91,7 @@
   .cond-btn-重.active { background: #ea580c; color: #fff; }
   .cond-btn-不良.active { background: #dc2626; color: #fff; }
 
-  .gate-ctrl-group { display: flex; gap: 6px; flex-wrap: wrap; }
+  .gate-ctrl-group { display: flex; gap: 6px; }
   .btn-gate-action {
     background: #1e293b; border: 1px solid #475569; color: #cbd5e1; font-size: 11px;
     font-weight: bold; padding: 4px 10px; border-radius: 4px; cursor: pointer; text-decoration: none; transition: all 0.2s;
@@ -360,16 +360,12 @@
     <a href="battle.html" class="btn-gate-action">← メニューへ</a>
     <span class="sim-badge">🏇 レースシミュレーター</span>
     
-    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+    <div style="display:flex; align-items:center; gap:6px;">
       <span style="font-size:11px; color:#aaa;">対象レース:</span>
-      <select id="selectRaceFile" class="select-strat-in-table" onchange="onRaceFileChanged()" style="max-width:170px;">
-        <option value="26kikkasho.json" selected>2026 菊花賞 (GI)</option>
-        <option value="24kikkasho.json">2024 菊花賞 (GI)</option>
+      <select id="selectRaceFile" class="select-strat-in-table" onchange="onRaceFileChanged()" style="max-width:210px;">
+        <option value="26kikkasho.json" selected>2026 第87回 菊花賞 (GI)</option>
+        <option value="24kikkasho.json">2024 第85回 菊花賞 (GI)</option>
       </select>
-      
-      <!-- 📁 独自の馬データJSONをインポートするボタン -->
-      <input type="file" id="importJsonFile" accept=".json" style="display:none" onchange="importCustomRaceJson(event)">
-      <button class="btn-gate-action" style="background:#065f46; border-color:#059669; color:#a7f3d0;" onclick="document.getElementById('importJsonFile').click()">📂 馬データJSONインポート</button>
     </div>
   </div>
 
@@ -739,7 +735,7 @@ function parseSilkColors(silkText, gateNum) {
   if (!silkText || typeof silkText !== 'string' || silkText.trim() === '' || silkText.trim() === '-') {
     return { base: fallback.clothBg, bodyPat: 'none', patCol: fallback.clothText, sleeve: fallback.clothBg, sleevePat: 'none', sleeveCol: fallback.clothText };
   }
-  const rawParts = silkText.split(/[,[,、・/\s]+/).map(s => s.trim()).filter(Boolean);
+  const rawParts = silkText.split(/[,，、・/\s]+/).map(s => s.trim()).filter(Boolean);
   let baseCol = "#f8fafc";
   const firstMatch = extractSilkColor(rawParts[0]);
   if (firstMatch) baseCol = firstMatch.hex;
@@ -829,34 +825,6 @@ async function fetchJsonSafe(filename) {
   return null;
 }
 
-// 📁 カスタムレースJSONファイルをインポートする関数
-window.importCustomRaceJson = function(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const json = JSON.parse(e.target.result);
-      if (!json.horses || !Array.isArray(json.horses)) {
-        alert("インポートエラー: 有効なhorses配列が含まれていません。");
-        return;
-      }
-      simRaceData = json;
-      previousWinnersMap = {};
-      setupRaceInfoFromData();
-      renderEntryTable();
-      setupSimulationTrack();
-      populateComboHorseSelect();
-      calculateAllBranchesDeterministic(true);
-      document.getElementById('log-content').innerHTML = `📂 <strong>【インポート成功】</strong> 「${file.name}」の馬データ(${activeHorses.length}頭)を読み込みました！`;
-    } catch (err) {
-      alert("JSONファイルの解析に失敗しました: " + err.message);
-    }
-  };
-  reader.readAsText(file);
-  event.target.value = ''; // リセット
-};
-
 function getStrategyList() {
   if (Array.isArray(strategyMasterData) && strategyMasterData.length > 0) return strategyMasterData;
   if (strategyMasterData && Array.isArray(strategyMasterData.strategies)) return strategyMasterData.strategies;
@@ -939,7 +907,7 @@ async function initSimulation() {
 
   calculateAllBranchesDeterministic(false);
 
-  document.getElementById('log-content').innerHTML = `<strong>【準備完了】</strong> ${raceInfo.race_name}（全${activeHorses.length}頭）。出馬表で作戦を変更するか、上の「馬データJSONインポート」で別のデータを読み込めます。`;
+  document.getElementById('log-content').innerHTML = `<strong>【準備完了】</strong> ${raceInfo.race_name}（全${activeHorses.length}頭）。出馬表で作戦を変更すると、マトリックスと上位進出展開がリアルタイムに更新されます。`;
 }
 
 window.onRaceFileChanged = async function() {
@@ -1202,7 +1170,7 @@ function updateAnalystSummaryComment(paceProbInfo, activeCount) {
   }
 
   textEl.innerHTML = `
-    現在の出走 ${activeCount} 頭の作戦構成では、逃げ馬が ${leadHorses.length} 頭おり、発生確率が最も高いのは <b>${dominantPace} (${Math.round(maxP*100)}%)</b> です。
+    現在の18頭の作戦構成では、逃げ馬が ${leadHorses.length} 頭おり、発生確率が最も高いのは <b>${dominantPace} (${Math.round(maxP*100)}%)</b> です。
     ${tone} 有効な ${validBranchCount} 展開における各馬の勝率・複勝率をベースに、最適な作戦や軸馬を検証してください。
   `;
 }
