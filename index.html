@@ -68,7 +68,7 @@
       flex-direction: column;
     }
 
-    /* 1. 横断幕エリア（2つに絞る） */
+    /* 1. 横断幕エリア（2つ：左側目標 / 右側称号） */
     .paddock-banner-track {
       height: 32px;
       background: #09170c;
@@ -114,7 +114,7 @@
     .banner-red { background: linear-gradient(135deg, #b71c1c, #d32f2f); text-shadow: 0 1px 2px #000; }
     .banner-gold { background: linear-gradient(135deg, #b78103, #e5b839); color: #111; text-shadow: 0 1px 0 rgba(255,255,255,0.4); border-color: #ffd700; }
 
-    /* 2. パドックメインエリア（縦幅を狭く調整） */
+    /* 2. パドックメインエリア（縦幅スリム化） */
     .paddock-main-stage {
       position: relative;
       min-height: 125px;
@@ -261,7 +261,7 @@
       height: 78px;
       transform: scale(0.85);
       transform-origin: bottom center;
-      background-image: url('/images/horse_walk_3frame.png');
+      background-image: url('./images/horse_walk_3frame.png');
       background-size: 294px 78px;
       background-repeat: no-repeat;
       animation: walk3Cycle 1.2s steps(1) infinite;
@@ -621,7 +621,7 @@
   
   <!-- リアル競馬パドック風ステータスフレーム -->
   <div class="paddock-wrapper">
-    <!-- 横断幕エリア（左側：勝利数に応じた目標 / 右端：称号） -->
+    <!-- 横断幕エリア（左側：目標文言 / 右端：称号） -->
     <div class="paddock-banner-track" id="paddockBannerTrack">
       <div class="paddock-banner banner-red" id="bannerLeft"><span>めざせ30勝</span></div>
       <div class="paddock-banner banner-gold" id="bannerRight"><span>🏆 ビギナー</span></div>
@@ -651,7 +651,7 @@
           </div>
         </div>
         
-        <!-- パドック周回常歩アニメーション（/images/ フォルダの画像を参照） -->
+        <!-- パドック周回常歩アニメーション -->
         <div class="ace-horse-walk-wrapper">
           <div id="aceHorseSprite" class="horse-sprite-box coat-鹿毛"></div>
           <div class="horse-foot-shadow"></div>
@@ -701,7 +701,7 @@
     </div>
   </div>
 
-  <!-- ナビゲーションメニュー（3列×3行の9個） -->
+  <!-- ナビゲーションメニュー（3列×3行＝9個） -->
   <div class="menu-grid">
     <a href="battle.html" class="menu-btn btn-dark-green">
       <span class="btn-icon">💻</span>
@@ -808,7 +808,7 @@
     { rarity: "PRR", prob: 0.10 }
   ];
 
-  // ご指定の称号テーブル
+  // 称号テーブル
   const TITLES_BY_WINS = [
     { minWins: 200, title: 'レジェンド' },
     { minWins: 180, title: 'チャンピオン' },
@@ -922,12 +922,15 @@
     }
     currentUser = user;
     try {
-      const res = await fetch('/data/card_design.json');
+      // 相対パスに修正して確実に card_design.json を取得
+      const res = await fetch('./data/card_design.json');
       if (res.ok) {
         HORSES_ARRAY = await res.json();
         HORSES_ARRAY.forEach(h => {
           HORSES_MASTER[h.horse_id] = h;
         });
+      } else {
+        console.error("card_design.json の読み込みに失敗しました:", res.status);
       }
 
       const userDoc = await getDoc(doc(db, "users", user.uid));
