@@ -1193,6 +1193,17 @@ onAuthStateChanged(auth, async (user) => {
     const p2Giveup = !!roomData.player2_giveup;
 
     if (p1Giveup || p2Giveup) {
+      // 自身が到着したことをFirebaseに確実に記録
+      try {
+        const roomRef = doc(db, "online_matches", roomId);
+        const readyPayload = isHost ? { player1_ready: true, p1_status: "racing" } : { player2_ready: true, p2_status: "racing" };
+        await updateDoc(roomRef, readyPayload);
+      } catch (readyErr) {
+        console.error("到着ステータス更新エラー:", readyErr);
+      }
+
+      buildRaceGridsFromOnlineData();
+      setupRace(currentRaceIndex);
       listenRoomStatus();
       await checkAndUpdateReadyState();
       return;
@@ -1486,8 +1497,26 @@ async function checkAndUpdateReadyState() {
   const p1Giveup = !!data.player1_giveup;
   const p2Giveup = !!data.player2_giveup;
 
-  const p1Ready = p1Giveup || !!(data.player1_strategy_ready || data.player1_ready || data.p1_status === "ready" || data.player1_strategies?.length >= 5);
-  const p2Ready = p2Giveup || !!(data.player2_strategy_ready || data.player2_ready || data.p2_status === "ready" || data.player2_strategies?.length >= 5);
+  // チーム編成完了（entriesが5頭、または matchup_ready）も判定条件に追加
+  const p1Ready = p1Giveup || !!(
+    data.player1_ready ||
+    data.player1_strategy_ready ||
+    data.p1_status === "ready" ||
+    data.p1_status === "racing" ||
+    (Array.isArray(data.player1_entries) && data.player1_entries.filter(Boolean).length >= 5) ||
+    data.player1_matchup_ready ||
+    data.player1_strategies?.length >= 5
+  );
+
+  const p2Ready = p2Giveup || !!(
+    data.player2_ready ||
+    data.player2_strategy_ready ||
+    data.p2_status === "ready" ||
+    data.p2_status === "racing" ||
+    (Array.isArray(data.player2_entries) && data.player2_entries.filter(Boolean).length >= 5) ||
+    data.player2_matchup_ready ||
+    data.player2_strategies?.length >= 5
+  );
 
   const opponentReady = isHost ? p2Ready : p1Ready;
 
@@ -1523,14 +1552,15 @@ async function checkAndUpdateReadyState() {
       await processGiveupResultsAndUsedHorses(data, p1Giveup, p2Giveup);
     }
 
+    const p1DispName = isHost ? myNameStr : oppNameStr;
+    const p2DispName = isHost ? oppNameStr : myNameStr;
+
     if (p1Giveup && p2Giveup) {
       updateLog("<strong>【判定結果】</strong> 双方ともにチーム編成不能（ダブルギブアップ）のため、<strong>引き分け（ダブルノックアウト）</strong>となります。");
     } else if (p1Giveup && !p2Giveup) {
-      const p2Name = roomData.player2_name || "対戦相手";
-      updateLog(`<strong>【判定結果】</strong> P1（${myNameStr}）がギブアップしました。P2（${p2Name}）の<strong>不戦勝</strong>となります。`);
+      updateLog(`<strong>【判定結果】</strong> P1（${p1DispName}）がギブアップしました。P2（${p2DispName}）の<strong>不戦勝</strong>となります。`);
     } else if (!p1Giveup && p2Giveup) {
-      const p1Name = roomData.player1_name || "対戦相手";
-      updateLog(`<strong>【判定結果】</strong> P2がギブアップしました。P1（${myNameStr}）の<strong>不戦勝</strong>となります。`);
+      updateLog(`<strong>【判定結果】</strong> P2（${p2DispName}）がギブアップしました。P1（${p1DispName}）の<strong>不戦勝</strong>となります。`);
     }
     return;
   }
@@ -1662,6 +1692,11 @@ async function handleRoomDataUpdate(data) {
   }
   
   if (data.status === "entry_selecting" || data.status === "matchup") {
+    // どちらかがギブアップ状態の場合は matchup 画面に戻さない
+    if (data.player1_giveup || data.player2_giveup) {
+      return;
+    }
+
     if (data.player1_strategy_ready && data.player2_strategy_ready) {
       return;
     }
