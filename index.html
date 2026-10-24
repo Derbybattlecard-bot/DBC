@@ -68,7 +68,6 @@
       flex-direction: column;
     }
 
-    /* 1. バックグラウンド 横断幕エリア */
     .paddock-banner-track {
       height: 38px;
       background: #09170c;
@@ -115,7 +114,6 @@
     .banner-blue { background: linear-gradient(135deg, #0d47a1, #1976d2); text-shadow: 0 1px 2px #000; }
     .banner-gold { background: linear-gradient(135deg, #b78103, #e5b839); color: #111; text-shadow: 0 1px 0 rgba(255,255,255,0.4); border-color: #ffd700; }
 
-    /* 2. パドックメインエリア */
     .paddock-main-stage {
       position: relative;
       min-height: 160px;
@@ -244,7 +242,6 @@
       margin-top: 2px;
     }
     
-    /* 拡大版 馬のグラフィック表現 */
     .ace-horse-illustration-wrapper {
       position: relative;
       display: flex;
@@ -268,7 +265,6 @@
       100% { transform: translateX(-6px) scaleX(1); }
     }
 
-    /* 3. パドック下部ステータス */
     .paddock-stats-row {
       position: relative;
       z-index: 2;
@@ -327,7 +323,7 @@
       text-shadow: 0 0 1px rgba(183, 129, 3, 0.3);
     }
 
-    /* --- スロット風ボーナスエリア (機能はカードボーナス保持) --- */
+    /* --- スロット枠風ログインボーナスエリア --- */
     .slot-bonus-container {
       background: #111;
       border: 3px solid #e5b839;
@@ -357,12 +353,13 @@
     .slot-led-status {
       font-size: 10px;
       font-weight: bold;
-      color: #00ff66;
-      background: #002200;
       padding: 2px 6px;
       border-radius: 4px;
-      border: 1px solid #00ff66;
+      border: 1px solid currentColor;
     }
+    .led-ready { color: #00ff66; background: #002200; }
+    .led-claimed { color: #ff9800; background: #331a00; }
+    .led-fever { color: #ff00ff; background: #330033; text-shadow: 0 0 5px #ff00ff; }
 
     .slot-machine-body {
       background: linear-gradient(180deg, #1f1f1f 0%, #0a0a0a 100%);
@@ -372,7 +369,6 @@
       box-shadow: inset 0 0 10px #000;
     }
 
-    /* ボーナスカード配置エリア */
     .cards-container { display: flex; justify-content: space-between; gap: 6px; }
     .bonus-card {
       flex: 1;
@@ -388,6 +384,7 @@
       box-sizing: border-box;
       text-align: left;
       box-shadow: inset 0 0 6px rgba(0,0,0,0.3);
+      cursor: pointer;
     }
     .bonus-card.empty {
       background: #111;
@@ -397,6 +394,7 @@
       align-items: center;
       justify-content: center;
       text-align: center;
+      cursor: default;
     }
     .bonus-card-header {
       display: flex;
@@ -467,6 +465,7 @@
       letter-spacing: -0.5px;
     }
     .bonus-ability-btn.empty { visibility: hidden; }
+    
     .bonus-msg { 
       margin-top: 8px; 
       font-size: 10px; 
@@ -476,6 +475,12 @@
       border-radius: 4px; 
       border: 1px solid #e5b839; 
     }
+    .bonus-msg.complete {
+      color: #00ff66;
+      border-color: #00ff66;
+      background: rgba(0, 255, 102, 0.1);
+    }
+    
     .bonus-claim-btn {
       margin-top: 8px;
       background: linear-gradient(180deg, #ffd700 0%, #b78103 100%);
@@ -488,6 +493,11 @@
       cursor: pointer;
       box-shadow: 0 4px 6px rgba(0,0,0,0.4);
       letter-spacing: 1px;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .bonus-claim-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px 3px rgba(0,0,0,0.4);
     }
     .bonus-claim-btn:disabled {
       background: #333;
@@ -495,9 +505,10 @@
       border-color: #555;
       cursor: not-allowed;
       box-shadow: none;
+      transform: none;
     }
 
-    /* リーチ演出 */
+    /* リーチ演出（完全維持） */
     .bonus-card.reach-slot {
       display: flex;
       flex-direction: column;
@@ -506,6 +517,7 @@
       text-align: center;
       padding: 4px;
       border-radius: 6px;
+      cursor: default;
     }
     .reach-level-1 {
       background: linear-gradient(135deg, #fff0f0 0%, #ffe6e6 100%);
@@ -595,22 +607,9 @@
       letter-spacing: -0.5px;
       white-space: nowrap;
     }
-
-    .btn-dark-green {
-      background: linear-gradient(135deg, #2d6a37, #1b4d23);
-      border: 1px solid #143b1a;
-      color: #ffffff;
-    }
-    .btn-light-green {
-      background: linear-gradient(135deg, #449e54, #2c773a);
-      border: 1px solid #1e5227;
-      color: #ffffff;
-    }
-    .btn-gold {
-      background: linear-gradient(135deg, #d4af37, #aa820a);
-      border: 1px solid #785a02;
-      color: #ffffff;
-    }
+    .btn-dark-green { background: linear-gradient(135deg, #2d6a37, #1b4d23); border: 1px solid #143b1a; color: #ffffff; }
+    .btn-light-green { background: linear-gradient(135deg, #449e54, #2c773a); border: 1px solid #1e5227; color: #ffffff; }
+    .btn-gold { background: linear-gradient(135deg, #d4af37, #aa820a); border: 1px solid #785a02; color: #ffffff; }
 
     /* --- デッキ表示領域 --- */
     .deck-section {
@@ -726,15 +725,13 @@
           </div>
           <div class="ace-horse-info">
             <span class="ace-horse-tag">🏇 MAIN ACE HORSE</span>
-            <span class="ace-horse-name" id="aceHorseNameDisplay">読み込み中...</span>
+            <span class="ace-horse-name" id="aceHorseNameDisplay">未設定</span>
             <span class="ace-coat-tag" id="aceHorseCoatDisplay">毛色: -</span>
           </div>
         </div>
         
-        <!-- 動的カラーリング拡大馬イラスト -->
         <div class="ace-horse-illustration-wrapper">
           <svg class="ace-horse-svg" id="aceHorseSvg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-            <!-- 馬のシルエット/頭部デザイン -->
             <path id="horseCoatPath" d="M 25 75 C 20 60 25 40 40 30 C 45 25 50 15 55 10 C 60 10 65 15 65 20 C 65 25 60 30 65 35 C 75 35 85 45 80 60 C 75 75 60 80 50 80 C 35 80 28 78 25 75 Z" fill="#6a3813" stroke="#222" stroke-width="2"/>
             <path id="horseManePath" d="M 50 10 C 45 18 42 28 45 38 C 38 42 35 52 38 65 C 32 68 28 72 26 76" fill="none" stroke="#111" stroke-width="4" stroke-linecap="round"/>
             <circle cx="62" cy="22" r="3" fill="#000"/>
@@ -769,11 +766,11 @@
     </div>
   </div>
 
-  <!-- スロットデザイン風 DAILY LOGIN BONUS (機能保持) -->
+  <!-- スロットデザイン風 DAILY LOGIN BONUS -->
   <div class="slot-bonus-container" id="loginBonusSection">
     <div class="slot-header">
       <div class="slot-title">🎰 DAILY LOGIN BONUS</div>
-      <div class="slot-led-status" id="slotStatusLed">READY</div>
+      <div class="slot-led-status led-ready" id="slotStatusLed">READY</div>
     </div>
 
     <div class="slot-machine-body">
@@ -852,10 +849,13 @@
 
 <script type="module">
   import { auth, db } from './firebase-config.js';
-  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-  import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { doc, getDoc, setDoc, collection, getCountFromServer, increment, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  
+  import { cardRenderer } from './js/card_renderer.js';
+  import { drawBonusCard, getGenYearLastDigit, playFourthCornerCutIn, getGenerationYear } from './js/login_bonus.js';
 
-  // 毛色に応じたカラーマップ
+  // --- 毛色マッピング (Paddock Graphic用) ---
   const coatColorMap = {
     '鹿毛': { body: '#7b3f00', mane: '#1a0d00' },
     '黒鹿毛': { body: '#4a2500', mane: '#0f0500' },
@@ -867,19 +867,87 @@
     '白毛': { body: '#f0f4f8', mane: '#dbe3ea' }
   };
 
-  // ログインボーナス用サンプルカードリスト
-  const sampleCardPool = [
-    { name: 'ディープインパクト', year: '2005', rarity: 'UR', style: '差し', track: '芝10', dist: '2000-3200m', abilities: ['英雄の跳躍', '電光石火', '終盤爆発'] },
-    { name: 'オルフェーヴル', year: '2011', rarity: 'SSR', style: '追込', track: '芝10', dist: '2000-3000m', abilities: ['黄金の精神', '荒ぶる魂', '直線一気'] },
-    { name: 'コントレイル', year: '2020', rarity: 'SSR', style: '先行', track: '芝9', dist: '1800-2400m', abilities: ['無敗の血統', '完璧な立ち回り', 'スパート'] },
-    { name: 'キタサンブラック', year: '2016', rarity: 'SSR', style: '逃げ', track: '芝9', dist: '1800-3200m', abilities: ['まつり", "逃走本能', 'スタミナ特化'] },
-    { name: 'アーモンドアイ', year: '2018', rarity: 'UR', style: '差し', track: '芝10', dist: '1600-2400m', abilities: ['九冠女王', '絶対的速さ', 'マイル・中距離'] }
-  ];
+  let globalUserData = null;
+  let currentUser = null;
+  let activeDeckIndex = 0;
+  let isClaimingBonus = false;
 
-  // ユーザーデータ保持用変数
-  let currentUserData = null;
-  let currentUid = null;
-  let activeDeckIndex = 1;
+  // --- ヘルパー関数群 ---
+  function getTurfVal(horse) { return Number(horse.turf_potential ?? horse.turf) || 0; }
+  function getDirtVal(horse) { return Number(horse.dirt_potential ?? horse.dirt) || 0; }
+  function getSurfaceText(horse) {
+    const t = getTurfVal(horse);
+    const d = getDirtVal(horse);
+    if (t > 0 && d > 0) return t === d ? `芝/ダ${t}` : `芝${t}ダ${d}`;
+    if (t > 0) return `芝${t}`;
+    if (d > 0) return `ダ${d}`;
+    return "-";
+  }
+
+  function formatAptitudeSimple(horse) {
+    const turf = Number(horse.turf_potential ?? horse.turf ?? 0);
+    const dirt = Number(horse.dirt_potential ?? horse.dirt ?? 0);
+    if (turf > 0 && dirt > 0) return `芝${turf} ダ${dirt}`;
+    if (turf > 0) return `芝${turf}`;
+    if (dirt > 0) return `ダ${dirt}`;
+    return "-";
+  }
+
+  function getDistanceLinesHtml(horse) {
+    const min = horse.min_distance || horse.distance_min;
+    const max = horse.max_distance || horse.distance_max;
+    if (min && max) { return `<div>${min}m - ${max}m</div>`; }
+    if (horse.distance) {
+      const parts = String(horse.distance).split('-');
+      if (parts.length === 2) return `<div>${parts[0]}m - ${parts[1]}m</div>`;
+      return `<div>${horse.distance}</div>`;
+    }
+    return `<div>-</div>`;
+  }
+
+  function getAbilityBadgeHtml(horse) {
+    let abilities = [];
+    if (Array.isArray(horse.ability)) { abilities = horse.ability; }
+    else if (typeof horse.ability === 'string' && horse.ability) { abilities = [horse.ability]; }
+    else if (horse.skill) { abilities = Array.isArray(horse.skill) ? horse.skill : [horse.skill]; }
+
+    let html = '<div class="bonus-abilities-row">';
+    for (let i = 0; i < 3; i++) {
+      if (abilities[i]) {
+        const label = String(abilities[i]).substring(0, 3);
+        html += `<div class="bonus-ability-btn" title="${abilities[i]}">${label}</div>`;
+      } else {
+        html += `<div class="bonus-ability-btn empty">---</div>`;
+      }
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function createRadarSvgForHorse(horse) {
+    const getVal = (val) => {
+      if (typeof val === 'number') return val;
+      return cardRenderer.rankToValue ? cardRenderer.rankToValue(val) : 0;
+    };
+    const paramsObj = {
+      spdVal: getVal(horse.speed),
+      stmVal: getVal(horse.stamina),
+      shpVal: getVal(horse.sharp ?? horse.sharpness),
+      jzkVal: getVal(horse.jizoku),
+      gutVal: getVal(horse.guts)
+    };
+    const styleName = horse.style || horse.running_style || 'default';
+    return cardRenderer.generateRadarSVG ? cardRenderer.generateRadarSVG(paramsObj, styleName) : '';
+  }
+
+  function getHorseScore(horse) {
+    if (!horse) return 0;
+    const getVal = (val) => {
+      if (typeof val === 'number') return val;
+      return cardRenderer.rankToValue ? cardRenderer.rankToValue(val) : 0;
+    };
+    return getVal(horse.speed) + getVal(horse.stamina) + getVal(horse.sharp ?? horse.sharpness) + getVal(horse.jizoku) + getVal(horse.guts);
+  }
 
   function updateAceHorseGraphic(coatName) {
     const colors = coatColorMap[coatName] || coatColorMap['鹿毛'];
@@ -889,222 +957,476 @@
     if (manePath) manePath.setAttribute('stroke', colors.mane);
   }
 
-  // --- タブ切り替え処理 ---
-  document.getElementById('tabMain1').addEventListener('click', () => switchDeckTab(1));
-  document.getElementById('tabMain2').addEventListener('click', () => switchDeckTab(2));
-
-  function switchDeckTab(tabNum) {
-    activeDeckIndex = tabNum;
-    document.getElementById('tabMain1').classList.toggle('active', tabNum === 1);
-    document.getElementById('tabMain2').classList.toggle('active', tabNum === 2);
-
-    const deckKey = `mainDeck${tabNum}`;
-    const deckNameKey = `deckName${tabNum}`;
-
-    if (currentUserData && currentUserData[deckKey] && currentUserData[deckKey].length > 0) {
-      document.getElementById('deckNameDisplay').textContent = `✏️ ${currentUserData[deckNameKey] || 'デッキ' + tabNum}`;
-      renderRaceTable(currentUserData[deckKey]);
-      updateAceHorseDisplay(currentUserData[deckKey][0]);
-    } else {
-      // データの読み込みがない・空の場合のフォールバック
-      if (tabNum === 1) {
-        document.getElementById('deckNameDisplay').textContent = '✏️ デッキ1: 王道芝中長距離';
-        const fallback1 = [
-          { name: 'ディープインパクト', coat: '鹿毛', style: '差し', track: '芝10', dist: '2000-3200m' },
-          { name: 'オルフェーヴル', coat: '栗毛', style: '追込', track: '芝10', dist: '2000-3000m' },
-          { name: 'キタサンブラック', coat: '鹿毛', style: '逃げ', track: '芝9', dist: '1800-3200m' },
-          { name: 'ウオッカ', coat: '鹿毛', style: '先行', track: '芝9', dist: '1600-2400m' }
-        ];
-        renderRaceTable(fallback1);
-        updateAceHorseDisplay(fallback1[0]);
-      } else {
-        document.getElementById('deckNameDisplay').textContent = '✏️ デッキ2: ダート＆短距離特化';
-        const fallback2 = [
-          { name: 'クロフネ', coat: '芦毛', style: '先行', track: 'ダ10', dist: '1200-2000m' },
-          { name: 'ロードカナロア', coat: '鹿毛', style: '先行', track: '芝10', dist: '1200-1600m' },
-          { name: 'カネヒキリ', coat: '栗毛', style: '差し', track: 'ダ9', dist: '1600-2100m' },
-          { name: 'タイキシャトル', coat: '栗毛', style: '先行', track: '芝9', dist: '1200-1600m' }
-        ];
-        renderRaceTable(fallback2);
-        updateAceHorseDisplay(fallback2[0]);
-      }
-    }
-  }
-
-  function updateAceHorseDisplay(ace) {
-    if (!ace) return;
-    document.getElementById('aceHorseNameDisplay').textContent = ace.name || 'メイン馬';
-    document.getElementById('aceHorseCoatDisplay').textContent = `毛色: ${ace.coat || '鹿毛'}`;
-    updateAceHorseGraphic(ace.coat);
-  }
-
-  // --- 初期設定＆データ取得 ---
+  // --- 初期化処理 ---
   onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      currentUid = user.uid;
-      document.getElementById('userNameText').textContent = `👤 ${user.displayName || 'オーナー馬主'}`;
-      await loadUserData(user.uid);
-    } else {
-      currentUid = null;
-      document.getElementById('userNameText').textContent = '👤 ゲスト馬主';
-      loadFallbackData();
+    if (!user) {
+      window.location.href = 'auth.html';
+      return;
+    }
+    currentUser = user;
+    try {
+      const [userDoc] = await Promise.all([
+        getDoc(doc(db, "users", user.uid)),
+        cardRenderer.init().catch(err => { console.error("cardRendererの初期化エラー:", err); })
+      ]);
+
+      if (!userDoc.exists()) {
+        window.location.href = 'setup.html';
+        return;
+      }
+      globalUserData = userDoc.data();
+
+      renderUserProfile();
+      renderSelectedDeck();
+      await renderRecord(); 
+      await checkAndRenderLoginBonus();
+    } catch (err) {
+      console.error("初期化エラー:", err);
+      document.getElementById('userNameText').textContent = "⚠️ 初期化エラー";
+      alert("初期化に失敗しました。マスターデータおよびネットワーク環境をご確認ください。");
     }
   });
 
-  function loadFallbackData() {
-    currentUserData = null;
-    document.getElementById('statTotalWins').textContent = '127勝';
-    document.getElementById('statStreakInfo').textContent = '8連勝/15';
-    document.getElementById('statMax1stVal').textContent = '84回';
-    document.getElementById('statCardTypes').textContent = '320枚';
-
-    switchDeckTab(1);
-    setupBonusSection(false);
+  function renderUserProfile() {
+    const name = globalUserData.display_name || globalUserData.displayName || currentUser.displayName || "ゲスト";
+    document.getElementById('userNameText').innerHTML = `👤 ${name}`;
   }
 
-  async function loadUserData(uid) {
+  async function renderRecord() {
+    const totalWins = globalUserData.total_wins || 0;
+    
+    const chCurr = globalUserData.challenge_current_streak || 0;
+    const chMax = globalUserData.challenge_max_streak || 0;
+    const svCurr = globalUserData.survival_current_streak || 0;
+    const svMax = globalUserData.survival_max_streak || 0;
+    const currentStreak = Math.max(chCurr, svCurr);
+    const maxStreak = Math.max(chMax, svMax);
+
+    const challengeMax1st = globalUserData.max_1st_places || 0;
+    const survivalMax1st = globalUserData.survival_bests?.max_1st?.c1 || 0;
+    let max1stVal = Math.max(challengeMax1st, survivalMax1st);
+
+    const badgeArea = document.getElementById('userBadgeArea');
+    const badges = globalUserData.survival_badges || {};
+    
+    let badgeHtml = `🏆 挑戦者`;
+    if (totalWins >= 100) badgeHtml = `👑 殿堂馬主`;
+    else if (totalWins >= 50) badgeHtml = `🌟 サバイバー`;
+    else if (totalWins >= 30) badgeHtml = `⚔️ 猛者`;
+    if (badges.clear) badgeHtml += ` 🛡️`;
+    badgeArea.innerHTML = badgeHtml;
+
+    document.getElementById('statTotalWins').textContent = `${totalWins}勝`;
+    document.getElementById('statStreakInfo').textContent = `${currentStreak}/${maxStreak}`;
+    document.getElementById('statMax1stTag').textContent = "最多1着";
+    document.getElementById('statMax1stVal').textContent = `${max1stVal}回`;
+
     try {
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      if (userDoc.exists()) {
-        currentUserData = userDoc.data();
-        document.getElementById('statTotalWins').textContent = `${currentUserData.totalWins || 0}勝`;
-        document.getElementById('statStreakInfo').textContent = `${currentUserData.currentStreak || 0}連勝/${currentUserData.maxStreak || 0}`;
-        document.getElementById('statMax1stVal').textContent = `${currentUserData.max1stCount || 0}回`;
-        document.getElementById('statCardTypes').textContent = `${currentUserData.cardCount || 0}枚`;
-
-        switchDeckTab(1);
-        checkLoginBonusStatus(currentUserData);
-      } else {
-        loadFallbackData();
-      }
-    } catch (e) {
-      console.error("Firestore読み込みエラー:", e);
-      loadFallbackData();
+      const collRef = collection(db, `users/${currentUser.uid}/inventory`);
+      const snapshot = await getCountFromServer(collRef);
+      document.getElementById('statCardTypes').textContent = `${snapshot.data().count}種`;
+    } catch (error) {
+      document.getElementById('statCardTypes').textContent = `-種`;
     }
   }
 
-  function renderRaceTable(horses) {
-    const tbody = document.getElementById('raceTableBody');
-    const marks = ['◎', '○', '▲', '△'];
-    tbody.innerHTML = horses.map((h, i) => `
-      <tr>
-        <td>${i + 1}</td>
-        <td>${marks[i] || '－'}</td>
-        <td style="text-align:left; padding-left:10px;">${h.name}</td>
-        <td>${h.style || '自在'}</td>
-        <td>${h.track || '芝8'}</td>
-        <td>${h.dist || '1600-2000m'}</td>
-      </tr>
-    `).join('');
-  }
+  // --- ログインボーナスロジック (完全維持 + 新UI統合) ---
+  async function checkAndRenderLoginBonus() {
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    
+    let bonusState = globalUserData.login_bonus_state || {
+      last_date: "", today_cards: [], fever_qualified_next_day: false, is_fever_today: false, last_claim_time: 0
+    };
 
-  // --- ログインボーナス機能 ---
-  function checkLoginBonusStatus(userData) {
-    const today = new Date().toISOString().slice(0, 10);
-    const lastClaim = userData.lastBonusClaimDate;
-
-    if (lastClaim === today) {
-      setupBonusSection(true, userData.todayBonusCards || sampleCardPool.slice(0, 3));
-    } else {
-      setupBonusSection(false);
+    if (bonusState.last_date !== todayStr) {
+      bonusState = {
+        last_date: todayStr,
+        today_cards: [],
+        fever_qualified_next_day: false,
+        is_fever_today: Boolean(bonusState.fever_qualified_next_day),
+        last_claim_time: 0
+      };
+      await setDoc(doc(db, "users", currentUser.uid), { login_bonus_state: bonusState }, { merge: true });
+      globalUserData.login_bonus_state = bonusState;
     }
+    renderBonusUI(bonusState);
   }
 
-  function setupBonusSection(alreadyClaimed, claimedCards = null) {
-    const led = document.getElementById('slotStatusLed');
-    const msgBox = document.getElementById('bonusMessageContainer');
-    const btnBox = document.getElementById('bonusBtnContainer');
-
-    if (alreadyClaimed) {
-      led.textContent = "CLAIMED";
-      led.style.color = "#ff9800";
-      led.style.borderColor = "#ff9800";
-      led.style.background = "#331a00";
-      msgBox.innerHTML = `<div class="bonus-msg">本日のログインボーナスは受取済みです。明日またお越しください！</div>`;
-      btnBox.innerHTML = `<button class="bonus-claim-btn" disabled>明日をお楽しみに！</button>`;
-      renderBonusCards(claimedCards || sampleCardPool.slice(0, 3));
-    } else {
-      led.textContent = "READY";
-      led.style.color = "#00ff66";
-      led.style.borderColor = "#00ff66";
-      led.style.background = "#002200";
-      msgBox.innerHTML = '';
-      btnBox.innerHTML = `<button class="bonus-claim-btn" id="claimBonusBtn">🎁 今日のログインボーナスを受け取る</button>`;
-      
-      // 未受け取り時はプレビューカードを表示
-      renderBonusCards(sampleCardPool.slice(0, 3));
-
-      document.getElementById('claimBonusBtn').addEventListener('click', claimDailyBonus);
-    }
+  function parseTimestamp(val) {
+    if (!val) return 0;
+    if (typeof val === 'number') return val;
+    if (val.toMillis) return val.toMillis();
+    return val.seconds ? val.seconds * 1000 : 0;
   }
 
-  async function claimDailyBonus() {
-    const btn = document.getElementById('claimBonusBtn');
-    btn.disabled = true;
-    btn.textContent = "抽選中...";
-
-    const led = document.getElementById('slotStatusLed');
-    led.textContent = "SPINNING";
-    led.style.color = "#ffff00";
-
-    // 演出用ランダム表示
-    let count = 0;
-    const interval = setInterval(() => {
-      const shuffled = [...sampleCardPool].sort(() => 0.5 - Math.random()).slice(0, 3);
-      renderBonusCards(shuffled);
-      count++;
-      if (count > 10) {
-        clearInterval(interval);
-        finalizeBonusClaim();
-      }
-    }, 100);
-  }
-
-  async function finalizeBonusClaim() {
-    const today = new Date().toISOString().slice(0, 10);
-    const rewardCards = sampleCardPool.slice(0, 3);
-    renderBonusCards(rewardCards);
-
-    if (currentUid && auth.currentUser) {
-      try {
-        const userRef = doc(db, 'users', currentUid);
-        await updateDoc(userRef, {
-          lastBonusClaimDate: today,
-          todayBonusCards: rewardCards
-        });
-      } catch (err) {
-        console.error("ボーナス保存エラー:", err);
-      }
-    }
-
-    setupBonusSection(true, rewardCards);
-  }
-
-  function renderBonusCards(cards) {
+  function renderBonusUI(state) {
     const container = document.getElementById('bonusCardsContainer');
-    container.innerHTML = cards.map((c, i) => `
-      <div class="bonus-card">
-        <div class="bonus-card-header">
-          <span class="slot-num">SLOT ${i + 1}</span>
-          <span class="gen-year">'${c.year ? c.year.slice(-2) : '00'}</span>
-          <span class="rarity">${c.rarity || 'SSR'}</span>
-        </div>
-        <div class="bonus-card-name">${c.name}</div>
-        <div class="bonus-card-body">
-          <div class="bonus-card-details">
-            <div>脚質: ${c.style || '自在'}</div>
-            <div>適性: ${c.track || '芝'}</div>
-          </div>
-          <svg class="bonus-radar-box" viewBox="0 0 40 40">
-            <polygon points="20,5 35,15 30,35 10,35 5,15" fill="rgba(229,184,57,0.3)" stroke="#e5b839" stroke-width="1.5"/>
-          </svg>
-        </div>
-        <div class="bonus-abilities-row">
-          ${(c.abilities || ['アビリティ1', 'アビリティ2', 'アビリティ3']).map(a => `<div class="bonus-ability-btn" title="${a}">${a}</div>`).join('')}
-        </div>
-      </div>
-    `).join('');
+    const msgContainer = document.getElementById('bonusMessageContainer');
+    const btnContainer = document.getElementById('bonusBtnContainer');
+    const led = document.getElementById('slotStatusLed');
+    
+    container.innerHTML = ''; msgContainer.innerHTML = ''; btnContainer.innerHTML = '';
+
+    const cards = state.today_cards || [];
+    let reachLevel = 0;
+    let matchTexts = [];
+
+    // リーチ判定ロジック
+    if (cards.length === 2) {
+      const h1 = cardRenderer.getHorse ? cardRenderer.getHorse(cards[0].horse_id) : null;
+      const h2 = cardRenderer.getHorse ? cardRenderer.getHorse(cards[1].horse_id) : null;
+
+      if (h1 && h2) {
+        const d1 = getGenYearLastDigit(cards[0].horse_id);
+        const d2 = getGenYearLastDigit(cards[1].horse_id);
+        if (d1 === d2 && d1 !== null) { reachLevel++; matchTexts.push(`世代[${d1}]`); }
+        
+        if (cards[0].rarity === cards[1].rarity) { reachLevel++; matchTexts.push(`レアリティ[${cards[0].rarity}]`); }
+        
+        const s1 = h1.style || h1.running_style || "不明";
+        const s2 = h2.style || h2.running_style || "不明";
+        if (s1 === s2 && s1 !== "不明") { reachLevel++; matchTexts.push(`脚質[${s1}]`); }
+        
+        const p1 = getHorseScore(h1);
+        const p2 = getHorseScore(h2);
+        if (p1 === p2 && p1 > 0) { reachLevel++; matchTexts.push(`ポテンシャル`); }
+      }
+    }
+
+    // カード描画
+    for (let i = 0; i < 3; i++) {
+      if (i < cards.length) {
+        const item = cards[i];
+        const horse = cardRenderer.getHorse ? cardRenderer.getHorse(item.horse_id) : null;
+        
+        const fullYear = getGenerationYear(horse || item.horse_id);
+        const genYear = (fullYear && fullYear !== '----') ? fullYear.slice(-2) : '--';
+        const lastDigit = getGenYearLastDigit(item.horse_id);
+        const horseName = horse ? horse.name : item.horse_id;
+
+        if (horse) {
+          const surfaceText = getSurfaceText(horse);
+          const distLinesHtml = getDistanceLinesHtml(horse);
+          const abilitiesHtml = getAbilityBadgeHtml(horse);
+          const radarSvgHtml = createRadarSvgForHorse(horse);
+
+          container.innerHTML += `
+            <div class="bonus-card obtained" onclick="openCardDetail('${item.horse_id}')">
+              <div class="bonus-card-header">
+                <span class="slot-num">SLOT ${i + 1}</span>
+                <span class="gen-year">'${genYear}</span>
+                <span class="rarity">${item.rarity}</span>
+              </div>
+              <div class="bonus-card-name" title="${horseName}">${horseName}</div>
+              <div class="bonus-card-body">
+                <div class="bonus-card-details">
+                  <div>脚質: ${horse.style || horse.running_style || '-'}</div>
+                  <div>適性: ${surfaceText}</div>
+                  ${distLinesHtml}
+                </div>
+                <div class="bonus-radar-box">
+                  ${radarSvgHtml}
+                </div>
+              </div>
+              ${abilitiesHtml}
+            </div>`;
+        } else {
+          container.innerHTML += `
+            <div class="bonus-card obtained" onclick="openCardDetail('${item.horse_id}')">
+              <div class="bonus-card-header">
+                <span class="slot-num">SLOT ${i + 1}</span>
+                <span class="gen-year">'${genYear}</span>
+                <span class="rarity">${item.rarity}</span>
+              </div>
+              <div class="bonus-card-name" title="${horseName}">${horseName}</div>
+              <div style="font-size:10px; color:#888; margin:auto;">データ取得中</div>
+            </div>`;
+        }
+      } else {
+        if (i === 2 && reachLevel > 0) {
+          let rClass = `reach-level-${reachLevel}`;
+          let rTitle = "";
+          let rDesc = "";
+          
+          if (reachLevel === 1) { rTitle = "🔥 リーチ!! 🔥"; rDesc = "3枚目も揃えば<br>明日確変発生！"; } 
+          else if (reachLevel === 2) { rTitle = "🔥🔥 ダブルリーチ!! 🔥🔥"; rDesc = "激アツ！3枚目も揃えば<br>明日確変発生！"; } 
+          else if (reachLevel === 3) { rTitle = "💥 トリプルリーチ!!! 💥"; rDesc = "超激アツ！3枚目も揃えば<br>明日確変発生！"; } 
+          else if (reachLevel === 4) { rTitle = "🌈 クワドラプルリーチ!!!! 🌈"; rDesc = "奇跡の4要素一致！<br>次も揃えば確変確定！"; }
+
+          container.innerHTML += `
+            <div class="bonus-card reach-slot ${rClass}">
+              <div class="reach-title">${rTitle}</div>
+              <div class="reach-desc">${rDesc}</div>
+              <div class="reach-matches">${matchTexts.join(' / ')}</div>
+            </div>`;
+        } else {
+          container.innerHTML += `<div class="bonus-card empty">${i + 1}枚目 未獲得</div>`;
+        }
+      }
+    }
+
+    const diffMs = Date.now() - parseTimestamp(state.last_claim_time);
+    const ONE_HOUR_MS = 3600000;
+
+    // LEDとボタン・メッセージの状態管理
+    if (cards.length < 3) {
+      if (cards.length === 0 || diffMs >= ONE_HOUR_MS) {
+        const isFever = (cards.length === 0 && state.is_fever_today);
+        
+        led.textContent = isFever ? "FEVER" : "READY";
+        led.className = `slot-led-status ${isFever ? 'led-fever' : 'led-ready'}`;
+        
+        btnContainer.innerHTML = `<button class="bonus-claim-btn" id="claimBtn">${isFever ? "🔥 確変ボーナスを受け取る！" : `🎁 ${cards.length + 1}枚目を受け取る`}</button>`;
+        document.getElementById('claimBtn').onclick = claimLoginBonus;
+        
+        if (isFever) msgContainer.innerHTML = `<div class="bonus-msg">✨ 前日のスロット達成特典適用中！レアカード確定！ ✨</div>`;
+      } else {
+        led.textContent = "WAIT";
+        led.className = "slot-led-status led-claimed";
+        const minLeft = Math.ceil((ONE_HOUR_MS - diffMs) / 60000);
+        msgContainer.innerHTML = `<div class="bonus-msg">⏰ 次のボーナス獲得まで あと約${minLeft}分</div>`;
+        btnContainer.innerHTML = `<button class="bonus-claim-btn" disabled>獲得までお待ちください</button>`;
+      }
+    } else {
+      led.textContent = "CLAIMED";
+      led.className = "slot-led-status led-claimed";
+      if (state.fever_qualified_next_day) {
+        msgContainer.innerHTML = `<div class="bonus-msg complete">✨ マルチスロット達成！明日の1枚目は確変確定！ ✨</div>`;
+      } else {
+        msgContainer.innerHTML = `<div class="bonus-msg complete">本日のログインボーナスはすべて獲得済みです</div>`;
+      }
+      btnContainer.innerHTML = `<button class="bonus-claim-btn" disabled>明日をお楽しみに！</button>`;
+    }
   }
+
+  async function claimLoginBonus() {
+    if (isClaimingBonus) return;
+    isClaimingBonus = true;
+
+    const btn = document.getElementById('claimBtn');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerText = "⏳ 処理中...";
+    }
+
+    const userRef = doc(db, "users", currentUser.uid);
+    let chosenHorse = null;
+    let isFeverClaim = false;
+    let isMultiReachSuccess = false;
+    let newStateForUI = null;
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const userDoc = await transaction.get(userRef);
+        if (!userDoc.exists()) throw new Error("ユーザーデータが存在しません");
+
+        const data = userDoc.data();
+        let state = data.login_bonus_state || {};
+        
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const nowMs = now.getTime();
+
+        if (state.last_date !== todayStr) {
+          state = { last_date: todayStr, today_cards: [], fever_qualified_next_day: false, is_fever_today: Boolean(state.fever_qualified_next_day), last_claim_time: 0 };
+        }
+
+        const cards = state.today_cards || [];
+
+        if (cards.length >= 3) throw new Error("本日のログインボーナスはすべて獲得済みです。");
+        if (cards.length > 0) {
+          const diffMs = nowMs - parseTimestamp(state.last_claim_time);
+          if (diffMs < 3600000) throw new Error("次のボーナス獲得まで1時間経過していません。");
+        }
+
+        isFeverClaim = (cards.length === 0 && Boolean(state.is_fever_today));
+        chosenHorse = drawBonusCard(cardRenderer, globalUserData.affiliation, isFeverClaim);
+
+        if (!chosenHorse || !chosenHorse.horse_id) throw new Error("カードデータの取得に失敗しました。");
+
+        const inventoryRef = doc(db, `users/${currentUser.uid}/inventory/${chosenHorse.horse_id}`);
+        const invDoc = await transaction.get(inventoryRef);
+
+        const newCardData = { horse_id: chosenHorse.horse_id, rarity: chosenHorse.rarity, timestamp: nowMs };
+        const newCardsArray = [...cards, newCardData];
+        state.today_cards = newCardsArray;
+        state.last_claim_time = nowMs;
+
+        if (newCardsArray.length === 3) {
+          const h1 = cardRenderer.getHorse ? cardRenderer.getHorse(newCardsArray[0].horse_id) : null;
+          const h2 = cardRenderer.getHorse ? cardRenderer.getHorse(newCardsArray[1].horse_id) : null;
+          const h3 = cardRenderer.getHorse ? cardRenderer.getHorse(newCardsArray[2].horse_id) : null;
+
+          if (h1 && h2 && h3) {
+            const d1 = getGenYearLastDigit(newCardsArray[0].horse_id);
+            const d2 = getGenYearLastDigit(newCardsArray[1].horse_id);
+            const d3 = getGenYearLastDigit(newCardsArray[2].horse_id);
+            
+            const r1 = newCardsArray[0].rarity;
+            const r2 = newCardsArray[1].rarity;
+            const r3 = newCardsArray[2].rarity;
+
+            const s1 = h1.style || h1.running_style || "不明";
+            const s2 = h2.style || h2.running_style || "不明";
+            const s3 = h3.style || h3.running_style || "不明";
+
+            const p1 = getHorseScore(h1);
+            const p2 = getHorseScore(h2);
+            const p3 = getHorseScore(h3);
+
+            if (
+              (d1 === d2 && d2 === d3 && d1 !== null) ||
+              (r1 === r2 && r2 === r3) ||
+              (s1 === s2 && s2 === s3 && s1 !== "不明") ||
+              (p1 === p2 && p2 === p3 && p1 > 0)
+            ) {
+              state.fever_qualified_next_day = true;
+              isMultiReachSuccess = true;
+            }
+          }
+        }
+
+        newStateForUI = { ...state };
+        const newCount = invDoc.exists() ? (invDoc.data().count || 0) + 1 : 1;
+
+        transaction.set(userRef, { login_bonus_state: state }, { merge: true });
+        transaction.set(inventoryRef, { count: newCount, obtained_at: new Date().toISOString() }, { merge: true });
+      });
+
+      globalUserData.login_bonus_state = newStateForUI;
+
+      if (typeof playFourthCornerCutIn === 'function') {
+        await playFourthCornerCutIn(chosenHorse, cardRenderer);
+      }
+      
+      if (isMultiReachSuccess) {
+        alert("🎉 おめでとうございます！3枚の要素が揃い、明日の確変が確定しました！ 🎉");
+      }
+
+      renderBonusUI(newStateForUI);
+      renderRecord();
+
+    } catch (err) {
+      console.error("ログインボーナス処理失敗:", err);
+      alert(err.message || "通信エラーが発生しました。時間を置いて再度お試しください。");
+      renderBonusUI(globalUserData.login_bonus_state);
+    } finally {
+      isClaimingBonus = false; 
+    }
+  }
+
+  // --- デッキ表示ロジック ---
+  function switchTab(idx) {
+    activeDeckIndex = idx;
+    document.getElementById('tabMain1').className = `main-tab ${idx === 0 ? 'active' : ''}`;
+    document.getElementById('tabMain2').className = `main-tab ${idx === 1 ? 'active' : ''}`;
+    renderSelectedDeck();
+  }
+
+  function renderSelectedDeck() {
+    const decks = globalUserData.decks || [{ deck_name: "メインデッキ 1", horse_ids: [] }, { deck_name: "メインデッキ 2", horse_ids: [] }];
+    const deck = decks[activeDeckIndex] || { deck_name: "未設定", horse_ids: [] };
+    document.getElementById('deckNameDisplay').textContent = `✏️ ${deck.deck_name || "メインデッキ"}`;
+    
+    const tbody = document.getElementById('raceTableBody');
+    if (!deck.horse_ids || deck.horse_ids.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="color:#888; padding:12px;">デッキが設定されていません</td></tr>';
+      
+      // パドックのエース馬リセット
+      document.getElementById('aceHorseNameDisplay').textContent = '未設定';
+      document.getElementById('aceHorseCoatDisplay').textContent = '毛色: -';
+      return;
+    }
+
+    const horsesData = deck.horse_ids.map((hId, originalIndex) => {
+      const horse = cardRenderer.getHorse ? cardRenderer.getHorse(hId) : null;
+      if (!horse) return { hId, originalIndex, horse: null, score: 0 };
+      const score = getHorseScore(horse);
+      return { hId, originalIndex, horse, score };
+    });
+
+    const validHorses = horsesData.filter(item => item.horse !== null);
+    validHorses.sort((a, b) => b.score - a.score);
+
+    // パドックのエース馬表示を更新 (スコア最上位の馬)
+    if (validHorses.length > 0) {
+      const aceHorse = validHorses[0].horse;
+      document.getElementById('aceHorseNameDisplay').textContent = aceHorse.name || '不明';
+      const coat = aceHorse.coat || aceHorse.hair_color || '鹿毛';
+      document.getElementById('aceHorseCoatDisplay').textContent = `毛色: ${coat}`;
+      updateAceHorseGraphic(coat);
+    } else {
+      document.getElementById('aceHorseNameDisplay').textContent = '未設定';
+      document.getElementById('aceHorseCoatDisplay').textContent = '毛色: -';
+    }
+
+    const markMap = new Map();
+    validHorses.forEach((item, rank) => {
+      let mark = 'ー';
+      if (rank === 0) mark = '<span style="color:#e60000; font-weight:bold;">◎</span>';
+      else if (rank === 1) mark = '<span style="color:#e60000; font-weight:bold;">◯</span>';
+      else if (rank === 2) mark = '<span style="color:#1a73e8; font-weight:bold;">▲</span>';
+      else if (rank === 3 || rank === 4) mark = '<span style="color:#2d6a37; font-weight:bold;">△</span>';
+      else if (rank === 5) mark = '<span style="color:#c29b1d; font-weight:bold;">注</span>';
+      markMap.set(item.hId, mark);
+    });
+
+    const rowsHtml = horsesData.map((item) => {
+      const { hId, originalIndex, horse } = item;
+      const frameNum = originalIndex + 1;
+
+      if (!horse) {
+        return `<tr><td>${frameNum}</td><td>ー</td><td style="text-align:left; padding-left:4px;">${hId}</td><td>-</td><td>-</td><td>-</td></tr>`;
+      }
+
+      const name = horse.name || hId;
+      const mark = markMap.get(hId) || 'ー';
+      const style = horse.style || horse.running_style || horse.leg_style || '-';
+      const aptitude = formatAptitudeSimple(horse);
+
+      let distance = '-';
+      if (cardRenderer.getDistanceText) {
+        const res = cardRenderer.getDistanceText(horse);
+        if (res && res !== '-' && res !== 'undefined') distance = res;
+      }
+      if (distance === '-') {
+        if (horse.distance) {
+          distance = typeof horse.distance === 'number' ? `${horse.distance}m` : horse.distance;
+        } else if (horse.min_distance && horse.max_distance) {
+          distance = `${horse.min_distance}-${horse.max_distance}m`;
+        }
+      }
+
+      return `<tr>
+        <td><strong>${frameNum}</strong></td>
+        <td>${mark}</td>
+        <td style="text-align:left; padding-left:15px; font-weight:bold;">${name}</td>
+        <td>${style}</td>
+        <td>${aptitude}</td>
+        <td>${distance}</td>
+      </tr>`;
+    }).join('');
+
+    tbody.innerHTML = rowsHtml;
+  }
+
+  document.getElementById('tabMain1').onclick = () => switchTab(0);
+  document.getElementById('tabMain2').onclick = () => switchTab(1);
+
+  // --- モーダル ---
+  window.openCardDetail = (horseId) => {
+    if (!cardRenderer) return;
+    const cardHtml = cardRenderer.renderCardUI(horseId, 'large');
+    document.getElementById('cardDetailBox').innerHTML = cardHtml;
+    document.getElementById('cardDetailModal').classList.add('active');
+  };
+
+  document.getElementById('cardDetailModal').addEventListener('click', (e) => {
+    if (e.target.id === 'cardDetailModal') {
+      document.getElementById('cardDetailModal').classList.remove('active');
+    }
+  });
 </script>
 </body>
 </html>
