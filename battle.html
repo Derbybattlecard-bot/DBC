@@ -809,7 +809,8 @@
       // チャレンジモードは30勝超えて（30勝以上で）からの表示
       if (totalWins >= 30) {
         let rateDisplay = "未記録";
-        if (typeof globalUserData.challenge_best_win_rate === 'number') {
+        // challenge_best_race_wins が保存されている正規データのみ表示（旧バグデータは未記録として扱う）
+        if (typeof globalUserData.challenge_best_win_rate === 'number' && typeof globalUserData.challenge_best_race_wins === 'number') {
           const rate = globalUserData.challenge_best_win_rate.toFixed(1);
           const rankSum = globalUserData.challenge_best_rank_sum ?? '-';
           const c1 = globalUserData.challenge_best_c1 ?? 0;
@@ -852,7 +853,7 @@
       // サバイバルモードはアンロックされてから（50勝以上で）の表示
       if (totalWins >= 50) {
         let rateDisplay = "未記録";
-        if (typeof globalUserData.survival_best_win_rate === 'number') {
+        if (typeof globalUserData.survival_best_win_rate === 'number' && typeof globalUserData.survival_best_race_wins === 'number') {
           const rate = globalUserData.survival_best_win_rate.toFixed(1);
           const rankSum = globalUserData.survival_best_rank_sum ?? '-';
           const c1 = globalUserData.survival_best_c1 ?? 0;
@@ -860,11 +861,6 @@
           const c3 = globalUserData.survival_best_c3 ?? 0;
           const c4 = globalUserData.survival_best_c4Plus ?? 0;
           rateDisplay = `${rate}% ${rankSum}着 (${c1}-${c2}-${c3}-${c4})`;
-        } else if (svBests.max_1st?.c1 !== undefined) {
-          const r = svBests.max_1st;
-          const rate = ((r.c1 / 15) * 100).toFixed(1);
-          const c4 = r.c4Plus !== undefined ? r.c4Plus : (15 - (r.c1 + (r.c2 ?? 0) + (r.c3 ?? 0)));
-          rateDisplay = `${rate}% ${r.rank_sum}着 (${r.c1}-${r.c2 ?? 0}-${r.c3 ?? 0}-${c4})`;
         }
 
         svHtml += `
@@ -1095,17 +1091,19 @@
         globalUserData.max_1st_places = newMax1st;
       }
 
-      // 勝ち抜いたシリーズ全戦の着順集計
+      // 勝ち抜いたシリーズ全戦の着順および先着勝利数の集計
       const roundResults = status.round_results || {};
       const playedRoundsCount = Object.keys(roundResults).length;
       const totalRacesPlayedInSeries = playedRoundsCount * 5;
       
+      let totalRaceWins = 0; // CPUに先着して勝利したレース数の合計
       let totalC1 = 0, totalC2 = 0, totalC3 = 0, totalC4Plus = 0, totalRankSum = 0;
       let actualTeamPotentialSum = 0, maxLimitPotentialSum = 0;
       const lineup = status.series_lineup || [];
 
       Object.keys(roundResults).forEach(key => {
         const res = roundResults[key];
+        totalRaceWins += res.myWins || 0; // CPU先着勝利数
         totalC1 += res.r1 || 0;
         totalC2 += res.r2 || 0;
         totalC3 += res.r3 || 0;
@@ -1114,9 +1112,9 @@
         actualTeamPotentialSum += res.teamPotential || 0;
       });
 
-      // 勝ち抜いた時の勝率（レース勝率）の計算
+      // 勝ち抜いた時の勝率（CPU先着レース数 ÷ 総レース数）
       const totalRacesForRate = isSurvival ? 15 : totalRacesPlayedInSeries;
-      const currentWinRate = totalRacesForRate > 0 ? Number(((totalC1 / totalRacesForRate) * 100).toFixed(1)) : 0;
+      const currentWinRate = totalRacesForRate > 0 ? Number(((totalRaceWins / totalRacesForRate) * 100).toFixed(1)) : 0;
 
       // サバイバル達成時の実績・自己ベスト記録
       let survivalBestsUpdate = null;
@@ -1188,20 +1186,22 @@
 
         if (isBetter) {
           userUpdateObj.survival_best_win_rate = currentWinRate;
+          userUpdateObj.survival_best_race_wins = totalRaceWins;
+          userUpdateObj.survival_best_total_races = 15;
           userUpdateObj.survival_best_rank_sum = totalRankSum;
           userUpdateObj.survival_best_c1 = totalC1;
           userUpdateObj.survival_best_c2 = totalC2;
           userUpdateObj.survival_best_c3 = totalC3;
           userUpdateObj.survival_best_c4Plus = totalC4Plus;
-          userUpdateObj.survival_best_total_races = 15;
 
           globalUserData.survival_best_win_rate = currentWinRate;
+          globalUserData.survival_best_race_wins = totalRaceWins;
+          globalUserData.survival_best_total_races = 15;
           globalUserData.survival_best_rank_sum = totalRankSum;
           globalUserData.survival_best_c1 = totalC1;
           globalUserData.survival_best_c2 = totalC2;
           globalUserData.survival_best_c3 = totalC3;
           globalUserData.survival_best_c4Plus = totalC4Plus;
-          globalUserData.survival_best_total_races = 15;
         }
       } else {
         const prevBestRate = globalUserData.challenge_best_win_rate ?? -1;
@@ -1210,20 +1210,22 @@
 
         if (isBetter) {
           userUpdateObj.challenge_best_win_rate = currentWinRate;
+          userUpdateObj.challenge_best_race_wins = totalRaceWins;
+          userUpdateObj.challenge_best_total_races = totalRacesForRate;
           userUpdateObj.challenge_best_rank_sum = totalRankSum;
           userUpdateObj.challenge_best_c1 = totalC1;
           userUpdateObj.challenge_best_c2 = totalC2;
           userUpdateObj.challenge_best_c3 = totalC3;
           userUpdateObj.challenge_best_c4Plus = totalC4Plus;
-          userUpdateObj.challenge_best_total_races = totalRacesForRate;
 
           globalUserData.challenge_best_win_rate = currentWinRate;
+          globalUserData.challenge_best_race_wins = totalRaceWins;
+          globalUserData.challenge_best_total_races = totalRacesForRate;
           globalUserData.challenge_best_rank_sum = totalRankSum;
           globalUserData.challenge_best_c1 = totalC1;
           globalUserData.challenge_best_c2 = totalC2;
           globalUserData.challenge_best_c3 = totalC3;
           globalUserData.challenge_best_c4Plus = totalC4Plus;
-          globalUserData.challenge_best_total_races = totalRacesForRate;
         }
       }
 
