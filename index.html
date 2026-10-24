@@ -779,7 +779,7 @@
     <div class="slot-machine-body">
       <div class="cards-container" id="bonusCardsContainer"></div>
       <div id="bonusMessageContainer"></div>
-      <div id="bonusBtnContainer"></div>
+      <div id="bonusBtnContainer" style="margin-top: 8px;"></div>
     </div>
   </div>
 
@@ -867,6 +867,20 @@
     '白毛': { body: '#f0f4f8', mane: '#dbe3ea' }
   };
 
+  // ログインボーナス用サンプルカードリスト
+  const sampleCardPool = [
+    { name: 'ディープインパクト', year: '2005', rarity: 'UR', style: '差し', track: '芝10', dist: '2000-3200m', abilities: ['英雄の跳躍', '電光石火', '終盤爆発'] },
+    { name: 'オルフェーヴル', year: '2011', rarity: 'SSR', style: '追込', track: '芝10', dist: '2000-3000m', abilities: ['黄金の精神', '荒ぶる魂', '直線一気'] },
+    { name: 'コントレイル', year: '2020', rarity: 'SSR', style: '先行', track: '芝9', dist: '1800-2400m', abilities: ['無敗の血統', '完璧な立ち回り', 'スパート'] },
+    { name: 'キタサンブラック', year: '2016', rarity: 'SSR', style: '逃げ', track: '芝9', dist: '1800-3200m', abilities: ['まつり", "逃走本能', 'スタミナ特化'] },
+    { name: 'アーモンドアイ', year: '2018', rarity: 'UR', style: '差し', track: '芝10', dist: '1600-2400m', abilities: ['九冠女王', '絶対的速さ', 'マイル・中距離'] }
+  ];
+
+  // ユーザーデータ保持用変数
+  let currentUserData = null;
+  let currentUid = null;
+  let activeDeckIndex = 1;
+
   function updateAceHorseGraphic(coatName) {
     const colors = coatColorMap[coatName] || coatColorMap['鹿毛'];
     const coatPath = document.getElementById('horseCoatPath');
@@ -875,68 +889,96 @@
     if (manePath) manePath.setAttribute('stroke', colors.mane);
   }
 
-  // --- ダミーデータ/初期設定＆描画処理 ---
+  // --- タブ切り替え処理 ---
+  document.getElementById('tabMain1').addEventListener('click', () => switchDeckTab(1));
+  document.getElementById('tabMain2').addEventListener('click', () => switchDeckTab(2));
+
+  function switchDeckTab(tabNum) {
+    activeDeckIndex = tabNum;
+    document.getElementById('tabMain1').classList.toggle('active', tabNum === 1);
+    document.getElementById('tabMain2').classList.toggle('active', tabNum === 2);
+
+    const deckKey = `mainDeck${tabNum}`;
+    const deckNameKey = `deckName${tabNum}`;
+
+    if (currentUserData && currentUserData[deckKey] && currentUserData[deckKey].length > 0) {
+      document.getElementById('deckNameDisplay').textContent = `✏️ ${currentUserData[deckNameKey] || 'デッキ' + tabNum}`;
+      renderRaceTable(currentUserData[deckKey]);
+      updateAceHorseDisplay(currentUserData[deckKey][0]);
+    } else {
+      // データの読み込みがない・空の場合のフォールバック
+      if (tabNum === 1) {
+        document.getElementById('deckNameDisplay').textContent = '✏️ デッキ1: 王道芝中長距離';
+        const fallback1 = [
+          { name: 'ディープインパクト', coat: '鹿毛', style: '差し', track: '芝10', dist: '2000-3200m' },
+          { name: 'オルフェーヴル', coat: '栗毛', style: '追込', track: '芝10', dist: '2000-3000m' },
+          { name: 'キタサンブラック', coat: '鹿毛', style: '逃げ', track: '芝9', dist: '1800-3200m' },
+          { name: 'ウオッカ', coat: '鹿毛', style: '先行', track: '芝9', dist: '1600-2400m' }
+        ];
+        renderRaceTable(fallback1);
+        updateAceHorseDisplay(fallback1[0]);
+      } else {
+        document.getElementById('deckNameDisplay').textContent = '✏️ デッキ2: ダート＆短距離特化';
+        const fallback2 = [
+          { name: 'クロフネ', coat: '芦毛', style: '先行', track: 'ダ10', dist: '1200-2000m' },
+          { name: 'ロードカナロア', coat: '鹿毛', style: '先行', track: '芝10', dist: '1200-1600m' },
+          { name: 'カネヒキリ', coat: '栗毛', style: '差し', track: 'ダ9', dist: '1600-2100m' },
+          { name: 'タイキシャトル', coat: '栗毛', style: '先行', track: '芝9', dist: '1200-1600m' }
+        ];
+        renderRaceTable(fallback2);
+        updateAceHorseDisplay(fallback2[0]);
+      }
+    }
+  }
+
+  function updateAceHorseDisplay(ace) {
+    if (!ace) return;
+    document.getElementById('aceHorseNameDisplay').textContent = ace.name || 'メイン馬';
+    document.getElementById('aceHorseCoatDisplay').textContent = `毛色: ${ace.coat || '鹿毛'}`;
+    updateAceHorseGraphic(ace.coat);
+  }
+
+  // --- 初期設定＆データ取得 ---
   onAuthStateChanged(auth, async (user) => {
     if (user) {
+      currentUid = user.uid;
       document.getElementById('userNameText').textContent = `👤 ${user.displayName || 'オーナー馬主'}`;
-      // Firestore連携想定の実データ反映
-      loadUserData(user.uid);
+      await loadUserData(user.uid);
     } else {
+      currentUid = null;
       document.getElementById('userNameText').textContent = '👤 ゲスト馬主';
       loadFallbackData();
     }
   });
 
   function loadFallbackData() {
+    currentUserData = null;
     document.getElementById('statTotalWins').textContent = '127勝';
     document.getElementById('statStreakInfo').textContent = '8連勝/15';
     document.getElementById('statMax1stVal').textContent = '84回';
     document.getElementById('statCardTypes').textContent = '320枚';
 
-    const firstHorse = { name: 'ディープインパクト', coat: '鹿毛', style: '差し', track: '芝10', dist: '2000-3200m' };
-    document.getElementById('aceHorseNameDisplay').textContent = firstHorse.name;
-    document.getElementById('aceHorseCoatDisplay').textContent = `毛色: ${firstHorse.coat}`;
-    updateAceHorseGraphic(firstHorse.coat);
-
-    document.getElementById('deckNameDisplay').textContent = '✏️ デッキ1: 王道芝中長距離';
-    renderRaceTable([
-      firstHorse,
-      { name: 'オルフェーヴル', coat: '栗毛', style: '追込', track: '芝10', dist: '2000-3000m' },
-      { name: 'キタサンブラック', coat: '鹿毛', style: '逃げ', track: '芝9', dist: '1800-3200m' },
-      { name: 'ウオッカ', coat: '鹿毛', style: '先行', track: '芝9', dist: '1600-2400m' }
-    ]);
-
-    renderBonusCards([
-      { year: '2005', name: 'ディープインパクト', rarity: 'UR' },
-      { year: '2011', name: 'オルフェーヴル', rarity: 'SSR' },
-      { year: '2020', name: 'コントレイル', rarity: 'SSR' }
-    ]);
+    switchDeckTab(1);
+    setupBonusSection(false);
   }
 
   async function loadUserData(uid) {
     try {
       const userDoc = await getDoc(doc(db, 'users', uid));
       if (userDoc.exists()) {
-        const data = userDoc.data();
-        document.getElementById('statTotalWins').textContent = `${data.totalWins || 0}勝`;
-        document.getElementById('statStreakInfo').textContent = `${data.currentStreak || 0}連勝/${data.maxStreak || 0}`;
-        document.getElementById('statMax1stVal').textContent = `${data.max1stCount || 0}回`;
-        document.getElementById('statCardTypes').textContent = `${data.cardCount || 0}枚`;
+        currentUserData = userDoc.data();
+        document.getElementById('statTotalWins').textContent = `${currentUserData.totalWins || 0}勝`;
+        document.getElementById('statStreakInfo').textContent = `${currentUserData.currentStreak || 0}連勝/${currentUserData.maxStreak || 0}`;
+        document.getElementById('statMax1stVal').textContent = `${currentUserData.max1stCount || 0}回`;
+        document.getElementById('statCardTypes').textContent = `${currentUserData.cardCount || 0}枚`;
 
-        if (data.mainDeck1 && data.mainDeck1.length > 0) {
-          const ace = data.mainDeck1[0];
-          document.getElementById('aceHorseNameDisplay').textContent = ace.name || 'メイン馬';
-          document.getElementById('aceHorseCoatDisplay').textContent = `毛色: ${ace.coat || '鹿毛'}`;
-          updateAceHorseGraphic(ace.coat);
-          renderRaceTable(data.mainDeck1);
-        } else {
-          loadFallbackData();
-        }
+        switchDeckTab(1);
+        checkLoginBonusStatus(currentUserData);
       } else {
         loadFallbackData();
       }
     } catch (e) {
-      console.error(e);
+      console.error("Firestore読み込みエラー:", e);
       loadFallbackData();
     }
   }
@@ -956,6 +998,88 @@
     `).join('');
   }
 
+  // --- ログインボーナス機能 ---
+  function checkLoginBonusStatus(userData) {
+    const today = new Date().toISOString().slice(0, 10);
+    const lastClaim = userData.lastBonusClaimDate;
+
+    if (lastClaim === today) {
+      setupBonusSection(true, userData.todayBonusCards || sampleCardPool.slice(0, 3));
+    } else {
+      setupBonusSection(false);
+    }
+  }
+
+  function setupBonusSection(alreadyClaimed, claimedCards = null) {
+    const led = document.getElementById('slotStatusLed');
+    const msgBox = document.getElementById('bonusMessageContainer');
+    const btnBox = document.getElementById('bonusBtnContainer');
+
+    if (alreadyClaimed) {
+      led.textContent = "CLAIMED";
+      led.style.color = "#ff9800";
+      led.style.borderColor = "#ff9800";
+      led.style.background = "#331a00";
+      msgBox.innerHTML = `<div class="bonus-msg">本日のログインボーナスは受取済みです。明日またお越しください！</div>`;
+      btnBox.innerHTML = `<button class="bonus-claim-btn" disabled>明日をお楽しみに！</button>`;
+      renderBonusCards(claimedCards || sampleCardPool.slice(0, 3));
+    } else {
+      led.textContent = "READY";
+      led.style.color = "#00ff66";
+      led.style.borderColor = "#00ff66";
+      led.style.background = "#002200";
+      msgBox.innerHTML = '';
+      btnBox.innerHTML = `<button class="bonus-claim-btn" id="claimBonusBtn">🎁 今日のログインボーナスを受け取る</button>`;
+      
+      // 未受け取り時はプレビューカードを表示
+      renderBonusCards(sampleCardPool.slice(0, 3));
+
+      document.getElementById('claimBonusBtn').addEventListener('click', claimDailyBonus);
+    }
+  }
+
+  async function claimDailyBonus() {
+    const btn = document.getElementById('claimBonusBtn');
+    btn.disabled = true;
+    btn.textContent = "抽選中...";
+
+    const led = document.getElementById('slotStatusLed');
+    led.textContent = "SPINNING";
+    led.style.color = "#ffff00";
+
+    // 演出用ランダム表示
+    let count = 0;
+    const interval = setInterval(() => {
+      const shuffled = [...sampleCardPool].sort(() => 0.5 - Math.random()).slice(0, 3);
+      renderBonusCards(shuffled);
+      count++;
+      if (count > 10) {
+        clearInterval(interval);
+        finalizeBonusClaim();
+      }
+    }, 100);
+  }
+
+  async function finalizeBonusClaim() {
+    const today = new Date().toISOString().slice(0, 10);
+    const rewardCards = sampleCardPool.slice(0, 3);
+    renderBonusCards(rewardCards);
+
+    if (currentUid && auth.currentUser) {
+      try {
+        const userRef = doc(db, 'users', currentUid);
+        await updateDoc(userRef, {
+          lastBonusClaimDate: today,
+          todayBonusCards: rewardCards
+        });
+      } catch (err) {
+        console.error("ボーナス保存エラー:", err);
+      }
+    }
+
+    setupBonusSection(true, rewardCards);
+  }
+
   function renderBonusCards(cards) {
     const container = document.getElementById('bonusCardsContainer');
     container.innerHTML = cards.map((c, i) => `
@@ -963,24 +1087,23 @@
         <div class="bonus-card-header">
           <span class="slot-num">SLOT ${i + 1}</span>
           <span class="gen-year">'${c.year ? c.year.slice(-2) : '00'}</span>
-          <span class="rarity">${c.rarity}</span>
+          <span class="rarity">${c.rarity || 'SSR'}</span>
         </div>
         <div class="bonus-card-name">${c.name}</div>
         <div class="bonus-card-body">
           <div class="bonus-card-details">
-            <div>能力: A+</div>
-            <div>適性: 芝/中距離</div>
+            <div>脚質: ${c.style || '自在'}</div>
+            <div>適性: ${c.track || '芝'}</div>
           </div>
           <svg class="bonus-radar-box" viewBox="0 0 40 40">
             <polygon points="20,5 35,15 30,35 10,35 5,15" fill="rgba(229,184,57,0.3)" stroke="#e5b839" stroke-width="1.5"/>
           </svg>
         </div>
+        <div class="bonus-abilities-row">
+          ${(c.abilities || ['アビリティ1', 'アビリティ2', 'アビリティ3']).map(a => `<div class="bonus-ability-btn" title="${a}">${a}</div>`).join('')}
+        </div>
       </div>
     `).join('');
-
-    document.getElementById('bonusBtnContainer').innerHTML = `
-      <button class="bonus-claim-btn">🎁 今日のログインボーナスを受け取る</button>
-    `;
   }
 </script>
 </body>
