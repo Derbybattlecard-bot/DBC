@@ -711,7 +711,15 @@ const LAP_PATTERNS = [
   { id: "LP_07", name: "ドスロー・完全前残り型", pace: "スローペース", desc: "単騎マイペースで終始楽走 ➔ 直線ヨーイドン。前が全く止まらない物理前残り決着。", has_rest: true, rest_bonus: 32, lead_consumption_mult: 0.50, jizoku_weight: 0.30, sharp_weight: 0.45, stamina_weight: 0.20 }
 ];
 
-// 3. 着差（秒差）の競馬公認テキスト変換
+// 3. 馬場状態（芝・ダート）の物理抵抗＆時計減速係数
+const TRACK_CONDITION_EFFECTS = {
+  "良":   { base_3f_add: 0.0, sharp_mult: 1.00, lead_drain_mult: 1.00, jizoku_mult: 1.00, desc: "標準良馬場・キレ味全開" },
+  "稍重": { base_3f_add: 0.6, sharp_mult: 0.85, lead_drain_mult: 1.10, jizoku_mult: 1.08, desc: "ややタフ・持続力重視" },
+  "重":   { base_3f_add: 1.4, sharp_mult: 0.65, lead_drain_mult: 1.25, jizoku_mult: 1.18, desc: "時計の掛かる重馬場・スタミナ消耗" },
+  "不良": { base_3f_add: 2.4, sharp_mult: 0.40, lead_drain_mult: 1.45, jizoku_mult: 1.28, desc: "泥田の消耗戦・キレ味大幅減衰" }
+};
+
+// 4. 着差（秒差）の競馬公認テキスト変換
 function getMarginText(sec) {
   if (sec <= 0.005) return "ー";
   if (sec <= 0.04) return "ハナ";
@@ -888,6 +896,7 @@ async function fetchJsonSafe(filename) {
 // 4. コア物理計算関数（エネルギー収支 ＆ ラップ波形シミュレーション）
 function simulateRacePhysics(horsesList, lapPattern, distance = 3000) {
   const distFactor = (distance || 2400) / 2400.0;
+  const trackEff = TRACK_CONDITION_EFFECTS[trackCondition] || TRACK_CONDITION_EFFECTS["良"];
 
   const scoredHorses = horsesList.map((h, idx) => {
     const stObj = RUNNING_STYLES.find(s => s.name === h.style) || RUNNING_STYLES[2];
@@ -903,7 +912,7 @@ function simulateRacePhysics(horsesList, lapPattern, distance = 3000) {
     const gateEffect = (gateNum - 9) * 0.008;
     const c4Gap = Math.max(0.0, baseC4 + spdEffect + gateEffect);
 
-    // エネルギー消費（前借り）
+    // エネルギー消費（前借り ＋ 馬場抵抗負荷）
     const initialEnergy = h.stamina * 5.2;
     let leadCost = Math.max(4.0, (1.8 - Math.min(1.8, c4Gap)) * 16.0);
     if (h.style === "主張逃げ") {
@@ -912,7 +921,11 @@ function simulateRacePhysics(horsesList, lapPattern, distance = 3000) {
     } else if (h.style === "マイペース逃げ") {
       leadCost *= 0.90;
     }
-    const borrowCost = leadCost * lapPattern.lead_consumption_mult * distFactor;
+
+    // 操縦性による道悪バランス保持（操縦性が高い馬は道悪での余分なエネルギーロスを軽減）
+    const gutsGrip = Math.max(0.65, 1.0 - (h.guts - 15.0) * 0.05);
+    const trackDrainFactor = 1.0 + (trackEff.lead_drain_mult - 1.0) * gutsGrip;
+    const borrowCost = leadCost * lapPattern.lead_consumption_mult * distFactor * trackDrainFactor;
 
     // 中盤の息入れ（回復）
     let energyRecovered = 0.0;
@@ -922,15 +935,16 @@ function simulateRacePhysics(horsesList, lapPattern, distance = 3000) {
       else if (h.style === "マイペース逃げ") recEff *= 1.15;
       else if (h.style === "先行なだれ込み" || h.style === "中団瞬発") recEff *= 1.10;
       else if (h.style === "主張逃げ") recEff *= 0.82;
-      energyRecovered = lapPattern.rest_bonus * recEff;
+      const trackRestMod = (trackCondition === "不良") ? 0.75 : (trackCondition === "重" ? 0.85 : 1.0);
+      energyRecovered = lapPattern.rest_bonus * recEff * trackRestMod;
     }
 
     const remainingEnergy = initialEnergy - borrowCost + energyRecovered;
 
-    // 直線の上がり3F計算
-    const base3f = (distance >= 3000) ? 34.6 : 34.1;
-    const sharpBonus = (h.sharp - 15.0) * 0.28 * lapPattern.sharp_weight;
-    const jizokuBonus = (h.jizoku - 15.0) * 0.20 * lapPattern.jizoku_weight * distFactor;
+    // 直線の上がり3F計算（馬場ごとの時計加算 ＆ 瞬発力・持続力の比重スライド）
+    const base3f = ((distance >= 3000) ? 34.6 : 34.1) + trackEff.base_3f_add;
+    const sharpBonus = (h.sharp - 15.0) * 0.28 * lapPattern.sharp_weight * trackEff.sharp_mult;
+    const jizokuBonus = (h.jizoku - 15.0) * 0.20 * lapPattern.jizoku_weight * distFactor * trackEff.jizoku_mult;
 
     let gasOut = 0.0;
     let freshBonus = 0.0;
@@ -944,9 +958,9 @@ function simulateRacePhysics(horsesList, lapPattern, distance = 3000) {
 
     let styleBurstMod = 0.0;
     if ((h.style === "中団瞬発" || h.style === "直線一気") && remainingEnergy >= 50.0) {
-      styleBurstMod = -0.15 * lapPattern.sharp_weight;
+      styleBurstMod = -0.15 * lapPattern.sharp_weight * trackEff.sharp_mult;
     } else if (h.style === "先行なだれ込み") {
-      styleBurstMod = -0.08 * lapPattern.jizoku_weight;
+      styleBurstMod = -0.08 * lapPattern.jizoku_weight * trackEff.jizoku_mult;
     }
 
     const actual3f = base3f - sharpBonus - jizokuBonus + gasOut + freshBonus - clearanceBonus + styleBurstMod;
@@ -1307,6 +1321,23 @@ function calculatePaceProbabilities() {
     }
   } else {
     patternProbs = { "LP_01": 0.25, "LP_02": 0.35, "LP_03": 0.20, "LP_04": 0.05, "LP_05": 0.15, "LP_06": 0.0, "LP_07": 0.0 };
+  }
+
+  // 馬場状態の悪化に伴う展開確率の物理自動シフト
+  if (trackCondition === "重" || trackCondition === "不良") {
+    patternProbs["LP_01"] = (patternProbs["LP_01"] || 0) + (trackCondition === "不良" ? 0.12 : 0.08);
+    patternProbs["LP_05"] = (patternProbs["LP_05"] || 0) + 0.10;
+    patternProbs["LP_03"] = (patternProbs["LP_03"] || 0) + 0.05;
+    patternProbs["LP_06"] = Math.max(0.0, (patternProbs["LP_06"] || 0) - 0.15);
+    patternProbs["LP_07"] = Math.max(0.0, (patternProbs["LP_07"] || 0) - 0.08);
+
+    const sumP = Object.values(patternProbs).reduce((a, b) => a + b, 0) || 1.0;
+    for (const k in patternProbs) patternProbs[k] = patternProbs[k] / sumP;
+  } else if (trackCondition === "稍重") {
+    patternProbs["LP_05"] = (patternProbs["LP_05"] || 0) + 0.05;
+    patternProbs["LP_06"] = Math.max(0.0, (patternProbs["LP_06"] || 0) - 0.05);
+    const sumP = Object.values(patternProbs).reduce((a, b) => a + b, 0) || 1.0;
+    for (const k in patternProbs) patternProbs[k] = patternProbs[k] / sumP;
   }
 
   return { patternProbs, leadHorses };
@@ -1809,6 +1840,8 @@ window.setTrackCondition = function(cond) {
   trackCondition = cond;
   setTrackConditionUI(cond);
   calculateAllBranchesDeterministic(true);
+  const eff = TRACK_CONDITION_EFFECTS[cond] || TRACK_CONDITION_EFFECTS["良"];
+  document.getElementById('log-content').innerHTML = `🌧️ <strong>馬場状態を「${cond}」（${eff.desc}）に変更しました！</strong><br><span style="font-size:11px; color:#cbd5e1;">上り3F基準:+${eff.base_3f_add}s ｜ 瞬発力有効度:${Math.round(eff.sharp_mult*100)}% ｜ スタミナ負荷:${eff.lead_drain_mult}倍 ｜ 持続力重視:${eff.jizoku_mult}倍 で再計算しました。</span>`;
 };
 
 function setTrackConditionUI(cond) {
@@ -2623,6 +2656,17 @@ function checkFirstTimeUser() {
           <b>・息入れ（回復）</b>：ラップが12.8秒以上に中弛みした際、操縦性とスタミナに応じてエネルギーが回復！<br>
           <b>・物理着差</b>：<code>4コーナー秒差 ＋ 直線の実走上がり3F ＝ 走破指標</code> で着差（ハナ・アタマ・クビ・馬身差）を完全判定。
         </div>
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-sec-title">🌧️ 馬場状態（良・稍重・重・不良）による物理変化</div>
+        <table class="manual-table">
+          <tr><th style="width:70px;">馬場状態</th><th style="width:90px;">上り3F基準</th><th style="width:100px;">瞬発力(キレ)</th><th style="width:110px;">スタミナ消費負荷</th><th>有利になるタイプ・物理特性</th></tr>
+          <tr><td><b>良</b></td><td>34.6s (基準)</td><td>100%発揮</td><td>1.0倍 (標準)</td><td>キレ味自慢、瞬発力18〜19の差し・追込馬が全開。</td></tr>
+          <tr><td><b>稍重</b></td><td>+0.6s</td><td>85%に減衰</td><td>1.10倍</td><td>好位で立ち回れる操縦性・総合力の高い馬。</td></tr>
+          <tr><td><b>重</b></td><td>+1.4s</td><td>65%に低下</td><td>1.25倍</td><td>持続力・スタミナ特化のステイヤー、先行粘り込み。</td></tr>
+          <tr><td><b>不良</b></td><td>+2.4s</td><td>40% (激減)</td><td>1.45倍 (泥田)</td><td>泥田の我慢比べ。操縦性が高く体幹の崩れない馬が台頭。</td></tr>
+        </table>
       </div>
 
       <div class="modal-section">
