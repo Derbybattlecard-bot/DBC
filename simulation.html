@@ -168,19 +168,31 @@
   @keyframes animLegF2 { 0%, 24.9% { opacity: 0; } 25%, 49.9% { opacity: 1; } 50%, 100% { opacity: 0; } }
   @keyframes animLegF3 { 0%, 49.9% { opacity: 0; } 50%, 100% { opacity: 1; } }
 
+  /* 注目馬オーラ表示（常時光輝き、最前面に表示） */
   @keyframes auraPulseFocus {
-    0% { filter: drop-shadow(0 0 5px #ffd700) drop-shadow(0 0 12px #ffaa00) brightness(1.3); }
-    100% { filter: drop-shadow(0 0 12px #ffff33) drop-shadow(0 0 24px #ff8800) brightness(1.6); }
+    0% { filter: drop-shadow(0 0 6px #ffd700) drop-shadow(0 0 14px #ff9900) brightness(1.35); }
+    100% { filter: drop-shadow(0 0 14px #ffff44) drop-shadow(0 0 26px #ff7700) brightness(1.65); }
+  }
+  .horse-icon.aura-focus {
+    z-index: 120 !important;
   }
   .horse-icon.aura-focus .horse-bounce-wrap {
-    animation: gallopBounce 0.32s ease-in-out infinite alternate, auraPulseFocus 0.5s ease-in-out infinite alternate !important;
+    animation: auraPulseFocus 0.65s ease-in-out infinite alternate !important;
   }
+  #track-container.running .horse-icon.aura-focus .horse-bounce-wrap {
+    animation: gallopBounce 0.32s ease-in-out infinite alternate, auraPulseFocus 0.65s ease-in-out infinite alternate !important;
+  }
+
   .owner-marker {
     position: absolute; top: -14px; left: 48%; transform: translateX(-50%);
     padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 900;
     white-space: nowrap; z-index: 30; box-shadow: 0 2px 5px rgba(0,0,0,0.7); letter-spacing: -0.3px;
   }
-  .owner-marker.focus-marker { background: rgba(90, 70, 10, 0.95); color: #ffd700; border: 1.5px solid #ffcc00; }
+  .owner-marker.focus-marker {
+    background: linear-gradient(135deg, rgba(160, 100, 10, 0.96), rgba(80, 50, 5, 0.96));
+    color: #ffd700; border: 1.5px solid #ffcc00;
+    box-shadow: 0 0 12px rgba(255, 204, 0, 0.85);
+  }
   .horse-icon.dir-ltr .owner-marker { transform: translateX(-50%) scaleX(-1); }
 
   #wipe-overlay {
@@ -221,7 +233,6 @@
   .data-table th, .data-table td { border: 1px solid #222; padding: 5px 4px; text-align: center; vertical-align: middle; }
   .data-table th { background: #1a1a24; color: var(--accent-green); white-space: nowrap; font-size: 10px; }
   .stat-val { font-family: monospace; font-size: 10.5px; font-weight: bold; color: #cbd5e1; }
-  .strat-mini-spec { font-family: monospace; font-size: 9px; color: #93c5fd; margin-top: 2px; display: block; }
 
   .input-stat-edit {
     width: 34px; background: #0f172a; color: #fff; border: 1px solid #334155;
@@ -244,11 +255,6 @@
     padding: 4px 9px; border-radius: 4px; cursor: pointer; transition: all 0.2s;
   }
   .btn-strat-preset:hover { background: #334155; color: #fff; }
-  .btn-strat-preset.random-main {
-    background: linear-gradient(135deg, #2563eb, #1d4ed8); border-color: #60a5fa; color: #fff;
-    box-shadow: 0 2px 6px rgba(37,99,235,0.3); font-size: 11px; padding: 4px 10px;
-  }
-  .btn-strat-preset.random-main:hover { filter: brightness(1.2); }
   .btn-strat-preset.opt-win { background: #854d0e; border-color: #ca8a04; color: #fef08a; }
   .btn-strat-preset.opt-place { background: #1e3a8a; border-color: #3b82f6; color: #93c5fd; }
   .btn-strat-preset.opt-avg { background: #065f46; border-color: #10b981; color: #a7f3d0; }
@@ -257,7 +263,6 @@
     display: inline-block; width: 18px; height: 18px; line-height: 18px; border-radius: 50%;
     font-weight: 900; font-size: 10px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.6);
   }
-  .jockey-cell-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; }
   .jockey-skill-val {
     background: #2a354a; color: #ffd700; border: 1px solid #4a5d7c; border-radius: 3px; font-size: 9px; padding: 0 3px; font-weight: bold; font-family: monospace;
   }
@@ -353,7 +358,7 @@
   .changed-highlight { animation: flashRow 1.0s ease-out; }
   @keyframes flashRow { 0% { background-color: rgba(0, 255, 102, 0.35); } 100% { background-color: transparent; } }
 
-  /* ==================== 📖 マニュアルモーダル スタイル ==================== */
+  /* 📖 マニュアルモーダル スタイル */
   .modal-overlay {
     position: fixed; top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0, 0, 0, 0.85); z-index: 1000;
@@ -410,7 +415,6 @@
     font-size: 12px; font-weight: bold; padding: 6px 16px; cursor: pointer;
   }
   .btn-modal-action:hover { filter: brightness(1.2); }
-
 </style>
 </head>
 <body>
@@ -581,13 +585,11 @@
     <button class="btn-gate-action" style="padding:3px 10px; font-size:10px; margin-left:auto;" onclick="calculateAllBranchesDeterministic(true)">🔄 再計算</button>
   </div>
 
-  <!-- 総括コメント枠 -->
   <div class="analyst-summary-panel" id="analyst-summary-box">
     <div class="analyst-title">🎙️ レース展開アナリストの物理分析総括</div>
     <div id="analyst-comment-text">データ解析中...</div>
   </div>
 
-  <!-- 展開除外フィルター設定パネル -->
   <div class="exclusion-filter-panel">
     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
       <span style="font-size:11.5px; font-weight:bold; color:#facc15;">⚙️ 展開除外モード（検証から外したい展開をチェック）:</span>
@@ -600,7 +602,6 @@
     <div class="exclusion-grid" id="exclusion-chips-container"></div>
   </div>
 
-  <!-- ペース確率予測バー -->
   <div class="pace-forecast-box">
     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
       <span style="font-size:11px; font-weight:bold; color:#facc15;">🔥 現在の18頭の脚質スタイル構成による「ラップ波形発生確率」予測:</span>
@@ -617,7 +618,6 @@
     <button class="tab-btn" id="tabBtnManual" onclick="switchAnalyzerTab('manual')">📖 システム解説書</button>
   </div>
 
-  <!-- タブ1: 展開別 着順マトリクス -->
   <div class="tab-content active" id="tabContentMatrix">
     <div style="font-size:11px; color:#aaa; margin-bottom:6px;">
       ※各展開のラップ波形に対し、4コーナー秒差（位置取り）と直線の上がり3Fを物理加算して着順を算出しています。
@@ -639,7 +639,6 @@
     </div>
   </div>
 
-  <!-- タブ2: 全18頭「勝率・複勝率 ＆ ベスト脚質」早見表 -->
   <div class="tab-content" id="tabContentSummary">
     <div class="summary-kpi-grid" id="summary-kpi-container"></div>
     <div style="margin: 8px 0 6px 0; font-weight:bold; color:var(--accent-green); font-size:11px;">
@@ -663,7 +662,6 @@
     </div>
   </div>
 
-  <!-- タブ3: 個別馬「全8脚質スタイル×展開」相性診断 -->
   <div class="tab-content" id="tabContentCombo">
     <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
       <span style="font-size:12px; font-weight:bold; color:var(--gold-color);">🔍 分析する馬を選択:</span>
@@ -673,7 +671,6 @@
     <div id="karte-display-area"></div>
   </div>
 
-  <!-- タブ4: システム解説書（画面内閲覧用） -->
   <div class="tab-content" id="tabContentManual">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
       <span style="font-size:12px; font-weight:bold; color:var(--gold-color);">📖 物理エンジン設計仕様書 ＆ 総合マニュアル</span>
@@ -737,6 +734,160 @@ function getMarginText(sec) {
   return `${sec.toFixed(1)}s`;
 }
 
+// 5. 勝負服カラーマップ & パース処理（race_result準拠）
+const SILK_COLOR_MAP = {
+  "水色": "#38bdf8", "薄青": "#38bdf8", "空色": "#38bdf8", "水": "#38bdf8",
+  "薄紫": "#a855f7", "紫": "#581c87",
+  "白": "#f8fafc", "黒": "#18181b", "赤": "#dc2626", "青": "#1d4ed8",
+  "黄": "#facc15", "緑": "#15803d", "桃": "#f472b6", "ピンク": "#f472b6",
+  "橙": "#ea580c", "オレンジ": "#ea580c",
+  "海老": "#881337", "えび": "#881337",
+  "鼠": "#64748b", "ねずみ": "#64748b", "灰": "#64748b", "グレー": "#64748b",
+  "茶": "#78350f", "茶色": "#78350f"
+};
+const SORTED_COLOR_NAMES = Object.keys(SILK_COLOR_MAP).sort((a, b) => b.length - a.length);
+
+function extractSilkColor(str) {
+  if (!str) return null;
+  for (const cName of SORTED_COLOR_NAMES) {
+    if (str.includes(cName)) {
+      return { name: cName, hex: SILK_COLOR_MAP[cName] };
+    }
+  }
+  return null;
+}
+
+function parseSilkColors(silkText, gateNum) {
+  const fallback = getGateColors(gateNum);
+  if (!silkText || typeof silkText !== 'string' || silkText.trim() === '' || silkText.trim() === '-') {
+    return {
+      base: fallback.cap,
+      bodyPat: 'none',
+      patCol: fallback.clothText,
+      sleeve: fallback.cap,
+      sleevePat: 'none',
+      sleeveCol: fallback.clothText
+    };
+  }
+
+  const rawParts = silkText.split(/[,，、・/\s]+/).map(s => s.trim()).filter(Boolean);
+  if (rawParts.length === 0) {
+    return {
+      base: fallback.cap, bodyPat: 'none', patCol: fallback.clothText,
+      sleeve: fallback.cap, sleevePat: 'none', sleeveCol: fallback.clothText
+    };
+  }
+
+  let baseColorName = "白";
+  let baseCol = "#f8fafc";
+  const firstColorMatch = extractSilkColor(rawParts[0]);
+  if (firstColorMatch) {
+    baseColorName = firstColorMatch.name;
+    baseCol = firstColorMatch.hex;
+  }
+
+  let sleeveToken = "";
+  let bodyTokens = [];
+
+  rawParts.forEach((part, idx) => {
+    if (idx === 0) {
+      const remaining = part.replace(new RegExp(`^(胴|身頃|地|${baseColorName})+`), '');
+      if (remaining) {
+        if (remaining.includes("袖")) sleeveToken += remaining;
+        else bodyTokens.push(remaining);
+      }
+    } else {
+      if (part.includes("袖")) {
+        sleeveToken += (sleeveToken ? " " : "") + part;
+      } else {
+        bodyTokens.push(part);
+      }
+    }
+  });
+
+  const bodyText = bodyTokens.join(" ");
+  let bodyPat = 'none';
+  let patCol = (baseCol === "#18181b") ? "#facc15" : "#18181b";
+
+  if (bodyText) {
+    if (bodyText.includes("十字襷") || bodyText.includes("十字たすき") || bodyText.includes("十字")) {
+      bodyPat = 'cross_sash';
+    } else if (bodyText.includes("縦縞") || bodyText.includes("縦じま") || bodyText.includes("條")) {
+      bodyPat = 'vertical';
+    } else if (bodyText.includes("鋸歯形") || bodyText.includes("鋸歯") || bodyText.includes("のこぎり") || bodyText.includes("うろこ") || bodyText.includes("鱗")) {
+      bodyPat = 'sawtooth';
+    } else if (bodyText.includes("山形") || bodyText.includes("やまがた")) {
+      bodyPat = 'chevron';
+    } else if (bodyText.includes("二本輪") || bodyText.includes("２本輪") || bodyText.includes("二文字") || bodyText.includes("三本輪") || bodyText.includes("３本輪")) {
+      bodyPat = 'band2';
+    } else if (bodyText.includes("一本輪") || bodyText.includes("１本輪") || bodyText.includes("一文字") || bodyText.includes("帯")) {
+      bodyPat = 'band1';
+    } else if (bodyText.includes("襷") || bodyText.includes("たすき")) {
+      bodyPat = 'sash';
+    } else if (bodyText.includes("玉霰") || bodyText.includes("星散") || bodyText.includes("銭形散") || bodyText.includes("蛇目散") || bodyText.includes("ダイヤモンド") || bodyText.includes("ダイヤ") || bodyText.includes("菱") || bodyText.includes("ロサージ")) {
+      bodyPat = 'diamond';
+    }
+
+    for (const cName of SORTED_COLOR_NAMES) {
+      if (bodyText.includes(cName) && cName !== baseColorName) {
+        patCol = SILK_COLOR_MAP[cName];
+        break;
+      }
+    }
+  }
+
+  let sleeveCol = baseCol;
+  let sleevePat = 'none';
+  let sleevePatCol = patCol;
+
+  if (sleeveToken) {
+    const sleeveMatch = sleeveToken.match(/(.*?)(?:袖)(.*)/);
+    if (sleeveMatch) {
+      const beforeSleeve = sleeveMatch[1];
+      const afterSleeve = sleeveMatch[2];
+
+      const beforeColor = extractSilkColor(beforeSleeve);
+      if (beforeColor) {
+        sleeveCol = beforeColor.hex;
+      }
+
+      const fullSleeveText = sleeveToken;
+      if (fullSleeveText.includes("縦縞") || fullSleeveText.includes("縦じま")) {
+        sleevePat = 'stripe';
+      } else if (fullSleeveText.includes("二本輪") || fullSleeveText.includes("２本輪") || fullSleeveText.includes("三本輪") || fullSleeveText.includes("３本輪")) {
+        sleevePat = 'band2';
+      } else if (fullSleeveText.includes("一本輪") || fullSleeveText.includes("１本輪") || fullSleeveText.includes("一文字")) {
+        sleevePat = 'band1';
+      }
+
+      if (afterSleeve) {
+        const afterColor = extractSilkColor(afterSleeve);
+        if (afterColor) {
+          sleevePatCol = afterColor.hex;
+          if (!beforeColor) {
+            sleeveCol = baseCol;
+          }
+        }
+      }
+    } else {
+      const c = extractSilkColor(sleeveToken);
+      if (c) sleeveCol = c.hex;
+      if (sleeveToken.includes("二本輪") || sleeveToken.includes("三本輪")) sleevePat = 'band2';
+      else if (sleeveToken.includes("一本輪")) sleevePat = 'band1';
+      else if (sleeveToken.includes("縦縞")) sleevePat = 'stripe';
+    }
+  }
+
+  return {
+    base: baseCol,
+    bodyPat: bodyPat,
+    patCol: patCol,
+    sleeve: sleeveCol,
+    sleevePat: sleevePat,
+    sleeveCol: sleevePatCol
+  };
+}
+
 let simRaceData = null;
 let rawHorseList = [];
 let activeHorses = [];
@@ -784,65 +935,6 @@ function getGateColors(gateNum, totalHorses = 18) {
   return GATE_FRAME_COLORS[frame] || GATE_FRAME_COLORS[1];
 }
 
-const SILK_COLOR_MAP = {
-  "水色": "#38bdf8", "薄青": "#38bdf8", "空色": "#38bdf8", "薄紫": "#a855f7", "紫": "#581c87",
-  "白": "#f8fafc", "黒": "#18181b", "赤": "#dc2626", "青": "#1d4ed8", "黄": "#facc15",
-  "緑": "#15803d", "桃": "#f472b6", "ピンク": "#f472b6", "橙": "#ea580c", "オレンジ": "#ea580c",
-  "茶": "#78350f", "海老": "#881337", "鼠": "#64748b"
-};
-
-function extractSilkColor(str) {
-  if (!str) return null;
-  for (const cName of Object.keys(SILK_COLOR_MAP)) {
-    if (str.includes(cName)) return { name: cName, hex: SILK_COLOR_MAP[cName] };
-  }
-  return null;
-}
-
-function parseSilkColors(silkText, gateNum) {
-  const fallback = getGateColors(gateNum);
-  if (!silkText || typeof silkText !== 'string' || silkText.trim() === '' || silkText.trim() === '-') {
-    return { base: fallback.clothBg, bodyPat: 'none', patCol: fallback.clothText, sleeve: fallback.clothBg, sleevePat: 'none', sleeveCol: fallback.clothText };
-  }
-  const rawParts = silkText.split(/[,，、・/\s]+/).map(s => s.trim()).filter(Boolean);
-  let baseCol = "#f8fafc";
-  const firstMatch = extractSilkColor(rawParts[0]);
-  if (firstMatch) baseCol = firstMatch.hex;
-
-  let bodyPat = 'none';
-  let patCol = (baseCol === "#18181b") ? "#facc15" : "#18181b";
-  const fullText = silkText;
-
-  if (fullText.includes("十字襷") || fullText.includes("十字")) bodyPat = 'cross_sash';
-  else if (fullText.includes("縦縞") || fullText.includes("縦じま")) bodyPat = 'vertical';
-  else if (fullText.includes("鋸歯形")) bodyPat = 'sawtooth';
-  else if (fullText.includes("山形") || fullText.includes("菱山形")) bodyPat = 'chevron';
-  else if (fullText.includes("二本輪")) bodyPat = 'band2';
-  else if (fullText.includes("一本輪")) bodyPat = 'band1';
-  else if (fullText.includes("襷")) bodyPat = 'sash';
-  else if (fullText.includes("星") || fullText.includes("玉霰") || fullText.includes("ダイヤ")) bodyPat = 'diamond';
-
-  for (const cName of Object.keys(SILK_COLOR_MAP)) {
-    if (fullText.includes(cName) && SILK_COLOR_MAP[cName] !== baseCol) {
-      patCol = SILK_COLOR_MAP[cName];
-      break;
-    }
-  }
-
-  let sleeveCol = baseCol;
-  let sleevePat = 'none';
-  if (fullText.includes("袖")) {
-    const sPart = fullText.split("袖")[1] || "";
-    const sc = extractSilkColor(sPart);
-    if (sc) sleeveCol = sc.hex;
-    if (sPart.includes("一本輪")) sleevePat = 'band1';
-    else if (sPart.includes("二本輪") || sPart.includes("三本輪")) sleevePat = 'band2';
-    else if (sPart.includes("縦縞")) sleevePat = 'stripe';
-  }
-
-  return { base: baseCol, bodyPat, patCol, sleeve: sleeveCol, sleevePat, sleeveCol: patCol };
-}
-
 function resolveHorseVisuals(horse, index) {
   const coat = getCoatPalette(horse.hair_color || "鹿毛");
   const hasBlaze = (horse.hair_color !== '白毛') && (((index * 7 + 3) % 4 === 0) || String(horse.name || "").includes("テイオー"));
@@ -853,24 +945,64 @@ function resolveHorseVisuals(horse, index) {
 
 function renderBodyPatternSVG(bodyPat, patCol) {
   switch (bodyPat) {
-    case 'cross_sash': return `<polygon points="152,32 166,32 216,86 202,86" fill="${patCol}"/><polygon points="202,32 216,32 166,86 152,86" fill="${patCol}"/>`;
-    case 'vertical': return `<line x1="120" y1="48" x2="245" y2="48" stroke="${patCol}" stroke-width="12"/><line x1="120" y1="72" x2="245" y2="72" stroke="${patCol}" stroke-width="12"/>`;
-    case 'band1': return `<rect x="176" y="20" width="14" height="75" fill="${patCol}"/>`;
-    case 'band2': return `<rect x="168" y="20" width="8.5" height="75" fill="${patCol}"/><rect x="186" y="20" width="8.5" height="75" fill="${patCol}"/>`;
-    case 'sawtooth': return `<polygon points="130,20 172,20 186,34 168,48 186,62 168,76 186,90 172,95 130,95" fill="${patCol}"/>`;
-    case 'chevron': return `<path d="M 215 35 L 165 59 L 215 83 L 225 74 L 185 59 L 225 44 Z" fill="${patCol}"/>`;
-    case 'sash': return `<polygon points="152,32 166,32 216,86 202,86" fill="${patCol}"/>`;
-    case 'diamond': return `<circle cx="158" cy="45" r="4.5" fill="${patCol}"/><circle cx="185" cy="42" r="4.5" fill="${patCol}"/><circle cx="212" cy="46" r="4.5" fill="${patCol}"/><circle cx="170" cy="62" r="4.5" fill="${patCol}"/><circle cx="198" cy="62" r="4.5" fill="${patCol}"/><circle cx="184" cy="80" r="4.5" fill="${patCol}"/>`;
-    default: return '';
+    case 'cross_sash':
+      return `
+        <polygon points="152,32 166,32 216,86 202,86" fill="${patCol}"/>
+        <polygon points="202,32 216,32 166,86 152,86" fill="${patCol}"/>
+      `;
+    case 'vertical':
+      return `
+        <line x1="120" y1="48" x2="245" y2="48" stroke="${patCol}" stroke-width="12"/>
+        <line x1="120" y1="72" x2="245" y2="72" stroke="${patCol}" stroke-width="12"/>
+      `;
+    case 'band1':
+      return `<rect x="176" y="20" width="14" height="75" fill="${patCol}"/>`;
+    case 'band2':
+      return `
+        <rect x="168" y="20" width="8.5" height="75" fill="${patCol}"/>
+        <rect x="186" y="20" width="8.5" height="75" fill="${patCol}"/>
+      `;
+    case 'sawtooth':
+      return `
+        <polygon points="130,20 172,20 186,34 168,48 186,62 168,76 186,90 172,95 130,95" fill="${patCol}"/>
+      `;
+    case 'chevron':
+      return `
+        <path d="M 215 35 L 165 59 L 215 83 L 225 74 L 185 59 L 225 44 Z" fill="${patCol}"/>
+      `;
+    case 'sash':
+      return `
+        <polygon points="152,32 166,32 216,86 202,86" fill="${patCol}"/>
+      `;
+    case 'diamond':
+      return `
+        <circle cx="158" cy="45" r="4.5" fill="${patCol}"/>
+        <circle cx="185" cy="42" r="4.5" fill="${patCol}"/>
+        <circle cx="212" cy="46" r="4.5" fill="${patCol}"/>
+        <circle cx="170" cy="62" r="4.5" fill="${patCol}"/>
+        <circle cx="198" cy="62" r="4.5" fill="${patCol}"/>
+        <circle cx="156" cy="78" r="4.5" fill="${patCol}"/>
+        <circle cx="184" cy="80" r="4.5" fill="${patCol}"/>
+        <circle cx="210" cy="77" r="4.5" fill="${patCol}"/>
+      `;
+    default:
+      return '';
   }
 }
 
 function renderSleevePatternSVG(sleevePat, sleeveCol) {
   switch (sleevePat) {
-    case 'band1': return `<polygon points="144,65 174,70 171,78 141,73" fill="${sleeveCol}"/>`;
-    case 'band2': return `<polygon points="146,62 174,67 172,73 144,68" fill="${sleeveCol}"/><polygon points="140,74 168,79 166,85 138,80" fill="${sleeveCol}"/>`;
-    case 'stripe': return `<path d="M 152 54 L 164 85 L 138 92" stroke="${sleeveCol}" stroke-width="5" fill="none" stroke-linejoin="round"/>`;
-    default: return '';
+    case 'band1':
+      return `<polygon points="144,65 174,70 171,78 141,73" fill="${sleeveCol}"/>`;
+    case 'band2':
+      return `
+        <polygon points="146,62 174,67 172,73 144,68" fill="${sleeveCol}"/>
+        <polygon points="140,74 168,79 166,85 138,80" fill="${sleeveCol}"/>
+      `;
+    case 'stripe':
+      return `<path d="M 152 54 L 164 85 L 138 92" stroke="${sleeveCol}" stroke-width="5" fill="none" stroke-linejoin="round"/>`;
+    default:
+      return '';
   }
 }
 
@@ -893,7 +1025,7 @@ async function fetchJsonSafe(filename) {
   return null;
 }
 
-// 4. コア物理計算関数（エネルギー収支 ＆ ラップ波形シミュレーション）
+// 6. コア物理計算関数
 function simulateRacePhysics(horsesList, lapPattern, distance = 3000) {
   const distFactor = (distance || 2400) / 2400.0;
   const trackEff = TRACK_CONDITION_EFFECTS[trackCondition] || TRACK_CONDITION_EFFECTS["良"];
@@ -902,7 +1034,6 @@ function simulateRacePhysics(horsesList, lapPattern, distance = 3000) {
     const stObj = RUNNING_STYLES.find(s => s.name === h.style) || RUNNING_STYLES[2];
     let baseC4 = stObj.c4_base;
 
-    // ロンスパ型(LP_05)で大捲り・捲り差しの場合は早めに先頭へ押し上げる
     if (lapPattern.id === "LP_05" && (h.style.includes("捲り") || h.jizoku >= 18.0)) {
       baseC4 = Math.max(0.08, baseC4 - 0.22);
     }
@@ -912,7 +1043,6 @@ function simulateRacePhysics(horsesList, lapPattern, distance = 3000) {
     const gateEffect = (gateNum - 9) * 0.008;
     const c4Gap = Math.max(0.0, baseC4 + spdEffect + gateEffect);
 
-    // エネルギー消費（前借り ＋ 馬場抵抗負荷）
     const initialEnergy = h.stamina * 5.2;
     let leadCost = Math.max(4.0, (1.8 - Math.min(1.8, c4Gap)) * 16.0);
     if (h.style === "主張逃げ") {
@@ -922,12 +1052,10 @@ function simulateRacePhysics(horsesList, lapPattern, distance = 3000) {
       leadCost *= 0.90;
     }
 
-    // 操縦性による道悪バランス保持（操縦性が高い馬は道悪での余分なエネルギーロスを軽減）
     const gutsGrip = Math.max(0.65, 1.0 - (h.guts - 15.0) * 0.05);
     const trackDrainFactor = 1.0 + (trackEff.lead_drain_mult - 1.0) * gutsGrip;
     const borrowCost = leadCost * lapPattern.lead_consumption_mult * distFactor * trackDrainFactor;
 
-    // 中盤の息入れ（回復）
     let energyRecovered = 0.0;
     if (lapPattern.has_rest) {
       let recEff = (h.guts * 0.65 + h.stamina * 0.35) / 15.0;
@@ -941,7 +1069,6 @@ function simulateRacePhysics(horsesList, lapPattern, distance = 3000) {
 
     const remainingEnergy = initialEnergy - borrowCost + energyRecovered;
 
-    // 直線の上がり3F計算（馬場ごとの時計加算 ＆ 瞬発力・持続力の比重スライド）
     const base3f = ((distance >= 3000) ? 34.6 : 34.1) + trackEff.base_3f_add;
     const sharpBonus = (h.sharp - 15.0) * 0.28 * lapPattern.sharp_weight * trackEff.sharp_mult;
     const jizokuBonus = (h.jizoku - 15.0) * 0.20 * lapPattern.jizoku_weight * distFactor * trackEff.jizoku_mult;
@@ -992,7 +1119,7 @@ function simulateRacePhysics(horsesList, lapPattern, distance = 3000) {
   return scoredHorses;
 }
 
-// 5. ローカルストレージ ＆ 上書き保存
+// 7. ローカルストレージ ＆ 上書き保存
 function getCurrentStorageKey() {
   const select = document.getElementById('selectRaceFile');
   const targetFile = select ? select.value : '26kikkasho.json';
@@ -1069,24 +1196,19 @@ window.overwriteOriginalJsonFile = async function() {
       horse_id: h.horse_id || `H_${h.gate_number}`,
       name: h.name,
       sex: h.sex || "牡馬",
-      rarity: h.rarity || "NOR",
       turf_potential: h.turf_potential,
       dirt_potential: h.dirt_potential || 0,
-      min_distance: h.min_distance || 1800,
-      max_distance: h.max_distance || 3200,
       speed: h.speed,
       stamina: h.stamina,
       sharp: h.sharp,
       jizoku: h.jizoku,
       guts: h.guts,
       style: h.style,
-      ability: h.ability || [],
-      comment: h.comment || "",
       region: h.region || "関西",
       hair_color: h.hair_color || "鹿毛",
       silk_colors: h.silk_colors || "",
       jockey: h.jockey || "",
-      jockey_level: h.jockey_level || 3.5
+      jockey_level: h.jockey_level || 4.0
     }))
   };
 
@@ -1131,24 +1253,19 @@ window.exportCustomHorsesJson = function() {
       horse_id: h.horse_id || `H_${h.gate_number}`,
       name: h.name,
       sex: h.sex || "牡馬",
-      rarity: h.rarity || "NOR",
       turf_potential: h.turf_potential,
       dirt_potential: h.dirt_potential || 0,
-      min_distance: h.min_distance || 1800,
-      max_distance: h.max_distance || 3200,
       speed: h.speed,
       stamina: h.stamina,
       sharp: h.sharp,
       jizoku: h.jizoku,
       guts: h.guts,
       style: h.style,
-      ability: h.ability || [],
-      comment: h.comment || "",
       region: h.region || "関西",
       hair_color: h.hair_color || "鹿毛",
       silk_colors: h.silk_colors || "",
       jockey: h.jockey || "",
-      jockey_level: h.jockey_level || 3.5
+      jockey_level: h.jockey_level || 4.0
     }))
   };
 
@@ -1165,7 +1282,7 @@ window.exportCustomHorsesJson = function() {
   document.getElementById('log-content').innerHTML = `📥 <strong>${a.download}</strong> をダウンロード保存しました！`;
 };
 
-// 6. 初期化
+// 8. 初期化
 async function initSimulation() {
   const select = document.getElementById('selectRaceFile');
   const targetFile = select ? select.value : '26kikkasho.json';
@@ -1259,7 +1376,6 @@ function ensureStats(h) {
   h.jizoku = Number(h.jizoku ?? p);
   h.guts = Number(h.guts ?? p);
 
-  // 旧作戦や旧脚質からの正規化
   const validStyles = RUNNING_STYLES.map(s => s.name);
   if (!validStyles.includes(h.style)) {
     const raw = String(h.style || "");
@@ -1323,7 +1439,6 @@ function calculatePaceProbabilities() {
     patternProbs = { "LP_01": 0.25, "LP_02": 0.35, "LP_03": 0.20, "LP_04": 0.05, "LP_05": 0.15, "LP_06": 0.0, "LP_07": 0.0 };
   }
 
-  // 馬場状態の悪化に伴う展開確率の物理自動シフト
   if (trackCondition === "重" || trackCondition === "不良") {
     patternProbs["LP_01"] = (patternProbs["LP_01"] || 0) + (trackCondition === "不良" ? 0.12 : 0.08);
     patternProbs["LP_05"] = (patternProbs["LP_05"] || 0) + 0.10;
@@ -1854,7 +1969,6 @@ function setTrackConditionUI(cond) {
 window.applyStrategyPreset = function(presetType = 'best_win') {
   if (presetType === 'aptitude') {
     activeHorses.forEach((h, idx) => {
-      // 5大パラメータから最も自然な脚質スタイルを判定
       if (h.speed >= 17.0 && h.stamina >= 16.5) h.style = (idx % 2 === 0) ? "マイペース逃げ" : "主張逃げ";
       else if (h.stamina >= 17.5 && h.guts >= 17.0) h.style = "好位差し";
       else if (h.jizoku >= 18.0) h.style = "大捲り";
@@ -2147,7 +2261,8 @@ function buildHorseActorSVG(h, i) {
             <rect x="135" y="28" width="100" height="65" fill="${silk.base}" />
             <g transform="translate(182, 60) rotate(10.5) translate(-182, -60)">${bodyPatSVG}</g>
           </g>
-          <path d="M 148 48 C 170 38, 198 42, 220 62 Z" fill="none" stroke="#18181b" stroke-width="2.2"/>
+          <!-- ★修正点：末尾の Z を除去し、背中を斜めに横切る黒い直線を完全に排除 -->
+          <path d="M 148 48 C 170 38, 198 42, 220 62" fill="none" stroke="#18181b" stroke-width="2.2" stroke-linecap="round"/>
 
           <circle cx="136" cy="54" r="10.5" fill="#fde68a" stroke="#18181b" stroke-width="2"/>
           <rect x="124" y="50" width="11" height="6" rx="2" fill="#18181b" stroke="#e2e8f0" stroke-width="1.2"/>
@@ -2209,7 +2324,6 @@ function updateFocusAuraOnTrack() {
     if (el) {
       if (focusHorseId && focusHorseId === (h.horse_id || h.name)) {
         el.classList.add('aura-focus');
-        el.style.zIndex = 40;
       } else {
         el.classList.remove('aura-focus');
       }
@@ -2231,7 +2345,7 @@ function applyLaneLayout(isStraight = false) {
         : Math.round(maxTop - (i * stepY));
       const isFocus = (focusHorseId && focusHorseId === (h.horse_id || h.name));
       el.style.top = `${laneTopPx}px`;
-      el.style.zIndex = Math.floor(laneTopPx) + (isFocus ? 15 : 0);
+      el.style.zIndex = isFocus ? 120 : Math.floor(laneTopPx);
     }
   });
 }
@@ -2472,6 +2586,7 @@ window.startSingleRaceSimulation = async function() {
     setTimeout(() => {
       applyLaneLayout(true);
       setHorseDirection("right_to_left");
+      updateFocusAuraOnTrack();
       
       let straightEnterPos = new Array(activeHorses.length);
       const sortedByPos = [...calculatedResults].sort((a, b) => (b.positionPoint || 0) - (a.positionPoint || 0));
@@ -2494,6 +2609,7 @@ window.startSingleRaceSimulation = async function() {
       });
       
       setPhasePositions(finalPositions, 7.5, "cubic-bezier(0.4, 0.0, 0.2, 1)", "right_to_left");
+      updateFocusAuraOnTrack();
 
       setTimeout(() => spawnFurlongPole("400", false), 1400);
       setTimeout(() => spawnFurlongPole("200", true), 4400);
@@ -2513,6 +2629,7 @@ window.startSingleRaceSimulation = async function() {
             slowPositions[horseIdx] = (85 - (rank * 4.0)) + 10;
           });
           setPhasePositions(slowPositions, 1.5, "ease-out", "right_to_left");
+          updateFocusAuraOnTrack();
 
           setTimeout(() => {
             freezeAllHorsesInPlace();
@@ -2615,7 +2732,6 @@ function checkFirstTimeUser() {
     }, 400);
   }
 }
-
 </script>
 
 <!-- ==================== 📖 解説マニュアル モーダルウィンドウ ==================== -->
@@ -2626,7 +2742,6 @@ function checkFirstTimeUser() {
       <button class="modal-close-btn" onclick="closeManualModal()">✕</button>
     </div>
     <div class="modal-body" id="manual-modal-content-body">
-      <!-- 共通マニュアル本文 -->
       <div class="modal-section">
         <div class="modal-sec-title">🚀 かんたん操作 3ステップ</div>
         <div class="step-box-grid">
