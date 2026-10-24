@@ -332,7 +332,7 @@
     </div>
     
     <div class="header-total-summary" id="headerTotalSummary" style="margin-top: 4px;">
-      <div>トータル: <span style="font-family:monospace; font-weight:bold;" id="totalDetailText">0-0-0-0 (合計0着)</span></div>
+      <div>トータル: <span style="font-family:monospace; font-weight:bold;" id="totalDetailText">(0-0-0-0) 合計0着</span></div>
       <div id="survivalFulfillmentHeaderVal" style="display: none; color:#8d6e63; font-weight:800;">⚡ 3戦合計充足率: -%</div>
     </div>
   </div>
@@ -564,7 +564,7 @@
             <div style="display: flex; flex-direction: column; gap: 4px;">
               <div style="font-weight:bold; color:#d32f2f; font-size:12px;">成績: ギブアップ <span style="font-size:10px; color:#666; font-weight:normal;">(不戦敗)</span></div>
               <div style="color:#d97706; font-family:monospace; font-size: 11px;">
-                着順計 -着 <span style="font-size:9.5px; color:#888;">(出走なし)</span>
+                着順詳細 -着 <span style="font-size:9.5px; color:#888;">(出走なし)</span>
               </div>
             </div>
             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
@@ -603,7 +603,7 @@
             <div style="display: flex; flex-direction: column; gap: 4px;">
               <div style="font-weight:bold; color:var(--accent-color); font-size:12px;">成績: ${scoreText}</div>
               <div style="color:#d97706; font-family:monospace; font-size: 11px;">
-                着順詳細 <span style="font-size:9.5px; color:#888;">(1着${c1}/2着${c2}/3着${c3}/外${c4Plus})</span> 合計${rankSum}着
+                着順詳細 <span>(${c1}-${c2}-${c3}-${c4Plus})</span> 合計${rankSum}着
               </div>
             </div>
             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
@@ -791,7 +791,7 @@
     // チャレンジシリーズの成績枠
     const chStatsEl = document.getElementById('challengeStatsArea');
     if (chStatsEl) {
-      chStatsEl.innerHTML = `
+      let chHtml = `
         <div class="stat-row">
           <span class="stat-label">🔥 連勝記録:</span>
           <span class="stat-val"><strong class="stat-val-highlight">${chCurr}</strong> 連勝 <span style="font-size:10px; color:#888;">(最高 ${chMax})</span></span>
@@ -805,6 +805,27 @@
           <span class="stat-val" style="color: var(--accent-color);"><strong>${challengeWins}</strong> 勝</span>
         </div>
       `;
+
+      // チャレンジモードは30勝超えて（30勝以上で）からの表示
+      if (totalWins >= 30) {
+        let rateDisplay = "未記録";
+        if (typeof globalUserData.challenge_best_win_rate === 'number') {
+          const rate = globalUserData.challenge_best_win_rate.toFixed(1);
+          const rankSum = globalUserData.challenge_best_rank_sum ?? '-';
+          const c1 = globalUserData.challenge_best_c1 ?? 0;
+          const c2 = globalUserData.challenge_best_c2 ?? 0;
+          const c3 = globalUserData.challenge_best_c3 ?? 0;
+          const c4 = globalUserData.challenge_best_c4Plus ?? 0;
+          rateDisplay = `${rate}% ${rankSum}着 (${c1}-${c2}-${c3}-${c4})`;
+        }
+        chHtml += `
+          <div class="stat-row">
+            <span class="stat-label">📊 最高勝率:</span>
+            <span class="stat-val" style="color: #2e7d32;"><strong>${rateDisplay}</strong></span>
+          </div>
+        `;
+      }
+      chStatsEl.innerHTML = chHtml;
     }
 
     // サバイバルモードの成績枠
@@ -812,7 +833,8 @@
     if (svStatsEl) {
       const svBests = globalUserData.survival_bests || {};
       const svMax1st = svBests.max_1st?.c1 ?? '-';
-      svStatsEl.innerHTML = `
+      
+      let svHtml = `
         <div class="stat-row">
           <span class="stat-label">🔥 連勝記録:</span>
           <span class="stat-val"><strong class="stat-val-highlight" style="color:#d84315;">${svCurr}</strong> 連勝 <span style="font-size:10px; color:#888;">(最高 ${svMax})</span></span>
@@ -826,6 +848,33 @@
           <span class="stat-val" style="color: #5d4037;"><strong>${survivalWins}</strong> 勝</span>
         </div>
       `;
+
+      // サバイバルモードはアンロックされてから（50勝以上で）の表示
+      if (totalWins >= 50) {
+        let rateDisplay = "未記録";
+        if (typeof globalUserData.survival_best_win_rate === 'number') {
+          const rate = globalUserData.survival_best_win_rate.toFixed(1);
+          const rankSum = globalUserData.survival_best_rank_sum ?? '-';
+          const c1 = globalUserData.survival_best_c1 ?? 0;
+          const c2 = globalUserData.survival_best_c2 ?? 0;
+          const c3 = globalUserData.survival_best_c3 ?? 0;
+          const c4 = globalUserData.survival_best_c4Plus ?? 0;
+          rateDisplay = `${rate}% ${rankSum}着 (${c1}-${c2}-${c3}-${c4})`;
+        } else if (svBests.max_1st?.c1 !== undefined) {
+          const r = svBests.max_1st;
+          const rate = ((r.c1 / 15) * 100).toFixed(1);
+          const c4 = r.c4Plus !== undefined ? r.c4Plus : (15 - (r.c1 + (r.c2 ?? 0) + (r.c3 ?? 0)));
+          rateDisplay = `${rate}% ${r.rank_sum}着 (${r.c1}-${r.c2 ?? 0}-${r.c3 ?? 0}-${c4})`;
+        }
+
+        svHtml += `
+          <div class="stat-row">
+            <span class="stat-label">📊 最高勝率:</span>
+            <span class="stat-val" style="color: #8d6e63;"><strong>${rateDisplay}</strong></span>
+          </div>
+        `;
+      }
+      svStatsEl.innerHTML = svHtml;
     }
   }
 
@@ -861,7 +910,7 @@
       const c2 = r.c2 ?? 0;
       const c3 = r.c3 ?? 0;
       const c4 = r.c4Plus !== undefined ? r.c4Plus : (15 - (c1 + c2 + c3));
-      return `合計着順: <strong>${r.rank_sum}着</strong> (1着:${c1}, 2着:${c2}, 3着:${c3}, 4着以下:${c4}) / 充足率: <strong>${r.fulfillment}%</strong>`;
+      return `合計着順: <strong>${r.rank_sum}着</strong> (${c1}-${c2}-${c3}-${c4}) / 充足率: <strong>${r.fulfillment}%</strong>`;
     };
 
     if (bests.min_rank_sum) {
@@ -971,6 +1020,59 @@
 
   let isClaimingReward = false;
 
+  // 報酬カードの抽選関数
+  function drawRewardHorse(isSurvival) {
+    let table = [];
+    if (isSurvival) {
+      table = [
+        { rarity: "SER", weight: 5 },
+        { rarity: "MTR", weight: 5 },
+        { rarity: "INF", weight: 6 },
+        { rarity: "ABR", weight: 6 },
+        { rarity: "DGR", weight: 6 },
+        { rarity: "MIR", weight: 6 },
+        { rarity: "ULR", weight: 6 },
+        { rarity: "LGR", weight: 20 },
+        { rarity: "CLR", weight: 20 },
+        { rarity: "TRR", weight: 20 }
+      ];
+    } else {
+      table = [
+        { rarity: "LGR", weight: 9 },
+        { rarity: "CLR", weight: 9 },
+        { rarity: "TRR", weight: 9 },
+        { rarity: "FRR", weight: 9 },
+        { rarity: "RER", weight: 9 },
+        { rarity: "ANR", weight: 9 },
+        { rarity: "VIR", weight: 9 },
+        { rarity: "PRR", weight: 9 },
+        { rarity: "SPR", weight: 9 },
+        { rarity: "NOR", weight: 19 }
+      ];
+    }
+
+    const rand = Math.random() * 100;
+    let cumulative = 0;
+    let selectedRarity = table[table.length - 1].rarity;
+
+    for (const item of table) {
+      cumulative += item.weight;
+      if (rand < cumulative) {
+        selectedRarity = item.rarity;
+        break;
+      }
+    }
+
+    let matchedHorses = HORSES_ARRAY.filter(h => h.rarity === selectedRarity);
+
+    if (matchedHorses.length === 0) {
+      console.warn(`レアリティ ${selectedRarity} の馬が見つからないため、全馬から抽選します。`);
+      matchedHorses = HORSES_ARRAY;
+    }
+
+    return matchedHorses[Math.floor(Math.random() * matchedHorses.length)];
+  }
+
   async function autoClaimAndShowReward(status) {
     if (status.reward_claimed) {
       if (status.reward_horse_id) {
@@ -983,10 +1085,9 @@
     isClaimingReward = true;
 
     try {
-      let pool = HORSES_ARRAY;
-      const rewardHorse = pool[Math.floor(Math.random() * pool.length)];
-
       const isSurvival = (status.battle_type === 'survival' || status.deck_type === 1);
+      const rewardHorse = drawRewardHorse(isSurvival);
+
       const current1stCount = status.total_1st_places || 0;
       let newMax1st = globalUserData.max_1st_places || 0;
       if (current1stCount > newMax1st) {
@@ -994,27 +1095,35 @@
         globalUserData.max_1st_places = newMax1st;
       }
 
+      // 勝ち抜いたシリーズ全戦の着順集計
+      const roundResults = status.round_results || {};
+      const playedRoundsCount = Object.keys(roundResults).length;
+      const totalRacesPlayedInSeries = playedRoundsCount * 5;
+      
+      let totalC1 = 0, totalC2 = 0, totalC3 = 0, totalC4Plus = 0, totalRankSum = 0;
+      let actualTeamPotentialSum = 0, maxLimitPotentialSum = 0;
+      const lineup = status.series_lineup || [];
+
+      Object.keys(roundResults).forEach(key => {
+        const res = roundResults[key];
+        totalC1 += res.r1 || 0;
+        totalC2 += res.r2 || 0;
+        totalC3 += res.r3 || 0;
+        totalC4Plus += res.r4Plus || 0;
+        totalRankSum += res.rankSum || 0;
+        actualTeamPotentialSum += res.teamPotential || 0;
+      });
+
+      // 勝ち抜いた時の勝率（レース勝率）の計算
+      const totalRacesForRate = isSurvival ? 15 : totalRacesPlayedInSeries;
+      const currentWinRate = totalRacesForRate > 0 ? Number(((totalC1 / totalRacesForRate) * 100).toFixed(1)) : 0;
+
       // サバイバル達成時の実績・自己ベスト記録
       let survivalBestsUpdate = null;
       let survivalBadgesUpdate = null;
 
       if (isSurvival) {
         globalUserData.survival_wins = (globalUserData.survival_wins || 0) + 1;
-
-        let totalC1 = 0, totalC2 = 0, totalC3 = 0, totalC4Plus = 0, totalRankSum = 0;
-        let actualTeamPotentialSum = 0, maxLimitPotentialSum = 0;
-        const roundResults = status.round_results || {};
-        const lineup = status.series_lineup || [];
-
-        Object.keys(roundResults).forEach(key => {
-          const res = roundResults[key];
-          totalC1 += res.r1 || 0;
-          totalC2 += res.r2 || 0;
-          totalC3 += res.r3 || 0;
-          totalC4Plus += res.r4Plus || 0;
-          totalRankSum += res.rankSum || 0;
-          actualTeamPotentialSum += res.teamPotential || 0;
-        });
 
         for (let i = 0; i < 3; i++) {
           if (lineup[i]) {
@@ -1067,11 +1176,57 @@
         cpu_battle_status: { is_active: false }
       };
 
+      // 最高勝率＆タイブレーク（総着数）の保存（ランキング用）
       if (isSurvival) {
         userUpdateObj.survival_wins = increment(1);
         if (survivalBestsUpdate) userUpdateObj.survival_bests = survivalBestsUpdate;
         if (survivalBadgesUpdate) userUpdateObj.survival_badges = survivalBadgesUpdate;
+
+        const prevBestRate = globalUserData.survival_best_win_rate ?? -1;
+        const prevBestRankSum = globalUserData.survival_best_rank_sum ?? 9999;
+        const isBetter = (currentWinRate > prevBestRate) || (currentWinRate === prevBestRate && totalRankSum < prevBestRankSum);
+
+        if (isBetter) {
+          userUpdateObj.survival_best_win_rate = currentWinRate;
+          userUpdateObj.survival_best_rank_sum = totalRankSum;
+          userUpdateObj.survival_best_c1 = totalC1;
+          userUpdateObj.survival_best_c2 = totalC2;
+          userUpdateObj.survival_best_c3 = totalC3;
+          userUpdateObj.survival_best_c4Plus = totalC4Plus;
+          userUpdateObj.survival_best_total_races = 15;
+
+          globalUserData.survival_best_win_rate = currentWinRate;
+          globalUserData.survival_best_rank_sum = totalRankSum;
+          globalUserData.survival_best_c1 = totalC1;
+          globalUserData.survival_best_c2 = totalC2;
+          globalUserData.survival_best_c3 = totalC3;
+          globalUserData.survival_best_c4Plus = totalC4Plus;
+          globalUserData.survival_best_total_races = 15;
+        }
+      } else {
+        const prevBestRate = globalUserData.challenge_best_win_rate ?? -1;
+        const prevBestRankSum = globalUserData.challenge_best_rank_sum ?? 9999;
+        const isBetter = (currentWinRate > prevBestRate) || (currentWinRate === prevBestRate && totalRankSum < prevBestRankSum);
+
+        if (isBetter) {
+          userUpdateObj.challenge_best_win_rate = currentWinRate;
+          userUpdateObj.challenge_best_rank_sum = totalRankSum;
+          userUpdateObj.challenge_best_c1 = totalC1;
+          userUpdateObj.challenge_best_c2 = totalC2;
+          userUpdateObj.challenge_best_c3 = totalC3;
+          userUpdateObj.challenge_best_c4Plus = totalC4Plus;
+          userUpdateObj.challenge_best_total_races = totalRacesForRate;
+
+          globalUserData.challenge_best_win_rate = currentWinRate;
+          globalUserData.challenge_best_rank_sum = totalRankSum;
+          globalUserData.challenge_best_c1 = totalC1;
+          globalUserData.challenge_best_c2 = totalC2;
+          globalUserData.challenge_best_c3 = totalC3;
+          globalUserData.challenge_best_c4Plus = totalC4Plus;
+          globalUserData.challenge_best_total_races = totalRacesForRate;
+        }
       }
+
       if (current1stCount > (globalUserData.max_1st_places || 0)) {
         userUpdateObj.max_1st_places = current1stCount;
       }
@@ -1228,7 +1383,7 @@
       actualTeamPotentialSum += res.teamPotential || 0;
     });
 
-    document.getElementById('totalDetailText').textContent = `(1着:${totalC1}, 2着:${totalC2}, 3着:${totalC3}, 4着以下:${totalC4Plus}) 合計${totalRankSum}着`;
+    document.getElementById('totalDetailText').textContent = `(${totalC1}-${totalC2}-${totalC3}-${totalC4Plus}) 合計${totalRankSum}着`;
 
     const playedRoundsCount = Object.keys(roundResults).length;
     for (let i = 0; i < Math.max(playedRoundsCount, status.current_round - 1); i++) {
@@ -1264,7 +1419,6 @@
       const isCurrentRound = !isFinished && (roundNum === status.current_round);
       const sObj = SERIES_MASTER.find(s => s.series_id === sId) || SERIES_MASTER[0] || {};
       
-      // 結果が存在するラウンドのみ成績を表示（未対戦の最終戦などを誤って不戦敗にしない）
       const roundResult = roundResults[String(roundNum)];
 
       const cardHtml = renderSeriesItemCardHTML(sObj, roundNum, isCurrentRound, roundResult);
@@ -1279,7 +1433,6 @@
       document.getElementById('deckPanel').style.display = 'none';
 
       if (roundWins >= winCondition) {
-        // 勝利時：報酬付与と同時にDB初期化
         if (!status.reward_claimed) {
           if (!window._autoRewardTriggered) {
             window._autoRewardTriggered = true;
@@ -1289,7 +1442,6 @@
           await renderInlineRewardCardOnly(status.reward_horse_id);
         }
       } else {
-        // 敗北・ギブアップ時：リザルト表示と同時にDB初期化
         document.getElementById('inlineRewardPanel').style.display = 'none';
         if (!status._is_db_reset) {
           status._is_db_reset = true;
