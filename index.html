@@ -3,18 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DERBY BATTLE CARD</title>
+  <title>DERBY BATTLE CARD - ステータス画面</title>
   <style>
     :root {
-      --bg-gradient: linear-gradient(135deg, #a3d9a5 0%, #7ec885 50%, #5ba863 100%);
-      --card-bg: rgba(255, 255, 255, 0.88);
+      --bg-gradient: linear-gradient(135deg, #18331d 0%, #0e2112 50%, #07120a 100%);
+      --card-bg: rgba(255, 255, 255, 0.92);
       --card-inner-bg: #f2f8f3;
-      --accent-gold: #c29b1d;
+      --accent-gold: #e5b839;
+      --accent-gold-dark: #a87e18;
       --text-color: #1a2e1d;
       --sub-text: #4e6b52;
       --header-green: #0d4220;
       --border-green: #b2d4b6;
     }
+    
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
       padding: 10px;
@@ -24,6 +30,7 @@
       font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
       display: flex;
       justify-content: center;
+      user-select: none;
     }
     .container {
       width: 100%;
@@ -35,9 +42,10 @@
     .header {
       text-align: center;
       padding: 10px 8px;
-      background: rgba(255, 255, 255, 0.95);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(230, 242, 232, 0.95) 100%);
       border-bottom: 3px solid var(--header-green);
-      border-radius: 8px 8px 0 0;
+      border-radius: 12px 12px 4px 4px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
     .header h1 {
       margin: 0;
@@ -45,283 +53,453 @@
       color: var(--header-green);
       letter-spacing: 2px;
       font-weight: 900;
+      text-shadow: 0 1px 1px rgba(255,255,255,0.8);
     }
 
-    /* --- 統合型 ユーザープロフィール & 4項目ステータスエリア --- */
-    .user-profile-panel {
-      background: rgba(255, 255, 255, 0.95);
-      border: 1px solid var(--border-green);
-      border-radius: 10px;
+    /* --- リアル競馬パドック風フレーム --- */
+    .paddock-wrapper {
+      position: relative;
+      background: #112616;
+      border: 2px solid var(--accent-gold);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.4), inset 0 0 15px rgba(0,0,0,0.6);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 1. バックグラウンド 横断幕エリア */
+    .paddock-banner-track {
+      height: 38px;
+      background: #09170c;
+      background-image: repeating-linear-gradient(45deg, #09170c, #09170c 10px, #0f2413 10px, #0f2413 20px);
+      border-bottom: 2px solid #28542f;
+      display: flex;
+      align-items: center;
+      overflow-x: auto;
+      padding: 0 8px;
+      gap: 12px;
+      scrollbar-width: none;
+    }
+    .paddock-banner-track::-webkit-scrollbar { display: none; }
+
+    .paddock-banner {
+      position: relative;
+      flex-shrink: 0;
+      padding: 3px 12px;
+      border-radius: 3px;
+      font-weight: 900;
+      font-size: 11px;
+      letter-spacing: 1px;
+      color: #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.3);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .paddock-banner::before, .paddock-banner::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      width: 4px;
+      height: 4px;
+      background: #222;
+      border: 1px solid #aaa;
+      border-radius: 50%;
+    }
+    .paddock-banner::before { left: 3px; }
+    .paddock-banner::after { right: 3px; }
+
+    .banner-red { background: linear-gradient(135deg, #b71c1c, #d32f2f); text-shadow: 0 1px 2px #000; }
+    .banner-blue { background: linear-gradient(135deg, #0d47a1, #1976d2); text-shadow: 0 1px 2px #000; }
+    .banner-gold { background: linear-gradient(135deg, #b78103, #e5b839); color: #111; text-shadow: 0 1px 0 rgba(255,255,255,0.4); border-color: #ffd700; }
+
+    /* 2. パドックメインエリア */
+    .paddock-main-stage {
+      position: relative;
+      min-height: 140px;
+      background: linear-gradient(180deg, #1c3d23 0%, #2f5e38 60%, #1a3a20 100%);
       padding: 10px 12px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+      justify-content: space-between;
+      overflow: hidden;
     }
-    .user-top-row {
+
+    .paddock-ring-bg {
+      position: absolute;
+      bottom: -40px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 110%;
+      height: 130px;
+      background: #735135;
+      border-radius: 50%;
+      border: 4px solid #f0f0f0;
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.6), 0 -2px 6px rgba(0,0,0,0.3);
+    }
+    .paddock-ring-turf {
+      position: absolute;
+      top: 15px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 82%;
+      height: 80px;
+      background: #388e3c;
+      border-radius: 50%;
+      border: 2px dashed rgba(255,255,255,0.4);
+    }
+
+    .paddock-user-bar {
+      position: relative;
+      z-index: 2;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px dashed var(--border-green);
-      padding-bottom: 6px;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(255, 215, 0, 0.4);
+      border-radius: 20px;
+      padding: 4px 12px;
+      backdrop-filter: blur(4px);
     }
-    .user-name-text {
-      font-size: 14px;
+    .paddock-user-name {
+      color: #fff;
+      font-size: 13px;
       font-weight: bold;
-      color: var(--header-green);
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
+      text-shadow: 0 1px 3px #000;
     }
-    .user-badge-area {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 12px;
-      font-weight: bold;
-      background: #fdfae7;
-      border: 1px solid #f5e6a3;
-      padding: 2px 8px;
+    .paddock-badge-emblem {
+      background: linear-gradient(135deg, #ffe082, #ffb300);
+      color: #3e2723;
+      border: 1px solid #fff;
+      font-size: 11px;
+      font-weight: 900;
+      padding: 2px 10px;
       border-radius: 12px;
-      color: var(--accent-gold);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
 
-    .stats-badge-grid {
+    .ace-horse-display {
+      position: relative;
+      z-index: 2;
+      margin-top: 10px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 0 8px;
+    }
+    .ace-horse-visual {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ace-saddle-cloth {
+      background: #111;
+      color: #ffd700;
+      border: 2px solid #ffd700;
+      border-radius: 4px;
+      padding: 3px 6px;
+      text-align: center;
+      font-weight: 900;
+      font-size: 14px;
+      min-width: 28px;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.5);
+      line-height: 1;
+    }
+    .ace-saddle-cloth .race-no {
+      font-size: 9px;
+      display: block;
+      color: #fff;
+      margin-bottom: 2px;
+    }
+    .ace-horse-info {
+      display: flex;
+      flex-direction: column;
+    }
+    .ace-horse-tag {
+      font-size: 9px;
+      color: #aed581;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+      text-shadow: 0 1px 2px #000;
+    }
+    .ace-horse-name {
+      font-size: 17px;
+      font-weight: 900;
+      color: #ffffff;
+      text-shadow: 0 2px 4px #000, 0 0 8px rgba(0,0,0,0.8);
+      letter-spacing: 1px;
+    }
+    
+    .paddock-walker-illustration {
+      font-size: 32px;
+      filter: drop-shadow(0 4px 4px rgba(0,0,0,0.6));
+      animation: paddockWalk 3s ease-in-out infinite alternate;
+    }
+    @keyframes paddockWalk {
+      0% { transform: translateX(0) scaleX(1); }
+      100% { transform: translateX(-8px) scaleX(1); }
+    }
+
+    /* 3. パドック下部ステータス */
+    .paddock-stats-row {
+      position: relative;
+      z-index: 2;
+      background: rgba(10, 24, 13, 0.95);
+      border-top: 2px solid var(--accent-gold);
+      padding: 8px 6px;
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 4px;
+      gap: 5px;
     }
-    .stat-badge-box {
-      background: var(--card-inner-bg);
-      border: 1px solid #c2dfc6;
+    .paddock-stat-card {
+      position: relative;
+      background: linear-gradient(180deg, #ffffff 0%, #e8f3e9 100%);
+      border: 1px solid #b2d4b6;
       border-radius: 6px;
-      padding: 5px 2px;
+      padding: 12px 2px 4px 2px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-width: 0;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+      overflow: visible;
     }
-    .stat-tag {
-      background: #e2efe3;
-      border: 1px solid #2d6a37;
-      color: #2d6a37;
-      border-radius: 8px;
+    .paddock-stat-num-tag {
+      position: absolute;
+      top: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #1b4d23, #2d6a37);
+      color: #ffffff;
       font-size: 8px;
-      font-weight: bold;
-      padding: 1px 5px;
-      line-height: 1.1;
+      font-weight: 900;
+      padding: 1px 6px;
+      border-radius: 8px;
+      border: 1px solid #82c088;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
       white-space: nowrap;
-      margin-bottom: 3px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 100%;
+      line-height: 1;
     }
-    .stat-num {
+    .paddock-stat-label {
+      font-size: 8.5px;
+      font-weight: bold;
+      color: var(--sub-text);
+      margin-bottom: 2px;
+      white-space: nowrap;
+    }
+    .paddock-stat-val {
       font-size: 12px;
       font-weight: 900;
       color: var(--text-color);
-      line-height: 1.2;
+      line-height: 1.1;
       white-space: nowrap;
     }
-    .stat-num.gold { color: var(--accent-gold); }
-
-    /* --- ボーナスカード部分 --- */
-    .bonus-section {
-      background: var(--card-bg);
-      border: 2px solid #82c088;
-      border-radius: 8px;
-      padding: 10px;
-      text-align: center;
+    .paddock-stat-val.gold {
+      color: #b78103;
+      text-shadow: 0 0 1px rgba(183, 129, 3, 0.3);
     }
-    .bonus-title { font-size: 12px; font-weight: bold; color: var(--header-green); margin-bottom: 8px; }
-    .cards-container { display: flex; justify-content: space-between; gap: 4px; }
-    .bonus-card {
-      flex: 1;
-      min-width: 0;
-      background: #ffffff;
-      border: 1px solid #a8d5ac;
+
+    /* --- パチスロ風 ログインボーナスセクション --- */
+    .slot-bonus-container {
+      background: #111;
+      border: 3px solid #e5b839;
+      border-radius: 12px;
+      padding: 10px;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.6), inset 0 0 20px rgba(255,215,0,0.2);
+      text-align: center;
+      position: relative;
+    }
+    .slot-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #222;
+      border: 1px solid #444;
       border-radius: 6px;
-      padding: 5px 4px;
+      padding: 4px 8px;
+      margin-bottom: 8px;
+    }
+    .slot-title {
+      color: #ffd700;
+      font-weight: 900;
+      font-size: 13px;
+      letter-spacing: 1px;
+      text-shadow: 0 0 5px #ff0;
+    }
+    .slot-led-status {
+      font-size: 10px;
+      font-weight: bold;
+      color: #00ff66;
+      background: #002200;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #00ff66;
+      animation: ledBlink 1.5s infinite;
+    }
+    @keyframes ledBlink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .slot-machine-body {
+      background: linear-gradient(180deg, #1f1f1f 0%, #0a0a0a 100%);
+      border: 2px solid #555;
+      border-radius: 8px;
+      padding: 8px;
+      box-shadow: inset 0 0 10px #000;
+    }
+
+    /* リール表示エリア */
+    .slot-reels-wrapper {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .slot-reel {
+      background: #ffffff;
+      border: 2px solid #777;
+      border-radius: 6px;
+      height: 120px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 0 8px rgba(0,0,0,0.8);
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
-      min-height: 130px;
-      box-sizing: border-box;
-      text-align: left;
-    }
-    .bonus-card.empty {
-      background: #f0f4f0;
-      border: 1px dashed var(--border-green);
-      color: #888;
-      font-size: 11px;
       align-items: center;
       justify-content: center;
-      text-align: center;
     }
-    .bonus-card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px dashed #d0edd3;
-      padding-bottom: 2px;
-      margin-bottom: 2px;
+    .slot-reel.spinning {
+      background: #eef2f7;
     }
-    .bonus-card .slot-num { font-size: 11px; font-weight: bold; color: #e63956; }
-    .bonus-card .gen-year { font-size: 9px; color: var(--sub-text); }
-    .bonus-card .rarity { font-size: 10px; font-weight: bold; color: var(--accent-gold); }
-    .bonus-card-name { 
-      font-size: 10.5px; 
-      font-weight: bold; 
-      overflow: hidden; 
-      text-overflow: ellipsis; 
-      white-space: nowrap; 
-      line-height: 1.2;
-      color: var(--text-color);
+    .slot-reel.stopped {
+      border-color: #ffd700;
+      box-shadow: 0 0 8px rgba(255, 215, 0, 0.8);
     }
-    .bonus-card-body {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 2px;
-      margin: 2px 0;
-    }
-    .bonus-card-details {
+
+    .reel-content-box {
+      width: 100%;
+      height: 100%;
       display: flex;
       flex-direction: column;
-      gap: 1px;
-      color: var(--sub-text);
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+    }
+
+    /* リール内のカードデザイン */
+    .slot-card-display {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      background: #fff;
+      border-radius: 4px;
+      border: 1px solid #aaa;
+      padding: 4px;
+      box-sizing: border-box;
+    }
+    .slot-card-year {
+      font-size: 11px;
+      font-weight: 900;
+      color: #d32f2f;
+    }
+    .slot-card-name {
+      font-size: 10px;
+      font-weight: 900;
+      color: #111;
+      text-align: center;
+      line-height: 1.1;
+      max-height: 24px;
+      overflow: hidden;
+    }
+    .slot-card-rarity {
       font-size: 9px;
       font-weight: bold;
-      line-height: 1.1;
-      flex: 1;
-      min-width: 0;
+      color: #b78103;
     }
-    .bonus-card-details div {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .bonus-radar-box {
-      width: 60px;
-      height: 60px;
-      flex-shrink: 20;
-    }
-    .bonus-abilities-row {
+
+    /* ストップボタンエリア */
+    .slot-controls {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 1px;
-      margin-top: 2px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
     }
-    .bonus-ability-btn {
-      background: #e2efe3;
-      border: 1px solid #2d6a37;
-      color: #2d6a37;
-      border-radius: 2px;
-      font-size: 7.5px;
-      font-weight: bold;
-      text-align: center;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      padding: 1px 0;
-      letter-spacing: -0.5px;
-    }
-    .bonus-ability-btn.empty { visibility: hidden; }
-    .bonus-msg { 
-      margin-top: 8px; 
-      font-size: 10px; 
-      color: #8a6200; 
-      background: #fff8d6; 
-      padding: 4px; 
-      border-radius: 4px; 
-      border: 1px solid #f0e3a1; 
-    }
-    .bonus-claim-btn {
-      margin-top: 8px;
-      background: linear-gradient(135deg, #d4af37, #aa820a);
-      border: none;
+    .slot-stop-btn {
+      background: linear-gradient(180deg, #ff4d4d 0%, #b30000 100%);
       color: #fff;
-      padding: 6px 16px;
-      border-radius: 12px;
-      font-weight: bold;
-      font-size: 11px;
+      border: 2px solid #ff9999;
+      border-radius: 20px;
+      padding: 8px 0;
+      font-weight: 900;
+      font-size: 12px;
       cursor: pointer;
-      transition: all 0.2s;
+      box-shadow: 0 4px 0 #660000;
+      transition: all 0.1s;
     }
-    .bonus-claim-btn:disabled {
-      background: #cccccc;
-      color: #888888;
-      cursor: not-allowed;
+    .slot-stop-btn:active {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #660000;
+    }
+    .slot-stop-btn:disabled {
+      background: #444;
+      border-color: #666;
+      color: #888;
       box-shadow: none;
+      cursor: not-allowed;
       transform: none;
     }
 
-    /* --- マルチリーチ演出 --- */
-    .bonus-card.reach-slot {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
+    .slot-start-btn {
+      width: 100%;
+      margin-top: 8px;
+      background: linear-gradient(180deg, #ffd700 0%, #b78103 100%);
+      color: #111;
+      border: 2px solid #fff;
+      border-radius: 8px;
+      padding: 10px;
+      font-weight: 900;
+      font-size: 14px;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+      letter-spacing: 1px;
+    }
+    .slot-start-btn:disabled {
+      background: #333;
+      color: #666;
+      border-color: #444;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* リーチ＆フィーバー演出フラッシュ */
+    .slot-reach-banner {
+      margin-top: 6px;
       padding: 4px;
-      border-radius: 6px;
+      background: #ff0055;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 900;
+      border-radius: 4px;
+      display: none;
+      animation: reachFlash 0.4s infinite alternate;
     }
-    .reach-level-1 {
-      background: linear-gradient(135deg, #fff0f0 0%, #ffe6e6 100%);
-      border: 2px solid #e63956;
-      animation: reachPulse1 1.2s infinite alternate;
+    @keyframes reachFlash {
+      0% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0.8; transform: scale(1.02); }
     }
-    @keyframes reachPulse1 {
-      0% { box-shadow: 0 0 4px rgba(230, 57, 86, 0.4); border-color: #e63956; }
-      100% { box-shadow: 0 0 12px rgba(230, 57, 86, 0.9); border-color: #ff0000; }
-    }
-    .reach-level-1 .reach-title { color: #e63956; }
-    
-    .reach-level-2 {
-      background: linear-gradient(135deg, #ffe0e0 0%, #ffcaca 100%);
-      border: 2px solid #ff0000;
-      animation: reachPulse2 0.8s infinite alternate;
-    }
-    @keyframes reachPulse2 {
-      0% { box-shadow: 0 0 8px rgba(255, 0, 0, 0.6); transform: scale(1); }
-      100% { box-shadow: 0 0 18px rgba(255, 0, 0, 1); transform: scale(1.02); }
-    }
-    .reach-level-2 .reach-title { color: #ff0000; text-shadow: 0 0 2px #fff; }
 
-    .reach-level-3 {
-      background: linear-gradient(135deg, #f3e5f5 0%, #ce93d8 100%);
-      border: 3px solid #8e24aa;
-      animation: reachPulse3 0.6s infinite alternate;
-    }
-    @keyframes reachPulse3 {
-      0% { box-shadow: 0 0 12px rgba(142, 36, 170, 0.7); transform: scale(1); }
-      100% { box-shadow: 0 0 25px rgba(142, 36, 170, 1); transform: scale(1.05); }
-    }
-    .reach-level-3 .reach-title { color: #4a148c; text-shadow: 0 0 4px #fff; font-size: 13px !important; }
-
-    .reach-level-4 {
-      background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 20%, #a1c4fd 50%, #c2e9fb 80%, #ffecd2 100%);
-      background-size: 200% 200%;
-      border: 3px solid #ffd700;
-      animation: reachPulse4 0.5s infinite alternate, rainbowBg 3s linear infinite;
-    }
-    @keyframes reachPulse4 {
-      0% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.8); transform: scale(1.02); }
-      100% { box-shadow: 0 0 35px rgba(255, 215, 0, 1), 0 0 15px rgba(255, 0, 0, 0.8); transform: scale(1.08); }
-    }
-    @keyframes rainbowBg {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
-    .reach-level-4 .reach-title { color: #ff0000; text-shadow: 0 0 5px #fff, 0 0 10px #ff0; font-size: 15px !important; letter-spacing: 1px; }
-
-    .reach-title { font-weight: 900; font-size: 12px; margin-bottom: 4px; transition: all 0.3s; }
-    .reach-desc { font-size: 8.5px; font-weight: bold; color: #333; line-height: 1.3; background: rgba(255,255,255,0.7); padding: 2px; border-radius: 4px; }
-    .reach-matches { font-size: 9.5px; font-weight: bold; color: #d32f2f; margin-top: 4px; border-top: 1px dashed #ccc; padding-top: 2px;}
-
-    /* --- ナビゲーションメニュー（コンパクトな3x3グリッド・元のカラー版） --- */
+    /* --- メニューグリッド --- */
     .menu-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -333,16 +511,16 @@
       align-items: center;
       justify-content: center;
       padding: 8px 4px;
-      border-radius: 6px;
+      border-radius: 8px;
       text-decoration: none;
       box-sizing: border-box;
       cursor: pointer;
-      box-shadow: 0 3px 5px rgba(0,0,0,0.15);
+      box-shadow: 0 3px 5px rgba(0,0,0,0.25);
       transition: all 0.1s;
     }
     .menu-btn:active {
       transform: translateY(2px);
-      box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.3);
     }
     .btn-icon {
       font-size: 18px;
@@ -356,7 +534,6 @@
       white-space: nowrap;
     }
 
-    /* 前回の落ち着いた元のカラー設定 */
     .btn-dark-green {
       background: linear-gradient(135deg, #2d6a37, #1b4d23);
       border: 1px solid #143b1a;
@@ -376,9 +553,10 @@
     /* --- デッキ表示領域 --- */
     .deck-section {
       background: var(--card-bg);
-      border-radius: 8px;
+      border-radius: 10px;
       padding: 10px;
       border: 1px solid var(--border-green);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
     }
     .main-deck-tabs { display: flex; gap: 8px; margin-bottom: 8px; }
     .main-tab {
@@ -414,8 +592,8 @@
       border: 1px solid #82c088;
       color: var(--text-color);
       font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 3px;
+      padding: 2px 8px;
+      border-radius: 4px;
       cursor: pointer;
       font-weight: bold;
     }
@@ -436,9 +614,9 @@
     /* --- モーダル --- */
     .modal-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.7); display: none;
+      background: rgba(0, 0, 0, 0.75); display: none;
       justify-content: center; align-items: center; z-index: 2000;
-      backdrop-filter: blur(2px);
+      backdrop-filter: blur(3px);
     }
     .modal-overlay.active { display: flex; }
     .card-modal-wrapper {
@@ -448,7 +626,7 @@
       background: #ffffff;
       border-radius: 12px;
       overflow: hidden;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.6);
       position: relative;
     }
   </style>
@@ -457,104 +635,165 @@
 <div class="container">
   <div class="header"><h1>DERBY BATTLE CARD</h1></div>
   
-  <!-- 統合型プロフィール & 4項目ステータスエリア -->
-  <div class="user-profile-panel">
-    <div class="user-top-row">
-      <div class="user-name-text" id="userNameText">👤 読み込み中...</div>
-      <!-- 右側：勝利数トロフィー & サバイバル制覇バッジ等の拡張エリア -->
-      <div class="user-badge-area" id="userBadgeArea" title="称号・実績トロフィー">
-        <span>🏆 挑戦者</span>
+  <!-- リアル競馬パドック風ステータスフレーム -->
+  <div class="paddock-wrapper">
+    <div class="paddock-banner-track">
+      <div class="paddock-banner banner-red"><span>不屈の生還者</span></div>
+      <div class="paddock-banner banner-gold"><span>完全燃焼</span></div>
+      <div class="paddock-banner banner-blue"><span>電光石火</span></div>
+      <div class="paddock-banner banner-red"><span>疾風怒濤</span></div>
+      <div class="paddock-banner banner-gold"><span>絶対王者</span></div>
+    </div>
+
+    <div class="paddock-main-stage">
+      <div class="paddock-ring-bg"></div>
+      <div class="paddock-ring-turf"></div>
+
+      <div class="paddock-user-bar">
+        <div class="paddock-user-name" id="userNameText">👤 ゲスト馬主</div>
+        <div class="paddock-badge-emblem" id="userBadgeArea">
+          🏆 G1オーナー
+        </div>
+      </div>
+
+      <div class="ace-horse-display">
+        <div class="ace-horse-visual">
+          <div class="ace-saddle-cloth">
+            <span class="race-no">1枠</span>
+            <span>1</span>
+          </div>
+          <div class="ace-horse-info">
+            <span class="ace-horse-tag">🏇 MAIN ACE HORSE</span>
+            <span class="ace-horse-name" id="aceHorseNameDisplay">ディープインパクト</span>
+          </div>
+        </div>
+        <div class="paddock-walker-illustration">🏇🚶‍♂️</div>
       </div>
     </div>
 
-    <!-- 1行4列グリッド -->
-    <div class="stats-badge-grid">
-      <div class="stat-badge-box">
-        <span class="stat-tag">通算勝利</span>
-        <span class="stat-num gold" id="statTotalWins">-</span>
+    <div class="paddock-stats-row">
+      <div class="paddock-stat-card">
+        <span class="paddock-stat-num-tag">1</span>
+        <span class="paddock-stat-label">通算勝利</span>
+        <span class="paddock-stat-val gold" id="statTotalWins">127勝</span>
       </div>
-      <div class="stat-badge-box">
-        <span class="stat-tag">連勝 / 最高</span>
-        <span class="stat-num gold" id="statStreakInfo">-/-</span>
+      <div class="paddock-stat-card">
+        <span class="paddock-stat-num-tag">2</span>
+        <span class="paddock-stat-label">連勝/最高</span>
+        <span class="paddock-stat-val gold" id="statStreakInfo">8連勝/15</span>
       </div>
-      <div class="stat-badge-box">
-        <span class="stat-tag" id="statMax1stTag">最多1着</span>
-        <span class="stat-num" id="statMax1stVal">-</span>
+      <div class="paddock-stat-card">
+        <span class="paddock-stat-num-tag">3</span>
+        <span class="paddock-stat-label">最多1着</span>
+        <span class="paddock-stat-val" id="statMax1stVal">84回</span>
       </div>
-      <div class="stat-badge-box">
-        <span class="stat-tag">所持カード</span>
-        <span class="stat-num" id="statCardTypes">-</span>
+      <div class="paddock-stat-card">
+        <span class="paddock-stat-num-tag">4</span>
+        <span class="paddock-stat-label">所持カード</span>
+        <span class="paddock-stat-val" id="statCardTypes">320枚</span>
       </div>
     </div>
   </div>
 
-  <div class="bonus-section" id="loginBonusSection">
-    <div class="bonus-title">🎰 DAILY LOGIN BONUS</div>
-    <div class="cards-container" id="bonusCardsContainer"></div>
-    <div id="bonusMessageContainer"></div>
-    <div id="bonusBtnContainer"></div>
+  <!-- パチスロ風 DAILY LOGIN BONUS -->
+  <div class="slot-bonus-container">
+    <div class="slot-header">
+      <div class="slot-title">🎰 PACHISLOT LOGIN BONUS</div>
+      <div class="slot-led-status" id="slotStatusLed">READY</div>
+    </div>
+
+    <div class="slot-machine-body">
+      <div class="slot-reels-wrapper">
+        <div class="slot-reel" id="reel0">
+          <div class="reel-content-box" id="reelContent0">
+            <span style="font-size:24px;">🎰</span>
+          </div>
+        </div>
+        <div class="slot-reel" id="reel1">
+          <div class="reel-content-box" id="reelContent1">
+            <span style="font-size:24px;">🎰</span>
+          </div>
+        </div>
+        <div class="slot-reel" id="reel2">
+          <div class="reel-content-box" id="reelContent2">
+            <span style="font-size:24px;">🎰</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="slot-controls">
+        <button class="slot-stop-btn" id="stopBtn0" disabled onclick="stopReel(0)">STOP 1</button>
+        <button class="slot-stop-btn" id="stopBtn1" disabled onclick="stopReel(1)">STOP 2</button>
+        <button class="slot-stop-btn" id="stopBtn2" disabled onclick="stopReel(2)">STOP 3</button>
+      </div>
+
+      <div class="slot-reach-banner" id="reachBanner">🔥 激熱 REACH & FEVER CHANCE! 🔥</div>
+
+      <button class="slot-start-btn" id="startSlotBtn" onclick="startSlotSpin()">PUSH START LEVER 🕹️</button>
+    </div>
   </div>
 
-  <!-- ナビゲーションメニュー（コンパクトな3x3グリッド・元のテーマカラー） -->
+  <!-- ナビゲーションメニュー -->
   <div class="menu-grid">
-    <!-- 1行目: バトルライン -->
-    <a href="battle.html" class="menu-btn btn-dark-green">
+    <a href="#" class="menu-btn btn-dark-green">
       <span class="btn-icon">💻</span>
       <span class="btn-title">CPU対戦</span>
     </a>
-    <a href="series.html" class="menu-btn btn-dark-green">
+    <a href="#" class="menu-btn btn-dark-green">
       <span class="btn-icon">🏆</span>
       <span class="btn-title">シリーズ</span>
     </a>
-    <a href="online.html" class="menu-btn btn-dark-green">
+    <a href="#" class="menu-btn btn-dark-green">
       <span class="btn-icon">🌐</span>
       <span class="btn-title">通信対戦</span>
     </a>
 
-    <!-- 2行目: 戦略ライン -->
-    <a href="deck.html" class="menu-btn btn-light-green">
+    <a href="#" class="menu-btn btn-light-green">
       <span class="btn-icon">🗂️</span>
       <span class="btn-title">デッキ編成</span>
     </a>
-    <a href="strategy_list.html" class="menu-btn btn-light-green">
+    <a href="#" class="menu-btn btn-light-green">
       <span class="btn-icon">🎯</span>
       <span class="btn-title">作戦室</span>
     </a>
-    <a href="simulation.html" class="menu-btn btn-light-green">
+    <a href="#" class="menu-btn btn-light-green">
       <span class="btn-icon">🧮</span>
       <span class="btn-title">シミュレータ</span>
     </a>
 
-    <!-- 3行目: お楽しみ部門 -->
-    <a href="collection.html" class="menu-btn btn-gold">
+    <a href="#" class="menu-btn btn-gold">
       <span class="btn-icon">📚</span>
       <span class="btn-title">コレクション</span>
     </a>
-    <a href="ranking.html" class="menu-btn btn-gold">
+    <a href="#" class="menu-btn btn-gold">
       <span class="btn-icon">👑</span>
       <span class="btn-title">ランキング</span>
     </a>
-    <a href="shop.html" class="menu-btn btn-gold">
+    <a href="#" class="menu-btn btn-gold">
       <span class="btn-icon">🏪</span>
       <span class="btn-title">ショップ</span>
     </a>
   </div>
 
+  <!-- デッキ表示領域 -->
   <div class="deck-section">
     <div class="main-deck-tabs">
       <div class="main-tab active" id="tabMain1">🏇 MAIN DECK 1</div>
       <div class="main-tab" id="tabMain2">🏇 MAIN DECK 2</div>
     </div>
     <div class="deck-control-bar">
-      <span class="deck-name" id="deckNameDisplay">✏️ 読み込み中...</span>
-      <a href="deck.html" style="text-decoration:none;"><button class="action-btn">✏️ 編集する</button></a>
+      <span class="deck-name" id="deckNameDisplay">✏️ デッキ1: 王道芝中長距離</span>
+      <button class="action-btn">✏️ 編集する</button>
     </div>
     <table class="race-table">
       <thead>
-        <tr><th>枠</th><th>印</th><th style="text-align:left; padding-left:30px;">馬名</th><th>脚質</th><th>適性</th><th>距離</th></tr>
+        <tr><th>枠</th><th>印</th><th style="text-align:left; padding-left:20px;">馬名</th><th>脚質</th><th>適性</th><th>距離</th></tr>
       </thead>
       <tbody id="raceTableBody">
-        <tr><td colspan="6">読み込み中...</td></tr>
+        <tr><td>1</td><td>◎</td><td style="text-align:left;">ディープインパクト</td><td>差し</td><td>芝10</td><td>2000-3200m</td></tr>
+        <tr><td>2</td><td>○</td><td style="text-align:left;">オルフェーヴル</td><td>追込</td><td>芝10</td><td>2000-3000m</td></tr>
+        <tr><td>3</td><td>▲</td><td style="text-align:left;">キタサンブラック</td><td>逃げ</td><td>芝9</td><td>1800-3200m</td></tr>
+        <tr><td>4</td><td>△</td><td style="text-align:left;">ウオッカ</td><td>先行</td><td>芝9</td><td>1600-2400m</td></tr>
       </tbody>
     </table>
   </div>
@@ -564,582 +803,73 @@
   <div class="card-modal-wrapper" id="cardDetailBox"></div>
 </div>
 
-<script type="module">
-  import { auth, db } from './firebase-config.js';
-  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { doc, getDoc, setDoc, collection, getCountFromServer, increment, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-  
-  import { cardRenderer } from './js/card_renderer.js';
-  import { drawBonusCard, getGenYearLastDigit, playFourthCornerCutIn, getGenerationYear } from './js/login_bonus.js';
+<script>
+  // スロット演出用スクリプト
+  const mockCards = [
+    { year: "2005", name: "ディープインパクト", rarity: "UR" },
+    { year: "2011", name: "オルフェーヴル", rarity: "SSR" },
+    { year: "2020", name: "コントレイル", rarity: "SSR" },
+    { year: "1998", name: "エルコンドルパサー", rarity: "SR" },
+    { year: "2013", name: "キズナ", rarity: "R" }
+  ];
 
-  let globalUserData = null;
-  let currentUser = null;
-  let activeDeckIndex = 0;
-  let isClaimingBonus = false;
+  let isSpinning = [false, false, false];
+  let spinIntervals = [null, null, null];
+  let stoppedCount = 0;
 
-  function getTurfVal(horse) {
-    return Number(horse.turf_potential ?? horse.turf) || 0;
-  }
-  function getDirtVal(horse) {
-    return Number(horse.dirt_potential ?? horse.dirt) || 0;
-  }
-  function getSurfaceText(horse) {
-    const t = getTurfVal(horse);
-    const d = getDirtVal(horse);
-    if (t > 0 && d > 0) return t === d ? `芝/ダ${t}` : `芝${t}ダ${d}`;
-    if (t > 0) return `芝${t}`;
-    if (d > 0) return `ダ${d}`;
-    return "-";
-  }
+  function startSlotSpin() {
+    document.getElementById('startSlotBtn').disabled = true;
+    document.getElementById('slotStatusLed').textContent = 'SPINNING';
+    document.getElementById('slotStatusLed').style.color = '#ffff00';
+    document.getElementById('reachBanner').style.display = 'none';
 
-  function formatAptitudeSimple(horse) {
-    const turf = Number(horse.turf_potential ?? horse.turf ?? 0);
-    const dirt = Number(horse.dirt_potential ?? horse.dirt ?? 0);
-    if (turf > 0 && dirt > 0) return `芝${turf} ダ${dirt}`;
-    if (turf > 0) return `芝${turf}`;
-    if (dirt > 0) return `ダ${dirt}`;
-    return "-";
-  }
-
-  function getDistanceLinesHtml(horse) {
-    const min = horse.min_distance || horse.distance_min;
-    const max = horse.max_distance || horse.distance_max;
-    if (min && max) {
-      return `<div>${min}m</div><div>${max}m</div>`;
-    }
-    if (horse.distance) {
-      const parts = String(horse.distance).split('-');
-      if (parts.length === 2) {
-        return `<div>${parts[0]}m</div><div>${parts[1]}m</div>`;
-      }
-      return `<div>${horse.distance}</div>`;
-    }
-    return `<div>-</div>`;
-  }
-
-  function getAbilityBadgeHtml(horse) {
-    let abilities = [];
-    if (Array.isArray(horse.ability)) {
-      abilities = horse.ability;
-    } else if (typeof horse.ability === 'string' && horse.ability) {
-      abilities = [horse.ability];
-    } else if (horse.skill) {
-      abilities = Array.isArray(horse.skill) ? horse.skill : [horse.skill];
-    }
-
-    let html = '<div class="bonus-abilities-row">';
+    stoppedCount = 0;
     for (let i = 0; i < 3; i++) {
-      if (abilities[i]) {
-        const label = String(abilities[i]).substring(0, 3);
-        html += `<div class="bonus-ability-btn" title="${abilities[i]}">${label}</div>`;
-      } else {
-        html += `<div class="bonus-ability-btn empty">---</div>`;
-      }
-    }
-    html += '</div>';
-    return html;
-  }
+      isSpinning[i] = true;
+      document.getElementById(`stopBtn${i}`).disabled = false;
+      document.getElementById(`reel${i}`).classList.add('spinning');
+      document.getElementById(`reel${i}`).classList.remove('stopped');
 
-  function createRadarSvgForHorse(horse) {
-    const getVal = (val) => {
-      if (typeof val === 'number') return val;
-      return cardRenderer.rankToValue ? cardRenderer.rankToValue(val) : 0;
-    };
-
-    const paramsObj = {
-      spdVal: getVal(horse.speed),
-      stmVal: getVal(horse.stamina),
-      shpVal: getVal(horse.sharp ?? horse.sharpness),
-      jzkVal: getVal(horse.jizoku),
-      gutVal: getVal(horse.guts)
-    };
-    const styleName = horse.style || horse.running_style || 'default';
-    return cardRenderer.generateRadarSVG ? cardRenderer.generateRadarSVG(paramsObj, styleName) : '';
-  }
-
-  function getHorseScore(horse) {
-    if (!horse) return 0;
-    const getVal = (val) => {
-      if (typeof val === 'number') return val;
-      return cardRenderer.rankToValue ? cardRenderer.rankToValue(val) : 0;
-    };
-    return getVal(horse.speed) + getVal(horse.stamina) + getVal(horse.sharp ?? horse.sharpness) + getVal(horse.jizoku) + getVal(horse.guts);
-  }
-
-  onAuthStateChanged(auth, async (user) => {
-    if (!user) {
-      window.location.href = 'auth.html';
-      return;
-    }
-    currentUser = user;
-    try {
-      const [userDoc] = await Promise.all([
-        getDoc(doc(db, "users", user.uid)),
-        cardRenderer.init().catch(err => {
-          console.error("cardRendererの初期化エラー:", err);
-        })
-      ]);
-
-      if (!userDoc.exists()) {
-        window.location.href = 'setup.html';
-        return;
-      }
-      globalUserData = userDoc.data();
-
-      renderUserProfile();
-      renderSelectedDeck();
-      await renderRecord(); 
-      await checkAndRenderLoginBonus();
-    } catch (err) {
-      console.error("初期化エラー:", err);
-      document.getElementById('userNameText').textContent = "⚠️ 初期化エラー";
-      alert("初期化に失敗しました。マスターデータおよびネットワーク環境をご確認ください。");
-    }
-  });
-
-  function renderUserProfile() {
-    const name = globalUserData.display_name || globalUserData.displayName || currentUser.displayName || "ゲスト";
-    document.getElementById('userNameText').innerHTML = `👤 <strong>${name}</strong>`;
-  }
-
-  async function renderRecord() {
-    const totalWins = globalUserData.total_wins || 0;
-    
-    const chCurr = globalUserData.challenge_current_streak || 0;
-    const chMax = globalUserData.challenge_max_streak || 0;
-    const svCurr = globalUserData.survival_current_streak || 0;
-    const svMax = globalUserData.survival_max_streak || 0;
-    const currentStreak = Math.max(chCurr, svCurr);
-    const maxStreak = Math.max(chMax, svMax);
-
-    const challengeMax1st = globalUserData.max_1st_places || 0;
-    const survivalMax1st = globalUserData.survival_bests?.max_1st?.c1 || 0;
-    let max1stVal = Math.max(challengeMax1st, survivalMax1st);
-
-    const badgeArea = document.getElementById('userBadgeArea');
-    const badges = globalUserData.survival_badges || {};
-    
-    let badgeHtml = `🏆 挑戦者`;
-    if (totalWins >= 100) badgeHtml = `👑 殿堂馬主`;
-    else if (totalWins >= 50) badgeHtml = `🌟 サバイバー`;
-    else if (totalWins >= 30) badgeHtml = `⚔️ 猛者`;
-
-    if (badges.clear) badgeHtml += ` 🛡️`;
-    badgeArea.innerHTML = badgeHtml;
-
-    document.getElementById('statTotalWins').textContent = `${totalWins}勝`;
-    document.getElementById('statStreakInfo').textContent = `${currentStreak} / ${maxStreak}`;
-    document.getElementById('statMax1stTag').textContent = "最多1着";
-    document.getElementById('statMax1stVal').textContent = `${max1stVal}回`;
-
-    try {
-      const collRef = collection(db, `users/${currentUser.uid}/inventory`);
-      const snapshot = await getCountFromServer(collRef);
-      document.getElementById('statCardTypes').textContent = `${snapshot.data().count}種`;
-    } catch (error) {
-      document.getElementById('statCardTypes').textContent = `-種`;
+      spinIntervals[i] = setInterval(() => {
+        const randomCard = mockCards[Math.floor(Math.random() * mockCards.length)];
+        renderReelContent(i, randomCard);
+      }, 80);
     }
   }
 
-  async function checkAndRenderLoginBonus() {
-    const now = new Date();
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    
-    let bonusState = globalUserData.login_bonus_state || {
-      last_date: "", today_cards: [], fever_qualified_next_day: false, is_fever_today: false, last_claim_time: 0
-    };
+  function stopReel(index) {
+    if (!isSpinning[index]) return;
 
-    if (bonusState.last_date !== todayStr) {
-      bonusState = {
-        last_date: todayStr,
-        today_cards: [],
-        fever_qualified_next_day: false,
-        is_fever_today: Boolean(bonusState.fever_qualified_next_day),
-        last_claim_time: 0
-      };
-      await setDoc(doc(db, "users", currentUser.uid), { login_bonus_state: bonusState }, { merge: true });
-      globalUserData.login_bonus_state = bonusState;
-    }
-    renderBonusUI(bonusState);
-  }
+    clearInterval(spinIntervals[index]);
+    isSpinning[index] = false;
+    document.getElementById(`stopBtn${index}`).disabled = true;
+    document.getElementById(`reel${index}`).classList.remove('spinning');
+    document.getElementById(`reel${index}`).classList.add('stopped');
 
-  function parseTimestamp(val) {
-    if (!val) return 0;
-    if (typeof val === 'number') return val;
-    if (val.toMillis) return val.toMillis();
-    return val.seconds ? val.seconds * 1000 : 0;
-  }
+    const resultCard = mockCards[Math.floor(Math.random() * mockCards.length)];
+    renderReelContent(index, resultCard);
 
-  function renderBonusUI(state) {
-    const container = document.getElementById('bonusCardsContainer');
-    const msgContainer = document.getElementById('bonusMessageContainer');
-    const btnContainer = document.getElementById('bonusBtnContainer');
-    container.innerHTML = ''; msgContainer.innerHTML = ''; btnContainer.innerHTML = '';
+    stoppedCount++;
 
-    const cards = state.today_cards || [];
-
-    let reachLevel = 0;
-    let matchTexts = [];
-    if (cards.length === 2) {
-      const h1 = cardRenderer.getHorse ? cardRenderer.getHorse(cards[0].horse_id) : null;
-      const h2 = cardRenderer.getHorse ? cardRenderer.getHorse(cards[1].horse_id) : null;
-
-      if (h1 && h2) {
-        const d1 = getGenYearLastDigit(cards[0].horse_id);
-        const d2 = getGenYearLastDigit(cards[1].horse_id);
-        if (d1 === d2 && d1 !== null) { reachLevel++; matchTexts.push(`世代[${d1}]`); }
-        
-        if (cards[0].rarity === cards[1].rarity) { reachLevel++; matchTexts.push(`レアリティ[${cards[0].rarity}]`); }
-        
-        const s1 = h1.style || h1.running_style || "不明";
-        const s2 = h2.style || h2.running_style || "不明";
-        if (s1 === s2 && s1 !== "不明") { reachLevel++; matchTexts.push(`脚質[${s1}]`); }
-        
-        const p1 = getHorseScore(h1);
-        const p2 = getHorseScore(h2);
-        if (p1 === p2 && p1 > 0) { reachLevel++; matchTexts.push(`ポテンシャル`); }
-      }
-    }
-
-    for (let i = 0; i < 3; i++) {
-      if (i < cards.length) {
-        const item = cards[i];
-        const horse = cardRenderer.getHorse ? cardRenderer.getHorse(item.horse_id) : null;
-        
-        const fullYear = getGenerationYear(horse || item.horse_id);
-        const genYear = (fullYear && fullYear !== '----') ? fullYear.slice(-2) : '--';
-        
-        const lastDigit = getGenYearLastDigit(item.horse_id);
-        const horseName = horse ? horse.name : item.horse_id;
-
-        if (horse) {
-          const surfaceText = getSurfaceText(horse);
-          const distLinesHtml = getDistanceLinesHtml(horse);
-          const sexText = horse.sex || "-";
-          const abilitiesHtml = getAbilityBadgeHtml(horse);
-          const radarSvgHtml = createRadarSvgForHorse(horse);
-
-          container.innerHTML += `
-            <div class="bonus-card obtained" onclick="openCardDetail('${item.horse_id}')">
-              <div class="bonus-card-header">
-                <span class="gen-year">${genYear}年</span>
-                <span class="slot-num">${lastDigit}</span>
-                <span class="rarity">${item.rarity}</span>
-              </div>
-              <div class="bonus-card-name" title="${horseName}">${horseName}</div>
-              <div class="bonus-card-body">
-                <div class="bonus-card-details">
-                  <div>${surfaceText}</div>
-                  ${distLinesHtml}
-                  <div>${horse.style || horse.running_style || '-'}</div>
-                  <div>${sexText}</div>
-                </div>
-                <div class="bonus-radar-box">
-                  ${radarSvgHtml}
-                </div>
-              </div>
-              ${abilitiesHtml}
-            </div>`;
-        } else {
-          container.innerHTML += `
-            <div class="bonus-card obtained" onclick="openCardDetail('${item.horse_id}')">
-              <div class="bonus-card-header">
-                <span class="gen-year">${genYear}年</span>
-                <span class="slot-num">${lastDigit}</span>
-                <span class="rarity">${item.rarity}</span>
-              </div>
-              <div class="bonus-card-name" title="${horseName}">${horseName}</div>
-              <div style="font-size:10px; color:#888; margin:auto;">データ取得中</div>
-            </div>`;
-        }
-      } else {
-        if (i === 2 && reachLevel > 0) {
-          let rClass = `reach-level-${reachLevel}`;
-          let rTitle = "";
-          let rDesc = "";
-          
-          if (reachLevel === 1) {
-            rTitle = "🔥 リーチ!! 🔥";
-            rDesc = "3枚目も揃えば<br>明日確変発生！";
-          } else if (reachLevel === 2) {
-            rTitle = "🔥🔥 ダブルリーチ!! 🔥🔥";
-            rDesc = "激アツ！3枚目も揃えば<br>明日確変発生！";
-          } else if (reachLevel === 3) {
-            rTitle = "💥 トリプルリーチ!!! 💥";
-            rDesc = "超激アツ！3枚目も揃えば<br>明日確変発生！";
-          } else if (reachLevel === 4) {
-            rTitle = "🌈 クワドラプルリーチ!!!! 🌈";
-            rDesc = "奇跡の4要素一致！<br>次も揃えば確変確定！";
-          }
-
-          container.innerHTML += `
-            <div class="bonus-card reach-slot ${rClass}">
-              <div class="reach-title">${rTitle}</div>
-              <div class="reach-desc">${rDesc}</div>
-              <div class="reach-matches">${matchTexts.join(' / ')}</div>
-            </div>`;
-        } else {
-          container.innerHTML += `<div class="bonus-card empty">${i + 1}枚目 未獲得</div>`;
-        }
-      }
-    }
-
-    const diffMs = Date.now() - parseTimestamp(state.last_claim_time);
-    const ONE_HOUR_MS = 3600000;
-
-    if (cards.length < 3) {
-      if (cards.length === 0 || diffMs >= ONE_HOUR_MS) {
-        const isFever = (cards.length === 0 && state.is_fever_today);
-        btnContainer.innerHTML = `<button class="bonus-claim-btn" id="claimBtn">${isFever ? "🔥 确変ボーナスを受け取る！" : `🎁 ${cards.length + 1}枚目を受け取る`}</button>`;
-        document.getElementById('claimBtn').onclick = claimLoginBonus;
-        if (isFever) msgContainer.innerHTML = `<div class="bonus-msg">✨ 前日のスロット達成特典適用中！レアカード確定！ ✨</div>`;
-      } else {
-        const minLeft = Math.ceil((ONE_HOUR_MS - diffMs) / 60000);
-        msgContainer.innerHTML = `<div class="bonus-msg">⏰ 次のボーナス獲得まで あと約${minLeft}分</div>`;
-      }
-    } else {
-      if (state.fever_qualified_next_day) {
-        msgContainer.innerHTML = `<div class="bonus-msg">✨ マルチスロット達成！明日の1枚目は確変確定！ ✨</div>`;
-      } else {
-        msgContainer.innerHTML = `<div class="bonus-msg" style="background:#eaf5eb; color:#0d4220; border-color:#b2d4b6;">本日のログインボーナスはすべて獲得済みです</div>`;
-      }
+    if (stoppedCount === 2) {
+      document.getElementById('reachBanner').style.display = 'block';
+    } else if (stoppedCount === 3) {
+      document.getElementById('slotStatusLed').textContent = 'FEVER!!';
+      document.getElementById('slotStatusLed').style.color = '#ff00ff';
+      document.getElementById('reachBanner').textContent = '🎉 FEVER! CARD GET! 🎉';
     }
   }
 
-  async function claimLoginBonus() {
-    if (isClaimingBonus) return;
-    isClaimingBonus = true;
-
-    const btn = document.getElementById('claimBtn');
-    if (btn) {
-      btn.disabled = true;
-      btn.innerText = "⏳ 処理中...";
-    }
-
-    const userRef = doc(db, "users", currentUser.uid);
-    let chosenHorse = null;
-    let isFeverClaim = false;
-    let isMultiReachSuccess = false;
-    let newStateForUI = null;
-
-    try {
-      await runTransaction(db, async (transaction) => {
-        // 【1. 読み込みフェーズ】
-        const userDoc = await transaction.get(userRef);
-        if (!userDoc.exists()) throw new Error("ユーザーデータが存在しません");
-
-        const data = userDoc.data();
-        let state = data.login_bonus_state || {};
-        
-        const now = new Date();
-        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-        const nowMs = now.getTime();
-
-        if (state.last_date !== todayStr) {
-          state = {
-            last_date: todayStr,
-            today_cards: [],
-            fever_qualified_next_day: false,
-            is_fever_today: Boolean(state.fever_qualified_next_day),
-            last_claim_time: 0
-          };
-        }
-
-        const cards = state.today_cards || [];
-
-        if (cards.length >= 3) {
-          throw new Error("本日のログインボーナスはすべて獲得済みです。");
-        }
-
-        if (cards.length > 0) {
-          const diffMs = nowMs - parseTimestamp(state.last_claim_time);
-          if (diffMs < 3600000) { 
-            throw new Error("次のボーナス獲得まで1時間経過していません。");
-          }
-        }
-
-        isFeverClaim = (cards.length === 0 && Boolean(state.is_fever_today));
-        chosenHorse = drawBonusCard(cardRenderer, globalUserData.affiliation, isFeverClaim);
-
-        if (!chosenHorse || !chosenHorse.horse_id) {
-          throw new Error("カードデータの取得に失敗しました。");
-        }
-
-        // ★ 書き込みを行う前に、インベントリの「読み込み」を済ませる
-        const inventoryRef = doc(db, `users/${currentUser.uid}/inventory/${chosenHorse.horse_id}`);
-        const invDoc = await transaction.get(inventoryRef);
-
-        // 【2. ロジック・状態計算フェーズ】
-        const newCardData = { horse_id: chosenHorse.horse_id, rarity: chosenHorse.rarity, timestamp: nowMs };
-        const newCardsArray = [...cards, newCardData];
-        state.today_cards = newCardsArray;
-        state.last_claim_time = nowMs;
-
-        if (newCardsArray.length === 3) {
-          const h1 = cardRenderer.getHorse ? cardRenderer.getHorse(newCardsArray[0].horse_id) : null;
-          const h2 = cardRenderer.getHorse ? cardRenderer.getHorse(newCardsArray[1].horse_id) : null;
-          const h3 = cardRenderer.getHorse ? cardRenderer.getHorse(newCardsArray[2].horse_id) : null;
-
-          if (h1 && h2 && h3) {
-            const d1 = getGenYearLastDigit(newCardsArray[0].horse_id);
-            const d2 = getGenYearLastDigit(newCardsArray[1].horse_id);
-            const d3 = getGenYearLastDigit(newCardsArray[2].horse_id);
-            
-            const r1 = newCardsArray[0].rarity;
-            const r2 = newCardsArray[1].rarity;
-            const r3 = newCardsArray[2].rarity;
-
-            const s1 = h1.style || h1.running_style || "不明";
-            const s2 = h2.style || h2.running_style || "不明";
-            const s3 = h3.style || h3.running_style || "不明";
-
-            const p1 = getHorseScore(h1);
-            const p2 = getHorseScore(h2);
-            const p3 = getHorseScore(h3);
-
-            if (
-              (d1 === d2 && d2 === d3 && d1 !== null) ||
-              (r1 === r2 && r2 === r3) ||
-              (s1 === s2 && s2 === s3 && s1 !== "不明") ||
-              (p1 === p2 && p2 === p3 && p1 > 0)
-            ) {
-              state.fever_qualified_next_day = true;
-              isMultiReachSuccess = true;
-            }
-          }
-        }
-
-        newStateForUI = { ...state };
-        const newCount = invDoc.exists() ? (invDoc.data().count || 0) + 1 : 1;
-
-        // 【3. 書き込みフェーズ】
-        transaction.set(userRef, { login_bonus_state: state }, { merge: true });
-        transaction.set(inventoryRef, { count: newCount, obtained_at: new Date().toISOString() }, { merge: true });
-      });
-
-      globalUserData.login_bonus_state = newStateForUI;
-
-      if (typeof playFourthCornerCutIn === 'function') {
-        await playFourthCornerCutIn(chosenHorse, cardRenderer);
-      }
-      
-      if (isMultiReachSuccess) {
-        alert("🎉 おめでとうございます！3枚の要素が揃い、明日の確変が確定しました！ 🎉");
-      }
-
-      renderBonusUI(newStateForUI);
-      renderRecord();
-
-    } catch (err) {
-      console.error("ログインボーナス処理失敗:", err);
-      alert(err.message || "通信エラーが発生しました。時間を置いて再度お試しください。");
-      renderBonusUI(globalUserData.login_bonus_state);
-    } finally {
-      isClaimingBonus = false; 
-    }
+  function renderReelContent(index, card) {
+    const el = document.getElementById(`reelContent${index}`);
+    el.innerHTML = `
+      <div class="slot-card-display">
+        <span class="slot-card-year">'${card.year.slice(-2)}</span>
+        <span class="slot-card-name">${card.name}</span>
+        <span class="slot-card-rarity">${card.rarity}</span>
+      </div>
+    `;
   }
-
-  function switchTab(idx) {
-    activeDeckIndex = idx;
-    document.getElementById('tabMain1').className = `main-tab ${idx === 0 ? 'active' : ''}`;
-    document.getElementById('tabMain2').className = `main-tab ${idx === 1 ? 'active' : ''}`;
-    renderSelectedDeck();
-  }
-
-  function renderSelectedDeck() {
-    const decks = globalUserData.decks || [{ deck_name: "メインデッキ 1", horse_ids: [] }, { deck_name: "メインデッキ 2", horse_ids: [] }];
-    const deck = decks[activeDeckIndex] || { deck_name: "未設定", horse_ids: [] };
-    document.getElementById('deckNameDisplay').textContent = `✏️ ${deck.deck_name || "メインデッキ"}`;
-    
-    const tbody = document.getElementById('raceTableBody');
-    if (!deck.horse_ids || deck.horse_ids.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="color:#888; padding:12px;">デッキが設定されていません（EDIT DECKから編成してください）</td></tr>';
-      return;
-    }
-
-    const horsesData = deck.horse_ids.map((hId, originalIndex) => {
-      const horse = cardRenderer.getHorse ? cardRenderer.getHorse(hId) : null;
-      if (!horse) return { hId, originalIndex, horse: null, score: 0 };
-
-      const score = getHorseScore(horse);
-      return { hId, originalIndex, horse, score };
-    });
-
-    const validHorses = horsesData.filter(item => item.horse !== null);
-    validHorses.sort((a, b) => b.score - a.score);
-
-    const markMap = new Map();
-    validHorses.forEach((item, rank) => {
-      let mark = 'ー';
-      if (rank === 0) mark = '<span style="color:#e60000; font-weight:bold;">◎</span>';
-      else if (rank === 1) mark = '<span style="color:#e60000; font-weight:bold;">◯</span>';
-      else if (rank === 2) mark = '<span style="color:#1a73e8; font-weight:bold;">▲</span>';
-      else if (rank === 3 || rank === 4) mark = '<span style="color:#2d6a37; font-weight:bold;">△</span>';
-      else if (rank === 5) mark = '<span style="color:#c29b1d; font-weight:bold;">注</span>';
-      markMap.set(item.hId, mark);
-    });
-
-    const rowsHtml = horsesData.map((item) => {
-      const { hId, originalIndex, horse } = item;
-      const frameNum = originalIndex + 1;
-
-      if (!horse) {
-        return `<tr>
-          <td>${frameNum}</td>
-          <td>ー</td>
-          <td style="text-align:left; padding-left:4px;">${hId}</td>
-          <td>-</td>
-          <td>-</td>
-          <td>-</td>
-        </tr>`;
-      }
-
-      const name = horse.name || hId;
-      const mark = markMap.get(hId) || 'ー';
-      const style = horse.style || horse.running_style || horse.leg_style || '-';
-      const aptitude = formatAptitudeSimple(horse);
-
-      let distance = '-';
-      if (cardRenderer.getDistanceText) {
-        const res = cardRenderer.getDistanceText(horse);
-        if (res && res !== '-' && res !== 'undefined') distance = res;
-      }
-      if (distance === '-') {
-        if (horse.distance) {
-          distance = typeof horse.distance === 'number' ? `${horse.distance}m` : horse.distance;
-        } else if (horse.min_distance && horse.max_distance) {
-          distance = `${horse.min_distance}-${horse.max_distance}m`;
-        }
-      }
-
-      return `<tr>
-        <td><strong>${frameNum}</strong></td>
-        <td>${mark}</td>
-        <td style="text-align:left; padding-left:15px; font-weight:bold;">${name}</td>
-        <td>${style}</td>
-        <td>${aptitude}</td>
-        <td>${distance}</td>
-      </tr>`;
-    }).join('');
-
-    tbody.innerHTML = rowsHtml;
-  }
-
-  document.getElementById('tabMain1').onclick = () => switchTab(0);
-  document.getElementById('tabMain2').onclick = () => switchTab(1);
-
-  window.openCardDetail = (horseId) => {
-    if (!cardRenderer) return;
-    const cardHtml = cardRenderer.renderCardUI(horseId, 'large');
-    document.getElementById('cardDetailBox').innerHTML = cardHtml;
-    document.getElementById('cardDetailModal').classList.add('active');
-  };
-
-  document.getElementById('cardDetailModal').addEventListener('click', (e) => {
-    if (e.target.id === 'cardDetailModal') {
-      document.getElementById('cardDetailModal').classList.remove('active');
-    }
-  });
 </script>
 </body>
 </html>
