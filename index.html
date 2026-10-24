@@ -17,7 +17,9 @@
       --border-green: #b2d4b6;
     }
     
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
     body {
       margin: 0;
@@ -54,86 +56,98 @@
       text-shadow: 0 1px 1px rgba(255,255,255,0.8);
     }
 
-    /* --- リアル競馬パドック風フレーム（縦幅スリム化・位置調整） --- */
+    /* --- リアル競馬パドック風フレーム（縦幅スリム化） --- */
     .paddock-wrapper {
       position: relative;
       background: #112616;
       border: 2px solid var(--accent-gold);
-      border-radius: 12px;
+      border-radius: 14px;
       overflow: hidden;
       box-shadow: 0 8px 20px rgba(0,0,0,0.4), inset 0 0 15px rgba(0,0,0,0.6);
       display: flex;
       flex-direction: column;
     }
 
-    /* 1. 横断幕エリア（左：目標 / 右：称号） */
+    /* 1. 横断幕エリア（2つに絞る） */
     .paddock-banner-track {
-      height: 28px;
+      height: 32px;
       background: #09170c;
       background-image: repeating-linear-gradient(45deg, #09170c, #09170c 10px, #0f2413 10px, #0f2413 20px);
       border-bottom: 2px solid #28542f;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 8px;
+      padding: 0 10px;
     }
 
     .paddock-banner {
       position: relative;
-      padding: 2px 8px;
+      padding: 2px 10px;
       border-radius: 3px;
       font-weight: 900;
-      font-size: 10px;
+      font-size: 10.5px;
       letter-spacing: 0.5px;
       color: #fff;
       box-shadow: 0 2px 4px rgba(0,0,0,0.5);
       border: 1px solid rgba(255,255,255,0.3);
       display: flex;
       align-items: center;
-      gap: 4px;
-      max-width: 48%;
+      gap: 6px;
+      max-width: 65%;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    .paddock-banner::before, .paddock-banner::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      width: 3px;
+      height: 3px;
+      background: #222;
+      border: 1px solid #aaa;
+      border-radius: 50%;
+    }
+    .paddock-banner::before { left: 2px; }
+    .paddock-banner::after { right: 2px; }
+
     .banner-red { background: linear-gradient(135deg, #b71c1c, #d32f2f); text-shadow: 0 1px 2px #000; }
     .banner-gold { background: linear-gradient(135deg, #b78103, #e5b839); color: #111; text-shadow: 0 1px 0 rgba(255,255,255,0.4); border-color: #ffd700; }
 
-    /* 2. パドックメインステージ（縦幅を詰めて隙間を解消、芝の位置を修正） */
+    /* 2. パドックメインエリア（縦幅を狭く調整） */
     .paddock-main-stage {
       position: relative;
-      height: 110px;
-      background: linear-gradient(180deg, #234c2b 0%, #387643 65%, #1c3a20 100%);
-      padding: 4px 8px;
+      min-height: 125px;
+      background: linear-gradient(180deg, #1c3d23 0%, #2f5e38 60%, #1a3a20 100%);
+      padding: 6px 10px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       overflow: hidden;
     }
 
-    /* 修正された芝とコースの位置 */
     .paddock-ring-bg {
       position: absolute;
-      bottom: -22px;
+      bottom: -30px;
       left: 50%;
       transform: translateX(-50%);
-      width: 105%;
-      height: 85px;
+      width: 110%;
+      height: 110px;
       background: #735135;
       border-radius: 50%;
       border: 3px solid #f0f0f0;
-      box-shadow: inset 0 0 8px rgba(0,0,0,0.6);
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.6), 0 -2px 6px rgba(0,0,0,0.3);
     }
     .paddock-ring-turf {
       position: absolute;
-      bottom: -10px;
+      top: 10px;
       left: 50%;
       transform: translateX(-50%);
-      width: 90%;
-      height: 55px;
+      width: 82%;
+      height: 70px;
       background: #388e3c;
       border-radius: 50%;
-      border: 1.5px dashed rgba(255,255,255,0.4);
+      border: 2px dashed rgba(255,255,255,0.4);
     }
 
     .paddock-user-bar {
@@ -142,61 +156,66 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: rgba(0, 0, 0, 0.6);
+      background: rgba(0, 0, 0, 0.55);
       border: 1px solid rgba(255, 215, 0, 0.4);
-      border-radius: 12px;
-      padding: 2px 8px;
+      border-radius: 16px;
+      padding: 2px 10px;
+      backdrop-filter: blur(4px);
     }
     .paddock-user-name {
       color: #fff;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: bold;
-      text-shadow: 0 1px 2px #000;
-    }
-    .paddock-badge-emblem {
-      background: linear-gradient(135deg, #ffe082, #ffb300);
-      color: #3e2723;
-      font-size: 9.5px;
-      font-weight: 900;
-      padding: 1px 6px;
-      border-radius: 8px;
-    }
-
-    /* 馬名と馬のイラストを近くに配置し、周回時にスムーズに連動して動くコンテナ */
-    .ace-horse-display {
-      position: relative;
-      z-index: 2;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 4px;
-      animation: paddockPace 6s ease-in-out infinite alternate;
-    }
-    @keyframes paddockPace {
-      0%   { transform: translateX(0px); }
-      100% { transform: translateX(-8px); }
-    }
-
-    .ace-horse-visual {
       display: flex;
       align-items: center;
       gap: 6px;
+      text-shadow: 0 1px 3px #000;
+    }
+    .affiliation-mark { font-weight: bold; }
+    .affiliation-antique { color: #5cb85c; }
+    .affiliation-vintage { color: #f0ad4e; }
+    .affiliation-traditional { color: #d9534f; }
+
+    .paddock-badge-emblem {
+      background: linear-gradient(135deg, #ffe082, #ffb300);
+      color: #3e2723;
+      border: 1px solid #fff;
+      font-size: 10.5px;
+      font-weight: 900;
+      padding: 1px 8px;
+      border-radius: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+    }
+
+    .ace-horse-display {
+      position: relative;
+      z-index: 2;
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2px;
+    }
+    .ace-horse-visual {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     .ace-saddle-cloth {
       background: #111;
       color: #ffd700;
-      border: 1.5px solid #ffd700;
-      border-radius: 3px;
-      padding: 2px 5px;
+      border: 2px solid #ffd700;
+      border-radius: 4px;
+      padding: 3px 6px;
       text-align: center;
       font-weight: 900;
-      font-size: 13px;
-      min-width: 26px;
+      font-size: 14px;
+      min-width: 28px;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.5);
       line-height: 1;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.5);
     }
     .ace-saddle-cloth .race-no {
-      font-size: 7.5px;
+      font-size: 8px;
       display: block;
       color: #fff;
       margin-bottom: 1px;
@@ -206,29 +225,31 @@
       flex-direction: column;
     }
     .ace-horse-tag {
-      font-size: 8px;
+      font-size: 8.5px;
       color: #aed581;
       font-weight: bold;
+      letter-spacing: 0.5px;
       text-shadow: 0 1px 2px #000;
     }
     .ace-horse-name {
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 900;
       color: #ffffff;
-      text-shadow: 0 2px 4px #000, 0 0 6px rgba(0,0,0,0.8);
-      letter-spacing: 0.5px;
+      text-shadow: 0 2px 4px #000, 0 0 8px rgba(0,0,0,0.8);
+      letter-spacing: 1px;
     }
     .ace-coat-tag {
-      font-size: 9px;
+      font-size: 9.5px;
       color: #ffd700;
       font-weight: bold;
+      margin-top: 1px;
     }
     
-    /* パドック内 歩行アニメーション（/images/horse_walk_3frame.png 参照） */
+    /* --- パドック内 歩行アニメーション枠（/images/ フォルダー参照） --- */
     .ace-horse-walk-wrapper {
       position: relative;
-      width: 75px;
-      height: 55px;
+      width: 85px;
+      height: 65px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -238,12 +259,12 @@
     .horse-sprite-box {
       width: 98px;
       height: 78px;
-      transform: scale(0.72);
+      transform: scale(0.85);
       transform-origin: bottom center;
-      background-image: url('./images/horse_walk_3frame.png');
+      background-image: url('/images/horse_walk_3frame.png');
       background-size: 294px 78px;
       background-repeat: no-repeat;
-      animation: walk3Cycle 1.1s steps(1) infinite;
+      animation: walk3Cycle 1.2s steps(1) infinite;
       transition: filter 0.4s ease;
     }
     @keyframes walk3Cycle {
@@ -254,12 +275,12 @@
     }
     .horse-foot-shadow {
       position: absolute;
-      bottom: -2px;
+      bottom: -1px;
       left: 50%;
       transform: translateX(-50%);
-      width: 50px;
-      height: 5px;
-      background: radial-gradient(ellipse at center, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 70%);
+      width: 60px;
+      height: 6px;
+      background: radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 70%);
       border-radius: 50%;
     }
 
@@ -278,48 +299,58 @@
       z-index: 2;
       background: rgba(10, 24, 13, 0.95);
       border-top: 2px solid var(--accent-gold);
-      padding: 5px 6px;
+      padding: 6px 6px;
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 4px;
+      gap: 5px;
     }
     .paddock-stat-card {
       position: relative;
       background: linear-gradient(180deg, #ffffff 0%, #e8f3e9 100%);
       border: 1px solid #b2d4b6;
-      border-radius: 5px;
-      padding: 8px 2px 2px 2px;
+      border-radius: 6px;
+      padding: 10px 2px 3px 2px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+      overflow: visible;
     }
     .paddock-stat-num-tag {
       position: absolute;
-      top: -4px;
+      top: -5px;
       left: 50%;
       transform: translateX(-50%);
       background: linear-gradient(135deg, #1b4d23, #2d6a37);
       color: #ffffff;
-      font-size: 7px;
+      font-size: 7.5px;
       font-weight: 900;
-      padding: 1px 4px;
-      border-radius: 6px;
+      padding: 1px 5px;
+      border-radius: 7px;
       border: 1px solid #82c088;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+      white-space: nowrap;
+      line-height: 1;
     }
     .paddock-stat-label {
-      font-size: 7.5px;
+      font-size: 8px;
       font-weight: bold;
       color: var(--sub-text);
-      margin-bottom: 1px;
+      margin-bottom: 2px;
+      white-space: nowrap;
     }
     .paddock-stat-val {
-      font-size: 11px;
+      font-size: 11.5px;
       font-weight: 900;
       color: var(--text-color);
+      line-height: 1.1;
+      white-space: nowrap;
     }
-    .paddock-stat-val.gold { color: #b78103; }
+    .paddock-stat-val.gold {
+      color: #b78103;
+      text-shadow: 0 0 1px rgba(183, 129, 3, 0.3);
+    }
 
     /* --- スロット風ボーナスエリア --- */
     .slot-bonus-container {
@@ -329,6 +360,7 @@
       padding: 10px;
       box-shadow: 0 8px 16px rgba(0,0,0,0.6), inset 0 0 20px rgba(255,215,0,0.2);
       text-align: center;
+      position: relative;
     }
     .slot-header {
       display: flex;
@@ -340,15 +372,31 @@
       padding: 4px 8px;
       margin-bottom: 8px;
     }
-    .slot-title { color: #ffd700; font-weight: 900; font-size: 13px; letter-spacing: 1px; }
-    .slot-led-status { font-size: 10px; font-weight: bold; color: #00ff66; background: #002200; padding: 2px 6px; border-radius: 4px; border: 1px solid #00ff66; }
+    .slot-title {
+      color: #ffd700;
+      font-weight: 900;
+      font-size: 13px;
+      letter-spacing: 1px;
+      text-shadow: 0 0 5px #ff0;
+    }
+    .slot-led-status {
+      font-size: 10px;
+      font-weight: bold;
+      color: #00ff66;
+      background: #002200;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #00ff66;
+    }
 
     .slot-machine-body {
       background: linear-gradient(180deg, #1f1f1f 0%, #0a0a0a 100%);
       border: 2px solid #555;
       border-radius: 8px;
       padding: 8px;
+      box-shadow: inset 0 0 10px #000;
     }
+
     .cards-container { display: flex; justify-content: space-between; gap: 6px; }
     .bonus-card {
       flex: 1;
@@ -361,7 +409,9 @@
       flex-direction: column;
       justify-content: space-between;
       min-height: 80px;
+      box-sizing: border-box;
       text-align: center;
+      box-shadow: inset 0 0 6px rgba(0,0,0,0.3);
     }
     .bonus-card.empty {
       background: #111;
@@ -370,6 +420,7 @@
       font-size: 11px;
       align-items: center;
       justify-content: center;
+      text-align: center;
     }
     .bonus-card-header {
       display: flex;
@@ -382,8 +433,25 @@
     .bonus-card .slot-num { font-size: 16px; font-weight: bold; color: #e63956; }
     .bonus-card .gen-year { font-size: 9px; color: var(--sub-text); }
     .bonus-card .rarity { font-size: 10px; font-weight: bold; color: var(--accent-gold); }
-    .bonus-card-name { font-size: 10.5px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-color); margin-top: 2px; }
-    .bonus-msg { margin-top: 8px; font-size: 10px; color: #ffd700; background: rgba(255,215,0,0.1); padding: 4px; border-radius: 4px; border: 1px solid #e5b839; }
+    .bonus-card-name { 
+      font-size: 10.5px; 
+      font-weight: bold; 
+      overflow: hidden; 
+      text-overflow: ellipsis; 
+      white-space: nowrap; 
+      line-height: 1.2;
+      color: var(--text-color);
+      margin-top: 2px;
+    }
+    .bonus-msg { 
+      margin-top: 8px; 
+      font-size: 10px; 
+      color: #ffd700; 
+      background: rgba(255,215,0,0.1); 
+      padding: 4px; 
+      border-radius: 4px; 
+      border: 1px solid #e5b839; 
+    }
     .bonus-claim-btn {
       margin-top: 8px;
       background: linear-gradient(180deg, #ffd700 0%, #b78103 100%);
@@ -395,8 +463,15 @@
       font-size: 12px;
       cursor: pointer;
       box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+      letter-spacing: 1px;
     }
-    .bonus-claim-btn:disabled { background: #333; color: #777; border-color: #555; cursor: not-allowed; }
+    .bonus-claim-btn:disabled {
+      background: #333;
+      color: #777;
+      border-color: #555;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
 
     /* --- ナビゲーションメニュー（3列×3行＝9個） --- */
     .menu-grid {
@@ -417,13 +492,37 @@
       box-shadow: 0 3px 5px rgba(0,0,0,0.25);
       transition: all 0.1s;
     }
-    .menu-btn:active { transform: translateY(2px); box-shadow: 0 1px 2px rgba(0,0,0,0.3); }
-    .btn-icon { font-size: 18px; margin-bottom: 3px; line-height: 1; }
-    .btn-title { font-size: 11px; font-weight: bold; letter-spacing: -0.5px; white-space: nowrap; }
+    .menu-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+    .btn-icon {
+      font-size: 18px;
+      margin-bottom: 3px;
+      line-height: 1;
+    }
+    .btn-title {
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: -0.5px;
+      white-space: nowrap;
+    }
 
-    .btn-dark-green { background: linear-gradient(135deg, #2d6a37, #1b4d23); border: 1px solid #143b1a; color: #ffffff; }
-    .btn-light-green { background: linear-gradient(135deg, #449e54, #2c773a); border: 1px solid #1e5227; color: #ffffff; }
-    .btn-gold { background: linear-gradient(135deg, #d4af37, #aa820a); border: 1px solid #785a02; color: #ffffff; }
+    .btn-dark-green {
+      background: linear-gradient(135deg, #2d6a37, #1b4d23);
+      border: 1px solid #143b1a;
+      color: #ffffff;
+    }
+    .btn-light-green {
+      background: linear-gradient(135deg, #449e54, #2c773a);
+      border: 1px solid #1e5227;
+      color: #ffffff;
+    }
+    .btn-gold {
+      background: linear-gradient(135deg, #d4af37, #aa820a);
+      border: 1px solid #785a02;
+      color: #ffffff;
+    }
 
     /* --- デッキ表示領域 --- */
     .deck-section {
@@ -446,7 +545,11 @@
       cursor: pointer;
       text-align: center;
     }
-    .main-tab.active { background: linear-gradient(135deg, #1b4d23, #2d6a37); color: #ffffff; border-color: #143b1a; }
+    .main-tab.active {
+      background: linear-gradient(135deg, #1b4d23, #2d6a37);
+      color: #ffffff;
+      border-color: #143b1a;
+    }
     .deck-control-bar {
       display: flex;
       justify-content: space-between;
@@ -458,7 +561,16 @@
       border: 1px solid #cce2d0;
     }
     .deck-name { font-size: 11px; font-weight: bold; }
-    .action-btn { background: #ffffff; border: 1px solid #82c088; color: var(--text-color); font-size: 10px; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .action-btn {
+      background: #ffffff;
+      border: 1px solid #82c088;
+      color: var(--text-color);
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
     .race-table {
       width: 100%;
       border-collapse: collapse;
@@ -492,9 +604,14 @@
     }
     .modal-overlay.active { display: flex; }
     .card-modal-wrapper {
-      width: 82vw; max-width: 325px; aspect-ratio: 59 / 86;
-      background: #ffffff; border-radius: 12px; overflow: hidden;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.6); position: relative;
+      width: 82vw;
+      max-width: 325px;
+      aspect-ratio: 59 / 86;
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+      position: relative;
     }
   </style>
 </head>
@@ -502,9 +619,9 @@
 <div class="container">
   <div class="header"><h1>DERBY BATTLE CARD</h1></div>
   
-  <!-- リアル競馬パドック風フレーム（縦幅スリム化・芝位置修正済） -->
+  <!-- リアル競馬パドック風ステータスフレーム -->
   <div class="paddock-wrapper">
-    <!-- 横断幕エリア（左：勝利数に応じた目標 / 右：称号） -->
+    <!-- 横断幕エリア（左側：勝利数に応じた目標 / 右端：称号） -->
     <div class="paddock-banner-track" id="paddockBannerTrack">
       <div class="paddock-banner banner-red" id="bannerLeft"><span>めざせ30勝</span></div>
       <div class="paddock-banner banner-gold" id="bannerRight"><span>🏆 ビギナー</span></div>
@@ -521,20 +638,20 @@
         </div>
       </div>
 
-      <!-- パドック周回：デッキの馬たちが順番に登場・左へ移動する演出 -->
-      <div class="ace-horse-display" id="paddockHorseContainer">
+      <div class="ace-horse-display">
         <div class="ace-horse-visual">
           <div class="ace-saddle-cloth">
-            <span class="race-no" id="aceSaddleFrame">1枠</span>
+            <span class="race-no">1枠</span>
             <span id="aceSaddleNum">1</span>
           </div>
           <div class="ace-horse-info">
-            <span class="ace-horse-tag">🏇 PADDOCK ROTATION</span>
+            <span class="ace-horse-tag">🏇 MAIN ACE HORSE</span>
             <span class="ace-horse-name" id="aceHorseNameDisplay">読み込み中...</span>
             <span class="ace-coat-tag" id="aceHorseCoatDisplay">毛色: -</span>
           </div>
         </div>
         
+        <!-- パドック周回常歩アニメーション（/images/ フォルダの画像を参照） -->
         <div class="ace-horse-walk-wrapper">
           <div id="aceHorseSprite" class="horse-sprite-box coat-鹿毛"></div>
           <div class="horse-foot-shadow"></div>
@@ -584,7 +701,7 @@
     </div>
   </div>
 
-  <!-- ナビゲーションメニュー（3列×3行＝9個） -->
+  <!-- ナビゲーションメニュー（3列×3行の9個） -->
   <div class="menu-grid">
     <a href="battle.html" class="menu-btn btn-dark-green">
       <span class="btn-icon">💻</span>
@@ -661,28 +778,34 @@
   let globalUserData = null;
   let currentUser = null;
   let activeDeckIndex = 0;
-  
-  // パドック周回用の馬リスト管理
-  let paddockHorsesList = [];
-  let paddockIndex = 0;
-  let paddockTimer = null;
 
   // ガチャ確率テーブル
   const NORMAL_PROBABILITY_TABLE = [
-    { rarity: "INF", prob: 0.005 }, { rarity: "SER", prob: 0.005 },
-    { rarity: "URR", prob: 0.010 }, { rarity: "LGR", prob: 0.010 },
-    { rarity: "CLR", prob: 0.010 }, { rarity: "TRR", prob: 0.010 },
-    { rarity: "RER", prob: 0.020 }, { rarity: "ANR", prob: 0.020 },
-    { rarity: "VIR", prob: 0.020 }, { rarity: "PRR", prob: 0.020 },
-    { rarity: "SPR", prob: 0.030 }, { rarity: "NOR", prob: 0.840 }
+    { rarity: "INF", prob: 0.005 },
+    { rarity: "SER", prob: 0.005 },
+    { rarity: "URR", prob: 0.010 },
+    { rarity: "LGR", prob: 0.010 },
+    { rarity: "CLR", prob: 0.010 },
+    { rarity: "TRR", prob: 0.010 },
+    { rarity: "RER", prob: 0.020 },
+    { rarity: "ANR", prob: 0.020 },
+    { rarity: "VIR", prob: 0.020 },
+    { rarity: "PRR", prob: 0.020 },
+    { rarity: "SPR", prob: 0.030 },
+    { rarity: "NOR", prob: 0.840 }
   ];
 
   const FEVER_PROBABILITY_TABLE = [
-    { rarity: "INF", prob: 0.10 }, { rarity: "SER", prob: 0.10 },
-    { rarity: "URR", prob: 0.10 }, { rarity: "LGR", prob: 0.10 },
-    { rarity: "CLR", prob: 0.10 }, { rarity: "TRR", prob: 0.10 },
-    { rarity: "RER", prob: 0.10 }, { rarity: "ANR", prob: 0.10 },
-    { rarity: "VIR", prob: 0.10 }, { rarity: "PRR", prob: 0.10 }
+    { rarity: "INF", prob: 0.10 },
+    { rarity: "SER", prob: 0.10 },
+    { rarity: "URR", prob: 0.10 },
+    { rarity: "LGR", prob: 0.10 },
+    { rarity: "CLR", prob: 0.10 },
+    { rarity: "TRR", prob: 0.10 },
+    { rarity: "RER", prob: 0.10 },
+    { rarity: "ANR", prob: 0.10 },
+    { rarity: "VIR", prob: 0.10 },
+    { rarity: "PRR", prob: 0.10 }
   ];
 
   // ご指定の称号テーブル
@@ -719,24 +842,34 @@
     } else if (w >= 30) {
       leftText = "目指せ50勝";
     }
-    if (bannerLeft) bannerLeft.innerHTML = `<span>${leftText}</span>`;
+    if (bannerLeft) {
+      bannerLeft.innerHTML = `<span>${leftText}</span>`;
+    }
 
     // 右端：称号
     const currentTitle = getTitleByWins(w);
-    if (bannerRight) bannerRight.innerHTML = `<span>🏆 ${currentTitle}</span>`;
+    if (bannerRight) {
+      bannerRight.innerHTML = `<span>🏆 ${currentTitle}</span>`;
+    }
   }
 
   function formatAptitude(turf, dirt) {
     const t = Number(turf) || 0;
     const d = Number(dirt) || 0;
-    if (t > 0 && d > 0) return (t === d) ? `芝/ダ${t}` : `芝${t}ダ${d}`;
-    if (t > 0) return `芝${t}`;
-    if (dirt > 0) return `ダ${d}`;
+    if (t > 0 && d > 0) {
+      return (t === d) ? `芝/ダ${t}` : `芝${t}ダ${d}`;
+    } else if (t > 0) {
+      return `芝${t}`;
+    } else if (d > 0) {
+      return `ダ${d}`;
+    }
     return '-';
   }
 
   function formatDistance(minDist, maxDist) {
-    if (minDist && maxDist) return `${minDist}-${maxDist}m`;
+    if (minDist && maxDist) {
+      return `${minDist}-${maxDist}m`;
+    }
     return '-';
   }
 
@@ -753,9 +886,13 @@
   function getAffiliationDigit(affiliationStr) {
     if (!affiliationStr) return null;
     const match = affiliationStr.match(/\d/g);
-    return (match && match.length > 0) ? parseInt(match[match.length - 1], 10) : null;
+    if (match && match.length > 0) {
+      return parseInt(match[match.length - 1], 10);
+    }
+    return null;
   }
 
+  // タブ切り替え処理
   document.getElementById('tabMain1').addEventListener('click', () => switchTab(0));
   document.getElementById('tabMain2').addEventListener('click', () => switchTab(1));
 
@@ -766,18 +903,8 @@
     renderSelectedDeck();
   }
 
-  // --- パドックでの馬の周回・切り替え表示（フルゲート風ローテーション） ---
-  function updatePaddockHorseDisplay() {
-    if (!paddockHorsesList || paddockHorsesList.length === 0) return;
-    
-    const horseInfo = paddockHorsesList[paddockIndex];
-    if (!horseInfo || !horseInfo.horse) return;
-
-    const horse = horseInfo.horse;
-    const frameNum = horseInfo.frameNum;
-
-    document.getElementById('aceSaddleFrame').textContent = `${frameNum}枠`;
-    document.getElementById('aceSaddleNum').textContent = frameNum;
+  function updateAceHorseDisplay(horse) {
+    if (!horse) return;
     document.getElementById('aceHorseNameDisplay').textContent = horse.name || 'メイン馬';
     const coat = horse.coat || '鹿毛';
     document.getElementById('aceHorseCoatDisplay').textContent = `毛色: ${coat}`;
@@ -785,21 +912,6 @@
     const sprite = document.getElementById('aceHorseSprite');
     if (sprite) {
       sprite.className = `horse-sprite-box coat-${coat}`;
-    }
-
-    // 次の馬へ（ループ）
-    paddockIndex = (paddockIndex + 1) % paddockHorsesList.length;
-  }
-
-  function startPaddockRotation(horses) {
-    paddockHorsesList = horses;
-    paddockIndex = 0;
-    if (paddockTimer) clearInterval(paddockTimer);
-
-    if (paddockHorsesList.length > 0) {
-      updatePaddockHorseDisplay();
-      // 3.5秒ごとに次の馬に切り替え
-      paddockTimer = setInterval(updatePaddockHorseDisplay, 3500);
     }
   }
 
@@ -810,7 +922,7 @@
     }
     currentUser = user;
     try {
-      const res = await fetch('./data/card_design.json');
+      const res = await fetch('/data/card_design.json');
       if (res.ok) {
         HORSES_ARRAY = await res.json();
         HORSES_ARRAY.forEach(h => {
@@ -838,7 +950,14 @@
   function renderUserProfile() {
     const name = globalUserData.displayName || "オーナー馬主";
     const affiliation = globalUserData.affiliation || "未設定";
-    document.getElementById('userNameText').innerHTML = `👤 ${name} (${affiliation})`;
+    let colorClass = "";
+    if (affiliation.includes("アンティーク")) colorClass = "affiliation-antique";
+    else if (affiliation.includes("ビンテージ")) colorClass = "affiliation-vintage";
+    else if (affiliation.includes("トラディショナル")) colorClass = "affiliation-traditional";
+
+    document.getElementById('userNameText').innerHTML = `
+      <span class="affiliation-mark ${colorClass}">◆</span> ${name} (${affiliation})
+    `;
   }
 
   async function renderRecord() {
@@ -860,6 +979,7 @@
     document.getElementById('statMax1stVal').textContent = `${globalUserData.max1stCount || 0}回`;
     document.getElementById('statCardTypes').textContent = `${cardTypesCount}種`;
 
+    // 称号と横断幕の更新
     const title = getTitleByWins(wins);
     document.getElementById('userBadgeArea').textContent = `🏆 ${title}`;
     updateBanners(wins);
@@ -881,17 +1001,14 @@
       return;
     }
 
-    let paddockCollection = [];
+    let firstHorse = null;
 
     deck.horse_ids.forEach((hId, index) => {
       if (!hId) return;
       const frameNum = Math.floor(index / 2) + 1;
       const frameClass = `w-${Math.min(frameNum, 8)}`;
       const horse = HORSES_MASTER[hId];
-
-      if (horse) {
-        paddockCollection.push({ horse, frameNum });
-      }
+      if (index === 0 && horse) firstHorse = horse;
 
       const tr = document.createElement('tr');
       if (horse) {
@@ -916,9 +1033,8 @@
       tbody.appendChild(tr);
     });
 
-    // パドックの周回リストに反映
-    if (paddockCollection.length > 0) {
-      startPaddockRotation(paddockCollection);
+    if (firstHorse) {
+      updateAceHorseDisplay(firstHorse);
     }
   }
 
@@ -927,15 +1043,25 @@
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     let bonusState = globalUserData.login_bonus_state || {
-      last_date: "", today_cards: [], fever_qualified_next_day: false, is_fever_today: false, last_claim_time: null
+      last_date: "",
+      today_cards: [],
+      fever_qualified_next_day: false,
+      is_fever_today: false,
+      last_claim_time: null
     };
 
     if (bonusState.last_date !== todayStr) {
       const isFeverForToday = bonusState.fever_qualified_next_day || false;
       bonusState = {
-        last_date: todayStr, today_cards: [], fever_qualified_next_day: false, is_fever_today: isFeverForToday, last_claim_time: null
+        last_date: todayStr,
+        today_cards: [],
+        fever_qualified_next_day: false,
+        is_fever_today: isFeverForToday,
+        last_claim_time: null
       };
-      await setDoc(doc(db, "users", currentUser.uid), { login_bonus_state: bonusState }, { merge: true });
+      await setDoc(doc(db, "users", currentUser.uid), {
+        login_bonus_state: bonusState
+      }, { merge: true });
       globalUserData.login_bonus_state = bonusState;
     }
 
@@ -948,7 +1074,9 @@
     const btnContainer = document.getElementById('bonusBtnContainer');
     const led = document.getElementById('slotStatusLed');
 
-    container.innerHTML = ''; msgContainer.innerHTML = ''; btnContainer.innerHTML = '';
+    container.innerHTML = '';
+    msgContainer.innerHTML = '';
+    btnContainer.innerHTML = '';
 
     const cards = state.today_cards || [];
     for (let i = 0; i < 3; i++) {
@@ -1002,7 +1130,8 @@
         led.textContent = "WAIT";
         led.style.color = "#ff9800";
         led.style.borderColor = "#ff9800";
-        const minLeft = Math.ceil((ONE_HOUR_MS - diffMs) / (1000 * 60));
+        const remainingMs = ONE_HOUR_MS - diffMs;
+        const minLeft = Math.ceil(remainingMs / (1000 * 60));
         msgContainer.innerHTML = `<div class="bonus-msg">⏰ 次のボーナス獲得まで あと約${minLeft}分</div>`;
       }
     } else {
@@ -1047,7 +1176,9 @@
 
     const chosenHorse = pool[Math.floor(Math.random() * pool.length)];
     const newCardItem = {
-      horse_id: chosenHorse.horse_id, rarity: chosenHorse.rarity, timestamp: Timestamp.now()
+      horse_id: chosenHorse.horse_id,
+      rarity: chosenHorse.rarity,
+      timestamp: Timestamp.now()
     };
 
     const updatedCards = [...cards, newCardItem];
@@ -1069,7 +1200,8 @@
 
       const inventoryRef = doc(db, `users/${currentUser.uid}/inventory/${chosenHorse.horse_id}`);
       await setDoc(inventoryRef, {
-        count: increment(1), obtained_at: new Date().toISOString()
+        count: increment(1),
+        obtained_at: new Date().toISOString()
       }, { merge: true });
 
       globalUserData.login_bonus_state = state;
