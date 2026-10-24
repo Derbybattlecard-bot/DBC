@@ -352,6 +352,65 @@
   .karte-horse-title { font-size: 1.25em; font-weight: bold; color: var(--gold-color); }
   .changed-highlight { animation: flashRow 1.0s ease-out; }
   @keyframes flashRow { 0% { background-color: rgba(0, 255, 102, 0.35); } 100% { background-color: transparent; } }
+
+  /* ==================== 📖 マニュアルモーダル スタイル ==================== */
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.85); z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px); animation: fadeIn 0.2s ease-out;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .modal-window {
+    background: #141722; border: 2px solid var(--accent-green);
+    border-radius: 10px; width: 92%; max-width: 840px; max-height: 86vh;
+    display: flex; flex-direction: column;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 20px rgba(0,255,102,0.25);
+  }
+  .modal-header {
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    padding: 12px 16px; border-bottom: 1px solid #334155;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .modal-title { font-size: 1.15em; font-weight: bold; color: var(--gold-color); display: flex; align-items: center; gap: 8px; }
+  .modal-close-btn {
+    background: #334155; border: 1px solid #64748b; color: #fff;
+    font-size: 14px; font-weight: bold; width: 28px; height: 28px;
+    border-radius: 50%; cursor: pointer; transition: all 0.2s;
+  }
+  .modal-close-btn:hover { background: #dc2626; border-color: #ef4444; }
+
+  .modal-body {
+    padding: 16px; overflow-y: auto; font-size: 12px; line-height: 1.6; color: #cbd5e1;
+  }
+  .modal-section { margin-bottom: 18px; }
+  .modal-sec-title {
+    font-size: 13.5px; font-weight: bold; color: var(--accent-green);
+    border-bottom: 1px solid #334155; padding-bottom: 4px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .step-box-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; margin: 8px 0; }
+  .step-box { background: #1e2433; border: 1px solid #3b4d6b; border-radius: 6px; padding: 10px; }
+  .step-box-num { font-size: 11px; font-weight: 900; color: var(--gold-color); margin-bottom: 2px; }
+  .step-box-head { font-size: 12px; font-weight: bold; color: #fff; margin-bottom: 4px; }
+
+  .manual-table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 11px; }
+  .manual-table th, .manual-table td { border: 1px solid #334155; padding: 5px 8px; text-align: left; }
+  .manual-table th { background: #1e293b; color: #93c5fd; }
+
+  .modal-footer {
+    background: #0f172a; padding: 10px 16px; border-top: 1px solid #334155;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+  }
+  .modal-checkbox-label { font-size: 11.5px; color: #cbd5e1; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  .btn-modal-action {
+    background: linear-gradient(135deg, #00aa33, #007722); color: #fff;
+    border: 1px solid var(--accent-green); border-radius: 5px;
+    font-size: 12px; font-weight: bold; padding: 6px 16px; cursor: pointer;
+  }
+  .btn-modal-action:hover { filter: brightness(1.2); }
+
 </style>
 </head>
 <body>
@@ -360,6 +419,7 @@
 <div class="sim-header-panel">
   <div class="sim-header-top">
     <a href="battle.html" class="btn-gate-action">← メニューへ</a>
+    <button class="btn-gate-action" style="background:#2563eb; color:#fff; border-color:#60a5fa;" onclick="openManualModal()">📖 使い方・仕様書</button>
     <span class="sim-badge">🏇 物理エネルギー レースシミュレーター</span>
     
     <div style="display:flex; align-items:center; gap:6px;">
@@ -554,6 +614,7 @@
     <button class="tab-btn active" id="tabBtnMatrix" onclick="switchAnalyzerTab('matrix')">🧭 展開別 着順マトリクス（除外反映）</button>
     <button class="tab-btn" id="tabBtnSummary" onclick="switchAnalyzerTab('summary')">📊 全18頭「勝率・複勝率 ＆ ベスト脚質」早見表</button>
     <button class="tab-btn" id="tabBtnCombo" onclick="switchAnalyzerTab('combo')">🔀 個別馬「全8脚質スタイル×展開」相性診断</button>
+    <button class="tab-btn" id="tabBtnManual" onclick="switchAnalyzerTab('manual')">📖 システム解説書</button>
   </div>
 
   <!-- タブ1: 展開別 着順マトリクス -->
@@ -610,6 +671,15 @@
       <span style="font-size:11px; color:#aaa;">※この馬が全8脚質スタイルを選んだ時の「有効展開での着順」を診断します。</span>
     </div>
     <div id="karte-display-area"></div>
+  </div>
+
+  <!-- タブ4: システム解説書（画面内閲覧用） -->
+  <div class="tab-content" id="tabContentManual">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <span style="font-size:12px; font-weight:bold; color:var(--gold-color);">📖 物理エンジン設計仕様書 ＆ 総合マニュアル</span>
+      <button class="btn-gate-action" onclick="openManualModal()">🗔 ポップアップで拡大表示</button>
+    </div>
+    <div id="inline-manual-container"></div>
   </div>
 </div>
 
@@ -1099,6 +1169,7 @@ async function initSimulation() {
   populateComboHorseSelect();
 
   calculateAllBranchesDeterministic(false);
+  checkFirstTimeUser();
 
   const customNotice = hasCustom ? "（保存済みカスタムパラメータ適用中）" : "";
   document.getElementById('log-content').innerHTML = `<strong>【準備完了】</strong> ${raceInfo.race_name}（全${activeHorses.length}頭）${customNotice}。出馬表の脚質スタイル・数値を変更すると、物理エネルギー収支と統計分析がリアルタイムに更新されます。`;
@@ -1815,14 +1886,25 @@ window.switchAnalyzerTab = function(tabName) {
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
   if (tabName === 'matrix') {
-    document.getElementById('tabBtnMatrix').classList.add('active');
-    document.getElementById('tabContentMatrix').classList.add('active');
+    document.getElementById('tabBtnMatrix')?.classList.add('active');
+    document.getElementById('tabContentMatrix')?.classList.add('active');
   } else if (tabName === 'summary') {
-    document.getElementById('tabBtnSummary').classList.add('active');
-    document.getElementById('tabContentSummary').classList.add('active');
-  } else {
-    document.getElementById('tabBtnCombo').classList.add('active');
-    document.getElementById('tabContentCombo').classList.add('active');
+    document.getElementById('tabBtnSummary')?.classList.add('active');
+    document.getElementById('tabContentSummary')?.classList.add('active');
+  } else if (tabName === 'combo') {
+    document.getElementById('tabBtnCombo')?.classList.add('active');
+    document.getElementById('tabContentCombo')?.classList.add('active');
+  } else if (tabName === 'manual') {
+    document.getElementById('tabBtnManual')?.classList.add('active');
+    const content = document.getElementById('tabContentManual');
+    if (content) {
+      content.classList.add('active');
+      const inlineContainer = document.getElementById('inline-manual-container');
+      const modalBody = document.getElementById('manual-modal-content-body');
+      if (inlineContainer && modalBody && inlineContainer.innerHTML === '') {
+        inlineContainer.innerHTML = modalBody.innerHTML;
+      }
+    }
   }
 };
 
@@ -2464,6 +2546,129 @@ function renderSingleResultsTable(results) {
 window.addEventListener('DOMContentLoaded', () => {
   initSimulation();
 });
+
+// =============================================================================
+// 📖 マニュアルモーダル制御 ＆ 初回起動時判定
+// =============================================================================
+window.openManualModal = function() {
+  const overlay = document.getElementById('manual-modal-overlay');
+  if (overlay) overlay.style.display = 'flex';
+};
+
+window.closeManualModal = function() {
+  const overlay = document.getElementById('manual-modal-overlay');
+  if (overlay) overlay.style.display = 'none';
+};
+
+window.onManualOverlayClick = function(e) {
+  if (e.target && e.target.id === 'manual-modal-overlay') {
+    closeManualModal();
+  }
+};
+
+window.dismissManualModal = function() {
+  const chk = document.getElementById('chk-never-show-manual');
+  if (chk && chk.checked) {
+    localStorage.setItem('dbc_sim_manual_dismissed', 'true');
+  }
+  closeManualModal();
+};
+
+function checkFirstTimeUser() {
+  const isDismissed = localStorage.getItem('dbc_sim_manual_dismissed');
+  if (!isDismissed) {
+    setTimeout(() => {
+      openManualModal();
+    }, 400);
+  }
+}
+
 </script>
+
+<!-- ==================== 📖 解説マニュアル モーダルウィンドウ ==================== -->
+<div id="manual-modal-overlay" class="modal-overlay" style="display:none;" onclick="onManualOverlayClick(event)">
+  <div class="modal-window">
+    <div class="modal-header">
+      <div class="modal-title">📖 競馬物理エネルギー シミュレーター 公式技術マニュアル</div>
+      <button class="modal-close-btn" onclick="closeManualModal()">✕</button>
+    </div>
+    <div class="modal-body" id="manual-modal-content-body">
+      <!-- 共通マニュアル本文 -->
+      <div class="modal-section">
+        <div class="modal-sec-title">🚀 かんたん操作 3ステップ</div>
+        <div class="step-box-grid">
+          <div class="step-box">
+            <div class="step-box-num">STEP 1</div>
+            <div class="step-box-head">脚質スタイルを選ぶ</div>
+            <div>出馬表で各馬の走りの振る舞い（全8種）を選択。迷ったら上部の「🥇1着最多」や「⚖️適性最適」で一括セット可能。</div>
+          </div>
+          <div class="step-box">
+            <div class="step-box-num">STEP 2</div>
+            <div class="step-box-head">展開マトリクスを分析</div>
+            <div>下部アナライザーで各馬の総合勝率・複勝率や、捲り発生時の着順分岐を客観的にチェック。</div>
+          </div>
+          <div class="step-box">
+            <div class="step-box-num">STEP 3</div>
+            <div class="step-box-head">リアル着差で発走鑑賞</div>
+            <div>「🏁 発走」ボタンを押すと、4C秒差と直線の上がり3F差をそのまま反映したリアルなゴールシーンを再生。</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-sec-title">⚡ コア設計思想：エネルギー収支モデル</div>
+        <div>
+          従来のゲーム的な「能力の足し算」ではなく、競走馬が持つ有限のエネルギーが道中のラップによって消費・回復し、直線の上がり3Fタイムを物理決定するモデルです。<br>
+          <b>・前借りコスト</b>：前に行くほど前半でエネルギーを消費。息が入らなければ直線でガス欠失速。<br>
+          <b>・息入れ（回復）</b>：ラップが12.8秒以上に中弛みした際、操縦性とスタミナに応じてエネルギーが回復！<br>
+          <b>・物理着差</b>：<code>4コーナー秒差 ＋ 直線の実走上がり3F ＝ 走破指標</code> で着差（ハナ・アタマ・クビ・馬身差）を完全判定。
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-sec-title">📊 5大パラメータの役割（10.0〜20.0スケール / 1pt＝0.1秒直結）</div>
+        <table class="manual-table">
+          <tr><th style="width:110px;">パラメータ</th><th>役割とシミュレーター内での物理挙動</th></tr>
+          <tr><td><b>行き脚 (Dash)</b></td><td>前半1000mで無理なくポジションを取れる力。低い馬が逃げを試みると前半でスタミナが激痛消耗。</td></tr>
+          <tr><td><b>スタミナ (Capacity)</b></td><td>基礎エネルギー許容量（タンク）。長距離や息の入らないハイペースでガス欠失速を防ぐ防壁。</td></tr>
+          <tr><td><b>瞬発力 (Burst)</b></td><td>直線向いてからの最高速度の爆発力。余力があれば上がり32秒台の鬼脚を叩き出す。</td></tr>
+          <tr><td><b>持続力 (Sustain)</b></td><td>残り800m〜1000m（3〜4角）から仕掛けた時の減速耐性。大捲り・ロンスパ戦の必須能力。</td></tr>
+          <tr><td><b>操縦性 (Control)</b></td><td>中弛み時の息入れ効率（回復量）と、前が開いた瞬間にタイムラグなく加速する器用さ。</td></tr>
+        </table>
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-sec-title">🏇 8大脚質スタイル（走りの振る舞い）</div>
+        <table class="manual-table">
+          <tr><th style="width:120px;">脚質スタイル</th><th>道中位置取り</th><th>物理的特徴・勝ち筋</th></tr>
+          <tr><td><b>① 主張逃げ</b></td><td>先頭(0.0s)</td><td>何が何でもハナを奪取。スタミナ消費大だが後続にも脚を使わせる。</td></tr>
+          <tr><td><b>② マイペース逃げ</b></td><td>先頭(0.06s)</td><td>単騎でスムーズに逃げ、中盤でしっかり息を入れて前残り粘り込みを図る。</td></tr>
+          <tr><td><b>③ 先行なだれ込み</b></td><td>2〜3番手(0.20s)</td><td>好位追走。瞬発力勝負を避け、持続力でしぶとく雪崩れ込む。</td></tr>
+          <tr><td><b>④ 好位差し</b></td><td>3〜5番手(0.38s)</td><td>好位ポケットで息を入れ、直線向いて器用に抜け出す最も安定した戦法。</td></tr>
+          <tr><td><b>⑤ 中団瞬発</b></td><td>6〜9番手(0.68s)</td><td>中団でじっくり脚を溜め、直線のキレ味（瞬発力）だけで一気に飲み込む。</td></tr>
+          <tr><td><b>⑥ 捲り差し</b></td><td>5〜8番手(0.52s)</td><td>3〜4角から早めに進出を開始し、長く良い脚を使って前を捕らえる。</td></tr>
+          <tr><td><b>⑦ 直線一気</b></td><td>後方(0.88s)</td><td>4角まで一切動かず死んだふり。大外から最高速を100%爆発させる。</td></tr>
+          <tr><td><b>⑧ 大捲り</b></td><td>奇襲進出(0.30s)</td><td>中盤の緩みを突いて向正面から一気に先頭へ押し上げる超ロンスパ。</td></tr>
+        </table>
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-sec-title">💾 データの直接上書き保存（File System Access API）</div>
+        <div>
+          出馬表の数値を打ち替えた後、上部の <b>「💾 元のJSONに直接上書き」</b> を押すと、お使いのPC内の <code>26kikkasho.json</code> を選択してワンクリックで直接上書き保存できます。<br>
+          再読み込みしてもカスタム設定した能力値・脚質スタイルがそのまま保持されます。
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <label class="modal-checkbox-label">
+        <input type="checkbox" id="chk-never-show-manual"> 次回から起動時に自動表示しない
+      </label>
+      <button class="btn-modal-action" onclick="dismissManualModal()">理解した / はじめる 🚀</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
