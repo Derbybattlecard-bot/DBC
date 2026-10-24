@@ -56,7 +56,7 @@
       text-shadow: 0 1px 1px rgba(255,255,255,0.8);
     }
 
-    /* --- リアル競馬パドック風フレーム --- */
+    /* --- リアル競馬 レースコース風フレーム --- */
     .paddock-wrapper {
       position: relative;
       background: #112616;
@@ -114,10 +114,11 @@
     .banner-blue { background: linear-gradient(135deg, #0d47a1, #1976d2); text-shadow: 0 1px 2px #000; }
     .banner-gold { background: linear-gradient(135deg, #b78103, #e5b839); color: #111; text-shadow: 0 1px 0 rgba(255,255,255,0.4); border-color: #ffd700; }
 
+    /* レースコース メインステージ */
     .paddock-main-stage {
       position: relative;
-      min-height: 160px;
-      background: linear-gradient(180deg, #1c3d23 0%, #2f5e38 60%, #1a3a20 100%);
+      min-height: 175px;
+      background: linear-gradient(180deg, #102a14 0%, #1e4a25 55%, #133818 100%);
       padding: 10px 12px;
       display: flex;
       flex-direction: column;
@@ -125,28 +126,51 @@
       overflow: hidden;
     }
 
-    .paddock-ring-bg {
+    /* レースコース芝生 & ラチ（柵） */
+    .race-track-turf {
       position: absolute;
-      bottom: -40px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 110%;
-      height: 140px;
-      background: #735135;
-      border-radius: 50%;
-      border: 4px solid #f0f0f0;
-      box-shadow: inset 0 0 10px rgba(0,0,0,0.6), 0 -2px 6px rgba(0,0,0,0.3);
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 100px;
+      background: repeating-linear-gradient(90deg, #25662d 0px, #25662d 28px, #1c5223 28px, #1c5223 56px);
+      box-shadow: inset 0 8px 16px rgba(0,0,0,0.5);
     }
-    .paddock-ring-turf {
+    .race-rail {
       position: absolute;
-      top: 15px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 82%;
-      height: 90px;
-      background: #388e3c;
-      border-radius: 50%;
-      border: 2px dashed rgba(255,255,255,0.4);
+      bottom: 82px;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: #ffffff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.6);
+      opacity: 0.85;
+    }
+    .race-rail::before {
+      content: '';
+      position: absolute;
+      top: 4px;
+      left: 0;
+      width: 100%;
+      height: 16px;
+      background: repeating-linear-gradient(90deg, transparent 0, transparent 36px, #ffffff 36px, #ffffff 40px);
+      opacity: 0.7;
+    }
+
+    /* スピードライン（流れる光条） */
+    .speed-lines {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 200%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 20%, transparent 40%, rgba(255,215,0,0.12) 60%, transparent 80%);
+      animation: speedScroll 1.1s linear infinite;
+      pointer-events: none;
+    }
+    @keyframes speedScroll {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
     }
 
     .paddock-user-bar {
@@ -155,7 +179,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: rgba(0, 0, 0, 0.55);
+      background: rgba(0, 0, 0, 0.65);
       border: 1px solid rgba(255, 215, 0, 0.4);
       border-radius: 20px;
       padding: 4px 12px;
@@ -187,16 +211,16 @@
     .ace-horse-display {
       position: relative;
       z-index: 2;
-      margin-top: 8px;
+      margin-top: 4px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 6px;
+      padding: 0 4px;
     }
     .ace-horse-visual {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
     .ace-saddle-cloth {
       background: #111;
@@ -223,7 +247,7 @@
     }
     .ace-horse-tag {
       font-size: 9px;
-      color: #aed581;
+      color: #ffd54f;
       font-weight: bold;
       letter-spacing: 0.5px;
       text-shadow: 0 1px 2px #000;
@@ -237,32 +261,44 @@
     }
     .ace-coat-tag {
       font-size: 10px;
-      color: #ffd700;
+      color: #aed581;
       font-weight: bold;
       margin-top: 2px;
     }
     
-    .ace-horse-illustration-wrapper {
+    /* レース疾走グラフィック */
+    .race-horse-wrapper {
       position: relative;
+      width: 145px;
+      height: 90px;
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 72px;
-      height: 72px;
-      background: rgba(0,0,0,0.3);
-      border-radius: 50%;
-      border: 2px solid var(--accent-gold);
-      box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+      filter: drop-shadow(0 6px 8px rgba(0,0,0,0.65));
     }
-    .ace-horse-svg {
-      width: 56px;
-      height: 56px;
-      filter: drop-shadow(0 3px 3px rgba(0,0,0,0.6));
-      animation: paddockWalk 3s ease-in-out infinite alternate;
+    .race-horse-svg {
+      width: 100%;
+      height: 100%;
+      animation: gallopMotion 0.52s ease-in-out infinite alternate;
+      transform-origin: 50% 85%;
     }
-    @keyframes paddockWalk {
-      0% { transform: translateX(0) scaleX(1); }
-      100% { transform: translateX(-6px) scaleX(1); }
+    @keyframes gallopMotion {
+      0% { transform: translateY(0px) rotate(0deg) scale(1); }
+      50% { transform: translateY(-6px) rotate(-1.5deg) scale(1.02); }
+      100% { transform: translateY(-2px) rotate(1.2deg) scale(0.99); }
+    }
+
+    /* 飛び散るターフ片 */
+    .particle {
+      animation: particleFly 0.52s infinite ease-out;
+      transform-origin: center;
+    }
+    .p1 { animation-delay: 0.05s; }
+    .p2 { animation-delay: 0.22s; }
+    .p3 { animation-delay: 0.38s; }
+    @keyframes particleFly {
+      0% { transform: translate(0, 0) scale(1); opacity: 0.9; }
+      100% { transform: translate(-28px, -18px) scale(0.2); opacity: 0; }
     }
 
     .paddock-stats-row {
@@ -323,7 +359,7 @@
       text-shadow: 0 0 1px rgba(183, 129, 3, 0.3);
     }
 
-    /* --- スロット枠風ログインボーナスエリア --- */
+    /* --- スロット枠風ログインボーナス --- */
     .slot-bonus-container {
       background: #111;
       border: 3px solid #e5b839;
@@ -508,7 +544,7 @@
       transform: none;
     }
 
-    /* リーチ演出（完全維持） */
+    /* リーチ演出 */
     .bonus-card.reach-slot {
       display: flex;
       flex-direction: column;
@@ -696,7 +732,7 @@
 <div class="container">
   <div class="header"><h1>DERBY BATTLE CARD</h1></div>
   
-  <!-- リアル競馬パドック風ステータスフレーム -->
+  <!-- リアル競馬 レース本番風ステータスフレーム -->
   <div class="paddock-wrapper">
     <div class="paddock-banner-track">
       <div class="paddock-banner banner-red"><span>不屈の生還者</span></div>
@@ -707,8 +743,11 @@
     </div>
 
     <div class="paddock-main-stage">
-      <div class="paddock-ring-bg"></div>
-      <div class="paddock-ring-turf"></div>
+      <!-- 芝生コース ＆ 内柵（ラチ） -->
+      <div class="race-track-turf"></div>
+      <div class="race-rail"></div>
+      <!-- スピード感演出ライン -->
+      <div class="speed-lines"></div>
 
       <div class="paddock-user-bar">
         <div class="paddock-user-name" id="userNameText">👤 読み込み中...</div>
@@ -724,19 +763,85 @@
             <span>1</span>
           </div>
           <div class="ace-horse-info">
-            <span class="ace-horse-tag">🏇 MAIN ACE HORSE</span>
+            <span class="ace-horse-tag">🏇 RACING ACE HORSE</span>
             <span class="ace-horse-name" id="aceHorseNameDisplay">未設定</span>
             <span class="ace-coat-tag" id="aceHorseCoatDisplay">毛色: -</span>
           </div>
         </div>
         
-        <div class="ace-horse-illustration-wrapper">
-          <svg class="ace-horse-svg" id="aceHorseSvg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-            <path id="horseCoatPath" d="M 25 75 C 20 60 25 40 40 30 C 45 25 50 15 55 10 C 60 10 65 15 65 20 C 65 25 60 30 65 35 C 75 35 85 45 80 60 C 75 75 60 80 50 80 C 35 80 28 78 25 75 Z" fill="#6a3813" stroke="#222" stroke-width="2"/>
-            <path id="horseManePath" d="M 50 10 C 45 18 42 28 45 38 C 38 42 35 52 38 65 C 32 68 28 72 26 76" fill="none" stroke="#111" stroke-width="4" stroke-linecap="round"/>
-            <circle cx="62" cy="22" r="3" fill="#000"/>
-            <circle cx="63" cy="21" r="1" fill="#fff"/>
-            <path d="M 58 32 Q 62 35 66 32" fill="none" stroke="#333" stroke-width="2"/>
+        <!-- レース疾走グラフィック（フルギャロップ＆ジョッキー） -->
+        <div class="race-horse-wrapper">
+          <svg class="race-horse-svg" id="aceHorseSvg" viewBox="0 0 135 85" xmlns="http://www.w3.org/2000/svg">
+            <!-- 舞い上がるターフ片（芝） -->
+            <g class="turf-particles">
+              <ellipse cx="18" cy="72" rx="3" ry="1.5" fill="#388e3c" class="particle p1" />
+              <ellipse cx="26" cy="67" rx="2" ry="1" fill="#2e7d32" class="particle p2" />
+              <ellipse cx="36" cy="74" rx="2.5" ry="1.2" fill="#558b2f" class="particle p3" />
+            </g>
+
+            <!-- 疾走影 -->
+            <ellipse cx="64" cy="77" rx="44" ry="4.5" fill="rgba(0,0,0,0.4)"/>
+
+            <!-- 馬体・騎手グループ -->
+            <g>
+              <!-- なびく尻尾 -->
+              <path id="horseTailPath" d="M 28 41 C 15 39 4 34 2 28 C 11 34 21 43 28 46 Z" fill="#1a0d00"/>
+              
+              <!-- 奥の後脚 -->
+              <path class="back-leg" d="M 38 48 C 30 52 18 60 10 65 L 14 66 C 24 60 36 54 42 50 Z" fill="#502800" opacity="0.85"/>
+              
+              <!-- 奥の前脚 -->
+              <path class="back-leg" d="M 85 46 C 96 52 108 58 118 62 L 120 60 C 108 55 98 48 90 42 Z" fill="#502800" opacity="0.85"/>
+
+              <!-- 手前の馬体メイン（フルギャロップ） -->
+              <path id="horseCoatPath" d="
+                M 112 28 
+                C 114 26 116 23 115 21 
+                C 113 20 110 22 108 24 
+                C 102 24 95 28 88 32 
+                C 80 34 68 35 50 36 
+                C 38 37 32 40 28 44 
+                C 26 49 32 55 38 52 
+                C 30 58 20 68 15 75 
+                L 20 76 
+                C 27 68 38 58 48 51 
+                C 58 51 70 50 82 48 
+                C 85 55 98 68 112 74 
+                L 115 72 
+                C 104 65 94 54 90 45 
+                C 96 42 104 38 110 33 
+                C 113 34 116 32 114 30 
+                Z" 
+                fill="#7b3f00" stroke="#1f1105" stroke-width="0.8"/>
+
+              <!-- たてがみ -->
+              <path id="horseManePath" d="M 88 32 C 92 28 98 25 106 24 C 102 26 96 30 92 34 Z" fill="#1a0d00"/>
+
+              <!-- 目 -->
+              <circle cx="110" cy="26" r="1.2" fill="#fff"/>
+              <circle cx="110.4" cy="26" r="0.7" fill="#000"/>
+
+              <!-- ゼッケン（勝負鞍） -->
+              <path d="M 52 36 L 68 36 L 65 46 L 49 46 Z" fill="#ffd700" stroke="#b78103" stroke-width="0.8"/>
+              <text x="57" y="44" font-size="7" font-weight="900" fill="#000" text-anchor="middle">1</text>
+
+              <!-- ジョッキー（騎手 モンキースタイル） -->
+              <g id="jockeyGroup">
+                <!-- 手綱 -->
+                <path d="M 72 32 L 88 35" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round"/>
+                <!-- 腕 -->
+                <path d="M 68 28 L 82 34" stroke="#d32f2f" stroke-width="2.6" stroke-linecap="round"/>
+                <!-- 胴体 (前傾姿勢) -->
+                <path d="M 52 32 C 55 25 64 24 72 28 L 68 35 C 60 35 55 35 52 32 Z" fill="#d32f2f" stroke="#8e0000" stroke-width="0.6"/>
+                <!-- 脚 (白パンツ＆あぶみ) -->
+                <path d="M 56 33 L 60 40 L 64 41" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+                <circle cx="64" cy="41" r="1.5" fill="#111"/>
+                <!-- ヘルメット -->
+                <circle cx="76" cy="23" r="4.2" fill="#ffffff" stroke="#d32f2f" stroke-width="1"/>
+                <!-- ゴーグルバイザー -->
+                <path d="M 77 22 Q 80 23 80 25" stroke="#111" stroke-width="1.2" stroke-linecap="round"/>
+              </g>
+            </g>
           </svg>
         </div>
       </div>
@@ -855,16 +960,16 @@
   import { cardRenderer } from './js/card_renderer.js';
   import { drawBonusCard, getGenYearLastDigit, playFourthCornerCutIn, getGenerationYear } from './js/login_bonus.js';
 
-  // --- 毛色マッピング (Paddock Graphic用) ---
+  // --- 毛色マッピング (レースシーン馬体・タテガミ・尾に連動) ---
   const coatColorMap = {
-    '鹿毛': { body: '#7b3f00', mane: '#1a0d00' },
-    '黒鹿毛': { body: '#4a2500', mane: '#0f0500' },
-    '青鹿毛': { body: '#2b1810', mane: '#050505' },
-    '青毛': { body: '#1a1a1a', mane: '#000000' },
-    '栗毛': { body: '#b85d19', mane: '#e08338' },
-    '栃栗毛': { body: '#6e340d', mane: '#3d1c06' },
-    '芦毛': { body: '#b0b5b3', mane: '#616664' },
-    '白毛': { body: '#f0f4f8', mane: '#dbe3ea' }
+    '鹿毛': { body: '#7b3f00', mane: '#1a0d00', subLeg: '#4a2500' },
+    '黒鹿毛': { body: '#4a2500', mane: '#0f0500', subLeg: '#2b1810' },
+    '青鹿毛': { body: '#2b1810', mane: '#050505', subLeg: '#150c08' },
+    '青毛': { body: '#1a1a1a', mane: '#000000', subLeg: '#0a0a0a' },
+    '栗毛': { body: '#b85d19', mane: '#e08338', subLeg: '#7c3a0b' },
+    '栃栗毛': { body: '#6e340d', mane: '#3d1c06', subLeg: '#451f06' },
+    '芦毛': { body: '#b0b5b3', mane: '#616664', subLeg: '#7a807e' },
+    '白毛': { body: '#f0f4f8', mane: '#dbe3ea', subLeg: '#b8c4ce' }
   };
 
   let globalUserData = null;
@@ -953,8 +1058,13 @@
     const colors = coatColorMap[coatName] || coatColorMap['鹿毛'];
     const coatPath = document.getElementById('horseCoatPath');
     const manePath = document.getElementById('horseManePath');
+    const tailPath = document.getElementById('horseTailPath');
+    const backLegs = document.querySelectorAll('.back-leg');
+
     if (coatPath) coatPath.setAttribute('fill', colors.body);
-    if (manePath) manePath.setAttribute('stroke', colors.mane);
+    if (manePath) manePath.setAttribute('fill', colors.mane);
+    if (tailPath) tailPath.setAttribute('fill', colors.mane);
+    backLegs.forEach(el => el.setAttribute('fill', colors.subLeg));
   }
 
   // --- 初期化処理 ---
@@ -1030,7 +1140,7 @@
     }
   }
 
-  // --- ログインボーナスロジック (完全維持 + 新UI統合) ---
+  // --- ログインボーナスロジック ---
   async function checkAndRenderLoginBonus() {
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -1072,7 +1182,6 @@
     let reachLevel = 0;
     let matchTexts = [];
 
-    // リーチ判定ロジック
     if (cards.length === 2) {
       const h1 = cardRenderer.getHorse ? cardRenderer.getHorse(cards[0].horse_id) : null;
       const h2 = cardRenderer.getHorse ? cardRenderer.getHorse(cards[1].horse_id) : null;
@@ -1094,7 +1203,6 @@
       }
     }
 
-    // カード描画
     for (let i = 0; i < 3; i++) {
       if (i < cards.length) {
         const item = cards[i];
@@ -1169,7 +1277,6 @@
     const diffMs = Date.now() - parseTimestamp(state.last_claim_time);
     const ONE_HOUR_MS = 3600000;
 
-    // LEDとボタン・メッセージの状態管理
     if (cards.length < 3) {
       if (cards.length === 0 || diffMs >= ONE_HOUR_MS) {
         const isFever = (cards.length === 0 && state.is_fever_today);
@@ -1333,7 +1440,6 @@
     if (!deck.horse_ids || deck.horse_ids.length === 0) {
       tbody.innerHTML = '<tr><td colspan="6" style="color:#888; padding:12px;">デッキが設定されていません</td></tr>';
       
-      // パドックのエース馬リセット
       document.getElementById('aceHorseNameDisplay').textContent = '未設定';
       document.getElementById('aceHorseCoatDisplay').textContent = '毛色: -';
       return;
@@ -1349,7 +1455,7 @@
     const validHorses = horsesData.filter(item => item.horse !== null);
     validHorses.sort((a, b) => b.score - a.score);
 
-    // パドックのエース馬表示を更新 (スコア最上位の馬)
+    // エース馬表示を更新 (スコア最上位の馬)
     if (validHorses.length > 0) {
       const aceHorse = validHorses[0].horse;
       document.getElementById('aceHorseNameDisplay').textContent = aceHorse.name || '不明';
